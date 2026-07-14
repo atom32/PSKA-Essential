@@ -12,12 +12,14 @@ mcp_servers:
     tools:
       include:
         - pska_workflow_start
+        - pska_workflow_list
         - pska_workflow_state
         - pska_workflow_artifact
         - pska_workflow_brief
         - pska_context_retrieve
         - pska_source_read
         - pska_policy_get
+        - pska_workspace_status
         - pska_propose
         - pska_review_create
         - pska_review_list
@@ -31,6 +33,7 @@ mcp_servers:
         - pska_memory_delete_review
         - pska_memory_lifecycle
         - pska_export_brief
+        - pska_audit_list
         - pska_eval_run
         - pska_kb_list
         - pska_kb_create
@@ -42,3 +45,5 @@ mcp_servers:
         - pska_kb_graph_read
         - pska_retrieval_probe
         - pska_agentic_question_start
+        - pska_agentic_question_resumable
+        - pska_agentic_question_resume

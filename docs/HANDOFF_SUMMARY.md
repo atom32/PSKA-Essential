@@ -230,7 +230,9 @@ Implemented:
   transient-results skip rule.
 - Operational upload-to-agentic-question MCP loop.
 - Smoke eval.
-- Hermes skill/config examples.
+- Hermes skill/config examples. Hermes now starts from `pska_workspace_status`
+  and follows PSKA `next_actions` instead of inferring workflow steps from
+  provider state.
 - Docs and runbook.
 
 Validated commands:
@@ -244,7 +246,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 87 tests pass.
+- `make test`: 89 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and

@@ -32,13 +32,15 @@ PY
 3. Ask Hermes to run this workflow:
 
 ```text
-Use PSKA-Essential to start a workflow about adapter replaceability, retrieve
-context, propose a memory patch, create a review item, stop for review, then
-explicitly export a brief.
+Use PSKA-Essential to inspect workspace status, follow the returned next action
+for a ready knowledge scope, ask about adapter replaceability, propose a memory
+patch, create a review item, stop for review, then explicitly export a brief.
 ```
 
 4. Manually call `pska_review_decide(..., decision="accept")`.
-5. Call `pska_memory_apply`.
+5. Call `pska_workspace_status` again; it should surface accepted durable memory
+   awaiting apply.
+6. Call `pska_memory_apply`.
 
 The point of the demo is that RAGFlow/Graphiti can be swapped without changing
 the agent-facing workflow.
@@ -60,12 +62,16 @@ export RAGFLOW_API_KEY=...
 MCP tool sequence:
 
 ```text
+pska_workspace_status()
+
 pska_kb_ingest_files(
   file_paths=["/absolute/path/to/document.pdf"],
   dataset_name="pska-demo",
   parse=true,
   wait=true
 )
+
+pska_workspace_status()
 
 pska_agentic_question_start(
   question="What should we remember from this document?",
@@ -77,7 +83,9 @@ pska_agentic_question_start(
 pska_review_list("pending")
 pska_review_get("<review_id>")
 pska_review_decide("<review_id>", "accept", "approved for demo")
+pska_workspace_status()
 pska_memory_apply("<review_id>")
+pska_workspace_status()
 pska_workflow_list(limit=5)
 pska_workflow_artifact("<run_id>")
 pska_workflow_brief("<run_id>", "markdown")

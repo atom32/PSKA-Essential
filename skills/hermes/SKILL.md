@@ -12,6 +12,11 @@ candidate memory, review, and durable export.
 
 - Use PSKA-Essential MCP tools only.
 - Do not call RAGFlow or Graphiti MCP servers directly.
+- Start by calling `pska_workspace_status` unless the user explicitly asks for
+  a specific low-level tool. Follow its `next_actions` tool/API/view hints and
+  safe parameters instead of inspecting provider state directly.
+- Refresh `pska_workspace_status` after KB, Ask, review, or memory actions that
+  change workspace state.
 - Use `pska_kb_*` tools when the user needs a document uploaded or parsed into
   an external knowledge base.
 - Treat upload, parsing, embedding, and indexing as asynchronous. Check document
@@ -41,12 +46,38 @@ candidate memory, review, and durable export.
 
 ## Workflow
 
+Default loop:
+
+1. Call `pska_workspace_status`.
+2. Inspect the first relevant `next_actions` item.
+3. Use its PSKA `tool` and `params` fields when they are present.
+4. If `requires_input` is present, ask the user for that input before calling
+   the tool.
+5. After any KB, Ask, review, or memory mutation, call `pska_workspace_status`
+   again before choosing the next step.
+
+Common next actions:
+
+- `create_or_upload_knowledge_base`: ask for files or dataset details, then use
+  `pska_kb_ingest_files`.
+- `wait_for_ingestion`: use `pska_kb_ingestion_status` or wait before asking.
+- `run_agentic_question`: ask for the question if needed, then call
+  `pska_agentic_question_start` with the provided scope params.
+- `resume_blocked_ask`: call `pska_agentic_question_resume` with the provided
+  `run_id`.
+- `review_pending_durable_knowledge`: open the provided review with
+  `pska_review_get`.
+- `apply_accepted_memory`: call `pska_memory_apply` only if the review is
+  already accepted.
+
 For an existing KB:
 
-1. Call `pska_workflow_start`.
-2. Call `pska_context_retrieve`.
-3. Call `pska_propose` with `kind` set to `digest`, `memory_patch`, or
-   `writing_brief`.
+1. Call `pska_workspace_status` and prefer its `run_agentic_question` action
+   when a ready scope exists.
+2. Call `pska_agentic_question_start` for normal Ask flows.
+3. Use lower-level `pska_workflow_start`, `pska_context_retrieve`, and
+   `pska_propose` only when the user explicitly asks to inspect or control those
+   steps.
 4. For durable memory, call `pska_review_create` after `memory_patch`, or call
    `pska_memory_review_from_workflow` for an existing transient workflow.
 5. Ask the human for review. Use `pska_review_list` or `pska_review_get` to
@@ -63,23 +94,24 @@ For a new document:
 
 1. Call `pska_kb_ingest_files` with absolute file paths, a dataset name, and
    `parse=true`; inspect the returned `readiness` and `ingestion_status`.
-2. If ingestion did not wait or the returned status is not ready, call
+2. Call `pska_workspace_status` and follow its ingestion-related next action.
+3. If ingestion did not wait or the returned status is not ready, call
    `pska_kb_document_status` and `pska_kb_ingestion_status` until the selected
    scope is ready, failed, or requires parsing.
-3. If ingestion status returns a failed scope, report the failure reason instead
+4. If ingestion status returns a failed scope, report the failure reason instead
    of asking.
-4. Call `pska_agentic_question_start` with the returned `dataset_id`.
-5. If you already know useful follow-up angles, pass them as
+5. Call `pska_agentic_question_start` with the returned `dataset_id`.
+6. If you already know useful follow-up angles, pass them as
    `retrieval_queries`; PSKA will run them inside the same explicit scope and
    record the query plan.
-6. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
+7. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
    inspect through adapters during Ask.
-7. If context is insufficient, retrieve again within the same explicit scope or
+8. If context is insufficient, retrieve again within the same explicit scope or
    report that the question cannot be answered from the selected materials.
-8. Answer from the returned context, inspected sources, artifact, and brief.
-9. If a memory patch or deletion was proposed, wait for human acceptance before
+9. Answer from the returned context, inspected sources, artifact, and brief.
+10. If a memory patch or deletion was proposed, wait for human acceptance before
    applying it.
-10. Use `pska_export_brief` only when the user asks for an explicit export.
+11. Use `pska_export_brief` only when the user asks for an explicit export.
 
 ## Good Prompt
 
