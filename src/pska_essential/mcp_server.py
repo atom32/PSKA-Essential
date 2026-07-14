@@ -21,6 +21,7 @@ from pska_essential.kb_audit import (
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.readiness import evaluate_kb_readiness
+from pska_essential.workspace_status import build_workspace_status
 
 
 def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
@@ -60,6 +61,19 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_policy_get():
         return build_workspace_policy_from_env().to_dict()
+
+    def pska_workspace_status(
+        dataset_page_size: int = 30,
+        review_limit: int = 50,
+        workflow_limit: int = 50,
+    ):
+        return build_workspace_status(
+            service=service,
+            gateway=build_kb_gateway_from_env(),
+            dataset_page_size=dataset_page_size,
+            review_limit=review_limit,
+            workflow_limit=workflow_limit,
+        )
 
     def pska_propose(run_id: str, kind: str, intent: str = ""):
         return to_jsonable(service.propose(run_id, kind, intent))
@@ -314,6 +328,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_context_retrieve": pska_context_retrieve,
         "pska_source_read": pska_source_read,
         "pska_policy_get": pska_policy_get,
+        "pska_workspace_status": pska_workspace_status,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,
         "pska_review_list": pska_review_list,
@@ -382,7 +397,8 @@ def build_fastmcp(service=None):
         instructions=(
             "PSKA-Essential is an agent knowledge workflow gate. Use its tools "
             "to retrieve context, propose candidate knowledge, review it, and "
-            "apply reviewed memory. Do not call backend RAGFlow or Graphiti MCP "
+            "apply reviewed memory. Use pska_workspace_status to choose the "
+            "next workflow action. Do not call backend RAGFlow or Graphiti MCP "
             "servers directly. Do not use case-specific shortcuts or fallback "
             "answers when retrieval/backend calls fail."
         ),

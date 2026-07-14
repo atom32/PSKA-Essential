@@ -33,6 +33,7 @@ from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
 from pska_essential.workflow import WorkflowError, WorkflowService
+from pska_essential.workspace_status import build_workspace_status
 
 
 KbGatewayFactory = Callable[[], Any]
@@ -142,6 +143,17 @@ def _handler_class(state: ProductApiState):
                     kb_gateway_factory=state.kb_gateway_factory,
                 )
                 self._send_json({"ok": True, "diagnostics": diagnostics})
+                return
+
+            if method == "GET" and path == "/api/workspace/status":
+                status = build_workspace_status(
+                    service=state.service,
+                    gateway=state.kb_gateway_factory(),
+                    dataset_page_size=_int_param(query.get("dataset_page_size"), 30),
+                    review_limit=_int_param(query.get("review_limit"), 50),
+                    workflow_limit=_int_param(query.get("workflow_limit"), 50),
+                )
+                self._send_json({"ok": True, "workspace_status": status})
                 return
 
             if method == "POST" and path == "/api/runtime/retrieval-probe":

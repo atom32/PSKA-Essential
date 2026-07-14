@@ -332,6 +332,17 @@ class ProductApiTests(unittest.TestCase):
         )
         self.assertEqual(lifecycle["lifecycle"]["latest_event"]["action"], "memory.delete")
 
+    def test_workspace_status_route_reports_next_actions(self):
+        status = self._get_json("/api/workspace/status")["workspace_status"]
+
+        self.assertEqual(status["kind"], "workspace_status")
+        self.assertEqual(status["status"], "ready")
+        self.assertEqual(status["kb"]["dataset_count"], 1)
+        self.assertEqual(status["kb"]["readiness"]["status"], "ready")
+        self.assertEqual(status["reviews"]["pending_count"], 0)
+        self.assertEqual(status["workflows"]["resumable_ask_count"], 0)
+        self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
+
     def test_workflow_open_does_not_export_until_explicit_export(self):
         asked = self._post_json(
             "/api/ask",
@@ -800,6 +811,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("retrieval.probe", html)
         self.assertIn("create-memory-review", html)
         self.assertIn("Memory Review", html)
+        self.assertIn("home-next-actions", html)
+        self.assertIn("Next Actions", html)
         self.assertIn("home-resumable-asks", html)
         self.assertIn("Workspace", script)
         self.assertIn("Tenant", script)
@@ -846,6 +859,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('renderIngestResult(result.ingest, result.readiness);\n    await loadDatasets();\n    await loadAuditEvents("kb.ingest");', script)
         self.assertIn('await loadDocuments(datasetId, { silent: true });\n  await loadAuditEvents("kb.parse");', script)
         self.assertIn('/api/runtime/diagnostics', script)
+        self.assertIn('/api/workspace/status', script)
+        self.assertIn('loadWorkspaceStatus', script)
+        self.assertIn('workspaceActionCard', script)
         self.assertIn('/api/policy', script)
         self.assertIn('loadPolicy', script)
         self.assertIn('renderPolicy', script)

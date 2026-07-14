@@ -13,6 +13,7 @@ const state = {
   currentBrief: null,
   currentAskResult: null,
   diagnostics: null,
+  workspaceStatus: null,
   retrievalProbe: null,
   focusReviewId: null,
   memoryApplyByReview: {},
@@ -192,6 +193,7 @@ async function refreshAll() {
     loadHealth(),
     loadPolicy(),
     loadDiagnostics(),
+    loadWorkspaceStatus(),
     loadDatasets(),
     loadReviews(),
     loadPendingReviews(),
@@ -242,6 +244,27 @@ async function loadDiagnostics() {
       checks: [{ name: "runtime_diagnostics", status: "error", message: error.message, metadata: {} }],
     };
     renderDiagnostics();
+    showToast(error.message);
+  }
+}
+
+async function loadWorkspaceStatus() {
+  try {
+    const payload = await api("/api/workspace/status");
+    state.workspaceStatus = payload.workspace_status || null;
+    renderHome();
+  } catch (error) {
+    state.workspaceStatus = {
+      status: "error",
+      next_actions: [
+        {
+          action: "inspect_workspace_status_error",
+          label: "Inspect workspace status",
+          reason: error.message,
+        },
+      ],
+    };
+    renderHome();
     showToast(error.message);
   }
 }
@@ -372,6 +395,12 @@ function renderHome() {
   document.getElementById("metric-datasets").textContent = String(state.datasets.length);
   document.getElementById("metric-reviews").textContent = String(pendingReviews.length);
   document.getElementById("metric-run").textContent = state.lastRunId ? shortId(state.lastRunId) : "None";
+  renderList(
+    document.getElementById("home-next-actions"),
+    ((state.workspaceStatus && state.workspaceStatus.next_actions) || []).slice(0, 5),
+    "No next actions loaded.",
+    workspaceActionCard,
+  );
   renderList(document.getElementById("home-datasets"), state.datasets.slice(0, 4), "No datasets loaded.", datasetCard);
   renderList(
     document.getElementById("home-reviews"),
@@ -385,6 +414,16 @@ function renderHome() {
     "No resumable asks.",
     resumableAskCard,
   );
+}
+
+function workspaceActionCard(action) {
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("strong", {}, action.label || readableName(action.action || "action")),
+      el("span", { className: `tag ${statusClass(action.action || "")}` }, readableName(action.action || "")),
+    ]),
+    el("p", {}, action.reason || ""),
+  ]);
 }
 
 function renderSettings() {

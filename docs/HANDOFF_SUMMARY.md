@@ -182,6 +182,9 @@ Implemented:
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
   connectivity without frontend provider direct calls.
+- Product API, MCP, and frontend Home expose workspace operational status with
+  next actions for ready Ask scopes, ingestion waits, resumable Ask workflows,
+  pending reviews, and accepted durable memory awaiting apply.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
@@ -238,7 +241,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 77 tests pass.
+- `make test`: 87 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -272,7 +275,7 @@ Expected result:
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 35 PSKA MCP tools.
+- `make list-tools`: lists 36 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -305,6 +308,7 @@ pska_agentic_question_start
 pska_agentic_question_resumable
 pska_agentic_question_resume
 pska_policy_get
+pska_workspace_status
 pska_workflow_list
 pska_workflow_artifact
 pska_workflow_brief

@@ -155,6 +155,7 @@ Operational loop tools:
 - `pska_agentic_question_resumable`
 - `pska_agentic_question_resume`
 - `pska_policy_get`
+- `pska_workspace_status`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
@@ -213,6 +214,7 @@ Implemented Alpha routes:
 - `GET /api/health`
 - `GET /api/policy`
 - `GET /api/runtime/diagnostics`
+- `GET /api/workspace/status`
 - `POST /api/runtime/retrieval-probe`
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`
@@ -249,6 +251,9 @@ Review, Activity, and Settings. It is served by the Product API and uses only
 same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
+Home loads `/api/workspace/status` to show product-level next actions, including
+ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
+and accepted durable memory awaiting apply.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,

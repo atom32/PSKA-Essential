@@ -18,6 +18,7 @@ EXPECTED_TOOLS = {
     "pska_workflow_state",
     "pska_workflow_artifact",
     "pska_workflow_brief",
+    "pska_workspace_status",
     "pska_context_retrieve",
     "pska_source_read",
     "pska_policy_get",
@@ -160,6 +161,17 @@ class McpContractTests(unittest.TestCase):
         event = service.store.list_audit_events(action="retrieval.probe", limit=1)[0]
         self.assertEqual(event.metadata["status"], "ok")
         self.assertEqual(event.metadata["context_count"], 1)
+
+    def test_workspace_status_reports_operational_next_actions(self):
+        tools = tool_registry(build_fake_service())
+
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            status = tools["pska_workspace_status"]()
+
+        self.assertEqual(status["kind"], "workspace_status")
+        self.assertEqual(status["status"], "ready")
+        self.assertEqual(status["kb"]["readiness"]["status"], "ready")
+        self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
 
     def test_memory_review_from_workflow_turns_transient_run_into_review(self):
         service = build_fake_service()

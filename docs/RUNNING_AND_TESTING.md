@@ -91,7 +91,9 @@ PYTHONPATH=src python3 -m pska_essential.product_api
 ```
 
 The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
-Review, Activity, and Settings. Ask displays explicit PSKA-controlled loop steps,
+Review, Activity, and Settings. Home shows PSKA workspace next actions for
+ready Ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
+and accepted durable memory awaiting apply. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, explicit additional retrieval queries, and optional
@@ -274,6 +276,9 @@ needs a normalized job summary with phase, progress, next actions, and failure
 reasons before deciding whether to wait, parse, inspect a failure, or Ask.
 The frontend Knowledge Bases view renders those next actions as explicit status
 buttons when possible.
+Use `pska_workspace_status` or `GET /api/workspace/status` for the same
+product-level next-action summary from Hermes or the frontend without exposing
+provider APIs.
 
 Use `pska_retrieval_probe` or `POST /api/runtime/retrieval-probe` against a
 selected ready dataset when RAGFlow is reachable but Ask still fails at
