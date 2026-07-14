@@ -42,10 +42,10 @@ Rules:
 - If a backend cannot provide a transactional reviewed update, its adapter must
   fail explicitly instead of approximating update with hidden delete/add side
   effects.
-- Memory adapters should expose PSKA memory capabilities. Product API,
-  diagnostics, workspace status, and frontend controls use those capabilities
-  to avoid creating durable review items that the selected backend cannot
-  apply.
+- Memory adapters should expose PSKA memory capabilities. The Product API
+  capabilities contract, diagnostics, workspace status, MCP tools, and
+  frontend controls use those capabilities to avoid creating durable review
+  items that the selected backend cannot apply.
 
 ## Public MCP Contract
 
@@ -59,6 +59,7 @@ The public tool surface is:
 - `pska_context_retrieve`
 - `pska_source_read`
 - `pska_policy_get`
+- `pska_capabilities_get`
 - `pska_workspace_status`
 - `pska_propose`
 - `pska_review_create`
@@ -92,6 +93,9 @@ Backends must be replaceable without changing these tools.
 `pska_policy_get` returns PSKA workspace governance policy; agents must use it
 for product policy awareness instead of inferring review behavior from backend
 capabilities.
+`pska_capabilities_get` returns PSKA-level operation capabilities; agents must
+use it to check durable-operation support instead of probing provider-native
+APIs or creating known-dead review items.
 `pska_workspace_status` returns PSKA-level operational status and next actions;
 agents must use it for workflow navigation instead of inspecting provider state
 directly. Next actions may include PSKA tool/API/view hints and safe parameters,

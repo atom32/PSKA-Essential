@@ -214,10 +214,11 @@ Graphiti live memory writes remain review-gated through PSKA. The current
 adapter supports reviewed add and reviewed entity-edge delete. Reviewed update
 requires a backend with a transactional update contract and fails explicitly for
 Graphiti instead of doing hidden delete/add work. Memory operation capabilities
-are exposed through health, diagnostics, and workspace status so the frontend
-and Hermes can avoid unsupported durable actions before creating review items.
-Historical accepted reviews that target unsupported backend operations remain
-visible as inspect actions instead of being offered as apply actions.
+are exposed through the Product API capabilities route, MCP capabilities tool,
+health, diagnostics, and workspace status so the frontend and Hermes can avoid
+unsupported durable actions before creating review items. Historical accepted
+reviews that target unsupported backend operations remain visible as inspect
+actions instead of being offered as apply actions.
 
 Current local component install:
 
@@ -314,10 +315,12 @@ readiness preview renders explicit actions for the checked scope, including Run
 Ask, Parse Scope, Track Status, and Open Status. Blocked Ask results reuse the
 same scope actions and keep Resume Ask as the preserved-request path once the
 scope becomes ready.
-Use `pska_workspace_status` or `GET /api/workspace/status` for the same
-product-level next-action summary from Hermes or the frontend without exposing
-provider APIs. Each returned action includes stable PSKA tool/API/view hints
-and safe parameters, such as ready dataset IDs or the relevant review/run ID.
+Use `pska_capabilities_get` or `GET /api/capabilities` for the stable product
+operation capability contract. Use `pska_workspace_status` or
+`GET /api/workspace/status` for the same product-level next-action summary from
+Hermes or the frontend without exposing provider APIs. Each returned action
+includes stable PSKA tool/API/view hints and safe parameters, such as ready
+dataset IDs or the relevant review/run ID.
 The frontend refreshes this summary after KB, Ask, review, and memory actions
 so Home does not keep stale guidance. Workspace status includes per-dataset
 readiness; ready datasets remain actionable even while another selected dataset

@@ -95,9 +95,10 @@ export GRAPHITI_GROUP_ID=pska-essential
 The Graphiti adapter keeps writes review-gated. It supports reviewed memory
 apply and reviewed entity-edge delete through Graphiti; reviewed update fails
 explicitly until the backend exposes a transactional fact update contract.
-Memory operation capabilities are exposed through health, diagnostics, and
-workspace status so the frontend and Hermes can avoid unsupported durable
-actions before creating review items. Historical accepted reviews that target
+Memory operation capabilities are exposed through the explicit capabilities
+contract, health, diagnostics, and workspace status so the frontend and Hermes
+can avoid unsupported durable actions before creating review items. Historical
+accepted reviews that target
 unsupported backend operations remain visible as inspect actions instead of
 being offered as apply actions.
 
@@ -164,6 +165,7 @@ Operational loop tools:
 - `pska_agentic_question_resumable`
 - `pska_agentic_question_resume`
 - `pska_policy_get`
+- `pska_capabilities_get`
 - `pska_workspace_status`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
@@ -221,6 +223,7 @@ http://127.0.0.1:8765
 Implemented Alpha routes:
 
 - `GET /api/health`
+- `GET /api/capabilities`
 - `GET /api/policy`
 - `GET /api/runtime/diagnostics`
 - `GET /api/workspace/status`

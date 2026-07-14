@@ -9,6 +9,7 @@ from pska_essential.agentic_loop import (
     resume_agentic_question,
     run_agentic_question_with_readiness,
 )
+from pska_essential.capabilities import product_capabilities
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import add_retrieval_probe_audit, run_retrieval_probe
@@ -61,6 +62,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_policy_get():
         return build_workspace_policy_from_env().to_dict()
+
+    def pska_capabilities_get():
+        return product_capabilities(memory_adapter=service.memory)
 
     def pska_workspace_status(
         dataset_page_size: int = 30,
@@ -328,6 +332,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_context_retrieve": pska_context_retrieve,
         "pska_source_read": pska_source_read,
         "pska_policy_get": pska_policy_get,
+        "pska_capabilities_get": pska_capabilities_get,
         "pska_workspace_status": pska_workspace_status,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,

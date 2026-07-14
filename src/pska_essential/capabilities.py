@@ -25,6 +25,14 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
     }
 
 
+def product_capabilities(*, memory_adapter: Any) -> dict[str, Any]:
+    """Return the public PSKA capability contract for callers."""
+
+    return {
+        "memory": memory_capabilities(memory_adapter),
+    }
+
+
 def memory_operation_capability(adapter: Any, operation: str) -> dict[str, Any]:
     return memory_capabilities(adapter)["operations"].get(operation, {"supported": False})
 

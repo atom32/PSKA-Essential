@@ -192,11 +192,11 @@ Implemented:
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
   connectivity without frontend provider direct calls.
-- Product API health, runtime diagnostics, workspace status, and frontend
-  Writing/Settings expose memory operation capabilities. Unsupported durable
-  memory operations are blocked before creating dead-end review items, and
-  historical accepted unsupported reviews surface as inspect actions instead of
-  apply actions.
+- Product API `/api/capabilities`, MCP `pska_capabilities_get`, health, runtime
+  diagnostics, workspace status, and frontend Writing/Settings expose memory
+  operation capabilities. Unsupported durable memory operations are blocked
+  before creating dead-end review items, and historical accepted unsupported
+  reviews surface as inspect actions instead of apply actions.
 - Product API, MCP, and frontend Home expose workspace operational status with
   next actions for ready Ask scopes, ingestion waits, resumable Ask workflows,
   pending reviews, and accepted durable memory awaiting apply. Next actions
@@ -265,6 +265,9 @@ Implemented:
 - Product API, MCP, and frontend Settings expose the workspace governance
   policy as a product contract, including durable proposal kinds and the
   transient-results skip rule.
+- Product API and MCP expose operation capabilities as a stable product
+  contract, so Hermes/frontends can check durable-operation support without
+  probing provider-native APIs or depending on workspace status shape.
 - Operational upload-to-agentic-question MCP loop.
 - Smoke eval.
 - Hermes skill/config examples. Hermes now starts from `pska_workspace_status`
@@ -322,7 +325,7 @@ Expected result:
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 36 PSKA MCP tools.
+- `make list-tools`: lists 37 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -355,6 +358,7 @@ pska_agentic_question_start
 pska_agentic_question_resumable
 pska_agentic_question_resume
 pska_policy_get
+pska_capabilities_get
 pska_workspace_status
 pska_workflow_list
 pska_workflow_artifact

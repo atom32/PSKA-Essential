@@ -19,7 +19,7 @@ from pska_essential.agentic_loop import (
     resume_agentic_question,
     run_agentic_question_with_readiness,
 )
-from pska_essential.capabilities import memory_capabilities
+from pska_essential.capabilities import product_capabilities
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import add_retrieval_probe_audit, build_runtime_diagnostics, run_retrieval_probe
@@ -130,9 +130,16 @@ def _handler_class(state: ProductApiState):
                         },
                         "workspace": build_runtime_workspace_context().to_dict(),
                         "governance": build_workspace_policy_from_env().to_dict(),
-                        "capabilities": {
-                            "memory": memory_capabilities(state.service.memory),
-                        },
+                        "capabilities": product_capabilities(memory_adapter=state.service.memory),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/capabilities":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "capabilities": product_capabilities(memory_adapter=state.service.memory),
                     }
                 )
                 return
