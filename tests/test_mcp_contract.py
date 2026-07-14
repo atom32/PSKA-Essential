@@ -209,11 +209,16 @@ class McpContractTests(unittest.TestCase):
                 question="How does the workflow gate work?",
                 dataset_ids=["demo"],
                 limit=1,
+                max_iterations=2,
+                min_context_packets=2,
+                retrieval_queries=["Adapter Boundary"],
                 proposal_kind="memory_patch",
             )
-        self.assertEqual(len(result["context_packets"]), 1)
+        self.assertEqual(len(result["context_packets"]), 2)
         self.assertEqual(result["proposal"]["kind"], "memory_patch")
         self.assertEqual(result["review"]["status"], "pending")
+        self.assertEqual(result["loop"]["retrieval_query_plan"][1], "Adapter Boundary")
+        self.assertEqual(result["run"]["metadata"]["ask_request"]["retrieval_queries"], ["Adapter Boundary"])
         self.assertIn("kb.readiness", [step["name"] for step in result["loop"]["steps"]])
         self.assertIn("Memory changes still require", result["note"])
 
@@ -256,6 +261,7 @@ class McpContractTests(unittest.TestCase):
             "create_review": None,
             "max_iterations": 1,
             "min_context_packets": 1,
+            "retrieval_queries": ["resume query"],
         }
         service.store.save_workflow(run)
         tools = tool_registry(service)
@@ -271,6 +277,7 @@ class McpContractTests(unittest.TestCase):
         self.assertNotEqual(resumed["run"]["run_id"], run.run_id)
         self.assertEqual(resumed["resumed_from_run_id"], run.run_id)
         self.assertEqual(resumed["run"]["metadata"]["ask_request"]["question"], "Resume this Ask")
+        self.assertEqual(resumed["run"]["metadata"]["ask_request"]["retrieval_queries"], ["resume query"])
         self.assertEqual(resumed["run"]["metadata"]["resumed_from_run_id"], run.run_id)
         self.assertIn("Resumed Ask created", resumed["note"])
         audit_actions = [event.action for event in service.store.list_audit_events()]

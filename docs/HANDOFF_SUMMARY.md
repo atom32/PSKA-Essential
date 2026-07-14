@@ -105,6 +105,9 @@ Implemented:
 - Frontend Ask scope picker for dataset/document selection through Product API.
 - Frontend Ask controls for loop max iterations, required context count, and
   optional graph retrieval within selected scope.
+- Agentic Ask supports explicit additional retrieval queries from the user or
+  agent; PSKA records the query plan and each scoped retrieval step without
+  adding runtime case-specific query expansion.
 - Graph retrieval is passed through PSKA retrieval options to adapters, including
   the RAGFlow HTTP retrieval path, and is visible in loop/audit metadata.
 - Ask searches governed durable memory through the memory adapter and keeps
@@ -216,7 +219,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 76 tests pass.
+- `make test`: 77 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -224,6 +227,8 @@ Expected result:
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, review source trace display, and retrieval probe UI.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
+- Agentic loop/Product API/MCP tests cover explicit retrieval query plans and
+  source-coordinate de-duplication across query rounds.
 - Adapter/Workflow/Product API tests cover graph retrieval hint propagation to
   RAGFlow retrieval and audit/loop metadata.
 - Agentic loop/Product API tests cover reviewed memory influencing later Ask
@@ -317,7 +322,8 @@ The frontend includes Home, Knowledge Bases, Ask, Reader, Writing, Review,
 Activity, and Settings. It calls only same-origin `/api/...` routes, shows
 explicit Ask loop steps including KB readiness, lets users pick dataset/document
 scope through Product API, tunes loop max iterations, required context count,
-and optional graph retrieval inside selected scope, opens sources through
+explicit additional retrieval queries, and optional graph retrieval inside
+selected scope, opens sources through
 Product API Reader, loads workspace policy from `/api/policy`, opens workflow
 state, work product, source manifest, and context in Writing without export side
 effects, restores persisted loop

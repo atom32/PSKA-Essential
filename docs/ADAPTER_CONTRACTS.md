@@ -115,7 +115,10 @@ start -> check scope/readiness -> retrieve -> inspect sources
 ```
 
 The loop may iterate, but it must not silently change user-selected scope or
-write memory/graph state before review.
+write memory/graph state before review. Additional retrieval rounds may use
+explicit `retrieval_queries` supplied by the user or agent; PSKA records the
+query plan and each scoped retrieval step, but must not add domain-specific
+query expansion in runtime code.
 If readiness blocks the selected scope, PSKA must persist the blocked workflow,
 surface it through a resumable Ask list with a fresh readiness check, and allow
 a later resume to create a new audited Ask workflow from the stored request.

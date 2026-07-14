@@ -94,7 +94,10 @@ The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
-required context count, and optional graph retrieval inside the selected scope.
+required context count, explicit additional retrieval queries, and optional
+graph retrieval inside the selected scope. Additional retrieval queries are
+provided by the user or agent, stored with the workflow request, and recorded in
+loop steps; PSKA does not add runtime case-specific query expansion.
 Settings loads `/api/policy` to show the workspace governance policy, including
 durable proposal kinds, durable-memory action, available modes, and the rule
 that transient results skip durable governance.

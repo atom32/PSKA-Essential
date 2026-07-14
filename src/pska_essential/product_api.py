@@ -259,6 +259,7 @@ def _handler_class(state: ProductApiState):
                 proposal_kind = str(payload.get("proposal_kind") or "writing_brief")
                 create_review = payload.get("create_review") if "create_review" in payload else None
                 use_kg = bool(payload.get("use_kg", False))
+                retrieval_queries = _optional_str_list(payload, "retrieval_queries")
                 result = run_agentic_question_with_readiness(
                     state.service,
                     state.kb_gateway_factory(),
@@ -271,6 +272,7 @@ def _handler_class(state: ProductApiState):
                     use_kg=use_kg,
                     max_iterations=int(payload.get("max_iterations") or 2),
                     min_context_packets=int(payload.get("min_context_packets") or 1),
+                    retrieval_queries=retrieval_queries,
                 )
                 self._send_json({"ok": True, **result})
                 return
@@ -560,6 +562,19 @@ def _required_list(payload: dict[str, Any], key: str) -> list[str]:
     if not isinstance(value, list) or not value:
         raise ApiError(f"{key} must be a non-empty list", HTTPStatus.BAD_REQUEST)
     return [str(item) for item in value if str(item)]
+
+
+def _optional_str_list(payload: dict[str, Any], key: str) -> list[str]:
+    value = payload.get(key)
+    if value is None:
+        return []
+    if isinstance(value, str):
+        candidates = value.replace("\n", ",").split(",")
+    elif isinstance(value, list):
+        candidates = value
+    else:
+        raise ApiError(f"{key} must be a list or comma-separated string", HTTPStatus.BAD_REQUEST)
+    return [str(item).strip() for item in candidates if str(item).strip()]
 
 
 def _int_param(value: str | None, default: int) -> int:

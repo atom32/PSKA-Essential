@@ -219,6 +219,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         use_kg: bool = False,
         max_iterations: int = 2,
         min_context_packets: int = 1,
+        retrieval_queries: list[str] | None = None,
     ):
         result = run_agentic_question_with_readiness(
             service,
@@ -232,6 +233,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             use_kg=use_kg,
             max_iterations=max_iterations,
             min_context_packets=min_context_packets,
+            retrieval_queries=retrieval_queries or [],
         )
         if result["status"] == "not_ready":
             result["note"] = (

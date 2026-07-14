@@ -4,7 +4,7 @@ import unittest
 
 from pska_essential.adapters.fake import FakeMemoryAdapter
 from pska_essential.agentic_loop import run_agentic_question
-from pska_essential.contracts import SourceContext
+from pska_essential.contracts import ContextPacket, SourceContext, SourceRef
 from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, WorkspaceGovernancePolicy
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowService, build_fake_service
@@ -18,6 +18,28 @@ class _NoContextRetrieval:
 
     def read_source(self, source_ref):
         return SourceContext(source_ref=source_ref, text="", metadata={"missing": True})
+
+
+class _QueryRecordingRetrieval:
+    backend_name = "query_recording"
+
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    def retrieve(self, query, scope, limit, options=None):
+        self.queries.append(query)
+        index = len(self.queries)
+        return [
+            ContextPacket(
+                context_id=f"ctx-query-{index}",
+                text=f"Context returned for {query}",
+                source_ref=SourceRef(adapter=self.backend_name, dataset_id="demo", document_id=f"doc-{index}"),
+                title=query,
+            )
+        ]
+
+    def read_source(self, source_ref):
+        return SourceContext(source_ref=source_ref, text="Recorded query source")
 
 
 class AgenticLoopTests(unittest.TestCase):
@@ -46,6 +68,35 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertEqual(service.store.list_reviews(), [])
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertNotIn("workflow.export", audit_actions)
+
+    def test_agentic_loop_uses_explicit_retrieval_query_plan(self):
+        retrieval = _QueryRecordingRetrieval()
+        service = WorkflowService(
+            retrieval=retrieval,
+            memory=FakeMemoryAdapter(),
+            store=SQLiteReviewStore(":memory:"),
+        )
+
+        result = run_agentic_question(
+            service,
+            question="Primary question",
+            dataset_ids=["demo"],
+            retrieval_queries=["Secondary angle", "primary question", "Tertiary angle"],
+            limit=1,
+            max_iterations=3,
+            min_context_packets=3,
+            proposal_kind="writing_brief",
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(retrieval.queries, ["Primary question", "Secondary angle", "Tertiary angle"])
+        self.assertEqual(result["loop"]["retrieval_query_plan"], retrieval.queries)
+        retrieve_steps = [step for step in result["loop"]["steps"] if step["name"] == "context.retrieve"]
+        self.assertEqual([step["metadata"]["query"] for step in retrieve_steps], retrieval.queries)
+        ask_request = service.state(result["run"]["run_id"]).metadata["ask_request"]
+        self.assertEqual(ask_request["retrieval_queries"], ["Secondary angle", "Tertiary angle"])
+        context_events = service.store.list_audit_events(action="context.retrieve")
+        self.assertEqual([event.metadata["query"] for event in context_events], retrieval.queries)
 
     def test_durable_memory_patch_creates_review_even_when_caller_does_not_force_it(self):
         service = build_fake_service()

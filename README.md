@@ -250,8 +250,10 @@ Ask persists the loop summary on the workflow so Writing can reopen governance
 state, durable/transient status, review requirements, and steps later. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result
 actions for Writing, Review, and accepted memory application. Ask can tune loop
-depth with max iterations, required context count, and optional graph retrieval
-inside the selected scope. Graph retrieval is passed as a PSKA retrieval hint,
+depth with max iterations, required context count, explicit additional
+retrieval queries, and optional graph retrieval inside the selected scope.
+Additional retrieval queries come from the user or agent and are recorded in the
+PSKA loop; runtime code does not add case-specific query expansion. Graph retrieval is passed as a PSKA retrieval hint,
 recorded in loop steps and audit metadata, and remains behind adapters. Ask also
 searches governed durable memory and keeps memory facts separate from external
 source retrieval, so memory can inform later work without acting as a source

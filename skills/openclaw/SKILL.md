@@ -39,13 +39,15 @@ external KB, GraphRAG, or memory systems.
 1. If needed, upload documents with `pska_kb_ingest_files`.
 2. Confirm readiness with `pska_kb_document_status`.
 3. Start a scoped PSKA workflow or call `pska_agentic_question_start`.
-4. Retrieve context and answer only from returned context.
-5. Propose digest, writing brief, or memory patch.
-6. Create a review, or use `pska_memory_review_from_workflow` for an existing
+4. Pass explicit `retrieval_queries` when useful follow-up angles are known;
+   PSKA will run them inside the selected scope and record the query plan.
+5. Retrieve context and answer only from returned context.
+6. Propose digest, writing brief, or memory patch.
+7. Create a review, or use `pska_memory_review_from_workflow` for an existing
    transient sourced workflow.
-7. Wait for review acceptance; use review list/get tools to resume pending
+8. Wait for review acceptance; use review list/get tools to resume pending
    review work.
-8. If review asks for edits, create a revised review; apply memory changes only
+9. If review asks for edits, create a revised review; apply memory changes only
    after acceptance.
-9. Inspect `pska_workflow_artifact` or `pska_workflow_brief`.
-10. Export a Markdown or JSON brief only for explicit handoff.
+10. Inspect `pska_workflow_artifact` or `pska_workflow_brief`.
+11. Export a Markdown or JSON brief only for explicit handoff.

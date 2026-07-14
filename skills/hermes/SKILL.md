@@ -66,12 +66,15 @@ For a new document:
 2. If ingestion did not wait, call `pska_kb_document_status` until parsing is
    complete.
 3. Call `pska_agentic_question_start` with the returned `dataset_id`.
-4. If context is insufficient, retrieve again within the same explicit scope or
+4. If you already know useful follow-up angles, pass them as
+   `retrieval_queries`; PSKA will run them inside the same explicit scope and
+   record the query plan.
+5. If context is insufficient, retrieve again within the same explicit scope or
    report that the question cannot be answered from the selected materials.
-5. Answer from the returned context, artifact, and brief.
-6. If a memory patch or deletion was proposed, wait for human acceptance before
+6. Answer from the returned context, artifact, and brief.
+7. If a memory patch or deletion was proposed, wait for human acceptance before
    applying it.
-7. Use `pska_export_brief` only when the user asks for an explicit export.
+8. Use `pska_export_brief` only when the user asks for an explicit export.
 
 ## Good Prompt
 

@@ -28,6 +28,7 @@ def run_agentic_question(
     use_kg: bool = False,
     max_iterations: int = 2,
     min_context_packets: int = 1,
+    retrieval_queries: list[str] | None = None,
     workspace_policy: WorkspaceGovernancePolicy | None = None,
     preflight_steps: list[dict[str, Any]] | None = None,
     resumed_from_run_id: str | None = None,
@@ -56,6 +57,7 @@ def run_agentic_question(
     if limit < 1:
         raise ValueError("limit must be greater than 0")
 
+    query_plan = _retrieval_query_plan(normalized_question, retrieval_queries)
     policy = workspace_policy or build_workspace_policy_from_env()
     durable_proposal = normalized_kind in DURABLE_PROPOSAL_KINDS
     governance_action = policy.action_for(normalized_kind, force_review=bool(create_review))
@@ -74,6 +76,7 @@ def run_agentic_question(
         create_review=create_review,
         max_iterations=max_iterations,
         min_context_packets=min_context_packets,
+        retrieval_queries=query_plan[1:],
     )
     _save_ask_request(service, run.run_id, ask_request, resumed_from_run_id=resumed_from_run_id)
     run = service.state(run.run_id)
@@ -86,6 +89,7 @@ def run_agentic_question(
             dataset_ids=scope["dataset_ids"],
             document_ids=scope["document_ids"],
             proposal_kind=normalized_kind,
+            retrieval_queries=query_plan[1:],
             resumed_from_run_id=resumed_from_run_id or "",
         )
     )
@@ -115,6 +119,13 @@ def run_agentic_question(
         policy=policy.to_dict(),
     )
     steps.extend(preflight_steps or [])
+    add_step(
+        "retrieval.plan",
+        "complete",
+        "Prepared scoped retrieval query plan.",
+        query_count=len(query_plan),
+        queries=query_plan,
+    )
 
     memory_facts = service.memory_search(normalized_question, scope, limit=max(1, limit))
     add_step(
@@ -130,13 +141,17 @@ def run_agentic_question(
     iteration_count = max(1, max_iterations)
     for iteration in range(1, iteration_count + 1):
         iteration_limit = limit if iteration == 1 else max(limit, target_context)
-        packets = service.context_retrieve(run.run_id, normalized_question, iteration_limit)
+        query = query_plan[min(iteration - 1, len(query_plan) - 1)]
+        packets = service.context_retrieve(run.run_id, query, iteration_limit)
         retrieved = _unique_context_packets([*retrieved, *packets])
         add_step(
             "context.retrieve",
             "complete",
             "Retrieved context from selected scope.",
             iteration=iteration,
+            query=query,
+            query_index=min(iteration, len(query_plan)),
+            query_count=len(query_plan),
             requested_limit=iteration_limit,
             returned_count=len(packets),
             unique_count=len(retrieved),
@@ -176,6 +191,8 @@ def run_agentic_question(
             context_count=len(retrieved),
             memory_count=len(memory_facts),
             required_context_count=target_context,
+            retrieval_query_plan=query_plan,
+            retrieval_query_count=len(query_plan),
             message=message,
             resumed_from_run_id=resumed_from_run_id or "",
         )
@@ -262,6 +279,8 @@ def run_agentic_question(
         proposal_id=proposal.proposal_id,
         review_id=review.review_id if review else "",
         memory_apply_target_id=memory_apply.target_id if memory_apply else "",
+        retrieval_query_plan=query_plan,
+        retrieval_query_count=len(query_plan),
         resumed_from_run_id=resumed_from_run_id or "",
     )
     _save_loop_metadata(service, run.run_id, loop)
@@ -320,6 +339,7 @@ def record_not_ready_agentic_question(
     limit: int = 5,
     max_iterations: int = 2,
     min_context_packets: int = 1,
+    retrieval_queries: list[str] | None = None,
     workspace_policy: WorkspaceGovernancePolicy | None = None,
     resumed_from_run_id: str | None = None,
 ) -> dict[str, Any]:
@@ -338,6 +358,7 @@ def record_not_ready_agentic_question(
         raise ValueError("question is required")
     if not scope["dataset_ids"]:
         raise ValueError("dataset_ids is required")
+    query_plan = _retrieval_query_plan(normalized_question, retrieval_queries)
     result = build_not_ready_ask_result(
         question=normalized_question,
         dataset_ids=scope["dataset_ids"],
@@ -348,6 +369,8 @@ def record_not_ready_agentic_question(
         use_kg=use_kg,
         workspace_policy=workspace_policy,
     )
+    result["loop"]["retrieval_query_plan"] = query_plan
+    result["loop"]["retrieval_query_count"] = len(query_plan)
     run = service.start(normalized_question, scope)
     ask_request = _ask_request(
         question=normalized_question,
@@ -357,6 +380,7 @@ def record_not_ready_agentic_question(
         create_review=create_review,
         max_iterations=max_iterations,
         min_context_packets=min_context_packets,
+        retrieval_queries=query_plan[1:],
     )
     _save_ask_request(service, run.run_id, ask_request, resumed_from_run_id=resumed_from_run_id)
     run = service.state(run.run_id)
@@ -398,6 +422,7 @@ def record_not_ready_agentic_question(
             dataset_ids=scope["dataset_ids"],
             document_ids=scope["document_ids"],
             proposal_kind=normalized_kind,
+            retrieval_queries=query_plan[1:],
             readiness_status=readiness.get("status") or "",
             blocking=readiness.get("blocking") or [],
             resumed_from_run_id=resumed_from_run_id or "",
@@ -421,6 +446,7 @@ def run_agentic_question_with_readiness(
     use_kg: bool = False,
     max_iterations: int = 2,
     min_context_packets: int = 1,
+    retrieval_queries: list[str] | None = None,
     resumed_from_run_id: str | None = None,
 ) -> dict[str, Any]:
     readiness = evaluate_kb_readiness(
@@ -441,6 +467,7 @@ def run_agentic_question_with_readiness(
             limit=limit,
             max_iterations=max_iterations,
             min_context_packets=min_context_packets,
+            retrieval_queries=retrieval_queries,
             resumed_from_run_id=resumed_from_run_id,
         )
         service.store.add_audit_event(
@@ -452,6 +479,7 @@ def run_agentic_question_with_readiness(
                 dataset_ids=dataset_ids,
                 document_ids=document_ids or [],
                 readiness=readiness,
+                retrieval_queries=_retrieval_query_plan(question, retrieval_queries)[1:],
                 resumed_from_run_id=resumed_from_run_id or "",
             )
         )
@@ -469,6 +497,7 @@ def run_agentic_question_with_readiness(
         use_kg=use_kg,
         max_iterations=max_iterations,
         min_context_packets=min_context_packets,
+        retrieval_queries=retrieval_queries,
         preflight_steps=[build_readiness_loop_step(readiness)],
         resumed_from_run_id=resumed_from_run_id,
     )
@@ -495,6 +524,7 @@ def resume_agentic_question(service: WorkflowService, gateway: Any, *, run_id: s
         use_kg=bool(ask_request.get("use_kg", False)),
         max_iterations=int(ask_request.get("max_iterations") or 2),
         min_context_packets=int(ask_request.get("min_context_packets") or 1),
+        retrieval_queries=[str(item) for item in ask_request.get("retrieval_queries") or []],
         resumed_from_run_id=run_id,
     )
     service.store.add_audit_event(
@@ -611,6 +641,7 @@ def _ask_request(
     create_review: bool | None,
     max_iterations: int,
     min_context_packets: int,
+    retrieval_queries: list[str],
 ) -> dict[str, Any]:
     return {
         "question": question,
@@ -622,7 +653,24 @@ def _ask_request(
         "create_review": create_review,
         "max_iterations": max_iterations,
         "min_context_packets": min_context_packets,
+        "retrieval_queries": list(retrieval_queries),
     }
+
+
+def _retrieval_query_plan(question: str, retrieval_queries: list[str] | None) -> list[str]:
+    queries = [question, *(retrieval_queries or [])]
+    result: list[str] = []
+    seen: set[str] = set()
+    for query in queries:
+        normalized = str(query or "").strip()
+        if not normalized:
+            continue
+        dedupe_key = normalized.casefold()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        result.append(normalized)
+    return result or [question]
 
 
 def _unique_context_packets(packets: list[ContextPacket]) -> list[ContextPacket]:
@@ -630,17 +678,18 @@ def _unique_context_packets(packets: list[ContextPacket]) -> list[ContextPacket]
     result: list[ContextPacket] = []
     for packet in packets:
         ref = packet.source_ref
-        key = "|".join(
-            [
-                packet.context_id,
-                ref.adapter,
-                ref.dataset_id or "",
-                ref.document_id or "",
-                ref.chunk_id or "",
-                ref.source_id or "",
-                ref.external_id or "",
-            ]
-        )
+        source_parts = [
+            ref.adapter,
+            ref.dataset_id or "",
+            ref.document_id or "",
+            ref.chunk_id or "",
+            ref.source_id or "",
+            ref.external_id or "",
+        ]
+        if any(source_parts):
+            key = "source|" + "|".join(source_parts)
+        else:
+            key = "|".join(["context", packet.context_id, packet.text])
         if key in seen:
             continue
         seen.add(key)

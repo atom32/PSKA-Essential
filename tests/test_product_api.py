@@ -365,6 +365,7 @@ class ProductApiTests(unittest.TestCase):
                 "limit": 1,
                 "max_iterations": 2,
                 "min_context_packets": 2,
+                "retrieval_queries": ["Adapter Boundary"],
                 "proposal_kind": "writing_brief",
                 "use_kg": True,
             },
@@ -377,6 +378,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("graph.retrieval", [step["name"] for step in asked["loop"]["steps"]])
         retrieve_steps = [step for step in asked["loop"]["steps"] if step["name"] == "context.retrieve"]
         self.assertEqual(len(retrieve_steps), 2)
+        self.assertEqual(retrieve_steps[1]["metadata"]["query"], "Adapter Boundary")
+        self.assertEqual(asked["loop"]["retrieval_query_plan"][1], "Adapter Boundary")
+        self.assertEqual(asked["run"]["metadata"]["ask_request"]["retrieval_queries"], ["Adapter Boundary"])
         self.assertTrue(all(step["metadata"]["use_kg"] for step in retrieve_steps))
         context_audit = self._get_json("/api/audit?limit=10&action=context.retrieve")
         self.assertTrue(context_audit["events"][0]["metadata"]["use_kg"])
@@ -739,6 +743,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("ask-load-documents", html)
         self.assertIn("max_iterations", html)
         self.assertIn("min_context_packets", html)
+        self.assertIn("retrieval_queries", html)
+        self.assertIn("Additional Retrieval Queries", html)
         self.assertIn("use_kg", html)
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
@@ -758,6 +764,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("Tenant", script)
         self.assertIn("max_iterations", script)
         self.assertIn("min_context_packets", script)
+        self.assertIn("retrieval_queries: splitLines", script)
+        self.assertIn("function splitLines", script)
         self.assertIn("use_kg", script)
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/audit?limit=50', script)

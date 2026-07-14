@@ -117,6 +117,7 @@ function bindForms() {
       limit: Number(form.get("limit") || 5),
       max_iterations: Number(form.get("max_iterations") || 2),
       min_context_packets: Number(form.get("min_context_packets") || 1),
+      retrieval_queries: splitLines(form.get("retrieval_queries")),
       proposal_kind: form.get("proposal_kind"),
       use_kg: Boolean(form.get("use_kg")),
     };
@@ -1854,6 +1855,13 @@ function el(tagName, props = {}, children = []) {
 function splitIds(value) {
   return String(value || "")
     .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function splitLines(value) {
+  return String(value || "")
+    .split(/\r?\n|,/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
