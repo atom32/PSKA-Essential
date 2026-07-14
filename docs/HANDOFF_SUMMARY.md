@@ -119,6 +119,8 @@ Implemented:
 - Runtime workspace/tenant context surfaced in health, diagnostics, Settings,
   and audit metadata.
 - Workflow-level export audit records and frontend Activity audit trail.
+- Review and memory apply audit records carry proposal, run, and source trace
+  metadata for durable knowledge writes.
 - Writing opens workflow state, work product, source manifest, and context
   without export side effects; Markdown and JSON buttons perform explicit
   exports.
@@ -214,7 +216,8 @@ Markdown/JSON work products with source manifests, supporting context, and
 traceability metadata and create workflow export audit records. Review
 decisions and memory apply actions refresh the current Ask/Writing state, and
 applied memory state is served back through Review API records. Activity shows
-the recent audit trail, including workflow export records. Settings shows
+the recent audit trail, including workflow export records and review/memory
+apply records with proposal, run, and source trace metadata. Settings shows
 runtime provider configuration and Product API diagnostics for review store, KB
 gateway, retrieval, and memory connectivity.
 Product API health, diagnostics, and audit records include the runtime

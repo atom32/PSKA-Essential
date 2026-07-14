@@ -180,6 +180,10 @@ class ProductApiTests(unittest.TestCase):
         actions = [event["action"] for event in audit["events"]]
         self.assertIn("workflow.export", actions)
         self.assertIn("memory.apply", actions)
+        memory_event = next(event for event in audit["events"] if event["action"] == "memory.apply")
+        self.assertEqual(memory_event["metadata"]["proposal_kind"], "memory_patch")
+        self.assertEqual(memory_event["metadata"]["source_count"], 1)
+        self.assertEqual(memory_event["metadata"]["source_refs"][0]["adapter"], "fake")
         self.assertEqual(audit["events"][0]["metadata"]["workspace_id"], "default")
 
     def test_workflow_open_does_not_export_until_explicit_export(self):
@@ -378,6 +382,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/readiness', script)
         self.assertIn('diagnosticCard', script)
         self.assertIn('auditEventCard', script)
+        self.assertIn('source_count', script)
+        self.assertIn('memory_target_id', script)
         self.assertIn('readDocumentGraph', script)
         self.assertIn('Graph loaded', script)
         self.assertIn('addAskDataset', script)

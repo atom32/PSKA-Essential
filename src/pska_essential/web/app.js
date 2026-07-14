@@ -976,6 +976,9 @@ function auditEventCard(event) {
   if (metadata.status) tags.push(el("span", { className: `tag ${statusClass(metadata.status)}` }, metadata.status));
   if (metadata.backend) tags.push(el("span", { className: "tag" }, metadata.backend));
   if (metadata.context_count !== undefined) tags.push(el("span", { className: "tag" }, `context: ${metadata.context_count}`));
+  if (metadata.source_count !== undefined) tags.push(el("span", { className: "tag" }, `sources: ${metadata.source_count}`));
+  if (metadata.proposal_kind) tags.push(el("span", { className: "tag" }, metadata.proposal_kind));
+  if (metadata.memory_target_id) tags.push(el("span", { className: "tag" }, shortId(metadata.memory_target_id)));
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [

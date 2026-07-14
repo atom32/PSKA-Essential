@@ -22,7 +22,8 @@ workspaces, datasets, schemas, prompts, and templates, not hardcoded branches.
   are asynchronous states, not instant side effects.
 - No silent fallback: missing or failing providers must produce explicit errors.
 - Audit everything important: workflow starts, retrievals, proposals, reviews,
-  and memory writes are recorded.
+  and memory writes are recorded with enough source trace to reconstruct why
+  durable knowledge changed.
 - Replace platforms, keep contracts: changing GraphRAG backend must not change
   the MCP tools.
 

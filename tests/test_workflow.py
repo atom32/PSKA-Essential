@@ -27,6 +27,20 @@ class WorkflowTests(unittest.TestCase):
 
         facts = service.memory_search("reviewed workflow", {}, 10)
         self.assertEqual(len(facts), 1)
+        events = service.store.list_audit_events()
+        review_create = next(event for event in events if event.action == "review.create")
+        review_decide = next(event for event in events if event.action == "review.decide")
+        memory_apply = next(event for event in events if event.action == "memory.apply")
+        self.assertEqual(review_create.metadata["proposal_id"], proposal.proposal_id)
+        self.assertEqual(review_create.metadata["run_id"], run.run_id)
+        self.assertEqual(review_create.metadata["source_count"], len(proposal.source_refs))
+        self.assertEqual(review_decide.metadata["proposal_id"], proposal.proposal_id)
+        self.assertEqual(review_decide.metadata["proposal_kind"], "memory_patch")
+        self.assertEqual(memory_apply.metadata["proposal_id"], proposal.proposal_id)
+        self.assertEqual(memory_apply.metadata["run_id"], run.run_id)
+        self.assertEqual(memory_apply.metadata["proposal_kind"], "memory_patch")
+        self.assertEqual(memory_apply.metadata["source_count"], len(proposal.source_refs))
+        self.assertEqual(memory_apply.metadata["source_refs"][0]["adapter"], "fake")
 
     def test_export_brief_uses_workflow_context(self):
         service = build_fake_service()

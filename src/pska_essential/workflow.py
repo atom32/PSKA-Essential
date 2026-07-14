@@ -120,18 +120,32 @@ class WorkflowService:
 
     def review_create(self, proposal_id: str) -> ReviewBatch:
         review = self.store.create_review(proposal_id)
+        proposal = self.store.get_proposal(proposal_id)
         self.store.add_audit_event(
-            audit_event("review.create", "review", review.review_id, proposal_id=proposal_id)
+            audit_event(
+                "review.create",
+                "review",
+                review.review_id,
+                proposal_id=proposal_id,
+                run_id=proposal.run_id,
+                proposal_kind=proposal.kind,
+                source_count=len(proposal.source_refs),
+            )
         )
         return review
 
     def review_decide(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
         decided = self.store.decide_review(review_id, decision, reason)
+        proposal = self.store.get_proposal(decided.proposal_id)
         self.store.add_audit_event(
             audit_event(
                 "review.decide",
                 "review",
                 review_id,
+                proposal_id=decided.proposal_id,
+                run_id=proposal.run_id,
+                proposal_kind=proposal.kind,
+                source_count=len(proposal.source_refs),
                 decision=decided.decision,
                 status=decided.status,
                 reason=reason,
@@ -161,9 +175,16 @@ class WorkflowService:
                 "memory.apply",
                 "review",
                 review_id,
+                proposal_id=proposal.proposal_id,
+                run_id=proposal.run_id,
+                proposal_kind=proposal.kind,
                 applied=result.applied,
                 memory_target_id=result.target_id,
                 backend=result.backend,
+                layer=proposal.memory_patch.layer,
+                confidence=proposal.memory_patch.confidence,
+                source_count=len(proposal.memory_patch.source_refs),
+                source_refs=to_jsonable(proposal.memory_patch.source_refs),
             )
         )
         return result

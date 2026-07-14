@@ -101,7 +101,8 @@ work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions; exports include
 the work product, source manifest, supporting context, and traceability
 metadata, and create workflow audit records. Activity shows the recent audit
-trail. Upload, parsing,
+trail, including review and memory apply records with proposal, run, and source
+trace metadata. Upload, parsing,
 embedding, indexing, and optional graph extraction readiness remain visible
 states rather than hidden side effects. After upload, the Knowledge Bases view
 can start parsing for loaded unready documents, open optional document
