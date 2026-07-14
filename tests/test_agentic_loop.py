@@ -144,6 +144,36 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertTrue(result["memory_apply"]["applied"])
         self.assertEqual(len(service.memory_search("automatic governed memory")), 1)
 
+    def test_reviewed_memory_influences_later_agentic_questions(self):
+        service = build_fake_service()
+        run_agentic_question(
+            service,
+            question="Remember reusable durable policy context",
+            dataset_ids=["demo"],
+            proposal_kind="memory_patch",
+            workspace_policy=WorkspaceGovernancePolicy(durable_memory=AUTO_APPLY),
+        )
+
+        result = run_agentic_question(
+            service,
+            question="Use reusable durable policy context",
+            dataset_ids=["demo"],
+            proposal_kind="writing_brief",
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(len(result["memory_facts"]), 1)
+        self.assertEqual(result["artifact"]["traceability"]["memory_count"], 1)
+        self.assertEqual(result["artifact"]["memory_facts"][0]["fact_id"], result["memory_facts"][0]["fact_id"])
+        self.assertIn("Durable workspace memory", result["proposal"]["body"])
+        memory_step = next(step for step in result["loop"]["steps"] if step["name"] == "memory.search")
+        self.assertEqual(memory_step["metadata"]["returned_count"], 1)
+        memory_search_events = [
+            event for event in service.store.list_audit_events() if event.action == "memory.search"
+        ]
+        self.assertGreaterEqual(len(memory_search_events), 2)
+        self.assertEqual(memory_search_events[-1].metadata["count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

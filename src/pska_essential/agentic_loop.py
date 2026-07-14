@@ -93,6 +93,15 @@ def run_agentic_question(
     )
     steps.extend(preflight_steps or [])
 
+    memory_facts = service.memory_search(normalized_question, scope, limit=max(1, limit))
+    add_step(
+        "memory.search",
+        "complete",
+        "Searched governed durable workspace memory.",
+        returned_count=len(memory_facts),
+    )
+    _save_memory_context(service, run.run_id, memory_facts)
+
     retrieved: list[ContextPacket] = []
     target_context = max(1, min_context_packets)
     iteration_count = max(1, max_iterations)
@@ -142,6 +151,7 @@ def run_agentic_question(
             policy=policy,
             requested_governance_action=governance_action,
             context_count=len(retrieved),
+            memory_count=len(memory_facts),
             required_context_count=target_context,
             message=message,
         )
@@ -164,6 +174,7 @@ def run_agentic_question(
             "review": None,
             "review_decision": None,
             "memory_apply": None,
+            "memory_facts": to_jsonable(memory_facts),
             "brief": "",
             "loop": loop,
             "message": message,
@@ -222,6 +233,7 @@ def run_agentic_question(
         governance_action=governance_action,
         policy=policy,
         context_count=len(retrieved),
+        memory_count=len(memory_facts),
         proposal_id=proposal.proposal_id,
         review_id=review.review_id if review else "",
         memory_apply_target_id=memory_apply.target_id if memory_apply else "",
@@ -261,6 +273,7 @@ def run_agentic_question(
         "review": review_payload,
         "review_decision": to_jsonable(review_decision) if review_decision else None,
         "memory_apply": to_jsonable(memory_apply) if memory_apply else None,
+        "memory_facts": to_jsonable(memory_facts),
         "artifact": artifact,
         "brief": brief,
         "loop": loop,
@@ -300,6 +313,12 @@ def _loop_summary(
 def _save_loop_metadata(service: WorkflowService, run_id: str, loop: dict[str, Any]) -> None:
     run = service.state(run_id)
     run.metadata["agentic_loop"] = to_jsonable(loop)
+    service.store.save_workflow(run)
+
+
+def _save_memory_context(service: WorkflowService, run_id: str, memory_facts: list[Any]) -> None:
+    run = service.state(run_id)
+    run.metadata["memory_context"] = to_jsonable(memory_facts)
     service.store.save_workflow(run)
 
 

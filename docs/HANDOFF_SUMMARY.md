@@ -105,12 +105,16 @@ Implemented:
   optional graph retrieval within selected scope.
 - Graph retrieval is passed through PSKA retrieval options to adapters, including
   the RAGFlow HTTP retrieval path, and is visible in loop/audit metadata.
+- Ask searches governed durable memory through the memory adapter and keeps
+  matched memory facts separate from external source retrieval.
 - Ask returns `insufficient_context` without proposal/review/export when
   retrieved context remains below the required context count.
 - Successful Ask prepares a transient sourced brief/artifact without creating
   workflow export audit records.
 - Ask persists the agentic loop summary on workflow metadata, including
   governance action, durable/transient status, review requirement, and steps.
+- Writing shows matched durable memory facts alongside source context when a run
+  is reopened.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
@@ -170,7 +174,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 57 tests pass.
+- `make test`: 58 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
@@ -179,6 +183,8 @@ Expected result:
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Adapter/Workflow/Product API tests cover graph retrieval hint propagation to
   RAGFlow retrieval and audit/loop metadata.
+- Agentic loop/Product API tests cover reviewed memory influencing later Ask
+  runs without replacing external retrieval requirements.
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Product API tests cover audit action filtering.
 - Workflow/Product API/MCP tests cover source-read audit records.

@@ -90,14 +90,18 @@ including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, and optional graph retrieval inside the selected scope.
 Graph retrieval is passed through PSKA retrieval contracts as a scoped hint and
-is visible in loop steps and audit metadata. If the required context count is
-not met, Ask returns `insufficient_context`, shows any retrieved partial
-context, and does not create a proposal, review, or export. Successful Ask
-results prepare a transient sourced brief and artifact without creating workflow
-export audit records. Ask results can jump directly to Writing or Review and can
-apply accepted memory patches through Product API.
+is visible in loop steps and audit metadata. Ask also searches governed durable
+memory and keeps those facts separate from external source retrieval, so memory
+can inform later work without satisfying source readiness or context minimums.
+If the required context count is not met, Ask returns `insufficient_context`,
+shows any retrieved partial context, and does not create a proposal, review, or
+export. Successful Ask results prepare a transient sourced brief and artifact
+without creating workflow export audit records. Ask results can jump directly to
+Writing or Review and can apply accepted memory patches through Product API.
 Review decisions and memory apply actions refresh the current Ask/Writing
 state, and applied memory state is served back through Review API records.
+Later Ask runs can find applied memory through the memory adapter and Writing
+shows matched durable memory alongside source context.
 Reader inspects sources through Product API only. Writing opens workflow state,
 work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions; exports include

@@ -817,6 +817,7 @@ function renderWriting() {
   const latestProposal = state.currentBrief.proposal || artifact.latest_proposal || null;
   const sourceManifest = artifact.source_manifest || [];
   const contextPackets = artifact.context_packets || run.context_packets || [];
+  const memoryFacts = artifact.memory_facts || state.currentBrief.memory_facts || [];
   const review = state.currentBrief.review || {};
   const memoryApply = state.currentBrief.memory_apply || (review.review_id && state.memoryApplyByReview[review.review_id]);
   container.append(
@@ -844,6 +845,14 @@ function renderWriting() {
   const loop = run.metadata && run.metadata.agentic_loop;
   if (loop && loop.steps) {
     container.append(loopPanel({ loop }));
+  }
+  if (!state.currentBrief.brief && memoryFacts.length) {
+    container.append(
+      el("div", { className: "panel" }, [
+        el("h2", {}, "Durable Memory"),
+        el("div", { className: "source-list" }, memoryFacts.map((fact) => memoryFactCard(fact))),
+      ]),
+    );
   }
   if (!state.currentBrief.brief && sourceManifest.length) {
     container.append(
@@ -944,6 +953,19 @@ function contextCard(packet) {
       el("span", { className: "tag" }, shortId(sourceRef.document_id || sourceRef.source_id || "")),
       el("span", { className: "tag" }, `score ${Number(packet.score || 0).toFixed(2)}`),
     ]),
+  ]);
+}
+
+function memoryFactCard(fact) {
+  const sourceRefs = fact.source_refs || [];
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, fact.fact_id || "Memory"), el("p", {}, fact.text || "")]),
+      el("span", { className: "tag" }, `sources ${sourceRefs.length}`),
+    ]),
+    sourceRefs.length
+      ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
+      : null,
   ]);
 }
 
@@ -1130,6 +1152,9 @@ function auditSummary(event) {
   if (event.action === "memory.apply") {
     return `Applied durable memory through ${metadata.backend || "memory backend"}.`;
   }
+  if (event.action === "memory.search") {
+    return `Searched durable memory and found ${metadata.count || 0} fact(s).`;
+  }
   if (event.action === "review.decide") {
     return `Review ${metadata.decision || metadata.status || "decided"}.`;
   }
@@ -1163,6 +1188,7 @@ async function openWritingRun(runId) {
         latest_proposal: state.currentAskResult.proposal,
         proposals: state.currentAskResult.proposal ? [state.currentAskResult.proposal] : [],
         context_packets: state.currentAskResult.context_packets || [],
+        memory_facts: state.currentAskResult.memory_facts || [],
         source_manifest: [],
       },
       brief: state.currentAskResult.brief || "",
@@ -1171,6 +1197,7 @@ async function openWritingRun(runId) {
       review: state.currentAskResult.review,
       review_decision: state.currentAskResult.review_decision,
       memory_apply: state.currentAskResult.memory_apply,
+      memory_facts: state.currentAskResult.memory_facts || [],
     };
     renderWriting();
     document.querySelector('.nav-item[data-view="writing"]').click();

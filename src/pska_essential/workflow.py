@@ -107,6 +107,7 @@ class WorkflowService:
         if not run.context_packets:
             raise WorkflowError("cannot propose without retrieved context")
         source_refs = _unique_source_refs([packet.source_ref for packet in run.context_packets])
+        source_refs = _unique_source_refs([*source_refs, *_memory_source_refs(run)])
         if not source_refs:
             raise WorkflowError("cannot propose without source refs")
         proposal_id = f"prop_{uuid4().hex}"
@@ -176,7 +177,19 @@ class WorkflowService:
         return decided
 
     def memory_search(self, query: str, scope: dict[str, Any] | None = None, limit: int = 10) -> list[MemoryFact]:
-        return self.memory.search(query, dict(scope or {}), limit)
+        search_scope = dict(scope or {})
+        facts = self.memory.search(query, search_scope, limit)
+        self.store.add_audit_event(
+            audit_event(
+                "memory.search",
+                "memory_scope",
+                ",".join(str(item) for item in search_scope.get("dataset_ids", [])) or "workspace",
+                query=query,
+                count=len(facts),
+                scope=search_scope,
+            )
+        )
+        return facts
 
     def memory_apply(self, review_id: str) -> MemoryApplyResult:
         existing = self.store.get_memory_apply(review_id)
@@ -261,6 +274,7 @@ class WorkflowService:
         fmt: str,
     ) -> str | dict[str, Any]:
         source_manifest = artifact["source_manifest"]
+        memory_facts = artifact.get("memory_facts") or []
         if fmt == "json":
             return artifact
         lines = [
@@ -316,6 +330,10 @@ class WorkflowService:
             lines.append("")
         else:
             lines.extend(["No source manifest is available for this workflow.", ""])
+        if memory_facts:
+            lines.extend(["## Durable Workspace Memory", ""])
+            for index, fact in enumerate(memory_facts, start=1):
+                lines.extend([f"### Memory [{index}] `{fact.get('fact_id') or ''}`", "", str(fact.get("text") or ""), ""])
         lines.extend(["## Supporting Context", ""])
         for index, packet in enumerate(run.context_packets, start=1):
             title = packet.title or packet.source_ref.title or packet.context_id
@@ -336,6 +354,7 @@ class WorkflowService:
         proposal_payload = [
             to_jsonable(self.store.get_proposal(proposal_id)) for proposal_id in run.proposal_ids
         ]
+        memory_facts = list(run.metadata.get("memory_context") or [])
         source_manifest = _source_manifest(run.context_packets)
         return {
             "run": to_jsonable(run),
@@ -344,8 +363,10 @@ class WorkflowService:
             "latest_proposal": proposal_payload[-1] if proposal_payload else None,
             "source_manifest": source_manifest,
             "context_packets": packet_payload,
+            "memory_facts": memory_facts,
             "traceability": {
                 "context_count": len(packet_payload),
+                "memory_count": len(memory_facts),
                 "proposal_count": len(proposal_payload),
                 "source_count": len(source_manifest),
             },
@@ -384,12 +405,16 @@ def build_fake_service(db_path: str = ":memory:") -> WorkflowService:
 
 def _compose_body(kind: str, run: WorkflowRun, intent: str) -> str:
     snippets = "\n".join(f"- {packet.text[:500]}" for packet in run.context_packets)
+    memory_snippets = "\n".join(
+        f"- {str(fact.get('text') or '')[:500]}" for fact in run.metadata.get("memory_context", [])
+    )
     purpose = intent or run.intent
+    memory_section = f"\n\nDurable workspace memory:\n{memory_snippets}" if memory_snippets else ""
     if kind == "digest":
-        return f"Digest candidate for: {purpose}\n\nGrounded points:\n{snippets}"
+        return f"Digest candidate for: {purpose}\n\nGrounded points:\n{snippets}{memory_section}"
     if kind == "writing_brief":
-        return f"Writing brief for: {purpose}\n\nUse these grounded notes:\n{snippets}"
-    return f"Reviewed memory candidate for: {purpose}\n\n{snippets}"
+        return f"Writing brief for: {purpose}\n\nUse these grounded notes:\n{snippets}{memory_section}"
+    return f"Reviewed memory candidate for: {purpose}\n\n{snippets}{memory_section}"
 
 
 def _proposal_title(kind: str, intent: str) -> str:
@@ -436,6 +461,14 @@ def _source_manifest(packets: list[ContextPacket]) -> list[dict[str, Any]]:
             }
         )
     return manifest
+
+
+def _memory_source_refs(run: WorkflowRun) -> list[SourceRef]:
+    refs: list[SourceRef] = []
+    for fact in run.metadata.get("memory_context", []):
+        for source_ref in fact.get("source_refs") or []:
+            refs.append(SourceRef.from_dict(source_ref))
+    return refs
 
 
 def _source_display_id(ref: SourceRef) -> str:

@@ -193,6 +193,21 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(applied["applied"]["applied"])
         applied_again = self._post_json(f"/api/reviews/{review_id}/apply-memory", {})
         self.assertEqual(applied_again["applied"]["target_id"], applied["applied"]["target_id"])
+        followup = self._post_json(
+            "/api/ask",
+            {
+                "question": "Use governed memory",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+        self.assertEqual(followup["status"], "ready")
+        self.assertEqual(len(followup["memory_facts"]), 1)
+        self.assertEqual(followup["artifact"]["traceability"]["memory_count"], 1)
+        self.assertIn("Durable workspace memory", followup["proposal"]["body"])
+        memory_audit = self._get_json("/api/audit?limit=10&action=memory.search")
+        self.assertEqual(memory_audit["events"][0]["metadata"]["count"], 1)
         late_decision = self._post_json_error(
             f"/api/reviews/{review_id}/decision",
             {"decision": "reject", "reason": "too late"},
@@ -437,6 +452,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("audit-action-filter", html)
         self.assertIn("source.read", html)
         self.assertIn("review-status-filter", html)
+        self.assertIn("memory.search", html)
         self.assertIn("needs_edit", html)
         self.assertIn("ask-dataset-picker", html)
         self.assertIn("ask-document-picker", html)
@@ -488,6 +504,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('loop.review_required', script)
         self.assertIn('loop.durable_proposal', script)
         self.assertIn('container.append(loopPanel({ loop }));', script)
+        self.assertIn('memoryFactCard', script)
+        self.assertIn('artifact.memory_facts', script)
+        self.assertIn('Durable Memory', script)
+        self.assertIn('memory.search', script)
         self.assertIn('/parse', script)
         self.assertIn('/readiness', script)
         self.assertIn('diagnosticCard', script)
