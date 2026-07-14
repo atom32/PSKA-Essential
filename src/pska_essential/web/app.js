@@ -73,6 +73,7 @@ function bindForms() {
     event.currentTarget.reset();
     showToast("Knowledge base created.");
     await loadDatasets();
+    await loadWorkspaceStatus();
     await loadAuditEvents("kb.dataset.create");
   });
 
@@ -101,6 +102,7 @@ function bindForms() {
         startIngestionPolling(datasetId);
       }
     }
+    await loadWorkspaceStatus();
   });
 
   document.getElementById("document-status-form").addEventListener("submit", async (event) => {
@@ -158,6 +160,7 @@ async function applyAskResult(result, options = {}) {
   await loadPendingReviews();
   await loadWorkflows();
   await loadResumableAsks();
+  await loadWorkspaceStatus();
   await loadAuditEvents(auditActionForAskResult(result));
   renderHome();
   if (options.toast) {
@@ -760,6 +763,7 @@ async function parseActiveDocuments() {
     startIngestionPolling(datasetId);
   }
   await loadDocuments(datasetId, { silent: true });
+  await loadWorkspaceStatus();
   await loadAuditEvents("kb.parse");
 }
 
@@ -817,6 +821,7 @@ function startIngestionPolling(datasetId) {
     try {
       const documents = await loadDocuments(datasetId, { silent: true });
       await loadDatasets();
+      await loadWorkspaceStatus();
       const summary = summarizeDocuments(documents);
       if (["ready", "failed", "empty"].includes(summary.status)) {
         stopIngestionPolling();
@@ -1695,6 +1700,7 @@ async function resumeAskRun(runId) {
 
 async function refreshBlockedAskReadiness(runId) {
   await loadResumableAsks();
+  await loadWorkspaceStatus();
   const record = resumableAskFor(runId);
   if (record && state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.run_id === runId) {
     state.currentAskResult.readiness = record.readiness || state.currentAskResult.readiness;
@@ -1833,6 +1839,7 @@ async function createMemoryReviewFromRun(runId = "") {
   await loadReviews();
   await loadPendingReviews();
   await loadWorkflows();
+  await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
   renderCurrentResultSurfaces();
   showToast("Memory review created.");
@@ -1928,6 +1935,7 @@ async function decideReview(reviewId, decision, reason) {
   showToast(`Review ${decision}.`);
   await loadReviews();
   await loadPendingReviews();
+  await loadWorkspaceStatus();
   await loadAuditEvents("review.decide");
   renderCurrentResultSurfaces();
 }
@@ -1944,6 +1952,7 @@ async function reviseReview(reviewId, intent) {
   state.reviewView = [payload.review, ...state.reviewView.filter((review) => review.review_id !== payload.review.review_id)];
   await loadReviews();
   await loadPendingReviews();
+  await loadWorkspaceStatus();
   await loadAuditEvents("review.revise");
   renderCurrentResultSurfaces();
   showToast("Review revision created.");
@@ -1956,6 +1965,7 @@ async function applyMemory(reviewId) {
   showToast(memoryApplyToast(payload.applied));
   await loadReviews();
   await loadPendingReviews();
+  await loadWorkspaceStatus();
   await loadAuditEvents(action);
   renderCurrentResultSurfaces();
 }
@@ -1970,6 +1980,7 @@ async function createMemoryUpdateReview(fact, text, reason) {
   setReviewStatusFilter("");
   await loadReviews();
   await loadPendingReviews();
+  await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
   showToast("Memory update review created.");
@@ -1985,6 +1996,7 @@ async function createMemoryDeleteReview(fact, reason) {
   setReviewStatusFilter("");
   await loadReviews();
   await loadPendingReviews();
+  await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
   showToast("Memory delete review created.");

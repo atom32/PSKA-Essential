@@ -280,6 +280,8 @@ Use `pska_workspace_status` or `GET /api/workspace/status` for the same
 product-level next-action summary from Hermes or the frontend without exposing
 provider APIs. Each returned action includes stable PSKA tool/API/view hints
 and safe parameters, such as ready dataset IDs or the relevant review/run ID.
+The frontend refreshes this summary after KB, Ask, review, and memory actions
+so Home does not keep stale guidance.
 
 Use `pska_retrieval_probe` or `POST /api/runtime/retrieval-probe` against a
 selected ready dataset when RAGFlow is reachable but Ask still fails at

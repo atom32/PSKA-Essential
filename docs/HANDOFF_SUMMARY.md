@@ -186,7 +186,8 @@ Implemented:
   next actions for ready Ask scopes, ingestion waits, resumable Ask workflows,
   pending reviews, and accepted durable memory awaiting apply. Next actions
   include PSKA tool/API/view hints and safe parameters for Hermes/frontend
-  navigation without provider direct access.
+  navigation without provider direct access, and the frontend refreshes this
+  status after mutating KB, Ask, review, and memory actions.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
