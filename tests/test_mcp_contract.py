@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "pska_memory_search",
     "pska_memory_apply",
     "pska_export_brief",
+    "pska_audit_list",
     "pska_eval_run",
     "pska_kb_create",
     "pska_kb_document_status",
@@ -66,9 +67,27 @@ class McpContractTests(unittest.TestCase):
         exported = tools["pska_export_brief"](run["run_id"], "markdown")
         self.assertIn("PSKA-Essential Brief", exported)
         self.assertIn("workflow.export", [event.action for event in service.store.list_audit_events()])
+        audit = tools["pska_audit_list"](limit=10)
+        filtered = tools["pska_audit_list"](action="source.read", limit=10)
+        self.assertEqual(audit[0]["action"], "workflow.export")
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["action"], "source.read")
         source_read = next(event for event in service.store.list_audit_events() if event.action == "source.read")
         self.assertEqual(source_read.metadata["adapter"], "fake")
         self.assertEqual(source_read.metadata["document_id"], packets[0]["source_ref"]["document_id"])
+
+    def test_audit_list_supports_ascending_order(self):
+        tools = tool_registry(build_fake_service())
+        run = tools["pska_workflow_start"]("audit order", {"dataset_ids": ["demo"]})
+        packets = tools["pska_context_retrieve"]("adapter review", run_id=run["run_id"], limit=1)
+        tools["pska_source_read"](packets[0]["source_ref"])
+        tools["pska_propose"](run["run_id"], "writing_brief", "audit order")
+        tools["pska_export_brief"](run["run_id"], "markdown")
+
+        audit = tools["pska_audit_list"](descending=False)
+
+        self.assertEqual(audit[0]["action"], "workflow.start")
+        self.assertEqual(audit[-1]["action"], "workflow.export")
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         tools = tool_registry(build_fake_service())

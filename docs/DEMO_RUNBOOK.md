@@ -81,6 +81,7 @@ pska_memory_apply("<review_id>")
 pska_workflow_artifact("<run_id>")
 pska_workflow_brief("<run_id>", "markdown")
 pska_export_brief("<run_id>", "markdown")
+pska_audit_list(limit=20)
 ```
 
 If RAGFlow structure compilation was configured before parsing, inspect the

@@ -129,6 +129,8 @@ Implemented:
   workflow service, covering both Product API and MCP source reads.
 - Workflow-level export audit records and frontend Activity audit trail with
   Product API action filtering.
+- MCP exposes `pska_audit_list` so Hermes can inspect PSKA audit records without
+  direct database or provider access.
 - Frontend Knowledge Base create, upload, and parse actions refresh Activity
   after source-operation audit records are written.
 - Frontend user operations focus Activity on their matching audit action
@@ -162,7 +164,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 53 tests pass.
+- `make test`: 54 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
@@ -174,7 +176,7 @@ Expected result:
 - Workflow/Product API/MCP tests cover source-read audit records.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 23 PSKA MCP tools.
+- `make list-tools`: lists 24 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -209,6 +211,7 @@ pska_review_get
 pska_review_decide
 pska_memory_apply
 pska_export_brief
+pska_audit_list
 ```
 
 This loop lets Hermes upload local documents into a RAGFlow-backed dataset,

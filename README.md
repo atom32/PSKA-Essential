@@ -150,6 +150,7 @@ Operational loop tools:
 - `pska_review_list`
 - `pska_review_get`
 - `pska_export_brief`
+- `pska_audit_list`
 
 These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 

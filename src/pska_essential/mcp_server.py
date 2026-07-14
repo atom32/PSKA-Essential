@@ -74,6 +74,15 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_export_brief(run_id: str, format: str = "markdown"):
         return service.export_brief(run_id, format)
 
+    def pska_audit_list(action: str | None = None, limit: int = 50, descending: bool = True):
+        return to_jsonable(
+            service.store.list_audit_events(
+                action=action or None,
+                limit=limit,
+                descending=descending,
+            )
+        )
+
     def pska_eval_run(suite: str = "smoke"):
         return service.eval_run(suite)
 
@@ -233,6 +242,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_search": pska_memory_search,
         "pska_memory_apply": pska_memory_apply,
         "pska_export_brief": pska_export_brief,
+        "pska_audit_list": pska_audit_list,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,
         "pska_kb_create": pska_kb_create,

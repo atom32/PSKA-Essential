@@ -52,6 +52,7 @@ The public tool surface is:
 - `pska_memory_search`
 - `pska_memory_apply`
 - `pska_export_brief`
+- `pska_audit_list`
 - `pska_eval_run`
 - `pska_kb_list`
 - `pska_kb_create`
