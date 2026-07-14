@@ -121,6 +121,8 @@ Implemented:
 - Workflow-level export audit records and frontend Activity audit trail.
 - Review and memory apply audit records carry proposal, run, and source trace
   metadata for durable knowledge writes.
+- Reviews become immutable after durable memory has been applied; further
+  durable changes require a new proposal/review.
 - Writing opens workflow state, work product, source manifest, and context
   without export side effects; Markdown and JSON buttons perform explicit
   exports.

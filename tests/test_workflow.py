@@ -42,6 +42,14 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(memory_apply.metadata["source_count"], len(proposal.source_refs))
         self.assertEqual(memory_apply.metadata["source_refs"][0]["adapter"], "fake")
 
+        with self.assertRaisesRegex(WorkflowError, "after durable memory has been applied"):
+            service.review_decide(review.review_id, "reject", "too late")
+        self.assertEqual(service.store.get_review(review.review_id)["status"], "accepted")
+        review_decide_events = [
+            event for event in service.store.list_audit_events() if event.action == "review.decide"
+        ]
+        self.assertEqual(len(review_decide_events), 1)
+
     def test_export_brief_uses_workflow_context(self):
         service = build_fake_service()
         run = service.start("brief workflow", {"dataset_ids": ["demo"]})

@@ -210,7 +210,9 @@ inside the selected scope. If the required context count is not met, Ask returns
 `insufficient_context`, shows any retrieved partial context, and does not create
 a proposal, review, or export. Review decisions and memory apply actions refresh
 the current Ask/Writing state, and applied memory state is served back through
-Review API records. Activity shows the recent audit trail, including workflow
+Review API records. Once durable memory has been applied, the accepted review
+decision is locked; future changes require a new proposal and review. Activity
+shows the recent audit trail, including workflow
 export records from explicit export actions and review/memory apply records
 with proposal, run, and source trace metadata. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`

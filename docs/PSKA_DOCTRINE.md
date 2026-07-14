@@ -17,7 +17,7 @@ workspaces, datasets, schemas, prompts, and templates, not hardcoded branches.
 - Agentic loop first-class: questions may plan, retrieve, inspect sources,
   retrieve again, synthesize, propose, and review inside PSKA boundaries.
 - Review before memory: candidate knowledge cannot write long-term memory until
-  a review decision accepts it.
+  a review decision accepts it, and that decision is locked after memory apply.
 - Explicit readiness: upload, parsing, embedding, indexing, and graph extraction
   are asynchronous states, not instant side effects.
 - No silent fallback: missing or failing providers must produce explicit errors.

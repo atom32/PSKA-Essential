@@ -103,3 +103,5 @@ retrieve -> propose(memory_patch) -> review_create -> review_decide(accept) -> m
 ```
 
 `memory_apply` must fail when the review is pending, rejected, or needs edit.
+Once reviewed memory has been applied, the review decision is immutable; later
+changes require a new governed proposal rather than rewriting the old decision.

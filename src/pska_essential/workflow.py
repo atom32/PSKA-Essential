@@ -135,6 +135,8 @@ class WorkflowService:
         return review
 
     def review_decide(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
+        if self.store.get_memory_apply(review_id):
+            raise WorkflowError("cannot change review decision after durable memory has been applied")
         decided = self.store.decide_review(review_id, decision, reason)
         proposal = self.store.get_proposal(decided.proposal_id)
         self.store.add_audit_event(

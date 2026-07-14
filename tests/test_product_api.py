@@ -173,6 +173,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(applied["applied"]["applied"])
         applied_again = self._post_json(f"/api/reviews/{review_id}/apply-memory", {})
         self.assertEqual(applied_again["applied"]["target_id"], applied["applied"]["target_id"])
+        late_decision = self._post_json_error(
+            f"/api/reviews/{review_id}/decision",
+            {"decision": "reject", "reason": "too late"},
+        )
+        self.assertEqual(late_decision["status"], 400)
+        self.assertIn("after durable memory has been applied", late_decision["body"]["error"]["message"])
 
         accepted_reviews = self._get_json("/api/reviews?status=accepted")
         self.assertEqual(accepted_reviews["reviews"][0]["memory_apply"]["target_id"], applied["applied"]["target_id"])
@@ -427,6 +433,23 @@ class ProductApiTests(unittest.TestCase):
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
             self.fail(exc.read().decode("utf-8"))
+
+    def _post_json_error(self, path: str, payload: dict) -> dict:
+        data = json.dumps(payload).encode("utf-8")
+        request = Request(
+            f"{self.base_url}{path}",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=5) as response:
+                self.fail(f"expected HTTP error, got {response.status}")
+        except HTTPError as exc:
+            return {
+                "status": exc.code,
+                "body": json.loads(exc.read().decode("utf-8")),
+            }
 
 
 if __name__ == "__main__":

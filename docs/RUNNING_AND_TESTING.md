@@ -120,6 +120,10 @@ Durable memory governance modes:
   memory application explicit.
 - `auto_apply`: create and accept a review, then apply memory through policy.
 
+After durable memory has been applied, the accepted review decision is locked.
+Changing durable knowledge requires a new proposal and review instead of
+rewriting the applied decision.
+
 ### 4. Adapter Integration Development
 
 RAGFlow and Graphiti run independently. PSKA-Essential only receives env vars
