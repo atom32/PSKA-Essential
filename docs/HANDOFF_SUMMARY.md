@@ -174,7 +174,8 @@ Implemented:
   queue shows cited sources with Product API Reader actions and can open the
   originating Writing workflow context.
 - Review cards show status-specific actions: pending decisions, accepted memory
-  apply, `needs_edit` revision, and closed rejected reviews.
+  apply, applied memory lifecycle history, `needs_edit` revision, and closed
+  rejected reviews.
 - After a review decision, the frontend keeps the decided review visible so the
   next action is available.
 - Durable memory review creation, acceptance, and apply all refuse source-less

@@ -1759,6 +1759,11 @@ function reviewCard(review) {
   if (locked) {
     actions.append(el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)));
     actions.append(el("span", { className: "tag" }, "Locked"));
+    if (memoryApply.target_id) {
+      actions.append(
+        el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(memoryApply.target_id) }, "History"),
+      );
+    }
   } else if (review.status === "pending") {
     actions.append(
       reason,

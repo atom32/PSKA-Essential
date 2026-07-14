@@ -1012,6 +1012,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('Applied Durable Knowledge', script)
         self.assertIn('memoryApplyCard', script)
         self.assertIn('openMemoryLifecycle(memoryApply.target_id)', script)
+        self.assertIn('if (memoryApply.target_id) {\n      actions.append(\n        el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(memoryApply.target_id) }, "History"),\n      );\n    }', script)
         self.assertIn('syncReviewDecision', script)
         self.assertIn('state.focusReviewId = reviewId;', script)
         self.assertIn('if (payload.decision && payload.decision.status) {\n    setReviewStatusFilter("");\n  }', script)
