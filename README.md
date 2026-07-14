@@ -278,7 +278,8 @@ recover the blocked state after ingestion continues. Users and agents can resume
 that blocked Ask from the stored workflow when the selected scope becomes ready;
 the resumed Ask creates a new audited workflow linked back to the blocked run.
 The Ask result view can refresh the blocked workflow's readiness and enable
-resume in place when the scope becomes ready.
+resume in place when the scope becomes ready, or track readiness and resume
+automatically after a user starts tracking.
 Users can also turn an existing sourced workflow into a durable memory review
 through an explicit Memory Review action; this creates a memory candidate and
 governed review path without re-retrieval or direct memory write, following the

@@ -20,6 +20,7 @@ const state = {
   activeDocuments: [],
   readinessByDataset: {},
   ingestionPoll: null,
+  blockedAskPoll: null,
   askDocumentsByDataset: {},
   auditAction: "",
   reviewStatus: "",
@@ -905,11 +906,23 @@ function askResultActions(result) {
     if (result.status === "not_ready") {
       const fresh = resumableAskFor(result.run.run_id);
       const canResume = fresh ? Boolean(fresh.can_resume) : Boolean(result.readiness && result.readiness.ready);
+      const tracking = state.blockedAskPoll && state.blockedAskPoll.runId === result.run.run_id;
       actions.append(
         el(
           "button",
           { className: "secondary-button", onclick: () => refreshBlockedAskReadiness(result.run.run_id) },
           "Check Readiness",
+        ),
+      );
+      actions.append(
+        el(
+          "button",
+          {
+            className: "secondary-button",
+            onclick: () => startBlockedAskTracking(result.run.run_id),
+            ...(tracking ? { disabled: true } : {}),
+          },
+          tracking ? "Tracking..." : "Track & Resume",
         ),
       );
       actions.append(
@@ -1582,6 +1595,7 @@ async function openWorkflowRun(runId) {
 }
 
 async function resumeAskRun(runId) {
+  stopBlockedAskTracking(runId);
   const result = await api(`/api/workflows/${encodeURIComponent(runId)}/resume-ask`, { method: "POST", body: {} });
   await applyAskResult(result, {
     toast: result.status === "ready" ? "Ask resumed." : "Knowledge scope is still not ready.",
@@ -1598,6 +1612,55 @@ async function refreshBlockedAskReadiness(runId) {
     renderAskResult(state.currentAskResult);
   }
   showToast(record && record.can_resume ? "Knowledge scope is ready to resume." : "Knowledge scope is still processing.");
+  return record || null;
+}
+
+function startBlockedAskTracking(runId) {
+  stopBlockedAskTracking();
+  state.blockedAskPoll = {
+    runId,
+    attempts: 0,
+    maxAttempts: 120,
+    timer: null,
+  };
+  renderAskResult(state.currentAskResult || {});
+  showToast("Tracking readiness for this Ask.");
+  state.blockedAskPoll.timer = window.setInterval(async () => {
+    if (!state.blockedAskPoll || state.blockedAskPoll.runId !== runId) return;
+    state.blockedAskPoll.attempts += 1;
+    try {
+      const record = await refreshBlockedAskReadiness(runId);
+      if (record && record.can_resume) {
+        stopBlockedAskTracking(runId);
+        showToast("Knowledge scope is ready; resuming Ask.");
+        await resumeAskRun(runId);
+      } else if (state.blockedAskPoll && state.blockedAskPoll.attempts >= state.blockedAskPoll.maxAttempts) {
+        stopBlockedAskTracking(runId);
+        showToast("Readiness tracking paused.");
+      }
+    } catch (error) {
+      stopBlockedAskTracking(runId);
+      showToast(error.message);
+    }
+  }, 2500);
+}
+
+function stopBlockedAskTracking(runId = "") {
+  if (runId && state.blockedAskPoll && state.blockedAskPoll.runId !== runId) return;
+  const stoppedRunId = state.blockedAskPoll && state.blockedAskPoll.runId;
+  if (state.blockedAskPoll && state.blockedAskPoll.timer) {
+    window.clearInterval(state.blockedAskPoll.timer);
+  }
+  state.blockedAskPoll = null;
+  if (
+    stoppedRunId &&
+    state.currentAskResult &&
+    state.currentAskResult.status === "not_ready" &&
+    state.currentAskResult.run &&
+    state.currentAskResult.run.run_id === stoppedRunId
+  ) {
+    renderAskResult(state.currentAskResult);
+  }
 }
 
 async function openWritingRun(runId) {

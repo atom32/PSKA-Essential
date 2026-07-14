@@ -133,6 +133,9 @@ Implemented:
   to resume.
 - The frontend Ask result can refresh a readiness-blocked workflow in place and
   enable Resume Ask once the selected KB scope becomes ready.
+- The frontend Ask result also supports user-started `Track & Resume`, polling
+  readiness and automatically resuming the stored Ask when the scope becomes
+  ready.
 - Successful Ask prepares a transient sourced brief/artifact without creating
   workflow export audit records.
 - Ask persists the agentic loop summary on workflow metadata, including
