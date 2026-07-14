@@ -25,6 +25,7 @@ class _QueryRecordingRetrieval:
 
     def __init__(self) -> None:
         self.queries: list[str] = []
+        self.source_reads: list[SourceRef] = []
 
     def retrieve(self, query, scope, limit, options=None):
         self.queries.append(query)
@@ -39,7 +40,8 @@ class _QueryRecordingRetrieval:
         ]
 
     def read_source(self, source_ref):
-        return SourceContext(source_ref=source_ref, text="Recorded query source")
+        self.source_reads.append(source_ref)
+        return SourceContext(source_ref=source_ref, text=f"Recorded query source for {source_ref.document_id}")
 
 
 class AgenticLoopTests(unittest.TestCase):
@@ -85,18 +87,26 @@ class AgenticLoopTests(unittest.TestCase):
             limit=1,
             max_iterations=3,
             min_context_packets=3,
+            source_inspection_limit=2,
             proposal_kind="writing_brief",
         )
 
         self.assertEqual(result["status"], "ready")
         self.assertEqual(retrieval.queries, ["Primary question", "Secondary angle", "Tertiary angle"])
+        self.assertEqual([ref.document_id for ref in retrieval.source_reads], ["doc-1", "doc-2"])
         self.assertEqual(result["loop"]["retrieval_query_plan"], retrieval.queries)
         retrieve_steps = [step for step in result["loop"]["steps"] if step["name"] == "context.retrieve"]
         self.assertEqual([step["metadata"]["query"] for step in retrieve_steps], retrieval.queries)
+        source_step = next(step for step in result["loop"]["steps"] if step["name"] == "source.inspect")
+        self.assertEqual(source_step["metadata"]["inspected_count"], 2)
+        self.assertEqual(result["artifact"]["traceability"]["source_inspection_count"], 2)
+        self.assertEqual(len(result["artifact"]["source_inspections"]), 2)
         ask_request = service.state(result["run"]["run_id"]).metadata["ask_request"]
         self.assertEqual(ask_request["retrieval_queries"], ["Secondary angle", "Tertiary angle"])
+        self.assertEqual(ask_request["source_inspection_limit"], 2)
         context_events = service.store.list_audit_events(action="context.retrieve")
         self.assertEqual([event.metadata["query"] for event in context_events], retrieval.queries)
+        self.assertEqual(len(service.store.list_audit_events(action="source.read")), 2)
 
     def test_durable_memory_patch_creates_review_even_when_caller_does_not_force_it(self):
         service = build_fake_service()

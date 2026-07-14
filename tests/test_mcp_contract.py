@@ -212,6 +212,7 @@ class McpContractTests(unittest.TestCase):
                 max_iterations=2,
                 min_context_packets=2,
                 retrieval_queries=["Adapter Boundary"],
+                source_inspection_limit=1,
                 proposal_kind="memory_patch",
             )
         self.assertEqual(len(result["context_packets"]), 2)
@@ -219,6 +220,9 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(result["review"]["status"], "pending")
         self.assertEqual(result["loop"]["retrieval_query_plan"][1], "Adapter Boundary")
         self.assertEqual(result["run"]["metadata"]["ask_request"]["retrieval_queries"], ["Adapter Boundary"])
+        self.assertEqual(result["run"]["metadata"]["ask_request"]["source_inspection_limit"], 1)
+        source_step = next(step for step in result["loop"]["steps"] if step["name"] == "source.inspect")
+        self.assertEqual(source_step["metadata"]["inspected_count"], 1)
         self.assertIn("kb.readiness", [step["name"] for step in result["loop"]["steps"]])
         self.assertIn("Memory changes still require", result["note"])
 
@@ -262,6 +266,7 @@ class McpContractTests(unittest.TestCase):
             "max_iterations": 1,
             "min_context_packets": 1,
             "retrieval_queries": ["resume query"],
+            "source_inspection_limit": 0,
         }
         service.store.save_workflow(run)
         tools = tool_registry(service)
@@ -278,6 +283,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(resumed["resumed_from_run_id"], run.run_id)
         self.assertEqual(resumed["run"]["metadata"]["ask_request"]["question"], "Resume this Ask")
         self.assertEqual(resumed["run"]["metadata"]["ask_request"]["retrieval_queries"], ["resume query"])
+        self.assertEqual(resumed["run"]["metadata"]["ask_request"]["source_inspection_limit"], 0)
         self.assertEqual(resumed["run"]["metadata"]["resumed_from_run_id"], run.run_id)
         self.assertIn("Resumed Ask created", resumed["note"])
         audit_actions = [event.action for event in service.store.list_audit_events()]

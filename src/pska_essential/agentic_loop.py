@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from pska_essential.audit import audit_event
-from pska_essential.contracts import ContextPacket, to_jsonable, utc_now_iso
+from pska_essential.contracts import ContextPacket, SourceContext, SourceRef, to_jsonable, utc_now_iso
 from pska_essential.governance import (
     AUTO_ACCEPT,
     AUTO_APPLY,
@@ -29,6 +29,7 @@ def run_agentic_question(
     max_iterations: int = 2,
     min_context_packets: int = 1,
     retrieval_queries: list[str] | None = None,
+    source_inspection_limit: int = 3,
     workspace_policy: WorkspaceGovernancePolicy | None = None,
     preflight_steps: list[dict[str, Any]] | None = None,
     resumed_from_run_id: str | None = None,
@@ -56,6 +57,8 @@ def run_agentic_question(
         raise ValueError("dataset_ids is required")
     if limit < 1:
         raise ValueError("limit must be greater than 0")
+    if source_inspection_limit < 0:
+        raise ValueError("source_inspection_limit must be greater than or equal to 0")
 
     query_plan = _retrieval_query_plan(normalized_question, retrieval_queries)
     policy = workspace_policy or build_workspace_policy_from_env()
@@ -77,6 +80,7 @@ def run_agentic_question(
         max_iterations=max_iterations,
         min_context_packets=min_context_packets,
         retrieval_queries=query_plan[1:],
+        source_inspection_limit=source_inspection_limit,
     )
     _save_ask_request(service, run.run_id, ask_request, resumed_from_run_id=resumed_from_run_id)
     run = service.state(run.run_id)
@@ -223,6 +227,15 @@ def run_agentic_question(
         }
 
     add_step("context.inspect", "complete", "Supporting context is available.", unique_count=len(retrieved))
+    source_inspections = _inspect_sources(service, run.run_id, retrieved, source_inspection_limit)
+    add_step(
+        "source.inspect",
+        "complete",
+        "Inspected retrieved source material.",
+        requested_limit=source_inspection_limit,
+        inspected_count=len(source_inspections),
+        source_refs=[to_jsonable(item.source_ref) for item in source_inspections],
+    )
     proposal = service.propose(run.run_id, normalized_kind, normalized_question)
     add_step(
         "proposal.create",
@@ -276,6 +289,7 @@ def run_agentic_question(
         policy=policy,
         context_count=len(retrieved),
         memory_count=len(memory_facts),
+        source_inspection_count=len(source_inspections),
         proposal_id=proposal.proposal_id,
         review_id=review.review_id if review else "",
         memory_apply_target_id=memory_apply.target_id if memory_apply else "",
@@ -340,6 +354,7 @@ def record_not_ready_agentic_question(
     max_iterations: int = 2,
     min_context_packets: int = 1,
     retrieval_queries: list[str] | None = None,
+    source_inspection_limit: int = 3,
     workspace_policy: WorkspaceGovernancePolicy | None = None,
     resumed_from_run_id: str | None = None,
 ) -> dict[str, Any]:
@@ -358,6 +373,8 @@ def record_not_ready_agentic_question(
         raise ValueError("question is required")
     if not scope["dataset_ids"]:
         raise ValueError("dataset_ids is required")
+    if source_inspection_limit < 0:
+        raise ValueError("source_inspection_limit must be greater than or equal to 0")
     query_plan = _retrieval_query_plan(normalized_question, retrieval_queries)
     result = build_not_ready_ask_result(
         question=normalized_question,
@@ -381,6 +398,7 @@ def record_not_ready_agentic_question(
         max_iterations=max_iterations,
         min_context_packets=min_context_packets,
         retrieval_queries=query_plan[1:],
+        source_inspection_limit=source_inspection_limit,
     )
     _save_ask_request(service, run.run_id, ask_request, resumed_from_run_id=resumed_from_run_id)
     run = service.state(run.run_id)
@@ -447,6 +465,7 @@ def run_agentic_question_with_readiness(
     max_iterations: int = 2,
     min_context_packets: int = 1,
     retrieval_queries: list[str] | None = None,
+    source_inspection_limit: int = 3,
     resumed_from_run_id: str | None = None,
 ) -> dict[str, Any]:
     readiness = evaluate_kb_readiness(
@@ -468,6 +487,7 @@ def run_agentic_question_with_readiness(
             max_iterations=max_iterations,
             min_context_packets=min_context_packets,
             retrieval_queries=retrieval_queries,
+            source_inspection_limit=source_inspection_limit,
             resumed_from_run_id=resumed_from_run_id,
         )
         service.store.add_audit_event(
@@ -498,6 +518,7 @@ def run_agentic_question_with_readiness(
         max_iterations=max_iterations,
         min_context_packets=min_context_packets,
         retrieval_queries=retrieval_queries,
+        source_inspection_limit=source_inspection_limit,
         preflight_steps=[build_readiness_loop_step(readiness)],
         resumed_from_run_id=resumed_from_run_id,
     )
@@ -525,6 +546,7 @@ def resume_agentic_question(service: WorkflowService, gateway: Any, *, run_id: s
         max_iterations=int(ask_request.get("max_iterations") or 2),
         min_context_packets=int(ask_request.get("min_context_packets") or 1),
         retrieval_queries=[str(item) for item in ask_request.get("retrieval_queries") or []],
+        source_inspection_limit=int(ask_request["source_inspection_limit"]) if "source_inspection_limit" in ask_request else 3,
         resumed_from_run_id=run_id,
     )
     service.store.add_audit_event(
@@ -617,6 +639,13 @@ def _save_memory_context(service: WorkflowService, run_id: str, memory_facts: li
     service.store.save_workflow(run)
 
 
+def _save_source_inspections(service: WorkflowService, run_id: str, source_inspections: list[SourceContext]) -> None:
+    run = service.state(run_id)
+    run.metadata["source_inspections"] = to_jsonable(source_inspections)
+    run.updated_at = utc_now_iso()
+    service.store.save_workflow(run)
+
+
 def _save_ask_request(
     service: WorkflowService,
     run_id: str,
@@ -642,6 +671,7 @@ def _ask_request(
     max_iterations: int,
     min_context_packets: int,
     retrieval_queries: list[str],
+    source_inspection_limit: int,
 ) -> dict[str, Any]:
     return {
         "question": question,
@@ -654,6 +684,7 @@ def _ask_request(
         "max_iterations": max_iterations,
         "min_context_packets": min_context_packets,
         "retrieval_queries": list(retrieval_queries),
+        "source_inspection_limit": source_inspection_limit,
     }
 
 
@@ -694,4 +725,40 @@ def _unique_context_packets(packets: list[ContextPacket]) -> list[ContextPacket]
             continue
         seen.add(key)
         result.append(packet)
+    return result
+
+
+def _inspect_sources(
+    service: WorkflowService,
+    run_id: str,
+    packets: list[ContextPacket],
+    limit: int,
+) -> list[SourceContext]:
+    if limit <= 0:
+        _save_source_inspections(service, run_id, [])
+        return []
+    refs = _unique_source_refs([packet.source_ref for packet in packets])
+    source_inspections = [service.source_read(ref) for ref in refs[:limit]]
+    _save_source_inspections(service, run_id, source_inspections)
+    return source_inspections
+
+
+def _unique_source_refs(source_refs: list[SourceRef]) -> list[SourceRef]:
+    seen: set[str] = set()
+    result: list[SourceRef] = []
+    for ref in source_refs:
+        key = "|".join(
+            [
+                ref.adapter,
+                ref.dataset_id or "",
+                ref.document_id or "",
+                ref.chunk_id or "",
+                ref.source_id or "",
+                ref.external_id or "",
+            ]
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(ref)
     return result

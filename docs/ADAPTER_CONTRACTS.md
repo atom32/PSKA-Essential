@@ -119,6 +119,10 @@ write memory/graph state before review. Additional retrieval rounds may use
 explicit `retrieval_queries` supplied by the user or agent; PSKA records the
 query plan and each scoped retrieval step, but must not add domain-specific
 query expansion in runtime code.
+After retrieval, PSKA may inspect a bounded number of unique retrieved
+`SourceRef`s through the retrieval adapter. Source inspection is transient
+workflow evidence, records `source.inspect` loop metadata, and uses normal
+`source.read` audit records.
 If readiness blocks the selected scope, PSKA must persist the blocked workflow,
 surface it through a resumable Ask list with a fresh readiness check, and allow
 a later resume to create a new audited Ask workflow from the stored request.

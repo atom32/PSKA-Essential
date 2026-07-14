@@ -273,6 +273,9 @@ def _handler_class(state: ProductApiState):
                     max_iterations=int(payload.get("max_iterations") or 2),
                     min_context_packets=int(payload.get("min_context_packets") or 1),
                     retrieval_queries=retrieval_queries,
+                    source_inspection_limit=(
+                        int(payload["source_inspection_limit"]) if "source_inspection_limit" in payload else 3
+                    ),
                 )
                 self._send_json({"ok": True, **result})
                 return

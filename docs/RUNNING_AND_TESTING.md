@@ -98,6 +98,10 @@ required context count, explicit additional retrieval queries, and optional
 graph retrieval inside the selected scope. Additional retrieval queries are
 provided by the user or agent, stored with the workflow request, and recorded in
 loop steps; PSKA does not add runtime case-specific query expansion.
+Ask also inspects a bounded number of unique retrieved sources through the
+retrieval adapter. Source inspection snippets are stored on the workflow
+artifact and `source.read` audit records are written through the same service
+path as manual Reader actions.
 Settings loads `/api/policy` to show the workspace governance policy, including
 durable proposal kinds, durable-memory action, available modes, and the rule
 that transient results skip durable governance.

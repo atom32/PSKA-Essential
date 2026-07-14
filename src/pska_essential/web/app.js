@@ -118,6 +118,7 @@ function bindForms() {
       max_iterations: Number(form.get("max_iterations") || 2),
       min_context_packets: Number(form.get("min_context_packets") || 1),
       retrieval_queries: splitLines(form.get("retrieval_queries")),
+      source_inspection_limit: Number(form.get("source_inspection_limit") || 3),
       proposal_kind: form.get("proposal_kind"),
       use_kg: Boolean(form.get("use_kg")),
     };
@@ -972,6 +973,7 @@ function renderWriting() {
   const artifact = state.currentBrief.artifact || {};
   const latestProposal = state.currentBrief.proposal || artifact.latest_proposal || null;
   const sourceManifest = artifact.source_manifest || [];
+  const sourceInspections = artifact.source_inspections || [];
   const contextPackets = artifact.context_packets || run.context_packets || [];
   const memoryFacts = artifact.memory_facts || state.currentBrief.memory_facts || [];
   const review = state.currentBrief.review || {};
@@ -1007,6 +1009,14 @@ function renderWriting() {
       el("div", { className: "panel" }, [
         el("h2", {}, "Durable Memory"),
         el("div", { className: "source-list" }, memoryFacts.map((fact) => memoryFactCard(fact))),
+      ]),
+    );
+  }
+  if (!state.currentBrief.brief && sourceInspections.length) {
+    container.append(
+      el("div", { className: "panel" }, [
+        el("h2", {}, "Inspected Sources"),
+        el("div", { className: "source-list" }, sourceInspections.map((source) => sourceInspectionCard(source))),
       ]),
     );
   }
@@ -1167,6 +1177,22 @@ function sourceManifestCard(source) {
       source.dataset_id ? el("span", { className: "tag" }, shortId(source.dataset_id)) : null,
       source.document_id ? el("span", { className: "tag" }, shortId(source.document_id)) : null,
       el("span", { className: "tag" }, `score ${Number(source.score || 0).toFixed(2)}`),
+    ]),
+  ]);
+}
+
+function sourceInspectionCard(source) {
+  const sourceRef = source.source_ref || {};
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, sourceRef.title || sourceRef.document_id || "Source"), el("p", {}, source.text || "")]),
+      sourceRef.adapter ? el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, "Source") : null,
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, sourceRef.adapter || "adapter"),
+      sourceRef.dataset_id ? el("span", { className: "tag" }, shortId(sourceRef.dataset_id)) : null,
+      sourceRef.document_id ? el("span", { className: "tag" }, shortId(sourceRef.document_id)) : null,
+      sourceRef.chunk_id ? el("span", { className: "tag" }, shortId(sourceRef.chunk_id)) : null,
     ]),
   ]);
 }

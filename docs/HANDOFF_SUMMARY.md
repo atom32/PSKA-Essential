@@ -108,6 +108,9 @@ Implemented:
 - Agentic Ask supports explicit additional retrieval queries from the user or
   agent; PSKA records the query plan and each scoped retrieval step without
   adding runtime case-specific query expansion.
+- Agentic Ask inspects a bounded number of unique retrieved sources through the
+  retrieval adapter, stores source inspection snippets on the workflow artifact,
+  and writes normal `source.read` audit records.
 - Graph retrieval is passed through PSKA retrieval options to adapters, including
   the RAGFlow HTTP retrieval path, and is visible in loop/audit metadata.
 - Ask searches governed durable memory through the memory adapter and keeps
@@ -229,6 +232,8 @@ Expected result:
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Agentic loop/Product API/MCP tests cover explicit retrieval query plans and
   source-coordinate de-duplication across query rounds.
+- Agentic loop/Product API/MCP tests cover bounded source inspection and
+  persisted source inspection limits.
 - Adapter/Workflow/Product API tests cover graph retrieval hint propagation to
   RAGFlow retrieval and audit/loop metadata.
 - Agentic loop/Product API tests cover reviewed memory influencing later Ask
@@ -322,8 +327,8 @@ The frontend includes Home, Knowledge Bases, Ask, Reader, Writing, Review,
 Activity, and Settings. It calls only same-origin `/api/...` routes, shows
 explicit Ask loop steps including KB readiness, lets users pick dataset/document
 scope through Product API, tunes loop max iterations, required context count,
-explicit additional retrieval queries, and optional graph retrieval inside
-selected scope, opens sources through
+explicit additional retrieval queries, bounded source inspection, and optional
+graph retrieval inside selected scope, opens sources through
 Product API Reader, loads workspace policy from `/api/policy`, opens workflow
 state, work product, source manifest, and context in Writing without export side
 effects, restores persisted loop

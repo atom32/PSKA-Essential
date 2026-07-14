@@ -69,12 +69,14 @@ For a new document:
 4. If you already know useful follow-up angles, pass them as
    `retrieval_queries`; PSKA will run them inside the same explicit scope and
    record the query plan.
-5. If context is insufficient, retrieve again within the same explicit scope or
+5. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
+   inspect through adapters during Ask.
+6. If context is insufficient, retrieve again within the same explicit scope or
    report that the question cannot be answered from the selected materials.
-6. Answer from the returned context, artifact, and brief.
-7. If a memory patch or deletion was proposed, wait for human acceptance before
+7. Answer from the returned context, inspected sources, artifact, and brief.
+8. If a memory patch or deletion was proposed, wait for human acceptance before
    applying it.
-8. Use `pska_export_brief` only when the user asks for an explicit export.
+9. Use `pska_export_brief` only when the user asks for an explicit export.
 
 ## Good Prompt
 

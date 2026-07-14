@@ -366,6 +366,7 @@ class ProductApiTests(unittest.TestCase):
                 "max_iterations": 2,
                 "min_context_packets": 2,
                 "retrieval_queries": ["Adapter Boundary"],
+                "source_inspection_limit": 1,
                 "proposal_kind": "writing_brief",
                 "use_kg": True,
             },
@@ -381,6 +382,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(retrieve_steps[1]["metadata"]["query"], "Adapter Boundary")
         self.assertEqual(asked["loop"]["retrieval_query_plan"][1], "Adapter Boundary")
         self.assertEqual(asked["run"]["metadata"]["ask_request"]["retrieval_queries"], ["Adapter Boundary"])
+        self.assertEqual(asked["run"]["metadata"]["ask_request"]["source_inspection_limit"], 1)
+        source_step = next(step for step in asked["loop"]["steps"] if step["name"] == "source.inspect")
+        self.assertEqual(source_step["metadata"]["inspected_count"], 1)
+        self.assertEqual(asked["artifact"]["traceability"]["source_inspection_count"], 1)
+        self.assertEqual(len(asked["artifact"]["source_inspections"]), 1)
         self.assertTrue(all(step["metadata"]["use_kg"] for step in retrieve_steps))
         context_audit = self._get_json("/api/audit?limit=10&action=context.retrieve")
         self.assertTrue(context_audit["events"][0]["metadata"]["use_kg"])
@@ -745,6 +751,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("min_context_packets", html)
         self.assertIn("retrieval_queries", html)
         self.assertIn("Additional Retrieval Queries", html)
+        self.assertIn("source_inspection_limit", html)
+        self.assertIn("Source Inspect", html)
         self.assertIn("use_kg", html)
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
@@ -766,6 +774,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("min_context_packets", script)
         self.assertIn("retrieval_queries: splitLines", script)
         self.assertIn("function splitLines", script)
+        self.assertIn("source_inspection_limit", script)
         self.assertIn("use_kg", script)
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/audit?limit=50', script)
@@ -816,6 +825,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('container.append(loopPanel({ loop }));', script)
         self.assertIn('memoryFactCard', script)
         self.assertIn('artifact.memory_facts', script)
+        self.assertIn('sourceInspectionCard', script)
+        self.assertIn('artifact.source_inspections', script)
+        self.assertIn('Inspected Sources', script)
         self.assertIn('Durable Memory', script)
         self.assertIn('memory.search', script)
         self.assertIn('/parse', script)

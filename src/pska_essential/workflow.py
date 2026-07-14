@@ -631,6 +631,7 @@ class WorkflowService:
             to_jsonable(self.store.get_proposal(proposal_id)) for proposal_id in run.proposal_ids
         ]
         memory_facts = list(run.metadata.get("memory_context") or [])
+        source_inspections = list(run.metadata.get("source_inspections") or [])
         source_manifest = _source_manifest(run.context_packets)
         memory_source_manifest = _memory_source_manifest(memory_facts)
         return {
@@ -640,10 +641,12 @@ class WorkflowService:
             "latest_proposal": proposal_payload[-1] if proposal_payload else None,
             "source_manifest": source_manifest,
             "context_packets": packet_payload,
+            "source_inspections": source_inspections,
             "memory_facts": memory_facts,
             "memory_source_manifest": memory_source_manifest,
             "traceability": {
                 "context_count": len(packet_payload),
+                "source_inspection_count": len(source_inspections),
                 "memory_count": len(memory_facts),
                 "memory_source_count": len(memory_source_manifest),
                 "proposal_count": len(proposal_payload),
