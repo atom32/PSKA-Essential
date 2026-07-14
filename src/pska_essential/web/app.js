@@ -731,14 +731,29 @@ function askResultActions(result) {
 }
 
 function loopPanel(result) {
-  const governanceAction = ((result.loop || {}).governance || {}).action;
+  const loop = result.loop || {};
+  const governanceAction = (loop.governance || {}).action;
+  const tags = [];
+  if (loop.status) tags.push(el("span", { className: `tag ${statusClass(loop.status)}` }, loop.status));
+  if (governanceAction) tags.push(el("span", { className: "tag" }, governanceAction));
+  if (loop.durable_proposal !== undefined) {
+    tags.push(el("span", { className: `tag ${loop.durable_proposal ? "pending" : "ready"}` }, loop.durable_proposal ? "durable" : "transient"));
+  }
+  if (loop.review_required !== undefined) {
+    tags.push(el("span", { className: `tag ${loop.review_required ? "pending" : "ready"}` }, loop.review_required ? "review required" : "no review"));
+  }
   return el("div", { className: "panel" }, [
-    el("h2", {}, "Loop"),
-    governanceAction ? el("p", {}, `Governance action: ${governanceAction}`) : null,
+    el("div", { className: "panel-header" }, [
+      el("h2", {}, "Loop"),
+      tags.length ? el("div", { className: "meta-row" }, tags) : null,
+    ]),
+    loop.context_count !== undefined
+      ? el("p", {}, `Context packets: ${loop.context_count}${loop.required_context_count ? ` / required ${loop.required_context_count}` : ""}`)
+      : null,
     el(
       "div",
       { className: "source-list" },
-      ((result.loop && result.loop.steps) || []).map((step) => loopStepCard(step)),
+      (loop.steps || []).map((step) => loopStepCard(step)),
     ),
   ]);
 }
@@ -828,7 +843,7 @@ function renderWriting() {
   );
   const loop = run.metadata && run.metadata.agentic_loop;
   if (loop && loop.steps) {
-    container.append(loopPanel({ loop: { steps: loop.steps, governance: {} } }));
+    container.append(loopPanel({ loop }));
   }
   if (!state.currentBrief.brief && sourceManifest.length) {
     container.append(

@@ -107,6 +107,8 @@ Implemented:
   retrieved context remains below the required context count.
 - Successful Ask prepares a transient sourced brief/artifact without creating
   workflow export audit records.
+- Ask persists the agentic loop summary on workflow metadata, including
+  governance action, durable/transient status, review requirement, and steps.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
@@ -239,8 +241,9 @@ explicit Ask loop steps including KB readiness, lets users pick dataset/document
 scope through Product API, tunes loop max iterations, required context count,
 and optional graph retrieval inside selected scope, opens sources through
 Product API Reader, opens workflow state, work product, source manifest, and
-context in Writing without export side effects, opens related review items, and
-can apply accepted memory patches. Explicit exports produce traceable
+context in Writing without export side effects, restores persisted loop
+governance/status details, opens related review items, and can apply accepted
+memory patches. Explicit exports produce traceable
 Markdown/JSON work products with source manifests, supporting context, and
 traceability metadata, include the workflow export audit event, and create
 workflow export audit records. Review

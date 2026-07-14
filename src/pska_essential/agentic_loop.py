@@ -123,7 +123,19 @@ def run_agentic_question(
             required_count=target_context,
             unique_count=len(retrieved),
         )
-        _save_loop_metadata(service, run.run_id, "insufficient_context", steps)
+        loop = _loop_summary(
+            status="insufficient_context",
+            steps=steps,
+            review_required=False,
+            durable_proposal=durable_proposal,
+            governance_action="skip",
+            policy=policy,
+            requested_governance_action=governance_action,
+            context_count=len(retrieved),
+            required_context_count=target_context,
+            message=message,
+        )
+        _save_loop_metadata(service, run.run_id, loop)
         service.store.add_audit_event(
             audit_event(
                 "agentic_loop.insufficient_context",
@@ -143,15 +155,7 @@ def run_agentic_question(
             "review_decision": None,
             "memory_apply": None,
             "brief": "",
-            "loop": {
-                "steps": steps,
-                "review_required": False,
-                "governance": {
-                    "action": "skip",
-                    "policy": policy.to_dict(),
-                    "durable_proposal": durable_proposal,
-                },
-            },
+            "loop": loop,
             "message": message,
         }
 
@@ -199,10 +203,22 @@ def run_agentic_question(
     else:
         add_step("review.skip", "complete", "No review required for transient output.")
 
+    add_step("brief.prepare", "complete", "Prepared transient sourced brief.", format="markdown")
+    loop = _loop_summary(
+        status="ready",
+        steps=steps,
+        review_required=bool(review_required),
+        durable_proposal=durable_proposal,
+        governance_action=governance_action,
+        policy=policy,
+        context_count=len(retrieved),
+        proposal_id=proposal.proposal_id,
+        review_id=review.review_id if review else "",
+        memory_apply_target_id=memory_apply.target_id if memory_apply else "",
+    )
+    _save_loop_metadata(service, run.run_id, loop)
     brief = service.render_brief(run.run_id, "markdown")
     artifact = service.workflow_artifact(run.run_id)
-    add_step("brief.prepare", "complete", "Prepared transient sourced brief.", format="markdown")
-    _save_loop_metadata(service, run.run_id, "ready", steps)
     service.store.add_audit_event(
         audit_event(
             "agentic_loop.complete",
@@ -237,25 +253,43 @@ def run_agentic_question(
         "memory_apply": to_jsonable(memory_apply) if memory_apply else None,
         "artifact": artifact,
         "brief": brief,
-        "loop": {
-            "steps": steps,
-            "review_required": bool(review_required),
-            "durable_proposal": durable_proposal,
-            "governance": {
-                "action": governance_action,
-                "policy": policy.to_dict(),
-                "durable_proposal": durable_proposal,
-            },
-        },
+        "loop": loop,
     }
 
 
-def _save_loop_metadata(service: WorkflowService, run_id: str, status: str, steps: list[dict[str, Any]]) -> None:
-    run = service.state(run_id)
-    run.metadata["agentic_loop"] = {
+def _loop_summary(
+    *,
+    status: str,
+    steps: list[dict[str, Any]],
+    review_required: bool,
+    durable_proposal: bool,
+    governance_action: str,
+    policy: WorkspaceGovernancePolicy,
+    **metadata: Any,
+) -> dict[str, Any]:
+    loop = {
         "status": status,
         "steps": steps,
+        "review_required": review_required,
+        "durable_proposal": durable_proposal,
+        "governance": {
+            "action": governance_action,
+            "policy": policy.to_dict(),
+            "durable_proposal": durable_proposal,
+        },
     }
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and not value:
+            continue
+        loop[key] = value
+    return loop
+
+
+def _save_loop_metadata(service: WorkflowService, run_id: str, loop: dict[str, Any]) -> None:
+    run = service.state(run_id)
+    run.metadata["agentic_loop"] = to_jsonable(loop)
     service.store.save_workflow(run)
 
 

@@ -213,7 +213,9 @@ The bundled frontend exposes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. It is served by the Product API and uses only
 same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
-proposal creation, review creation or skipping, and transient brief preparation. Ask
+proposal creation, review creation or skipping, and transient brief preparation.
+Ask persists the loop summary on the workflow so Writing can reopen governance
+state, durable/transient status, review requirements, and steps later. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result
 actions for Writing, Review, and accepted memory application. Ask can tune loop
 depth with max iterations, required context count, and optional graph retrieval
