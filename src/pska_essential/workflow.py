@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 from uuid import uuid4
 
@@ -173,6 +174,9 @@ class WorkflowService:
         if fmt not in {"markdown", "json"}:
             raise WorkflowError("export format must be markdown or json")
         packet_payload = [to_jsonable(packet) for packet in run.context_packets]
+        proposals = [self.store.get_proposal(proposal_id) for proposal_id in run.proposal_ids]
+        proposal_payload = [to_jsonable(proposal) for proposal in proposals]
+        source_manifest = _source_manifest(run.context_packets)
         self.store.add_audit_event(
             audit_event(
                 "workflow.export",
@@ -180,20 +184,74 @@ class WorkflowService:
                 run_id,
                 format=fmt,
                 context_count=len(packet_payload),
+                proposal_count=len(proposal_payload),
+                source_count=len(source_manifest),
+                scope=run.scope,
             )
         )
         if fmt == "json":
-            return {"run": to_jsonable(run), "context_packets": packet_payload}
-        lines = [f"# PSKA-Essential Brief: {run.intent}", "", f"- Run: `{run.run_id}`", ""]
+            return {
+                "run": to_jsonable(run),
+                "scope": run.scope,
+                "proposals": proposal_payload,
+                "latest_proposal": proposal_payload[-1] if proposal_payload else None,
+                "source_manifest": source_manifest,
+                "context_packets": packet_payload,
+                "traceability": {
+                    "context_count": len(packet_payload),
+                    "proposal_count": len(proposal_payload),
+                    "source_count": len(source_manifest),
+                },
+            }
+        lines = [
+            f"# PSKA-Essential Brief: {run.intent}",
+            "",
+            f"- Run: `{run.run_id}`",
+            f"- Status: `{run.status}`",
+            f"- Scope: `{_json_inline(run.scope)}`",
+            f"- Source count: `{len(source_manifest)}`",
+            "",
+            "## Work Product",
+            "",
+        ]
+        if proposals:
+            latest = proposals[-1]
+            lines.extend([latest.body, ""])
+        else:
+            lines.extend(["No proposal has been created for this workflow.", ""])
+        lines.extend(["## Source Manifest", ""])
+        if source_manifest:
+            lines.extend(
+                [
+                    "| # | Title | Adapter | Dataset | Document | Chunk/Source | Score |",
+                    "| --- | --- | --- | --- | --- | --- | --- |",
+                ]
+            )
+            for source in source_manifest:
+                lines.append(
+                    "| {index} | {title} | {adapter} | {dataset_id} | {document_id} | {source_id} | {score} |".format(
+                        index=source["index"],
+                        title=_markdown_cell(source["title"]),
+                        adapter=_markdown_cell(source["adapter"]),
+                        dataset_id=_markdown_cell(source["dataset_id"]),
+                        document_id=_markdown_cell(source["document_id"]),
+                        source_id=_markdown_cell(source["source_id"]),
+                        score=f"{float(source['score']):.2f}",
+                    )
+                )
+            lines.append("")
+        else:
+            lines.extend(["No source manifest is available for this workflow.", ""])
+        lines.extend(["## Supporting Context", ""])
         for index, packet in enumerate(run.context_packets, start=1):
             title = packet.title or packet.source_ref.title or packet.context_id
             lines.extend(
                 [
-                    f"## {index}. {title}",
+                    f"### [{index}] {title}",
                     "",
                     packet.text,
                     "",
-                    f"Source: `{packet.source_ref.adapter}` / `{packet.source_ref.document_id or packet.source_ref.source_id or packet.source_ref.external_id or packet.source_ref.chunk_id}`",
+                    f"Source [{index}]: `{packet.source_ref.adapter}` / `{_source_display_id(packet.source_ref)}`",
                     "",
                 ]
             )
@@ -264,3 +322,45 @@ def _unique_source_refs(source_refs: list[SourceRef]) -> list[SourceRef]:
         seen.add(key)
         result.append(ref)
     return result
+
+
+def _source_manifest(packets: list[ContextPacket]) -> list[dict[str, Any]]:
+    manifest: list[dict[str, Any]] = []
+    for index, packet in enumerate(packets, start=1):
+        ref = packet.source_ref
+        manifest.append(
+            {
+                "index": index,
+                "context_id": packet.context_id,
+                "title": packet.title or ref.title or packet.context_id,
+                "adapter": ref.adapter,
+                "dataset_id": ref.dataset_id or "",
+                "document_id": ref.document_id or "",
+                "source_id": _source_display_id(ref),
+                "score": packet.score,
+                "source_ref": to_jsonable(ref),
+            }
+        )
+    return manifest
+
+
+def _source_display_id(ref: SourceRef) -> str:
+    parts = []
+    if ref.document_id:
+        parts.append(f"doc:{ref.document_id}")
+    if ref.chunk_id:
+        parts.append(f"chunk:{ref.chunk_id}")
+    if ref.source_id:
+        parts.append(f"source:{ref.source_id}")
+    if ref.external_id and ref.external_id not in {ref.document_id, ref.chunk_id, ref.source_id}:
+        parts.append(f"external:{ref.external_id}")
+    return " / ".join(parts)
+
+
+def _json_inline(value: Any) -> str:
+    return json.dumps(to_jsonable(value), ensure_ascii=False, sort_keys=True)
+
+
+def _markdown_cell(value: Any) -> str:
+    text = str(value or "")
+    return text.replace("|", "\\|").replace("\n", " ")

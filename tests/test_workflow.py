@@ -32,9 +32,24 @@ class WorkflowTests(unittest.TestCase):
         service = build_fake_service()
         run = service.start("brief workflow", {"dataset_ids": ["demo"]})
         service.context_retrieve(run.run_id, "adapter", 1)
+        proposal = service.propose(run.run_id, "writing_brief", "explain adapter boundaries")
+
         brief = service.export_brief(run.run_id, "markdown")
         self.assertIn("PSKA-Essential Brief", brief)
-        self.assertIn("Source:", brief)
+        self.assertIn("## Work Product", brief)
+        self.assertIn(proposal.body, brief)
+        self.assertIn("## Source Manifest", brief)
+        self.assertIn("| # | Title | Adapter | Dataset | Document | Chunk/Source | Score |", brief)
+        self.assertIn("## Supporting Context", brief)
+        self.assertIn("Source [1]:", brief)
+
+        json_export = service.export_brief(run.run_id, "json")
+        self.assertEqual(json_export["latest_proposal"]["proposal_id"], proposal.proposal_id)
+        self.assertEqual(json_export["traceability"]["context_count"], 1)
+        self.assertEqual(json_export["traceability"]["proposal_count"], 1)
+        self.assertEqual(json_export["traceability"]["source_count"], 1)
+        self.assertEqual(json_export["source_manifest"][0]["source_ref"]["adapter"], "fake")
+
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("workflow.export", audit_actions)
 
