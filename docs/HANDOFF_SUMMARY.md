@@ -150,6 +150,8 @@ Implemented:
   KB audit records through both Product API and MCP.
 - Source reads write explicit `source.read` audit records through the shared
   workflow service, covering both Product API and MCP source reads.
+- Product API fake mode covers upload -> Ask -> source read against the uploaded
+  document through the same PSKA API boundary.
 - Workflow-level export audit records and frontend Activity audit trail with
   Product API action filtering.
 - MCP exposes `pska_audit_list` so Hermes can inspect PSKA audit records without
@@ -188,10 +190,11 @@ make smoke
 
 Expected result:
 
-- `make test`: 61 tests pass.
+- `make test`: 62 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
-  graph read, dataset creation, parsing audit, and multipart document upload.
+  graph read, dataset creation, parsing audit, multipart document upload, and
+  fake upload-to-Ask source reads.
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, and review source trace display.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.

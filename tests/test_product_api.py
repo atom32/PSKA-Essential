@@ -9,7 +9,10 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
+from pska_essential.config import build_service_from_env
+from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.product_api import build_server
 from pska_essential.workflow import build_fake_service
 
@@ -637,6 +640,132 @@ class ProductApiTests(unittest.TestCase):
                 "status": exc.code,
                 "body": json.loads(exc.read().decode("utf-8")),
             }
+
+
+class ProductApiFakeUploadLoopTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.env_patch = patch.dict(
+            os.environ,
+            {
+                "PSKA_DEV_FAKE": "1",
+                "PSKA_RETRIEVAL_PROVIDER": "fake",
+                "PSKA_KB_PROVIDER": "fake",
+                "PSKA_MEMORY_PROVIDER": "fake",
+                "PSKA_REVIEW_DB": ":memory:",
+                "PSKA_WORKSPACE_ID": "",
+                "PSKA_TENANT_ID": "",
+            },
+            clear=True,
+        )
+        self.env_patch.start()
+        self.static_dir = tempfile.TemporaryDirectory()
+        Path(self.static_dir.name, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
+        self.server = build_server(
+            host="127.0.0.1",
+            port=0,
+            service=build_service_from_env(),
+            kb_gateway_factory=build_kb_gateway_from_env,
+            static_dir=self.static_dir.name,
+        )
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        self.static_dir.cleanup()
+        self.env_patch.stop()
+
+    def test_product_api_upload_ask_and_source_read_use_uploaded_fake_document(self):
+        dataset_name = f"Uploaded API Loop {uuid4().hex}"
+        unique_phrase = f"source governed API loop {uuid4().hex}"
+        ingested = self._post_multipart_ingest(
+            {
+                "dataset_name": dataset_name,
+                "parse": "true",
+                "wait": "false",
+            },
+            "loop-note.txt",
+            f"The uploaded document says {unique_phrase} before durable knowledge is written.",
+        )
+        dataset_id = ingested["ingest"]["dataset"]["dataset_id"]
+        document_id = ingested["ingest"]["documents"][0]["document_id"]
+
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": f"What does the uploaded document say about {unique_phrase}?",
+                "dataset_ids": [dataset_id],
+                "limit": 3,
+                "proposal_kind": "writing_brief",
+            },
+        )
+
+        self.assertEqual(asked["status"], "ready")
+        self.assertIsNone(asked["review"])
+        self.assertFalse(asked["loop"]["review_required"])
+        self.assertEqual(asked["context_packets"][0]["source_ref"]["dataset_id"], dataset_id)
+        self.assertEqual(asked["context_packets"][0]["source_ref"]["document_id"], document_id)
+        self.assertIn(unique_phrase, asked["context_packets"][0]["text"])
+        self.assertIn("loop-note.txt", asked["artifact"]["source_manifest"][0]["title"])
+
+        source = self._post_json("/api/sources/read", {"source_ref": asked["context_packets"][0]["source_ref"]})
+        self.assertIn(unique_phrase, source["source"]["text"])
+        source_audit = self._get_json("/api/audit?limit=10&action=source.read")
+        self.assertEqual(source_audit["events"][0]["metadata"]["document_id"], document_id)
+        ingest_audit = self._get_json("/api/audit?limit=10&action=kb.ingest")
+        self.assertEqual(ingest_audit["events"][0]["metadata"]["document_names"], ["loop-note.txt"])
+
+    def _post_multipart_ingest(self, fields: dict[str, str], filename: str, text: str) -> dict:
+        boundary = f"pska-test-{uuid4().hex}"
+        parts: list[bytes] = []
+        for name, value in fields.items():
+            parts.extend(
+                [
+                    f"--{boundary}\r\n".encode("utf-8"),
+                    f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                    value.encode("utf-8"),
+                    b"\r\n",
+                ]
+            )
+        parts.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode("utf-8"),
+                b"Content-Type: text/plain\r\n\r\n",
+                text.encode("utf-8"),
+                b"\r\n",
+                f"--{boundary}--\r\n".encode("utf-8"),
+            ]
+        )
+        request = Request(
+            f"{self.base_url}/api/kb/ingest",
+            data=b"".join(parts),
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            method="POST",
+        )
+        with urlopen(request, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def _get_json(self, path: str) -> dict:
+        with urlopen(f"{self.base_url}{path}", timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def _post_json(self, path: str, payload: dict) -> dict:
+        data = json.dumps(payload).encode("utf-8")
+        request = Request(
+            f"{self.base_url}{path}",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=5) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            self.fail(exc.read().decode("utf-8"))
 
 
 if __name__ == "__main__":
