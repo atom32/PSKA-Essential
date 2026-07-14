@@ -103,6 +103,8 @@ Implemented:
 - Frontend Ask scope picker for dataset/document selection through Product API.
 - Frontend Ask controls for loop max iterations, required context count, and
   optional graph retrieval within selected scope.
+- Ask returns `insufficient_context` without proposal/review/export when
+  retrieved context remains below the required context count.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
@@ -133,11 +135,12 @@ make smoke
 
 Expected result:
 
-- `make test`: 44 tests pass.
+- `make test`: 46 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, and multipart document upload.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
+- Product API and agentic loop tests cover partial-context insufficiency gating.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
 - `make list-tools`: lists 19 PSKA MCP tools.
@@ -206,7 +209,10 @@ diagnostics for review store, KB gateway, retrieval, and memory connectivity.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
-does not start retrieval. The Knowledge Bases view shows dataset/document
+does not start retrieval. If retrieved context remains below the required
+context count, Ask returns `insufficient_context`, shows any retrieved partial
+context, and does not create a proposal, review, or export. The Knowledge Bases
+view shows dataset/document
 readiness, can start parsing for loaded unready documents, can open optional
 document structure graph data through Product API, and automatically refreshes
 ingestion status.

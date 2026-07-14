@@ -198,6 +198,29 @@ class ProductApiTests(unittest.TestCase):
         retrieve_steps = [step for step in asked["loop"]["steps"] if step["name"] == "context.retrieve"]
         self.assertEqual(len(retrieve_steps), 2)
 
+    def test_ask_blocks_when_retrieved_context_is_below_minimum(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a sourced brief",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "max_iterations": 1,
+                "min_context_packets": 2,
+                "proposal_kind": "memory_patch",
+            },
+        )
+
+        self.assertEqual(asked["status"], "insufficient_context")
+        self.assertEqual(len(asked["context_packets"]), 1)
+        self.assertIsNone(asked["proposal"])
+        self.assertIsNone(asked["review"])
+        self.assertIn("2 required", asked["message"])
+        audit = self._get_json("/api/audit?limit=20")
+        actions = [event["action"] for event in audit["events"]]
+        self.assertIn("agentic_loop.insufficient_context", actions)
+        self.assertNotIn("workflow.export", actions)
+
     def test_readiness_route_reports_scope_status(self):
         readiness = self._post_json("/api/kb/readiness", {"dataset_ids": ["demo"]})["readiness"]
 
@@ -333,6 +356,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('syncMemoryApply', script)
         self.assertIn('Memory applied', script)
         self.assertIn('memory_apply', script)
+        self.assertIn('Retrieved Context', script)
         self.assertIn('parseActiveDocuments', script)
         self.assertIn('startIngestionPolling', script)
 

@@ -53,7 +53,8 @@ start question
 
 The loop can call retrieval multiple times, but it must never expand scope
 silently. If the selected context is insufficient, it should ask for a broader
-scope or return an explicit insufficient-context result.
+scope or return an explicit insufficient-context result without creating a
+proposal, review, durable knowledge change, or export.
 
 Transient answers, draft briefs, citations, source notes, and intermediate
 reasoning do not require review merely because AI produced them. Governance is

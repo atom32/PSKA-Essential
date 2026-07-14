@@ -591,6 +591,19 @@ function renderAskResult(result) {
         el("p", {}, result.message || "No context was retrieved from the selected scope."),
       ]),
     );
+    container.append(loopPanel(result));
+    if ((result.context_packets || []).length) {
+      container.append(
+        el("div", { className: "panel" }, [
+          el("h2", {}, "Retrieved Context"),
+          el(
+            "div",
+            { className: "source-list" },
+            (result.context_packets || []).map((packet) => contextCard(packet)),
+          ),
+        ]),
+      );
+    }
     return;
   }
   if (result.status === "not_ready") {

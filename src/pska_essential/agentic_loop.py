@@ -111,18 +111,37 @@ def run_agentic_question(
             unique_count=len(retrieved),
         )
 
-    if not retrieved:
-        add_step("context.inspect", "insufficient", "No supporting context was retrieved.")
+    if len(retrieved) < target_context:
+        if retrieved:
+            message = f"Only {len(retrieved)} supporting context packet(s) were retrieved; {target_context} required."
+        else:
+            message = "No context was retrieved from the selected scope."
+        add_step(
+            "context.inspect",
+            "insufficient",
+            message,
+            required_count=target_context,
+            unique_count=len(retrieved),
+        )
         _save_loop_metadata(service, run.run_id, "insufficient_context", steps)
         service.store.add_audit_event(
-            audit_event("agentic_loop.insufficient_context", "workflow", run.run_id, question=normalized_question)
+            audit_event(
+                "agentic_loop.insufficient_context",
+                "workflow",
+                run.run_id,
+                question=normalized_question,
+                required_count=target_context,
+                unique_count=len(retrieved),
+            )
         )
         return {
             "status": "insufficient_context",
             "run": to_jsonable(service.state(run.run_id)),
-            "context_packets": [],
+            "context_packets": to_jsonable(retrieved),
             "proposal": None,
             "review": None,
+            "review_decision": None,
+            "memory_apply": None,
             "brief": "",
             "loop": {
                 "steps": steps,
@@ -133,7 +152,7 @@ def run_agentic_question(
                     "durable_proposal": durable_proposal,
                 },
             },
-            "message": "No context was retrieved from the selected scope.",
+            "message": message,
         }
 
     add_step("context.inspect", "complete", "Supporting context is available.", unique_count=len(retrieved))

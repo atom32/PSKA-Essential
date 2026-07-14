@@ -69,6 +69,25 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertIsNone(result["review"])
         self.assertIn("No context", result["message"])
 
+    def test_partial_context_below_minimum_does_not_create_proposal(self):
+        service = build_fake_service()
+        result = run_agentic_question(
+            service,
+            question="Explain adapter boundaries",
+            dataset_ids=["demo"],
+            limit=1,
+            max_iterations=1,
+            min_context_packets=2,
+            proposal_kind="memory_patch",
+        )
+
+        self.assertEqual(result["status"], "insufficient_context")
+        self.assertEqual(len(result["context_packets"]), 1)
+        self.assertIsNone(result["proposal"])
+        self.assertIsNone(result["review"])
+        self.assertEqual(service.store.list_reviews(), [])
+        self.assertIn("2 required", result["message"])
+
     def test_auto_accept_policy_accepts_review_without_applying_memory(self):
         service = build_fake_service()
         result = run_agentic_question(
