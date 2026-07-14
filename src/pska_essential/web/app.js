@@ -214,12 +214,8 @@ async function loadDatasets() {
 async function loadReviews() {
   try {
     const payload = await api("/api/reviews");
-    state.reviews = payload.reviews || [];
-    state.reviews.forEach((review) => {
-      if (review.review_id && review.memory_apply) {
-        state.memoryApplyByReview[review.review_id] = review.memory_apply;
-      }
-    });
+    state.reviews = [];
+    (payload.reviews || []).forEach((review) => syncReviewRecord(review, { append: true }));
     renderReviews();
     renderHome();
   } catch (error) {
@@ -895,23 +891,43 @@ function sourceManifestCard(source) {
   ]);
 }
 
+function syncReviewRecord(review, options = {}) {
+  if (!review || !review.review_id) return false;
+  const index = state.reviews.findIndex((item) => item.review_id === review.review_id);
+  if (index >= 0) {
+    state.reviews[index] = review;
+  } else if (options.append) {
+    state.reviews.push(review);
+  } else {
+    state.reviews.unshift(review);
+  }
+  if (review.memory_apply) {
+    state.memoryApplyByReview[review.review_id] = review.memory_apply;
+  }
+  return true;
+}
+
 function reviewCard(review) {
   const proposal = review.proposal || {};
   const actions = el("div", { className: "review-actions" }, []);
   const reason = el("input", { placeholder: "Reason", value: "" });
   const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
-  actions.append(
-    reason,
-    el("button", { className: "primary-button", onclick: () => decideReview(review.review_id, "accept", reason.value) }, "Accept"),
-    el("button", { className: "secondary-button", onclick: () => decideReview(review.review_id, "edit", reason.value) }, "Edit"),
-    el("button", { className: "danger-button", onclick: () => decideReview(review.review_id, "reject", reason.value) }, "Reject"),
-  );
-  if (review.status === "accepted" && proposal.kind === "memory_patch" && !memoryApply) {
-    actions.append(
-      el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
-    );
-  } else if (memoryApply) {
+  const locked = Boolean(memoryApply);
+  if (locked) {
     actions.append(el("span", { className: "tag ready" }, "Memory applied"));
+    actions.append(el("span", { className: "tag" }, "Locked"));
+  } else {
+    actions.append(
+      reason,
+      el("button", { className: "primary-button", onclick: () => decideReview(review.review_id, "accept", reason.value) }, "Accept"),
+      el("button", { className: "secondary-button", onclick: () => decideReview(review.review_id, "edit", reason.value) }, "Edit"),
+      el("button", { className: "danger-button", onclick: () => decideReview(review.review_id, "reject", reason.value) }, "Reject"),
+    );
+    if (review.status === "accepted" && proposal.kind === "memory_patch") {
+      actions.append(
+        el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
+      );
+    }
   }
   return el("article", { className: review.review_id === state.focusReviewId ? "item-card highlighted" : "item-card" }, [
     el("header", {}, [
@@ -1033,7 +1049,12 @@ async function openWritingRun(runId) {
 
 async function openReview(reviewId) {
   state.focusReviewId = reviewId;
-  await loadReviews();
+  const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}`);
+  if (!syncReviewRecord(payload.review)) {
+    throw new Error("Review not found.");
+  }
+  renderReviews();
+  renderHome();
   document.querySelector('.nav-item[data-view="review"]').click();
   showToast("Review opened.");
 }

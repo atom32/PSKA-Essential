@@ -111,7 +111,8 @@ Implemented:
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
 - Review queues can be resumed through Product API single-review reads and MCP
-  `pska_review_list` / `pska_review_get`.
+  `pska_review_list` / `pska_review_get`; frontend Review actions now open exact
+  single-review Product API records by ID.
 - Frontend ingestion tracking: upload refreshes document status/readiness until
   terminal processing state.
 - Frontend parse action for loaded unready documents through Product API.
