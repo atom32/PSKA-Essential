@@ -15,6 +15,7 @@ from pska_essential.workflow import build_fake_service
 class _FakeGateway:
     def __init__(self) -> None:
         self.uploaded: list[dict[str, str]] = []
+        self.parse_calls: list[dict[str, object]] = []
         self.ready = True
 
     def list_datasets(self, *, name=None, page_size=30):
@@ -85,6 +86,7 @@ class _FakeGateway:
         ]
 
     def parse_documents(self, *, dataset_id, document_ids, wait=False, timeout_seconds=300.0):
+        self.parse_calls.append({"dataset_id": dataset_id, "document_ids": document_ids, "wait": wait})
         return {"backend": "fake-kb", "dataset_id": dataset_id, "document_ids": document_ids, "parse_started": True}
 
 
@@ -175,6 +177,15 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(readiness["ready"])
         self.assertEqual(readiness["dataset_ids"], ["demo"])
 
+    def test_parse_documents_route_uses_product_api_boundary(self):
+        parsed = self._post_json(
+            "/api/kb/datasets/demo/parse",
+            {"document_ids": ["doc-1"], "wait": False},
+        )
+
+        self.assertTrue(parsed["parse"]["parse_started"])
+        self.assertEqual(self.gateway.parse_calls, [{"dataset_id": "demo", "document_ids": ["doc-1"], "wait": False}])
+
     def test_ask_blocks_dataset_that_is_not_ready(self):
         self.gateway.ready = False
         asked = self._post_json(
@@ -223,12 +234,15 @@ class ProductApiTests(unittest.TestCase):
         script = Path("src/pska_essential/web/app.js").read_text(encoding="utf-8")
         self.assertIn("Source Reader", html)
         self.assertIn("ingestion-status", html)
+        self.assertIn("parse-documents", html)
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
         self.assertIn("Brief Workspace", html)
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/workflows?limit=20', script)
+        self.assertIn('/parse', script)
         self.assertIn('/readiness', script)
+        self.assertIn('parseActiveDocuments', script)
         self.assertIn('startIngestionPolling', script)
 
     def _get_text(self, path: str) -> str:

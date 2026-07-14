@@ -126,6 +126,7 @@ function bindForms() {
 function bindRefresh() {
   document.getElementById("refresh-all").addEventListener("click", refreshAll);
   document.getElementById("reload-datasets").addEventListener("click", loadDatasets);
+  document.getElementById("parse-documents").addEventListener("click", parseActiveDocuments);
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("export-markdown").addEventListener("click", () => exportCurrent("markdown"));
@@ -254,6 +255,7 @@ function renderDatasets() {
 
 function renderDocuments(documents) {
   renderList(document.getElementById("documents-list"), documents, "No documents loaded.", documentCard);
+  syncParseButton(documents);
 }
 
 function renderReviews() {
@@ -275,6 +277,39 @@ function renderIngestResult(result) {
     const statusForm = document.querySelector('#document-status-form input[name="dataset_id"]');
     if (statusForm) statusForm.value = datasetId;
   }
+}
+
+async function parseActiveDocuments() {
+  const field = document.querySelector('#document-status-form input[name="dataset_id"]');
+  const requestedDatasetId = field ? field.value.trim() : "";
+  const datasetId = requestedDatasetId || state.activeDocumentDatasetId || "";
+  if (!datasetId) {
+    showToast("Load a dataset before parsing documents.");
+    return;
+  }
+  let documents = state.activeDocumentDatasetId === datasetId ? state.activeDocuments || [] : [];
+  if (!documents.length) {
+    documents = await loadDocuments(datasetId);
+  }
+  const documentIds = documents
+    .filter((document) => documentState(document).label !== "ready")
+    .map((document) => document.document_id)
+    .filter(Boolean);
+  if (!documentIds.length) {
+    showToast("No unready documents to parse.");
+    return;
+  }
+  await api(`/api/kb/datasets/${encodeURIComponent(datasetId)}/parse`, {
+    method: "POST",
+    body: {
+      document_ids: documentIds,
+      wait: false,
+    },
+  });
+  showToast("Parse started.");
+  setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
+  startIngestionPolling(datasetId);
+  await loadDocuments(datasetId, { silent: true });
 }
 
 function startIngestionPolling(datasetId) {
@@ -325,6 +360,14 @@ function setIngestionStatus(message, status) {
   if (!node) return;
   node.className = `job-status ${statusClass(status)}`;
   node.textContent = message;
+}
+
+function syncParseButton(documents = state.activeDocuments || []) {
+  const button = document.getElementById("parse-documents");
+  if (!button) return;
+  const unreadyCount = documents.filter((document) => documentState(document).label !== "ready").length;
+  button.disabled = !state.activeDocumentDatasetId || unreadyCount === 0;
+  button.textContent = unreadyCount ? `Parse Listed (${unreadyCount})` : "Parse Listed";
 }
 
 function ingestDatasetId(result) {

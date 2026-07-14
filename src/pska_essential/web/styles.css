@@ -351,6 +351,11 @@ textarea:focus {
   border-color: #e4aaa5;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .list {
   display: grid;
   gap: 10px;
@@ -476,7 +481,7 @@ textarea:focus {
 
 .compact-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
   gap: 14px;
   align-items: end;
 }

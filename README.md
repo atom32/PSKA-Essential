@@ -200,6 +200,7 @@ can see scope checks, KB readiness, retrieval, context inspection, proposal
 creation, review creation or skipping, and export preparation. If the selected
 dataset or document scope is not ready for retrieval, Ask returns a structured
 `not_ready` result instead of starting retrieval. Knowledge Bases shows
-dataset/document readiness and automatically refreshes ingestion status after
-uploads. Writing opens sourced briefs from recent workflow runs and exports
-Markdown or JSON through Product API.
+dataset/document readiness, can start parsing for loaded unready documents,
+and automatically refreshes ingestion status after uploads. Writing opens
+sourced briefs from recent workflow runs and exports Markdown or JSON through
+Product API.

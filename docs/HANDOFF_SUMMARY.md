@@ -102,6 +102,7 @@ Implemented:
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
 - Frontend ingestion tracking: upload refreshes document status/readiness until
   terminal processing state.
+- Frontend parse action for loaded unready documents through Product API.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Operational upload-to-agentic-question MCP loop.
@@ -120,7 +121,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 39 tests pass.
+- `make test`: 40 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, KB readiness blocking, and multipart document upload.
 - `make list-tools`: lists 19 PSKA MCP tools.
@@ -180,7 +181,8 @@ steps including KB readiness, opens sources through Product API Reader, and
 exports sourced briefs through Product API Writing. If the selected dataset or
 document scope is not ready, Ask returns `not_ready` and does not start
 retrieval. The Knowledge Bases view shows dataset/document readiness and
-automatically refreshes ingestion status after uploads.
+can start parsing for loaded unready documents before automatically refreshing
+ingestion status.
 
 ## Local Toolchain Status
 
