@@ -209,6 +209,11 @@ export GRAPHITI_BASE_URL=http://localhost:8000
 export GRAPHITI_GROUP_ID=pska-essential
 ```
 
+Graphiti live memory writes remain review-gated through PSKA. The current
+adapter supports reviewed add and reviewed entity-edge delete. Reviewed update
+requires a backend with a transactional update contract and fails explicitly for
+Graphiti instead of doing hidden delete/add work.
+
 Current local component install:
 
 ```bash
@@ -359,6 +364,7 @@ Integration tests:
 
 - RAGFlow retrieval mapping against a live RAGFlow instance
 - Graphiti reviewed memory apply against a live Graphiti instance
+- Graphiti reviewed memory delete through the adapter
 - Hermes MCP discovery and smoke workflow
 - Product API against live RAGFlow KB operations
 

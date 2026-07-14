@@ -37,7 +37,11 @@ Rules:
 - `delete` receives only reviewed `MemoryDelete` objects from PSKA review flow.
 - Direct clear, unreviewed add, or provider-native delete operations are
   intentionally absent from public tools.
-- Graphiti `add_episode` is allowed only inside `apply`.
+- Graphiti `add_episode` is allowed only inside reviewed `apply`; Graphiti
+  entity-edge delete is allowed only inside reviewed `delete`.
+- If a backend cannot provide a transactional reviewed update, its adapter must
+  fail explicitly instead of approximating update with hidden delete/add side
+  effects.
 
 ## Public MCP Contract
 

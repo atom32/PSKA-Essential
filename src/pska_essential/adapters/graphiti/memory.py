@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 from urllib.error import URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -100,13 +101,46 @@ class GraphitiMemoryAdapter:
         raise GraphitiAdapterError("Graphiti adapter requires a graphiti client or base_url")
 
     def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
-        raise GraphitiAdapterError(
-            "Graphiti reviewed memory delete is not configured in the PSKA adapter"
-        )
+        if not reviewed_delete.target_id:
+            raise GraphitiAdapterError("reviewed memory delete requires target_id")
+        if not reviewed_delete.source_refs:
+            raise GraphitiAdapterError("reviewed memory delete requires source refs")
+        if self.client is not None:
+            if hasattr(self.client, "delete_entity_edge"):
+                _run_maybe_async(self.client.delete_entity_edge(reviewed_delete.target_id))
+                return MemoryApplyResult(
+                    applied=True,
+                    target_id=reviewed_delete.target_id,
+                    backend=self.backend_name,
+                    message="Reviewed memory fact deleted in Graphiti",
+                    metadata={"operation": "delete"},
+                )
+            if hasattr(self.client, "get_entity_edge") and hasattr(self.client, "driver"):
+                edge = _run_maybe_async(self.client.get_entity_edge(reviewed_delete.target_id))
+                _run_maybe_async(edge.delete(self.client.driver))
+                return MemoryApplyResult(
+                    applied=True,
+                    target_id=reviewed_delete.target_id,
+                    backend=self.backend_name,
+                    message="Reviewed memory fact deleted in Graphiti",
+                    metadata={"operation": "delete"},
+                )
+            raise GraphitiAdapterError("Graphiti client does not expose reviewed memory delete")
+        if self.base_url:
+            data = self._delete_json(f"/entity-edge/{quote(reviewed_delete.target_id, safe='')}")
+            return MemoryApplyResult(
+                applied=True,
+                target_id=reviewed_delete.target_id,
+                backend=self.backend_name,
+                message=str(data.get("message") or "Reviewed memory fact deleted in Graphiti HTTP service"),
+                metadata={"operation": "delete"},
+            )
+        raise GraphitiAdapterError("Graphiti adapter requires a graphiti client or base_url")
 
     def update(self, reviewed_update: MemoryUpdate) -> MemoryApplyResult:
         raise GraphitiAdapterError(
-            "Graphiti reviewed memory update is not configured in the PSKA adapter"
+            "Graphiti reviewed memory update requires a transactional fact update endpoint; "
+            "the current Graphiti HTTP surface supports reviewed add and delete only"
         )
 
     def _post_json(self, path: str, payload: dict[str, Any], *, accept_empty: bool = False) -> dict[str, Any]:
@@ -123,6 +157,15 @@ class GraphitiMemoryAdapter:
             raise GraphitiAdapterError(str(exc)) from exc
         if not raw and accept_empty:
             return {}
+        return json.loads(raw or "{}")
+
+    def _delete_json(self, path: str) -> dict[str, Any]:
+        req = Request(f"{self.base_url}{path}", method="DELETE")
+        try:
+            with urlopen(req, timeout=30) as response:
+                raw = response.read().decode("utf-8")
+        except URLError as exc:
+            raise GraphitiAdapterError(str(exc)) from exc
         return json.loads(raw or "{}")
 
 

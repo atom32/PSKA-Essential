@@ -5,8 +5,9 @@ import unittest
 from unittest.mock import patch
 
 from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAdapter
+from pska_essential.adapters.graphiti import GraphitiAdapterError, GraphitiMemoryAdapter
 from pska_essential.adapters.ragflow import RagflowAdapterError, RagflowRetrievalAdapter
-from pska_essential.contracts import MemoryPatch
+from pska_essential.contracts import MemoryDelete, MemoryPatch, MemoryUpdate, SourceRef
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowService
 
@@ -100,6 +101,41 @@ class AdapterTests(unittest.TestCase):
         with patch("pska_essential.adapters.ragflow.retrieval.urlopen", fake_urlopen):
             with self.assertRaisesRegex(RagflowAdapterError, "model-provider configuration"):
                 adapter.retrieve("hello", {"dataset_ids": ["dataset-1"]}, 5)
+
+    def test_graphiti_http_delete_uses_reviewed_entity_edge_endpoint(self):
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["method"] = request.get_method()
+            captured["url"] = request.full_url
+            return _HttpResponse({"message": "Entity Edge deleted", "success": True})
+
+        adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local")
+        reviewed_delete = MemoryDelete(
+            target_id="edge 1",
+            source_refs=[SourceRef(adapter="fake", dataset_id="demo", document_id="doc-1")],
+            reason="reviewed delete",
+        )
+        with patch("pska_essential.adapters.graphiti.memory.urlopen", fake_urlopen):
+            result = adapter.delete(reviewed_delete)
+
+        self.assertTrue(result.applied)
+        self.assertEqual(result.backend, "graphiti")
+        self.assertEqual(result.target_id, "edge 1")
+        self.assertEqual(result.metadata["operation"], "delete")
+        self.assertEqual(captured["method"], "DELETE")
+        self.assertEqual(captured["url"], "http://graphiti.local/entity-edge/edge%201")
+
+    def test_graphiti_update_fails_without_transactional_update_endpoint(self):
+        adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local")
+        reviewed_update = MemoryUpdate(
+            target_id="edge-1",
+            text="updated fact",
+            source_refs=[SourceRef(adapter="fake", dataset_id="demo", document_id="doc-1")],
+        )
+
+        with self.assertRaisesRegex(GraphitiAdapterError, "transactional fact update"):
+            adapter.update(reviewed_update)
 
     def test_company_stub_can_replace_retrieval_and_memory(self):
         adapter = CompanyGraphRagStubAdapter()

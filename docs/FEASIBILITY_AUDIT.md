@@ -34,6 +34,9 @@ Graphiti `526dcad`
 - Conclusion: feasible as the default memory graph backend, but not safe to
   expose directly to Hermes. PSKA-Essential must be the only agent-visible MCP
   surface and must gate writes through review.
+- Current PSKA adapter support: reviewed add and reviewed entity-edge delete.
+  Reviewed update remains explicitly unsupported for Graphiti until a
+  transactional fact update contract exists.
 
 OpenClaw `e43bd3d`
 

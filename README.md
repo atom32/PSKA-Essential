@@ -92,6 +92,10 @@ export GRAPHITI_BASE_URL=http://localhost:8000
 export GRAPHITI_GROUP_ID=pska-essential
 ```
 
+The Graphiti adapter keeps writes review-gated. It supports reviewed memory
+apply and reviewed entity-edge delete through Graphiti; reviewed update fails
+explicitly until the backend exposes a transactional fact update contract.
+
 Workspace governance policy:
 
 ```bash

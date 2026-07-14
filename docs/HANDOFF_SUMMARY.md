@@ -92,7 +92,9 @@ Implemented:
 - RAGFlow KB gateway glue for dataset creation, document upload, parsing,
   status polling, and optional structure graph read.
 - RAGFlow retrieval adapter.
-- Graphiti memory adapter.
+- Graphiti memory adapter with reviewed add and reviewed entity-edge delete.
+  Reviewed update remains explicitly unsupported for Graphiti until a
+  transactional fact update contract exists.
 - Company GraphRAG stub.
 - SQLite review store.
 - Audit events.
@@ -276,7 +278,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 92 tests pass.
+- `make test`: 95 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -299,6 +301,8 @@ Expected result:
   memory reviews, including workspace-policy auto apply.
 - Workflow/Product API/MCP tests cover reviewed memory deletion and verify later
   Ask runs no longer see deleted fake/stub memory facts.
+- Graphiti adapter/gate tests cover reviewed entity-edge delete routing and
+  confirm Graphiti delete is blocked until review acceptance.
 - Workflow/Product API/MCP tests cover reviewed memory update/versioning and
   verify later Ask runs see updated fake/stub memory facts.
 - Workflow/Product API/MCP tests cover durable memory lifecycle history derived
