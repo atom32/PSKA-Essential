@@ -173,9 +173,12 @@ structure graph data through Product API, and refreshes the selected dataset's
 document status, readiness, and normalized ingestion job summary until
 processing reaches a terminal state.
 Settings shows runtime provider configuration and Product API diagnostics for
-review store, KB gateway, retrieval, and memory connectivity. Product API
-health, diagnostics, and audit records include the runtime workspace/tenant
-context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.
+review store, KB gateway, retrieval, and memory connectivity. It also loads
+`/api/capabilities` as the explicit product capability contract; Review and
+Writing durable-memory controls stay disabled until the selected operation is
+reported as supported. Product API health, diagnostics, and audit records
+include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and
+`PSKA_TENANT_ID`.
 
 Durable memory governance modes:
 

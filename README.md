@@ -282,7 +282,10 @@ flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,
 and cancelled scopes.
 Settings loads `/api/policy` as the product-level workspace governance surface,
 including durable proposal kinds, configured durable-memory action, available
-modes, and the fact that transient results skip durable governance.
+modes, and the fact that transient results skip durable governance. Settings
+also loads `/api/capabilities` as the product-level capability contract, and
+Writing/Review durable-memory controls stay disabled until the selected memory
+operation is explicitly reported as supported.
 Ask persists the loop summary on the workflow so Writing can reopen governance
 state, durable/transient status, review requirements, and steps later. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result
@@ -372,9 +375,10 @@ through explicit Product API actions; ready Ask results can also trigger those
 Markdown/JSON exports directly and open the generated work product in Writing.
 Exported work products include the
 workflow export audit event, inspected source snippets, and durable-memory
-source trace in their traceability metadata. Settings shows runtime provider configuration, Product
-API diagnostics for review store, KB gateway, retrieval, and memory
-connectivity, and an explicit retrieval probe for the selected dataset before
-running Ask. Product API health, diagnostics, probe audit records, and other
-audit records include the runtime workspace/tenant context from
+source trace in their traceability metadata. Settings shows runtime provider
+configuration, Product API diagnostics for review store, KB gateway, retrieval,
+and memory connectivity, the explicit capability contract, and an explicit
+retrieval probe for the selected dataset before running Ask. Product API health,
+diagnostics, probe audit records, and other audit records include the runtime
+workspace/tenant context from
 `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.

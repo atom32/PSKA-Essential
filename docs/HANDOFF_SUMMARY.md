@@ -197,6 +197,9 @@ Implemented:
   operation capabilities. Unsupported durable memory operations are blocked
   before creating dead-end review items, and historical accepted unsupported
   reviews surface as inspect actions instead of apply actions.
+- The frontend explicitly loads `/api/capabilities` as the authoritative
+  product capability contract; Review and Writing durable-memory controls stay
+  disabled until the selected operation is reported as supported.
 - Product API, MCP, and frontend Home expose workspace operational status with
   next actions for ready Ask scopes, ingestion waits, resumable Ask workflows,
   pending reviews, and accepted durable memory awaiting apply. Next actions
@@ -423,9 +426,10 @@ parsing, source reads, and graph reads. Knowledge Base create, upload, parse,
 source read, and graph read actions refresh Activity and focus the matching
 audit action after their source-operation audit records are written. Review,
 memory apply/update/delete, export, and Ask actions also focus Activity on their
-matching workflow/governance audit action. Settings shows runtime provider configuration
-and Product API diagnostics for review store, KB gateway, retrieval, and memory
-connectivity.
+matching workflow/governance audit action. Settings shows runtime provider
+configuration, Product API diagnostics for review store, KB gateway, retrieval,
+and memory connectivity, and the explicit `/api/capabilities` operation
+contract.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and

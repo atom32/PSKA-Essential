@@ -5,6 +5,8 @@ const state = {
   pendingReviews: null,
   health: null,
   policy: null,
+  capabilities: null,
+  capabilitiesError: "",
   lastRunId: null,
   reader: null,
   workflows: [],
@@ -209,6 +211,7 @@ async function refreshAll() {
   await Promise.allSettled([
     loadHealth(),
     loadPolicy(),
+    loadCapabilities(),
     loadDiagnostics(),
     loadWorkspaceStatus(),
     loadDatasets(),
@@ -245,6 +248,24 @@ async function loadPolicy() {
   } catch (error) {
     state.policy = null;
     renderPolicy();
+    showToast(error.message);
+  }
+}
+
+async function loadCapabilities() {
+  try {
+    const payload = await api("/api/capabilities");
+    state.capabilities = payload.capabilities || null;
+    state.capabilitiesError = "";
+    renderSettings();
+    renderReviews();
+    renderCurrentResultSurfaces();
+  } catch (error) {
+    state.capabilities = null;
+    state.capabilitiesError = error.message;
+    renderSettings();
+    renderReviews();
+    renderCurrentResultSurfaces();
     showToast(error.message);
   }
 }
@@ -586,8 +607,10 @@ function renderSettings() {
   const governance = state.policy || (state.health && state.health.governance) || {};
   const diagnostics = state.diagnostics || {};
   const memoryCaps = memoryCapabilities();
+  const capabilityStatus = state.capabilities ? "loaded" : state.capabilitiesError ? `error: ${state.capabilitiesError}` : "not checked";
   [
     ["Product API", state.health ? state.health.product_api : ""],
+    ["Capability Contract", capabilityStatus],
     ["Runtime Status", diagnostics.status || "not checked"],
     ["Workspace", workspace.workspace_id || "default"],
     ["Tenant", workspace.tenant_id || "not configured"],
@@ -606,14 +629,7 @@ function renderSettings() {
 }
 
 function memoryCapabilities() {
-  const sources = [
-    state.workspaceStatus && state.workspaceStatus.capabilities,
-    state.health && state.health.capabilities,
-    state.diagnostics && state.diagnostics.capabilities,
-  ];
-  for (const source of sources) {
-    if (source && source.memory && source.memory.operations) return source.memory;
-  }
+  if (state.capabilities && state.capabilities.memory && state.capabilities.memory.operations) return state.capabilities.memory;
   return { operations: {} };
 }
 
@@ -623,7 +639,7 @@ function memoryCapability(operation) {
 
 function memoryOperationSupported(operation) {
   const capability = memoryCapability(operation);
-  return !capability || capability.supported !== false;
+  return Boolean(capability && capability.supported === true);
 }
 
 function memoryOperationForProposalKind(kind) {
@@ -636,7 +652,10 @@ function memoryOperationForProposalKind(kind) {
 
 function memoryCapabilityReason(operation) {
   const capability = memoryCapability(operation);
-  return (capability && capability.reason) || "";
+  if (capability && capability.reason) return capability.reason;
+  if (!state.capabilities && state.capabilitiesError) return state.capabilitiesError;
+  if (!state.capabilities) return "Capability contract is not loaded.";
+  return `${readableName(operation)} capability is not reported.`;
 }
 
 function capabilityLabel(capabilities, operation) {
