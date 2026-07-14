@@ -22,7 +22,7 @@ from pska_essential.contracts import (
     to_jsonable,
     utc_now_iso,
 )
-from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, build_workspace_policy_from_env
+from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
 
@@ -147,8 +147,9 @@ class WorkflowService:
         return proposal
 
     def review_create(self, proposal_id: str) -> ReviewBatch:
-        review = self.store.create_review(proposal_id)
         proposal = self.store.get_proposal(proposal_id)
+        _ensure_durable_proposal_source_trace(proposal, "review creation")
+        review = self.store.create_review(proposal_id)
         self.store.add_audit_event(
             audit_event(
                 "review.create",
@@ -310,8 +311,11 @@ class WorkflowService:
     def review_decide(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
         if self.store.get_memory_apply(review_id):
             raise WorkflowError("cannot change review decision after durable memory has been applied")
+        review = self.store.get_review(review_id)
+        proposal = self.store.get_proposal(str(review["proposal_id"]))
+        if _is_accept_decision(decision):
+            _ensure_durable_proposal_source_trace(proposal, "review acceptance")
         decided = self.store.decide_review(review_id, decision, reason)
-        proposal = self.store.get_proposal(decided.proposal_id)
         self.store.add_audit_event(
             audit_event(
                 "review.decide",
@@ -379,6 +383,7 @@ class WorkflowService:
         if review["status"] != "accepted":
             raise WorkflowError("memory apply requires an accepted review")
         proposal = self.store.get_proposal(str(review["proposal_id"]))
+        _ensure_durable_proposal_source_trace(proposal, "memory apply")
         if proposal.kind == "memory_patch":
             if proposal.memory_patch is None:
                 raise WorkflowError("memory_patch proposal is missing memory patch payload")
@@ -792,6 +797,36 @@ def _memory_fact_from_input(memory_fact: MemoryFact | dict[str, Any], operation:
         return MemoryFact.from_dict(memory_fact)
     except TypeError as exc:
         raise WorkflowError(f"memory {operation} review requires a valid MemoryFact") from exc
+
+
+def _is_accept_decision(decision: str) -> bool:
+    normalized = decision.strip().lower()
+    return normalized in {"accept", "accepted", "approve", "approved", "yes"}
+
+
+def _ensure_durable_proposal_source_trace(proposal: Proposal, transition: str) -> None:
+    if proposal.kind not in DURABLE_PROPOSAL_KINDS:
+        return
+    if not proposal.source_refs:
+        raise WorkflowError(f"durable {proposal.kind} {transition} requires source refs")
+    if proposal.kind == "memory_patch":
+        if proposal.memory_patch is None:
+            raise WorkflowError("memory_patch proposal is missing memory patch payload")
+        if not proposal.memory_patch.source_refs:
+            raise WorkflowError(f"durable {proposal.kind} {transition} requires source refs")
+        return
+    if proposal.kind == "memory_update":
+        if proposal.memory_update is None:
+            raise WorkflowError("memory_update proposal is missing memory update payload")
+        if not proposal.memory_update.source_refs:
+            raise WorkflowError(f"durable {proposal.kind} {transition} requires source refs")
+        return
+    if proposal.kind == "memory_delete":
+        if proposal.memory_delete is None:
+            raise WorkflowError("memory_delete proposal is missing memory delete payload")
+        if not proposal.memory_delete.source_refs:
+            raise WorkflowError(f"durable {proposal.kind} {transition} requires source refs")
+        return
 
 
 def _compose_body(kind: str, run: WorkflowRun, intent: str) -> str:

@@ -158,6 +158,8 @@ pska_memory_lifecycle(memory_target_id) -> PSKA audit-derived apply/update/delet
 ```
 
 `memory_apply` must fail when the review is pending, rejected, or needs edit.
+Durable memory review creation, review acceptance, and memory apply must fail
+when the durable proposal has no PSKA `SourceRef` trace.
 Once reviewed memory has been applied, the review decision is immutable; later
 changes require a new governed proposal rather than rewriting the old decision.
 Lifecycle history is derived from PSKA audit records and must not require direct

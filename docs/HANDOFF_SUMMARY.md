@@ -170,6 +170,9 @@ Implemented:
   be traced in both directions.
 - Review records expose `source_refs` / `source_count`, and the frontend Review
   queue shows cited sources with Product API Reader actions.
+- Durable memory review creation, acceptance, and apply all refuse source-less
+  durable proposals; reject/edit decisions can still close or revise bad queued
+  reviews without writing long-term knowledge.
 - Frontend Review queue supports status filtering while Home keeps an
   independent pending-review summary.
 - Frontend ingestion tracking: upload refreshes document status, readiness, and

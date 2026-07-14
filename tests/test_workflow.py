@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from pska_essential.adapters.fake import FakeMemoryAdapter
-from pska_essential.contracts import ContextPacket, SourceContext, SourceRef
+from pska_essential.contracts import ContextPacket, MemoryPatch, Proposal, SourceContext, SourceRef
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowError, WorkflowService, build_fake_service
 
@@ -141,6 +141,36 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(lifecycle["change_count"], 2)
         self.assertEqual([event["action"] for event in lifecycle["events"]], ["memory.apply", "memory.update"])
         self.assertEqual(lifecycle["latest_event"]["action"], "memory.update")
+
+    def test_durable_memory_review_acceptance_and_apply_require_source_trace(self):
+        service = build_fake_service()
+        run = service.start("source trace gate", {"dataset_ids": ["demo"]})
+        proposal = Proposal(
+            proposal_id="prop_source_less_memory",
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent="unsafe memory",
+            title="Memory Patch: unsafe memory",
+            body="source-less durable memory",
+            source_refs=[],
+            memory_patch=MemoryPatch(text="source-less durable memory", source_refs=[]),
+        )
+        service.store.save_proposal(proposal)
+
+        with self.assertRaisesRegex(WorkflowError, "review creation requires source refs"):
+            service.review_create(proposal.proposal_id)
+
+        review = service.store.create_review(proposal.proposal_id)
+        service.review_decide(review.review_id, "reject", "source trace missing")
+        self.assertEqual(service.store.get_review(review.review_id)["status"], "rejected")
+
+        bypassed = service.store.create_review(proposal.proposal_id)
+        with self.assertRaisesRegex(WorkflowError, "review acceptance requires source refs"):
+            service.review_decide(bypassed.review_id, "accept", "unsafe accept")
+
+        service.store.decide_review(bypassed.review_id, "accept", "bypassed service gate")
+        with self.assertRaisesRegex(WorkflowError, "memory apply requires source refs"):
+            service.memory_apply(bypassed.review_id)
 
     def test_export_brief_uses_workflow_context(self):
         service = build_fake_service()

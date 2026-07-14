@@ -120,6 +120,9 @@ Writing can also turn an existing sourced transient workflow into a governed
 Memory Review through Product API; this is the explicit transition from
 transient work product to durable memory candidate and follows workspace policy
 for manual review, auto accept, or auto apply.
+Durable memory review creation, review acceptance, and memory apply require a
+source trace; source-less durable proposals fail explicitly instead of becoming
+workspace memory.
 Review decisions and memory apply/update/delete actions refresh the current
 Ask/Writing state, and applied memory state is served back through Review API
 records.
