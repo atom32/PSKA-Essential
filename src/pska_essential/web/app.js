@@ -744,6 +744,10 @@ function renderWriting() {
     return;
   }
   const run = state.currentBrief.run || {};
+  const artifact = state.currentBrief.artifact || {};
+  const latestProposal = state.currentBrief.proposal || artifact.latest_proposal || null;
+  const sourceManifest = artifact.source_manifest || [];
+  const contextPackets = artifact.context_packets || run.context_packets || [];
   const review = state.currentBrief.review || {};
   const memoryApply = state.currentBrief.memory_apply || (review.review_id && state.memoryApplyByReview[review.review_id]);
   container.append(
@@ -763,21 +767,42 @@ function renderWriting() {
         : null,
       state.currentBrief.brief
         ? el("pre", {}, state.currentBrief.brief)
-        : el("p", { className: "empty-list" }, "Run loaded. Use Markdown or JSON to create an export."),
+        : latestProposal
+          ? workProductBlock(latestProposal)
+          : el("p", { className: "empty-list" }, "Run loaded. Use Markdown or JSON to create an export."),
     ]),
   );
   const loop = run.metadata && run.metadata.agentic_loop;
   if (loop && loop.steps) {
     container.append(loopPanel({ loop: { steps: loop.steps, governance: {} } }));
   }
-  if (!state.currentBrief.brief && (run.context_packets || []).length) {
+  if (!state.currentBrief.brief && sourceManifest.length) {
     container.append(
       el("div", { className: "panel" }, [
-        el("h2", {}, "Context"),
-        el("div", { className: "source-list" }, (run.context_packets || []).map((packet) => contextCard(packet))),
+        el("h2", {}, "Source Manifest"),
+        el("div", { className: "source-list" }, sourceManifest.map((source) => sourceManifestCard(source))),
       ]),
     );
   }
+  if (!state.currentBrief.brief && contextPackets.length) {
+    container.append(
+      el("div", { className: "panel" }, [
+        el("h2", {}, "Context"),
+        el("div", { className: "source-list" }, contextPackets.map((packet) => contextCard(packet))),
+      ]),
+    );
+  }
+}
+
+function workProductBlock(proposal) {
+  return el("section", { className: "work-product" }, [
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, proposal.kind || "proposal"),
+      el("span", { className: "tag" }, shortId(proposal.proposal_id || "")),
+    ]),
+    el("h3", {}, proposal.title || "Work product"),
+    el("pre", {}, proposal.body || ""),
+  ]);
 }
 
 function loopStepCard(step) {
@@ -849,6 +874,23 @@ function contextCard(packet) {
       el("span", { className: "tag" }, sourceRef.adapter || "adapter"),
       el("span", { className: "tag" }, shortId(sourceRef.document_id || sourceRef.source_id || "")),
       el("span", { className: "tag" }, `score ${Number(packet.score || 0).toFixed(2)}`),
+    ]),
+  ]);
+}
+
+function sourceManifestCard(source) {
+  const sourceRef = source.source_ref || {};
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, source.title || source.context_id || "Source"), el("p", {}, source.source_id || "")]),
+      sourceRef.adapter ? el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, "Source") : null,
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, `#${source.index || ""}`),
+      el("span", { className: "tag" }, source.adapter || "adapter"),
+      source.dataset_id ? el("span", { className: "tag" }, shortId(source.dataset_id)) : null,
+      source.document_id ? el("span", { className: "tag" }, shortId(source.document_id)) : null,
+      el("span", { className: "tag" }, `score ${Number(source.score || 0).toFixed(2)}`),
     ]),
   ]);
 }
@@ -948,10 +990,12 @@ function auditEventCard(event) {
 
 async function openWorkflowRun(runId) {
   const payload = await api(`/api/workflows/${encodeURIComponent(runId)}`);
-  const workflow = payload.workflow || state.workflows.find((item) => item.run_id === runId) || { run_id: runId };
+  const artifact = payload.artifact || {};
+  const workflow = artifact.run || payload.workflow || state.workflows.find((item) => item.run_id === runId) || { run_id: runId };
   const loopStatus = workflow.metadata && workflow.metadata.agentic_loop && workflow.metadata.agentic_loop.status;
   state.currentBrief = {
     run: workflow,
+    artifact,
     brief: "",
     status: loopStatus || workflow.status || "active",
   };
@@ -963,6 +1007,13 @@ async function openWritingRun(runId) {
   if (state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.run_id === runId) {
     state.currentBrief = {
       run: state.currentAskResult.run,
+      artifact: {
+        run: state.currentAskResult.run,
+        latest_proposal: state.currentAskResult.proposal,
+        proposals: state.currentAskResult.proposal ? [state.currentAskResult.proposal] : [],
+        context_packets: state.currentAskResult.context_packets || [],
+        source_manifest: [],
+      },
       brief: state.currentAskResult.brief || "",
       status: state.currentAskResult.status,
       proposal: state.currentAskResult.proposal,
@@ -993,6 +1044,9 @@ async function exportCurrent(format) {
   const payload = await api(`/api/workflows/${encodeURIComponent(runId)}/export?format=${encodeURIComponent(format)}`);
   const content = typeof payload.export === "string" ? payload.export : JSON.stringify(payload.export, null, 2);
   state.currentBrief.brief = content;
+  if (payload.export && typeof payload.export === "object") {
+    state.currentBrief.artifact = payload.export;
+  }
   renderWriting();
   await loadAuditEvents();
   showToast(`${format.toUpperCase()} export loaded.`);

@@ -553,6 +553,16 @@ pre {
   gap: 10px;
 }
 
+.work-product {
+  display: grid;
+  gap: 10px;
+}
+
+.work-product h3,
+.work-product pre {
+  margin-bottom: 0;
+}
+
 .review-actions {
   display: flex;
   align-items: center;

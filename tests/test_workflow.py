@@ -53,6 +53,22 @@ class WorkflowTests(unittest.TestCase):
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("workflow.export", audit_actions)
 
+    def test_workflow_artifact_reads_work_product_without_export_audit(self):
+        service = build_fake_service()
+        run = service.start("artifact workflow", {"dataset_ids": ["demo"]})
+        service.context_retrieve(run.run_id, "adapter", 1)
+        proposal = service.propose(run.run_id, "writing_brief", "inspect without export")
+
+        artifact = service.workflow_artifact(run.run_id)
+
+        self.assertEqual(artifact["run"]["run_id"], run.run_id)
+        self.assertEqual(artifact["latest_proposal"]["proposal_id"], proposal.proposal_id)
+        self.assertEqual(artifact["traceability"]["context_count"], 1)
+        self.assertEqual(artifact["traceability"]["proposal_count"], 1)
+        self.assertEqual(artifact["traceability"]["source_count"], 1)
+        audit_actions = [event.action for event in service.store.list_audit_events()]
+        self.assertNotIn("workflow.export", audit_actions)
+
     def test_smoke_eval(self):
         service = build_fake_service()
         result = service.eval_run("smoke")

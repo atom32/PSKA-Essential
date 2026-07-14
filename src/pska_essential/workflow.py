@@ -168,15 +168,19 @@ class WorkflowService:
         )
         return result
 
+    def workflow_artifact(self, run_id: str) -> dict[str, Any]:
+        run = self.store.get_workflow(run_id)
+        return self._build_workflow_artifact(run)
+
     def export_brief(self, run_id: str, format: str = "markdown") -> str | dict[str, Any]:
         run = self.store.get_workflow(run_id)
+        artifact = self._build_workflow_artifact(run)
         fmt = format.strip().lower()
         if fmt not in {"markdown", "json"}:
             raise WorkflowError("export format must be markdown or json")
-        packet_payload = [to_jsonable(packet) for packet in run.context_packets]
-        proposals = [self.store.get_proposal(proposal_id) for proposal_id in run.proposal_ids]
-        proposal_payload = [to_jsonable(proposal) for proposal in proposals]
-        source_manifest = _source_manifest(run.context_packets)
+        packet_payload = artifact["context_packets"]
+        proposal_payload = artifact["proposals"]
+        source_manifest = artifact["source_manifest"]
         self.store.add_audit_event(
             audit_event(
                 "workflow.export",
@@ -190,19 +194,7 @@ class WorkflowService:
             )
         )
         if fmt == "json":
-            return {
-                "run": to_jsonable(run),
-                "scope": run.scope,
-                "proposals": proposal_payload,
-                "latest_proposal": proposal_payload[-1] if proposal_payload else None,
-                "source_manifest": source_manifest,
-                "context_packets": packet_payload,
-                "traceability": {
-                    "context_count": len(packet_payload),
-                    "proposal_count": len(proposal_payload),
-                    "source_count": len(source_manifest),
-                },
-            }
+            return artifact
         lines = [
             f"# PSKA-Essential Brief: {run.intent}",
             "",
@@ -214,9 +206,9 @@ class WorkflowService:
             "## Work Product",
             "",
         ]
-        if proposals:
-            latest = proposals[-1]
-            lines.extend([latest.body, ""])
+        if proposal_payload:
+            latest = proposal_payload[-1]
+            lines.extend([str(latest.get("body") or ""), ""])
         else:
             lines.extend(["No proposal has been created for this workflow.", ""])
         lines.extend(["## Source Manifest", ""])
@@ -256,6 +248,26 @@ class WorkflowService:
                 ]
             )
         return "\n".join(lines).strip() + "\n"
+
+    def _build_workflow_artifact(self, run: WorkflowRun) -> dict[str, Any]:
+        packet_payload = [to_jsonable(packet) for packet in run.context_packets]
+        proposal_payload = [
+            to_jsonable(self.store.get_proposal(proposal_id)) for proposal_id in run.proposal_ids
+        ]
+        source_manifest = _source_manifest(run.context_packets)
+        return {
+            "run": to_jsonable(run),
+            "scope": run.scope,
+            "proposals": proposal_payload,
+            "latest_proposal": proposal_payload[-1] if proposal_payload else None,
+            "source_manifest": source_manifest,
+            "context_packets": packet_payload,
+            "traceability": {
+                "context_count": len(packet_payload),
+                "proposal_count": len(proposal_payload),
+                "source_count": len(source_manifest),
+            },
+        }
 
     def eval_run(self, suite: str = "smoke") -> dict[str, Any]:
         if suite != "smoke":

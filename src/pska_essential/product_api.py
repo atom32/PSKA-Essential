@@ -299,7 +299,14 @@ def _handler_class(state: ProductApiState):
 
             workflow_id = _match(path, "/api/workflows/", "")
             if method == "GET" and workflow_id and "/" not in workflow_id:
-                self._send_json({"ok": True, "workflow": to_jsonable(state.service.state(workflow_id))})
+                workflow = state.service.state(workflow_id)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "workflow": to_jsonable(workflow),
+                        "artifact": state.service.workflow_artifact(workflow_id),
+                    }
+                )
                 return
 
             export_id = _match(path, "/api/workflows/", "/export")

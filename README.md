@@ -191,6 +191,7 @@ Implemented Alpha routes:
 - `GET /api/kb/datasets/{dataset_id}/documents/{document_id}/graph`
 - `POST /api/ask`
 - `GET /api/workflows`
+- `GET /api/workflows/{run_id}`
 - `GET /api/workflows/{run_id}/export`
 - `GET /api/reviews`
 - `POST /api/reviews/{review_id}/decision`
@@ -216,9 +217,10 @@ result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically
 refreshes ingestion status after uploads. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
-opens workflow state and context without creating an export, then exports
-traceable Markdown or JSON work products with source manifests through explicit
-Product API actions. Settings shows runtime provider configuration and Product
-API diagnostics for review store, KB gateway, retrieval, and memory
-connectivity. Product API health, diagnostics, and audit records include the
-runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.
+opens workflow state, work product, source manifest, and context without
+creating an export, then exports traceable Markdown or JSON work products
+through explicit Product API actions. Settings shows runtime provider
+configuration and Product API diagnostics for review store, KB gateway,
+retrieval, and memory connectivity. Product API health, diagnostics, and audit
+records include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID`
+and `PSKA_TENANT_ID`.

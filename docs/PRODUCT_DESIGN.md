@@ -182,8 +182,8 @@ V1 frontend should include:
   gaps.
 - Reader: inspect source chunks/documents, optional source-derived structure
   graphs, and trace where evidence was used.
-- Writing: inspect workflow state and turn sourced answers into explicit
-  exports.
+- Writing: inspect workflow state, work products, source manifests, and turn
+  sourced answers into explicit exports.
 - Review: inspect and decide durable knowledge changes according to workspace
   policy.
 - Activity: inspect the audit trail for workflow, review, memory, and export
