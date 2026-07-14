@@ -447,9 +447,32 @@ function workspaceActionCard(action) {
     ]),
     el("p", {}, action.reason || ""),
     el("div", { className: "card-actions" }, [
-      el("button", { className: "secondary-button", type: "button", onclick: () => openWorkspaceAction(action) }, "Open"),
+      el(
+        "button",
+        { className: workspaceActionButtonClass(action), type: "button", onclick: () => openWorkspaceAction(action) },
+        workspaceActionButtonLabel(action),
+      ),
     ]),
   ]);
+}
+
+function workspaceActionButtonLabel(action) {
+  const labels = {
+    apply_accepted_memory: "Apply",
+    parse_documents: "Parse",
+    resume_blocked_ask: "Resume",
+    review_pending_durable_knowledge: "Review",
+    run_agentic_question: "Ask",
+    upload_documents: "Upload",
+    wait_for_ingestion: "Track",
+  };
+  return labels[action.action] || "Open";
+}
+
+function workspaceActionButtonClass(action) {
+  return ["apply_accepted_memory", "parse_documents", "resume_blocked_ask"].includes(action.action)
+    ? "primary-button"
+    : "secondary-button";
 }
 
 async function openWorkspaceAction(action) {
@@ -459,16 +482,19 @@ async function openWorkspaceAction(action) {
     setAskDocumentIds(params.document_ids || []);
     renderAskScope();
     openView("ask");
+    await checkAskReadiness({ silent: true });
     return;
   }
   if (action.action === "resume_blocked_ask" && params.run_id) {
     await resumeAskRun(params.run_id);
     return;
   }
-  if (
-    ["review_pending_durable_knowledge", "apply_accepted_memory"].includes(action.action)
-    && params.review_id
-  ) {
+  if (action.action === "apply_accepted_memory" && params.review_id) {
+    await openReview(params.review_id);
+    await applyMemory(params.review_id);
+    return;
+  }
+  if (action.action === "review_pending_durable_knowledge" && params.review_id) {
     await openReview(params.review_id);
     return;
   }
@@ -492,7 +518,12 @@ async function openWorkspaceAction(action) {
   ) {
     const datasetId = (params.dataset_ids || [])[0] || state.activeDocumentDatasetId;
     if (datasetId) {
+      openView("kb");
       await loadDocuments(datasetId, { silent: true });
+      if (action.action === "parse_documents") {
+        await parseDatasetDocuments(datasetId, params.document_ids || []);
+        return;
+      }
       if (action.action === "wait_for_ingestion") startIngestionPolling(datasetId);
     }
     openView("kb");

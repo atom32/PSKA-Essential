@@ -198,7 +198,10 @@ Implemented:
   status after mutating KB, Ask, review, and memory actions. Workspace status
   preserves per-dataset readiness so a processing upload does not hide other
   ready datasets from Ask, and it translates ingestion job actions such as
-  `start_parse` into product actions such as `parse_documents`.
+  `start_parse` into product actions such as `parse_documents`. Home
+  next-action buttons can prefill Ask scope and check readiness, start parsing,
+  resume blocked Ask workflows, open pending reviews, and apply accepted
+  durable memory through Product API routes.
 - Knowledge Bases polling now preselects a ready dataset in the Ask scope when
   ingestion completes, without automatically running Ask or writing durable
   knowledge.

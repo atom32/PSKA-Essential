@@ -209,6 +209,10 @@ class ProductApiTests(unittest.TestCase):
 
         decision = self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "accept", "reason": "test"})
         self.assertEqual(decision["decision"]["status"], "accepted")
+        accepted_status = self._get_json("/api/workspace/status")["workspace_status"]
+        accepted_actions = {action["action"]: action for action in accepted_status["next_actions"]}
+        self.assertEqual(accepted_actions["apply_accepted_memory"]["params"]["review_id"], review_id)
+        self.assertEqual(accepted_actions["apply_accepted_memory"]["tool"], "pska_memory_apply")
 
         applied = self._post_json(f"/api/reviews/{review_id}/apply-memory", {})
         self.assertTrue(applied["applied"]["applied"])
@@ -824,6 +828,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("home-next-actions", html)
         self.assertIn("Next Actions", html)
         self.assertIn("home-resumable-asks", html)
+        self.assertIn("workspaceActionButtonLabel", script)
+        self.assertIn('apply_accepted_memory: "Apply"', script)
+        self.assertIn('await applyMemory(params.review_id);', script)
+        self.assertIn('await parseDatasetDocuments(datasetId, params.document_ids || []);', script)
+        self.assertIn('await checkAskReadiness({ silent: true });', script)
         self.assertIn("Workspace", script)
         self.assertIn("Tenant", script)
         self.assertIn("max_iterations", script)

@@ -93,7 +93,10 @@ PYTHONPATH=src python3 -m pska_essential.product_api
 The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. Home shows PSKA workspace next actions for
 ready Ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
-and accepted durable memory awaiting apply. Ask displays explicit PSKA-controlled loop steps,
+and accepted durable memory awaiting apply. Home action buttons can prefill Ask
+scope and check readiness, start document parsing, resume blocked Ask
+workflows, open pending reviews, and apply already accepted durable memory
+through Product API routes. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, explicit additional retrieval queries, and optional
@@ -310,7 +313,9 @@ so Home does not keep stale guidance. Workspace status includes per-dataset
 readiness; ready datasets remain actionable even while another selected dataset
 is still parsing, embedding, or indexing. It also translates ingestion job
 actions such as `start_parse` into stable PSKA product actions such as
-`parse_documents`.
+`parse_documents`. Home can execute the safe product actions directly:
+prefilling Ask scope and checking readiness, starting parse, resuming blocked
+Ask workflows, opening reviews, and applying accepted durable memory.
 
 Use `pska_retrieval_probe` or `POST /api/runtime/retrieval-probe` against a
 selected ready dataset when RAGFlow is reachable but Ask still fails at
