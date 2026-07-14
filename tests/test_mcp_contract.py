@@ -139,6 +139,7 @@ class McpContractTests(unittest.TestCase):
         created = tools["pska_memory_review_from_workflow"](run["run_id"], "remember reviewed source")
 
         self.assertEqual(created["proposal"]["kind"], "memory_patch")
+        self.assertEqual(created["governance"]["action"], "manual_review")
         self.assertEqual(created["review"]["status"], "pending")
         self.assertEqual(created["review"]["source_count"], 1)
         self.assertEqual(created["artifact"]["latest_proposal"]["kind"], "memory_patch")

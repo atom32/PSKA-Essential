@@ -196,7 +196,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 69 tests pass.
+- `make test`: 70 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -212,7 +212,7 @@ Expected result:
 - Product API tests cover audit action filtering.
 - Workflow/Product API/MCP tests cover source-read audit records.
 - Product API/MCP tests cover turning transient sourced workflows into durable
-  memory reviews.
+  memory reviews, including workspace-policy auto apply.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit

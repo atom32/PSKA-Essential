@@ -247,7 +247,8 @@ that blocked Ask from the stored workflow when the selected scope becomes ready;
 the resumed Ask creates a new audited workflow linked back to the blocked run.
 Users can also turn an existing sourced workflow into a durable memory review
 through an explicit Memory Review action; this creates a memory candidate and
-review without re-retrieval or direct memory write.
+governed review path without re-retrieval or direct memory write, following the
+workspace policy for manual review, auto accept, or auto apply.
 Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
 review summary. Review records expose source trace fields, and Review cards can

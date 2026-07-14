@@ -318,7 +318,10 @@ class ProductApiTests(unittest.TestCase):
 
         self.assertEqual(created["proposal"]["kind"], "memory_patch")
         self.assertEqual(created["proposal"]["run_id"], asked["run"]["run_id"])
+        self.assertEqual(created["governance"]["action"], "manual_review")
         self.assertEqual(created["review"]["status"], "pending")
+        self.assertIsNone(created["review_decision"])
+        self.assertIsNone(created["memory_apply"])
         self.assertEqual(created["review"]["proposal"]["kind"], "memory_patch")
         self.assertEqual(created["review"]["source_count"], 1)
         self.assertEqual(created["artifact"]["latest_proposal"]["kind"], "memory_patch")
@@ -328,6 +331,33 @@ class ProductApiTests(unittest.TestCase):
         actions = [event["action"] for event in audit["events"]]
         self.assertIn("proposal.create", actions)
         self.assertIn("review.create", actions)
+
+    def test_memory_review_from_workflow_honors_auto_apply_policy(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a sourced brief before automatic durable memory",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+
+        with patch.dict(os.environ, {"PSKA_GOVERNANCE_DURABLE_MEMORY": "auto_apply"}, clear=False):
+            created = self._post_json(
+                f"/api/workflows/{asked['run']['run_id']}/memory-review",
+                {"intent": "Remember this source-backed claim automatically"},
+            )
+
+        self.assertEqual(created["governance"]["action"], "auto_apply")
+        self.assertEqual(created["review"]["status"], "accepted")
+        self.assertEqual(created["review_decision"]["status"], "accepted")
+        self.assertTrue(created["memory_apply"]["applied"])
+        self.assertEqual(created["review"]["memory_apply"]["target_id"], created["memory_apply"]["target_id"])
+        audit = self._get_json("/api/audit?limit=20")
+        actions = [event["action"] for event in audit["events"]]
+        self.assertIn("review.decide", actions)
+        self.assertIn("memory.apply", actions)
 
     def test_ask_blocks_when_retrieved_context_is_below_minimum(self):
         asked = self._post_json(

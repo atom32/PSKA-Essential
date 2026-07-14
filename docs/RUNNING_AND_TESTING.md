@@ -106,10 +106,10 @@ persists a blocked workflow with readiness diagnostics so frontend and MCP
 flows can recover it later. Successful Ask results prepare a transient sourced brief and artifact
 without creating workflow export audit records. Ask results can jump directly to
 Writing or Review and can apply accepted memory patches through Product API.
-Writing can also turn an existing sourced transient workflow into a pending
+Writing can also turn an existing sourced transient workflow into a governed
 Memory Review through Product API; this is the explicit transition from
-transient work product to durable memory candidate and does not write memory
-until the review is accepted and applied.
+transient work product to durable memory candidate and follows workspace policy
+for manual review, auto accept, or auto apply.
 Review decisions and memory apply actions refresh the current Ask/Writing
 state, and applied memory state is served back through Review API records.
 Later Ask runs can find applied memory through the memory adapter and Writing

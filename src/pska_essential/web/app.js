@@ -1603,6 +1603,8 @@ function syncWorkflowMemoryReview(runId, payload) {
     if (!target || !target.run || target.run.run_id !== runId) return;
     target.proposal = payload.proposal || target.proposal;
     target.review = payload.review || target.review;
+    target.review_decision = payload.review_decision || target.review_decision;
+    target.memory_apply = payload.memory_apply || target.memory_apply;
     target.artifact = payload.artifact || target.artifact;
     target.status = payload.review ? payload.review.status : target.status;
   };

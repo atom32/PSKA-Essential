@@ -20,6 +20,7 @@ from pska_essential.contracts import (
     to_jsonable,
     utc_now_iso,
 )
+from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, build_workspace_policy_from_env
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
 
@@ -156,19 +157,38 @@ class WorkflowService:
         return review
 
     def memory_review_from_workflow(self, run_id: str, intent: str = "") -> dict[str, Any]:
-        """Create a durable memory review from an existing sourced workflow.
+        """Govern durable memory creation from an existing sourced workflow.
 
         Transient work products may be produced freely. This method is the
-        explicit transition where selected workflow context becomes a durable
-        memory candidate guarded by review.
+        explicit transition where selected workflow context becomes a governed
+        durable memory candidate.
         """
 
         run = self.store.get_workflow(run_id)
+        policy = build_workspace_policy_from_env()
+        governance_action = policy.action_for("memory_patch")
         proposal = self.propose(run_id, "memory_patch", intent or run.intent)
         review = self.review_create(proposal.proposal_id)
+        review_decision = None
+        memory_apply = None
+        if governance_action in {AUTO_ACCEPT, AUTO_APPLY}:
+            review_decision = self.review_decide(
+                review.review_id,
+                "accept",
+                f"accepted by workspace policy: {governance_action}",
+            )
+            if governance_action == AUTO_APPLY:
+                memory_apply = self.memory_apply(review.review_id)
         return {
             "proposal": to_jsonable(proposal),
             "review": self.store.get_review_record(review.review_id),
+            "review_decision": to_jsonable(review_decision),
+            "memory_apply": to_jsonable(memory_apply),
+            "governance": {
+                "action": governance_action,
+                "durable_proposal": True,
+                "policy": policy.to_dict(),
+            },
             "artifact": self.workflow_artifact(run_id),
         }
 
