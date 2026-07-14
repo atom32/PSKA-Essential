@@ -131,6 +131,8 @@ Implemented:
 - Product API and MCP can list readiness-blocked Ask workflows with fresh
   readiness checks so users or Hermes can see which saved Ask requests are ready
   to resume.
+- The frontend Ask result can refresh a readiness-blocked workflow in place and
+  enable Resume Ask once the selected KB scope becomes ready.
 - Successful Ask prepares a transient sourced brief/artifact without creating
   workflow export audit records.
 - Ask persists the agentic loop summary on workflow metadata, including

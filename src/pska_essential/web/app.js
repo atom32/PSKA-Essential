@@ -305,6 +305,9 @@ async function loadResumableAsks() {
   try {
     const payload = await api("/api/workflows/resumable-asks?limit=20");
     state.resumableAsks = payload.resumable_asks || [];
+    if (state.currentAskResult && state.currentAskResult.status === "not_ready") {
+      renderAskResult(state.currentAskResult);
+    }
     renderHome();
     renderWorkflowList();
   } catch (error) {
@@ -846,11 +849,12 @@ function renderAskResult(result) {
     return;
   }
   if (result.status === "not_ready") {
-    const readiness = result.readiness || {};
+    const fresh = result.run ? resumableAskFor(result.run.run_id) : null;
+    const readiness = (fresh && fresh.readiness) || result.readiness || {};
     container.append(
       el("div", { className: "item-card" }, [
         el("h3", {}, "Knowledge Scope Not Ready"),
-        el("p", {}, result.message || readiness.message || "Selected knowledge scope is not ready for retrieval."),
+        el("p", {}, (fresh && fresh.message) || result.message || readiness.message || "Selected knowledge scope is not ready for retrieval."),
       ]),
     );
     container.append(readinessPanel(readiness));
@@ -899,7 +903,15 @@ function askResultActions(result) {
       );
     }
     if (result.status === "not_ready") {
-      const canResume = Boolean(result.readiness && result.readiness.ready);
+      const fresh = resumableAskFor(result.run.run_id);
+      const canResume = fresh ? Boolean(fresh.can_resume) : Boolean(result.readiness && result.readiness.ready);
+      actions.append(
+        el(
+          "button",
+          { className: "secondary-button", onclick: () => refreshBlockedAskReadiness(result.run.run_id) },
+          "Check Readiness",
+        ),
+      );
       actions.append(
         el(
           "button",
@@ -1575,6 +1587,17 @@ async function resumeAskRun(runId) {
     toast: result.status === "ready" ? "Ask resumed." : "Knowledge scope is still not ready.",
   });
   document.querySelector('.nav-item[data-view="ask"]').click();
+}
+
+async function refreshBlockedAskReadiness(runId) {
+  await loadResumableAsks();
+  const record = resumableAskFor(runId);
+  if (record && state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.run_id === runId) {
+    state.currentAskResult.readiness = record.readiness || state.currentAskResult.readiness;
+    state.currentAskResult.message = record.message || state.currentAskResult.message;
+    renderAskResult(state.currentAskResult);
+  }
+  showToast(record && record.can_resume ? "Knowledge scope is ready to resume." : "Knowledge scope is still processing.");
 }
 
 async function openWritingRun(runId) {
