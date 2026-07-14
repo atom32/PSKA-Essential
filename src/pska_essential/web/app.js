@@ -744,6 +744,9 @@ function renderIngestResult(result, readiness = null) {
   if (datasetId) {
     if (readiness) state.readinessByDataset[datasetId] = readiness;
     renderIngestionStatus(datasetId, displayDocuments, readiness);
+    if (readiness && readiness.ready) {
+      prepareAskScope(datasetId, displayDocuments);
+    }
     const statusForm = document.querySelector('#document-status-form input[name="dataset_id"]');
     if (statusForm) statusForm.value = datasetId;
   }
@@ -777,9 +780,13 @@ async function parseActiveDocuments() {
     },
   });
   showToast("Parse started.");
+  const displayDocuments = parsed.readiness ? mergeReadinessDocuments(documents, parsed.readiness) : documents;
   if (parsed.readiness) {
     state.readinessByDataset[datasetId] = parsed.readiness;
-    renderIngestionStatus(datasetId, mergeReadinessDocuments(documents, parsed.readiness), parsed.readiness);
+    renderIngestionStatus(datasetId, displayDocuments, parsed.readiness);
+    if (parsed.readiness.ready) {
+      prepareAskScope(datasetId, displayDocuments);
+    }
   } else {
     setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
   }
@@ -798,12 +805,7 @@ function addAskDataset(datasetId = "") {
     showToast("Select a dataset.");
     return;
   }
-  const datasetIds = askDatasetIds();
-  if (!datasetIds.includes(selected)) {
-    datasetIds.push(selected);
-  }
-  setAskDatasetIds(datasetIds);
-  renderAskScope();
+  prepareAskScope(selected);
 }
 
 async function loadAskDocuments() {
@@ -847,7 +849,11 @@ function startIngestionPolling(datasetId) {
       await loadDatasets();
       await loadWorkspaceStatus();
       const summary = summarizeDocuments(documents);
-      if (["ready", "failed", "empty"].includes(summary.status)) {
+      if (summary.status === "ready") {
+        stopIngestionPolling();
+        prepareAskScope(datasetId, documents);
+        showToast("Knowledge base is ready. Ask scope updated.");
+      } else if (["failed", "empty"].includes(summary.status)) {
         stopIngestionPolling();
       } else if (state.ingestionPoll && state.ingestionPoll.attempts >= state.ingestionPoll.maxAttempts) {
         stopIngestionPolling();
@@ -2108,7 +2114,22 @@ function renderCurrentResultSurfaces() {
 
 function setAskDataset(datasetId) {
   document.querySelector('.nav-item[data-view="ask"]').click();
-  addAskDataset(datasetId || "");
+  prepareAskScope(datasetId || "");
+}
+
+function prepareAskScope(datasetId, documents = []) {
+  const normalized = String(datasetId || "").trim();
+  if (!normalized) return false;
+  const datasetIds = askDatasetIds();
+  if (!datasetIds.includes(normalized)) {
+    datasetIds.push(normalized);
+    setAskDatasetIds(datasetIds);
+  }
+  if (documents.length) {
+    state.askDocumentsByDataset[normalized] = documents;
+  }
+  renderAskScope();
+  return true;
 }
 
 async function api(path, options = {}) {

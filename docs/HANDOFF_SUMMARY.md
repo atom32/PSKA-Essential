@@ -191,6 +191,9 @@ Implemented:
   preserves per-dataset readiness so a processing upload does not hide other
   ready datasets from Ask, and it translates ingestion job actions such as
   `start_parse` into product actions such as `parse_documents`.
+- Knowledge Bases polling now preselects a ready dataset in the Ask scope when
+  ingestion completes, without automatically running Ask or writing durable
+  knowledge.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
