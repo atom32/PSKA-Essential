@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -101,6 +103,8 @@ class _FakeGateway:
 
 class ProductApiTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.env_patch = patch.dict(os.environ, {"PSKA_WORKSPACE_ID": "", "PSKA_TENANT_ID": ""}, clear=False)
+        self.env_patch.start()
         self.gateway = _FakeGateway()
         self.static_dir = tempfile.TemporaryDirectory()
         Path(self.static_dir.name, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
@@ -120,6 +124,7 @@ class ProductApiTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=2)
         self.static_dir.cleanup()
+        self.env_patch.stop()
 
     def test_static_health_ask_review_and_apply_loop(self):
         html = self._get_text("/")
@@ -127,6 +132,8 @@ class ProductApiTests(unittest.TestCase):
         health = self._get_json("/api/health")
         self.assertTrue(health["ok"])
         self.assertEqual(health["governance"]["durable_memory"], "manual_review")
+        self.assertEqual(health["workspace"]["workspace_id"], "default")
+        self.assertFalse(health["workspace"]["workspace_configured"])
 
         asked = self._post_json(
             "/api/ask",
@@ -168,6 +175,7 @@ class ProductApiTests(unittest.TestCase):
         actions = [event["action"] for event in audit["events"]]
         self.assertIn("workflow.export", actions)
         self.assertIn("memory.apply", actions)
+        self.assertEqual(audit["events"][0]["metadata"]["workspace_id"], "default")
 
     def test_transient_ask_does_not_create_review_by_default(self):
         asked = self._post_json(
@@ -220,6 +228,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         diagnostics = payload["diagnostics"]
         self.assertEqual(diagnostics["status"], "warning")
+        self.assertEqual(diagnostics["workspace"]["workspace_id"], "default")
         checks = {item["name"]: item for item in diagnostics["checks"]}
         self.assertEqual(checks["product_api"]["status"], "ok")
         self.assertEqual(checks["review_store"]["status"], "ok")
@@ -286,6 +295,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('data-view="activity"', html)
         self.assertIn("Brief Workspace", html)
         self.assertIn("runtime-diagnostics", html)
+        self.assertIn("Workspace", script)
+        self.assertIn("Tenant", script)
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/audit?limit=50', script)
         self.assertIn('/api/runtime/diagnostics', script)

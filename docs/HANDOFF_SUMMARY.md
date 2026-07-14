@@ -110,6 +110,8 @@ Implemented:
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
   connectivity without frontend provider direct calls.
+- Runtime workspace/tenant context surfaced in health, diagnostics, Settings,
+  and audit metadata.
 - Workflow-level export audit records and frontend Activity audit trail.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
@@ -129,10 +131,12 @@ make smoke
 
 Expected result:
 
-- `make test`: 42 tests pass.
+- `make test`: 44 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, and multipart document upload.
+- Governance/runtime context tests cover explicit default workspace and audit
+  workspace/tenant metadata.
 - `make list-tools`: lists 19 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
@@ -193,7 +197,9 @@ memory patches. Review decisions and memory apply actions refresh the current
 Ask/Writing state, and applied memory state is served back through Review API
 records. Activity shows the recent audit trail, including workflow export
 records. Settings shows runtime provider configuration and Product API
-diagnostics for review store, KB gateway, retrieval, and memory connectivity. If
+diagnostics for review store, KB gateway, retrieval, and memory connectivity.
+Product API health, diagnostics, and audit records include the runtime
+workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
 does not start retrieval. The Knowledge Bases view shows dataset/document
 readiness, can start parsing for loaded unready documents, can open optional

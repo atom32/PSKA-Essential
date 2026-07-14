@@ -295,11 +295,14 @@ function renderSettings() {
   const settings = document.getElementById("runtime-settings");
   settings.replaceChildren();
   const providers = (state.health && state.health.providers) || {};
+  const workspace = (state.health && state.health.workspace) || {};
   const governance = (state.health && state.health.governance) || {};
   const diagnostics = state.diagnostics || {};
   [
     ["Product API", state.health ? state.health.product_api : ""],
     ["Runtime Status", diagnostics.status || "not checked"],
+    ["Workspace", workspace.workspace_id || "default"],
+    ["Tenant", workspace.tenant_id || "not configured"],
     ["Retrieval", providers.retrieval || "not configured"],
     ["Knowledge Base", providers.kb || "not configured"],
     ["Memory", providers.memory || "not configured"],

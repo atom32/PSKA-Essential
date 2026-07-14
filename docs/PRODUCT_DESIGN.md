@@ -197,6 +197,7 @@ The PSKA glue layer owns:
 
 - adapter contracts
 - provider configuration validation
+- workspace/tenant runtime context
 - dataset/document status normalization
 - retrieval packet normalization
 - source references

@@ -7,6 +7,7 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 from pska_essential.governance import build_workspace_policy_from_env
+from pska_essential.runtime_context import build_runtime_workspace_context
 
 
 KbGatewayFactory = Callable[[], Any]
@@ -28,6 +29,7 @@ def build_runtime_diagnostics(*, service: Any, kb_gateway_factory: KbGatewayFact
             "memory": _provider_name("PSKA_MEMORY_PROVIDER", getattr(service, "memory", None)),
             "dev_fake": _env_enabled("PSKA_DEV_FAKE"),
         },
+        "workspace": build_runtime_workspace_context().to_dict(),
         "governance": build_workspace_policy_from_env().to_dict(),
         "checks": checks,
     }

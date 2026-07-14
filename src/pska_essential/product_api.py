@@ -22,6 +22,7 @@ from pska_essential.diagnostics import build_runtime_diagnostics
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
+from pska_essential.runtime_context import build_runtime_workspace_context
 from pska_essential.workflow import WorkflowError, WorkflowService
 
 
@@ -116,6 +117,7 @@ def _handler_class(state: ProductApiState):
                             "memory": os.getenv("PSKA_MEMORY_PROVIDER", ""),
                             "dev_fake": _env_enabled("PSKA_DEV_FAKE"),
                         },
+                        "workspace": build_runtime_workspace_context().to_dict(),
                         "governance": build_workspace_policy_from_env().to_dict(),
                     }
                 )

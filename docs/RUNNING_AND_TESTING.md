@@ -79,6 +79,8 @@ export RAGFLOW_API_KEY=...
 export GRAPHITI_BASE_URL=http://127.0.0.1:8000
 export GRAPHITI_GROUP_ID=pska-essential
 export PSKA_GOVERNANCE_DURABLE_MEMORY=manual_review
+export PSKA_WORKSPACE_ID=default
+export PSKA_TENANT_ID=
 PYTHONPATH=src python3 -m pska_essential.product_api
 ```
 
@@ -98,7 +100,9 @@ can start parsing for loaded unready documents, open optional document
 structure graph data through Product API, and refreshes the selected dataset's
 document status and readiness until processing reaches a terminal state.
 Settings shows runtime provider configuration and Product API diagnostics for
-review store, KB gateway, retrieval, and memory connectivity.
+review store, KB gateway, retrieval, and memory connectivity. Product API
+health, diagnostics, and audit records include the runtime workspace/tenant
+context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.
 
 Durable memory governance modes:
 

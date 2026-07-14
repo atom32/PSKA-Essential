@@ -95,6 +95,8 @@ Workspace governance policy:
 ```bash
 # manual_review | auto_accept | auto_apply
 export PSKA_GOVERNANCE_DURABLE_MEMORY=manual_review
+export PSKA_WORKSPACE_ID=default
+export PSKA_TENANT_ID=
 ```
 
 Local Graphiti install:
@@ -213,4 +215,5 @@ structure graph data through Product API when the KB backend exposes it. Writing
 opens sourced briefs from recent workflow runs and exports Markdown or JSON
 through Product API. Settings shows runtime provider configuration and Product
 API diagnostics for review store, KB gateway, retrieval, and memory
-connectivity.
+connectivity. Product API health, diagnostics, and audit records include the
+runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.
