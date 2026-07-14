@@ -24,6 +24,7 @@ mcp_servers:
         - pska_review_decide
         - pska_memory_search
         - pska_memory_apply
+        - pska_memory_review_from_workflow
         - pska_export_brief
         - pska_eval_run
         - pska_kb_list
@@ -32,4 +33,5 @@ mcp_servers:
         - pska_kb_document_status
         - pska_kb_parse_documents
         - pska_kb_graph_read
+        - pska_retrieval_probe
         - pska_agentic_question_start

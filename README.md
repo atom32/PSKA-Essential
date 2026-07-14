@@ -156,6 +156,7 @@ Operational loop tools:
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
+- `pska_memory_review_from_workflow`
 - `pska_review_list`
 - `pska_review_get`
 - `pska_export_brief`
@@ -211,6 +212,7 @@ Implemented Alpha routes:
 - `GET /api/workflows/resumable-asks`
 - `GET /api/workflows/{run_id}`
 - `POST /api/workflows/{run_id}/resume-ask`
+- `POST /api/workflows/{run_id}/memory-review`
 - `GET /api/workflows/{run_id}/export`
 - `POST /api/sources/read`
 - `GET /api/reviews`
@@ -243,6 +245,9 @@ workflow with readiness diagnostics so Writing, Activity, and MCP tools can
 recover the blocked state after ingestion continues. Users and agents can resume
 that blocked Ask from the stored workflow when the selected scope becomes ready;
 the resumed Ask creates a new audited workflow linked back to the blocked run.
+Users can also turn an existing sourced workflow into a durable memory review
+through an explicit Memory Review action; this creates a memory candidate and
+review without re-retrieval or direct memory write.
 Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
 review summary. Review records expose source trace fields, and Review cards can

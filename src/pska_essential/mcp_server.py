@@ -78,6 +78,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_memory_apply(review_id: str):
         return to_jsonable(service.memory_apply(review_id))
 
+    def pska_memory_review_from_workflow(run_id: str, intent: str = ""):
+        return service.memory_review_from_workflow(run_id, intent)
+
     def pska_export_brief(run_id: str, format: str = "markdown"):
         return service.export_brief(run_id, format)
 
@@ -267,6 +270,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_review_decide": pska_review_decide,
         "pska_memory_search": pska_memory_search,
         "pska_memory_apply": pska_memory_apply,
+        "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_export_brief": pska_export_brief,
         "pska_audit_list": pska_audit_list,
         "pska_retrieval_probe": pska_retrieval_probe,

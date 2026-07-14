@@ -131,6 +131,9 @@ Implemented:
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
+- Existing sourced transient workflows can be turned into pending durable memory
+  reviews through Product API, MCP, and the frontend Writing/Ask Memory Review
+  action without re-retrieval or direct memory writes.
 - Review queues can be resumed through Product API single-review reads and MCP
   `pska_review_list` / `pska_review_get`; frontend Review actions now open exact
   single-review Product API records by ID.
@@ -193,7 +196,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 67 tests pass.
+- `make test`: 69 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -208,11 +211,13 @@ Expected result:
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Product API tests cover audit action filtering.
 - Workflow/Product API/MCP tests cover source-read audit records.
+- Product API/MCP tests cover turning transient sourced workflows into durable
+  memory reviews.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 28 PSKA MCP tools.
+- `make list-tools`: lists 29 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -246,6 +251,7 @@ pska_agentic_question_resume
 pska_workflow_list
 pska_workflow_artifact
 pska_workflow_brief
+pska_memory_review_from_workflow
 pska_review_list
 pska_review_get
 pska_review_decide

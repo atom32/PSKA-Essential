@@ -180,6 +180,7 @@ function bindRefresh() {
   });
   document.getElementById("export-markdown").addEventListener("click", () => exportCurrent("markdown"));
   document.getElementById("export-json").addEventListener("click", () => exportCurrent("json"));
+  document.getElementById("create-memory-review").addEventListener("click", () => createMemoryReviewFromRun());
 }
 
 async function refreshAll() {
@@ -799,6 +800,15 @@ function askResultActions(result) {
     actions.append(
       el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, "Open Writing"),
     );
+    if (result.status === "ready" && !reviewId) {
+      actions.append(
+        el(
+          "button",
+          { className: "primary-button", onclick: () => createMemoryReviewFromRun(result.run.run_id) },
+          "Create Memory Review",
+        ),
+      );
+    }
     if (result.status === "not_ready") {
       const canResume = Boolean(result.readiness && result.readiness.ready);
       actions.append(
@@ -1440,6 +1450,33 @@ async function exportCurrent(format) {
   showToast(`${format.toUpperCase()} export loaded.`);
 }
 
+async function createMemoryReviewFromRun(runId = "") {
+  const selectedRunId = String(
+    runId || (state.currentBrief && state.currentBrief.run && state.currentBrief.run.run_id) || "",
+  ).trim();
+  if (!selectedRunId) {
+    showToast("No workflow selected.");
+    return;
+  }
+  const intent =
+    (state.currentBrief && state.currentBrief.run && state.currentBrief.run.intent) ||
+    (state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.intent) ||
+    "";
+  const payload = await api(`/api/workflows/${encodeURIComponent(selectedRunId)}/memory-review`, {
+    method: "POST",
+    body: { intent },
+  });
+  syncReviewRecord(payload.review);
+  state.focusReviewId = payload.review && payload.review.review_id;
+  syncWorkflowMemoryReview(selectedRunId, payload);
+  await loadReviews();
+  await loadPendingReviews();
+  await loadWorkflows();
+  await loadAuditEvents("review.create");
+  renderCurrentResultSurfaces();
+  showToast("Memory review created.");
+}
+
 async function readSource(sourceRef) {
   const payload = await api("/api/sources/read", { method: "POST", body: { source_ref: sourceRef } });
   state.reader = payload.source || null;
@@ -1556,6 +1593,18 @@ function syncReviewDecision(decision) {
       decided_at: decision.decided_at,
     };
     target.review_decision = decision;
+  };
+  update(state.currentAskResult);
+  update(state.currentBrief);
+}
+
+function syncWorkflowMemoryReview(runId, payload) {
+  const update = (target) => {
+    if (!target || !target.run || target.run.run_id !== runId) return;
+    target.proposal = payload.proposal || target.proposal;
+    target.review = payload.review || target.review;
+    target.artifact = payload.artifact || target.artifact;
+    target.status = payload.review ? payload.review.status : target.status;
   };
   update(state.currentAskResult);
   update(state.currentBrief);

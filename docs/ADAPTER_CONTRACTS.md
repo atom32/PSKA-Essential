@@ -52,6 +52,7 @@ The public tool surface is:
 - `pska_review_decide`
 - `pska_memory_search`
 - `pska_memory_apply`
+- `pska_memory_review_from_workflow`
 - `pska_export_brief`
 - `pska_audit_list`
 - `pska_retrieval_probe`

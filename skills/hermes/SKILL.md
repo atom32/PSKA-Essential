@@ -22,6 +22,8 @@ candidate memory, review, and durable export.
 - Do not call `pska_memory_apply` until a review has status `accepted`.
 - Use `pska_workflow_artifact` or `pska_workflow_brief` to inspect transient
   work products without export side effects.
+- If a user wants an existing transient workflow to become durable memory, call
+  `pska_memory_review_from_workflow`; do not write memory directly.
 - Export briefs from workflow context only when the user needs an explicit
   Markdown or JSON handoff.
 
@@ -33,7 +35,8 @@ For an existing KB:
 2. Call `pska_context_retrieve`.
 3. Call `pska_propose` with `kind` set to `digest`, `memory_patch`, or
    `writing_brief`.
-4. Call `pska_review_create`.
+4. For durable memory, call `pska_review_create` after `memory_patch`, or call
+   `pska_memory_review_from_workflow` for an existing transient workflow.
 5. Ask the human for review. Use `pska_review_list` or `pska_review_get` to
    resume pending review work if needed.
 6. After acceptance, call `pska_review_decide`.

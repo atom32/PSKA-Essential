@@ -313,6 +313,16 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, **result})
                 return
 
+            workflow_memory_review = _match(path, "/api/workflows/", "/memory-review")
+            if method == "POST" and workflow_memory_review:
+                payload = self._read_json()
+                result = state.service.memory_review_from_workflow(
+                    workflow_memory_review,
+                    intent=str(payload.get("intent") or ""),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
             export_id = _match(path, "/api/workflows/", "/export")
             if method == "GET" and export_id:
                 exported = state.service.export_brief(export_id, query.get("format") or "markdown")

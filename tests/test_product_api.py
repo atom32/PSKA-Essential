@@ -297,6 +297,38 @@ class ProductApiTests(unittest.TestCase):
         context_audit = self._get_json("/api/audit?limit=10&action=context.retrieve")
         self.assertTrue(context_audit["events"][0]["metadata"]["use_kg"])
 
+    def test_transient_workflow_can_create_memory_review_later(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a sourced brief before durable memory",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+        self.assertEqual(asked["status"], "ready")
+        self.assertIsNone(asked["review"])
+        self.assertEqual(asked["proposal"]["kind"], "writing_brief")
+
+        created = self._post_json(
+            f"/api/workflows/{asked['run']['run_id']}/memory-review",
+            {"intent": "Remember the sourced workflow boundary"},
+        )
+
+        self.assertEqual(created["proposal"]["kind"], "memory_patch")
+        self.assertEqual(created["proposal"]["run_id"], asked["run"]["run_id"])
+        self.assertEqual(created["review"]["status"], "pending")
+        self.assertEqual(created["review"]["proposal"]["kind"], "memory_patch")
+        self.assertEqual(created["review"]["source_count"], 1)
+        self.assertEqual(created["artifact"]["latest_proposal"]["kind"], "memory_patch")
+        reviews = self._get_json("/api/reviews?status=pending")
+        self.assertEqual(reviews["reviews"][0]["review_id"], created["review"]["review_id"])
+        audit = self._get_json("/api/audit?limit=10")
+        actions = [event["action"] for event in audit["events"]]
+        self.assertIn("proposal.create", actions)
+        self.assertIn("review.create", actions)
+
     def test_ask_blocks_when_retrieved_context_is_below_minimum(self):
         asked = self._post_json(
             "/api/ask",
@@ -550,6 +582,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("run-retrieval-probe", html)
         self.assertIn("probe-dataset-picker", html)
         self.assertIn("retrieval.probe", html)
+        self.assertIn("create-memory-review", html)
+        self.assertIn("Memory Review", html)
         self.assertIn("home-resumable-asks", html)
         self.assertIn("Workspace", script)
         self.assertIn("Tenant", script)
@@ -587,6 +621,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('await loadDocuments(datasetId, { silent: true });\n  await loadAuditEvents("kb.parse");', script)
         self.assertIn('/api/runtime/diagnostics', script)
         self.assertIn('/api/runtime/retrieval-probe', script)
+        self.assertIn('/memory-review', script)
         self.assertIn('/api/workflows/${encodeURIComponent(runId)}', script)
         self.assertIn('/documents/${encodeURIComponent(documentId)}/graph', script)
         self.assertIn('/api/workflows?limit=20', script)
@@ -615,6 +650,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('askDocumentCard', script)
         self.assertIn('setAskDatasetIds', script)
         self.assertIn('askResultActions', script)
+        self.assertIn('createMemoryReviewFromRun', script)
         self.assertIn('openWorkflowRun', script)
         self.assertIn('sourceManifestCard', script)
         self.assertIn('latest_proposal', script)

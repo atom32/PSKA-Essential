@@ -155,6 +155,23 @@ class WorkflowService:
         )
         return review
 
+    def memory_review_from_workflow(self, run_id: str, intent: str = "") -> dict[str, Any]:
+        """Create a durable memory review from an existing sourced workflow.
+
+        Transient work products may be produced freely. This method is the
+        explicit transition where selected workflow context becomes a durable
+        memory candidate guarded by review.
+        """
+
+        run = self.store.get_workflow(run_id)
+        proposal = self.propose(run_id, "memory_patch", intent or run.intent)
+        review = self.review_create(proposal.proposal_id)
+        return {
+            "proposal": to_jsonable(proposal),
+            "review": self.store.get_review_record(review.review_id),
+            "artifact": self.workflow_artifact(run_id),
+        }
+
     def review_decide(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
         if self.store.get_memory_apply(review_id):
             raise WorkflowError("cannot change review decision after durable memory has been applied")
