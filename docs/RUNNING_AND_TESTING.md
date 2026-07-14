@@ -131,6 +131,9 @@ workspace memory.
 Review decisions and memory apply/update/delete actions refresh the current
 Ask/Writing state, and applied memory state is served back through Review API
 records.
+Review cards show status-specific actions: pending reviews can be decided,
+accepted durable reviews can be applied, `needs_edit` reviews can be revised,
+and rejected reviews are closed.
 Reviews marked `needs_edit` can create a revised candidate review from the same
 workflow and source trace instead of mutating the original review. Review API
 records expose revision lineage so the original and revised candidates remain

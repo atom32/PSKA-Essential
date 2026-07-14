@@ -1722,33 +1722,36 @@ function reviewCard(review) {
   if (locked) {
     actions.append(el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)));
     actions.append(el("span", { className: "tag" }, "Locked"));
-  } else {
+  } else if (review.status === "pending") {
     actions.append(
       reason,
       el("button", { className: "primary-button", onclick: () => decideReview(review.review_id, "accept", reason.value) }, "Accept"),
       el("button", { className: "secondary-button", onclick: () => decideReview(review.review_id, "edit", reason.value) }, "Edit"),
       el("button", { className: "danger-button", onclick: () => decideReview(review.review_id, "reject", reason.value) }, "Reject"),
     );
-    if (review.status === "accepted" && proposal.kind === "memory_patch") {
+  } else if (review.status === "accepted") {
+    if (proposal.kind === "memory_patch") {
       actions.append(
         el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
       );
     }
-    if (review.status === "accepted" && proposal.kind === "memory_update") {
+    if (proposal.kind === "memory_update") {
       actions.append(
         el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory Update"),
       );
     }
-    if (review.status === "accepted" && proposal.kind === "memory_delete") {
+    if (proposal.kind === "memory_delete") {
       actions.append(
         el("button", { className: "danger-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory Delete"),
       );
     }
-    if (review.status === "needs_edit") {
-      actions.append(
-        el("button", { className: "primary-button", onclick: () => reviseReview(review.review_id, reason.value) }, "Revise"),
-      );
-    }
+  } else if (review.status === "needs_edit") {
+    actions.append(
+      reason,
+      el("button", { className: "primary-button", onclick: () => reviseReview(review.review_id, reason.value) }, "Revise"),
+    );
+  } else if (review.status === "rejected") {
+    actions.append(el("span", { className: "tag failed" }, "Rejected"));
   }
   return el("article", { className: review.review_id === state.focusReviewId ? "item-card highlighted" : "item-card" }, [
     el("header", {}, [
