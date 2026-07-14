@@ -103,6 +103,8 @@ Implemented:
 - Frontend Ask scope picker for dataset/document selection through Product API.
 - Frontend Ask controls for loop max iterations, required context count, and
   optional graph retrieval within selected scope.
+- Graph retrieval is passed through PSKA retrieval options to adapters, including
+  the RAGFlow HTTP retrieval path, and is visible in loop/audit metadata.
 - Ask returns `insufficient_context` without proposal/review/export when
   retrieved context remains below the required context count.
 - Successful Ask prepares a transient sourced brief/artifact without creating
@@ -166,13 +168,15 @@ make smoke
 
 Expected result:
 
-- `make test`: 54 tests pass.
+- `make test`: 57 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
 - Product API/static frontend tests cover Review status filtering and pending
   review summaries.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
+- Adapter/Workflow/Product API tests cover graph retrieval hint propagation to
+  RAGFlow retrieval and audit/loop metadata.
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Product API tests cover audit action filtering.
 - Workflow/Product API/MCP tests cover source-read audit records.

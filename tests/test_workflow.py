@@ -2,7 +2,30 @@ from __future__ import annotations
 
 import unittest
 
-from pska_essential.workflow import WorkflowError, build_fake_service
+from pska_essential.adapters.fake import FakeMemoryAdapter
+from pska_essential.contracts import ContextPacket, SourceContext, SourceRef
+from pska_essential.review_store import SQLiteReviewStore
+from pska_essential.workflow import WorkflowError, WorkflowService, build_fake_service
+
+
+class _RecordingRetrieval:
+    backend_name = "recording"
+
+    def __init__(self) -> None:
+        self.options = None
+
+    def retrieve(self, query, scope, limit, options=None):
+        self.options = options
+        return [
+            ContextPacket(
+                context_id="ctx-recording",
+                text="Recorded retrieval",
+                source_ref=SourceRef(adapter=self.backend_name, dataset_id="demo", document_id="doc-1"),
+            )
+        ]
+
+    def read_source(self, source_ref):
+        return SourceContext(source_ref=source_ref, text="Recorded retrieval")
 
 
 class WorkflowTests(unittest.TestCase):
@@ -130,6 +153,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(source_read.metadata["adapter"], "fake")
         self.assertEqual(source_read.metadata["document_id"], packet.source_ref.document_id)
         self.assertEqual(source_read.metadata["source_ref"]["adapter"], "fake")
+
+    def test_context_retrieve_passes_use_kg_to_adapter_and_audit(self):
+        retrieval = _RecordingRetrieval()
+        service = WorkflowService(retrieval, FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
+        run = service.start("graph-aware workflow", {"dataset_ids": ["demo"], "use_kg": True})
+
+        service.context_retrieve(run.run_id, "adapter", 1)
+
+        self.assertTrue(retrieval.options["use_kg"])
+        context_event = next(event for event in service.store.list_audit_events() if event.action == "context.retrieve")
+        self.assertTrue(context_event.metadata["use_kg"])
 
     def test_smoke_eval(self):
         service = build_fake_service()

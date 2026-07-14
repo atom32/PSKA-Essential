@@ -60,7 +60,8 @@ class WorkflowService:
 
     def context_retrieve(self, run_id: str, query: str, limit: int = 5) -> list[ContextPacket]:
         run = self.store.get_workflow(run_id)
-        packets = self.retrieval.retrieve(query, run.scope, limit, options={"run_id": run_id})
+        use_kg = bool(run.scope.get("use_kg", False))
+        packets = self.retrieval.retrieve(query, run.scope, limit, options={"run_id": run_id, "use_kg": use_kg})
         run.context_packets.extend(packets)
         run.updated_at = utc_now_iso()
         self.store.save_workflow(run)
@@ -71,6 +72,7 @@ class WorkflowService:
                 run_id,
                 query=query,
                 count=len(packets),
+                use_kg=use_kg,
             )
         )
         return packets

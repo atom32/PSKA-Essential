@@ -266,8 +266,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(asked["loop"]["review_required"])
         self.assertTrue(asked["run"]["scope"]["use_kg"])
         self.assertEqual(len(asked["context_packets"]), 2)
+        self.assertIn("graph.retrieval", [step["name"] for step in asked["loop"]["steps"]])
         retrieve_steps = [step for step in asked["loop"]["steps"] if step["name"] == "context.retrieve"]
         self.assertEqual(len(retrieve_steps), 2)
+        self.assertTrue(all(step["metadata"]["use_kg"] for step in retrieve_steps))
+        context_audit = self._get_json("/api/audit?limit=10&action=context.retrieve")
+        self.assertTrue(context_audit["events"][0]["metadata"]["use_kg"])
 
     def test_ask_blocks_when_retrieved_context_is_below_minimum(self):
         asked = self._post_json(

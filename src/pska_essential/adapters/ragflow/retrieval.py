@@ -41,19 +41,20 @@ class RagflowRetrievalAdapter:
     ) -> list[ContextPacket]:
         dataset_ids = _string_list(scope.get("dataset_ids") or scope.get("knowledge_base_ids"))
         document_ids = _string_list(scope.get("document_ids"))
+        adapter_options = {"use_kg": bool(scope.get("use_kg", False)), **(options or {})}
         if self.client is not None and hasattr(self.client, "retrieve"):
             chunks = self.client.retrieve(
                 dataset_ids=dataset_ids,
                 document_ids=document_ids,
                 question=query,
                 page_size=limit,
-                top_k=int((options or {}).get("top_k", max(limit, 10))),
-                similarity_threshold=float((options or {}).get("similarity_threshold", 0.0)),
-                use_kg=bool((options or {}).get("use_kg", scope.get("use_kg", False))),
+                top_k=int(adapter_options.get("top_k", max(limit, 10))),
+                similarity_threshold=float(adapter_options.get("similarity_threshold", 0.0)),
+                use_kg=bool(adapter_options.get("use_kg", False)),
             )
             return [self._chunk_to_context(chunk, index) for index, chunk in enumerate(chunks[:limit], start=1)]
         if self.base_url and self.api_key:
-            data = self._http_retrieve(query, dataset_ids, document_ids, limit, options or {})
+            data = self._http_retrieve(query, dataset_ids, document_ids, limit, adapter_options)
             chunks = data.get("chunks") or []
             return [self._chunk_to_context(chunk, index) for index, chunk in enumerate(chunks[:limit], start=1)]
         raise RagflowAdapterError("RAGFlow adapter requires either a ragflow SDK client or base_url/api_key")

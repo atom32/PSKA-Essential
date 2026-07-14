@@ -219,9 +219,11 @@ state, durable/transient status, review requirements, and steps later. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result
 actions for Writing, Review, and accepted memory application. Ask can tune loop
 depth with max iterations, required context count, and optional graph retrieval
-inside the selected scope. If the required context count is not met, Ask returns
-`insufficient_context`, shows any retrieved partial context, and does not create
-a proposal, review, or export. Review links open exact Review API records by ID.
+inside the selected scope. Graph retrieval is passed as a PSKA retrieval hint,
+recorded in loop steps and audit metadata, and remains behind adapters. If the
+required context count is not met, Ask returns `insufficient_context`, shows any
+retrieved partial context, and does not create a proposal, review, or export.
+Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
 review summary. Review decisions and memory apply actions refresh the current
 Ask/Writing state, and applied memory state is served back through Review API

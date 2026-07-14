@@ -74,6 +74,15 @@ def run_agentic_question(
         )
     )
     add_step("scope.check", "complete", "Selected scope accepted.", scope=scope)
+    if scope["use_kg"]:
+        add_step(
+            "graph.retrieval",
+            "complete",
+            "Graph-aware retrieval requested inside the selected scope.",
+            use_kg=True,
+            dataset_ids=scope["dataset_ids"],
+            document_ids=scope["document_ids"],
+        )
     add_step(
         "governance.policy",
         "complete",
@@ -99,6 +108,7 @@ def run_agentic_question(
             requested_limit=iteration_limit,
             returned_count=len(packets),
             unique_count=len(retrieved),
+            use_kg=scope["use_kg"],
         )
         if len(retrieved) >= target_context:
             break

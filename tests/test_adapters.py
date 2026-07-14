@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import unittest
+from unittest.mock import patch
 
 from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAdapter
 from pska_essential.adapters.ragflow import RagflowRetrievalAdapter
@@ -25,6 +27,20 @@ class _RagflowClient:
         return [_Chunk()]
 
 
+class _HttpResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
+
+
 class AdapterTests(unittest.TestCase):
     def test_ragflow_chunks_are_mapped_to_pska_contract(self):
         client = _RagflowClient()
@@ -34,6 +50,42 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(packets[0].source_ref.adapter, "ragflow")
         self.assertEqual(packets[0].source_ref.document_id, "doc-1")
         self.assertEqual(packets[0].source_ref.metadata["positions"], [{"page": 1}])
+
+    def test_ragflow_client_receives_scope_use_kg(self):
+        client = _RagflowClient()
+        adapter = RagflowRetrievalAdapter(client=client)
+
+        adapter.retrieve("hello", {"dataset_ids": ["dataset-1"], "use_kg": True}, 5)
+
+        self.assertTrue(client.kwargs["use_kg"])
+
+    def test_ragflow_http_retrieval_receives_scope_use_kg(self):
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return _HttpResponse(
+                {
+                    "code": 0,
+                    "data": {
+                        "chunks": [
+                            {
+                                "id": "chunk-1",
+                                "content": "HTTP chunk",
+                                "dataset_id": "dataset-1",
+                                "document_id": "doc-1",
+                            }
+                        ]
+                    },
+                }
+            )
+
+        adapter = RagflowRetrievalAdapter(base_url="http://ragflow.local", api_key="key")
+        with patch("pska_essential.adapters.ragflow.retrieval.urlopen", fake_urlopen):
+            packets = adapter.retrieve("hello", {"dataset_ids": ["dataset-1"], "use_kg": True}, 5)
+
+        self.assertEqual(packets[0].text, "HTTP chunk")
+        self.assertTrue(captured["body"]["use_kg"])
 
     def test_company_stub_can_replace_retrieval_and_memory(self):
         adapter = CompanyGraphRagStubAdapter()
