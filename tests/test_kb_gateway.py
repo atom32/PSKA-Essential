@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from pska_essential.agentic_loop import run_agentic_question_with_readiness
+from pska_essential.config import build_service_from_env
 from pska_essential.kb_gateway import KbGatewayError, RagflowKnowledgeGateway, build_kb_gateway_from_env
 
 
@@ -96,6 +98,40 @@ class KbGatewayTests(unittest.TestCase):
 
         self.assertEqual(datasets[0]["backend"], "fake")
         self.assertEqual(datasets[0]["dataset_id"], "demo")
+
+    def test_fake_upload_to_ask_retrieves_uploaded_content(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch.dict("os.environ", env, clear=True):
+            path = Path(tmp) / "orchid-policy.txt"
+            path.write_text(
+                "The uploaded orchid policy says PSKA should cite source packets before durable knowledge.",
+                encoding="utf-8",
+            )
+            gateway = build_kb_gateway_from_env()
+            ingested = gateway.ingest_files(file_paths=[str(path)], dataset_name="Uploaded Fake Loop", parse=True)
+            dataset_id = ingested["dataset"]["dataset_id"]
+            document_id = ingested["documents"][0]["document_id"]
+            service = build_service_from_env()
+
+            result = run_agentic_question_with_readiness(
+                service,
+                gateway,
+                question="What does the uploaded orchid policy say?",
+                dataset_ids=[dataset_id],
+                limit=3,
+                proposal_kind="writing_brief",
+            )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["context_packets"][0]["source_ref"]["document_id"], document_id)
+        self.assertIn("uploaded orchid policy", result["context_packets"][0]["text"])
+        self.assertIn("orchid-policy.txt", result["artifact"]["source_manifest"][0]["title"])
 
 
 if __name__ == "__main__":

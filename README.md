@@ -31,7 +31,9 @@ must be visible to users and agents.
 ## Quick Start
 
 The code is intentionally stdlib-first so the fake workflow can run before any
-external service is installed.
+external service is installed. In explicit fake mode, uploaded text documents
+are stored by the fake KB gateway and are retrievable by the fake retrieval
+adapter, so the local upload-to-Ask loop can run without RAGFlow.
 
 ```bash
 cd /Users/xudawei/PSKA-Essential
@@ -122,6 +124,9 @@ export PSKA_RETRIEVAL_PROVIDER=fake
 export PSKA_KB_PROVIDER=fake
 export PSKA_MEMORY_PROVIDER=fake
 ```
+
+With `PSKA_KB_PROVIDER=fake`, uploaded text documents are queryable by later
+Ask runs in the same Product API process.
 
 ## MCP
 

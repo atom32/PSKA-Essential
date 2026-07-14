@@ -21,7 +21,9 @@ PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
 
 This mode uses fake adapters only through explicit test helpers or
 `PSKA_DEV_FAKE=1`; fake adapters are not runtime fallbacks. Core development
-should always stay fast.
+should always stay fast. In explicit fake KB mode, uploaded text documents are
+kept in the fake KB gateway and are retrievable by fake retrieval, so local
+upload-to-Ask checks do not need RAGFlow.
 
 ### 2. Hermes MCP Development
 
@@ -66,6 +68,10 @@ PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_P
   PYTHONPATH=src python3 -m pska_essential.product_api
 open http://127.0.0.1:8765
 ```
+
+In this mode, create or select a fake dataset, upload a text document, keep
+`Parse after upload` enabled, and then Ask against that dataset ID. The returned
+context should cite the uploaded fake document.
 
 Live RAGFlow/Graphiti mode uses the same Product API command after setting
 providers explicitly:

@@ -298,6 +298,12 @@ class FakeKnowledgeGateway:
                 }
             ]
         }
+        self.document_text: dict[str, str] = {
+            "demo-1": (
+                "PSKA-Essential is an agent knowledge workflow gate. It retrieves context, "
+                "proposes candidate knowledge, requires review, and only then applies memory."
+            )
+        }
 
     def list_datasets(self, *, name: str | None = None, page_size: int = 30) -> list[dict[str, Any]]:
         datasets = list(self.datasets.values())
@@ -363,10 +369,11 @@ class FakeKnowledgeGateway:
         docs = []
         for file_path in file_paths:
             path = _checked_file(file_path)
+            document_id = f"fake_doc_{uuid4().hex[:12]}"
             doc = {
                 "backend": self.backend_name,
                 "dataset_id": dataset_id,
-                "document_id": f"fake_doc_{uuid4().hex[:12]}",
+                "document_id": document_id,
                 "name": path.name,
                 "chunk_method": "naive",
                 "chunk_count": 0,
@@ -376,6 +383,7 @@ class FakeKnowledgeGateway:
                 "run": "UNSTART",
                 "status": "uploaded",
             }
+            self.document_text[document_id] = _read_fake_document_text(path)
             docs.append(doc)
             self.documents.setdefault(dataset_id, []).append(doc)
         self.datasets[dataset_id]["document_count"] = len(self.documents.get(dataset_id, []))
@@ -417,6 +425,32 @@ class FakeKnowledgeGateway:
             "templates": [],
             "note": "Fake KB gateway does not build structure graphs.",
         }
+
+    def retrieval_corpus(self, scope: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        scope = dict(scope or {})
+        dataset_ids = [str(item) for item in scope.get("dataset_ids") or self.datasets.keys()]
+        document_ids = {str(item) for item in scope.get("document_ids") or []}
+        corpus: list[dict[str, Any]] = []
+        for dataset_id in dataset_ids:
+            for doc in self.documents.get(dataset_id, []):
+                document_id = str(doc.get("document_id") or "")
+                if document_ids and document_id not in document_ids:
+                    continue
+                if int(doc.get("chunk_count") or 0) <= 0:
+                    continue
+                text = self.document_text.get(document_id, "")
+                if not text:
+                    continue
+                corpus.append(
+                    {
+                        "id": document_id,
+                        "dataset_id": dataset_id,
+                        "document_id": document_id,
+                        "title": doc.get("name") or document_id,
+                        "text": text,
+                    }
+                )
+        return corpus
 
     def ingest_files(
         self,
@@ -532,6 +566,15 @@ def _checked_file(path: str) -> Path:
     if not file_path.is_file():
         raise KbGatewayError(f"file not found: {path}")
     return file_path
+
+
+def _read_fake_document_text(path: Path) -> str:
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("utf-8", errors="replace")
+    return text[:20000]
 
 
 def _multipart_files(paths: list[Path]) -> tuple[bytes, str]:

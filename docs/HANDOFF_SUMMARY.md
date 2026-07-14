@@ -87,6 +87,8 @@ Implemented:
 - Contract models.
 - Ports.
 - Fake retrieval and fake memory adapters.
+- Explicit fake KB mode stores uploaded text documents and fake retrieval can
+  retrieve them, so local upload-to-Ask checks do not require RAGFlow.
 - RAGFlow KB gateway glue for dataset creation, document upload, parsing,
   status polling, and optional structure graph read.
 - RAGFlow retrieval adapter.
@@ -186,7 +188,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 60 tests pass.
+- `make test`: 61 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
@@ -528,7 +530,7 @@ uv run pska-essential-mcp
 If using explicit local fake mode:
 
 ```bash
-PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
   PSKA_REVIEW_DB=:memory: PYTHONPATH=src python3 -m pska_essential --list-tools
 ```
 
@@ -586,6 +588,10 @@ make list-tools
    ```text
    upload -> parse/status -> agentic question -> propose -> review -> apply -> explicit export
    ```
+
+   In explicit fake mode this can be tested with text files only: fake KB stores
+   uploaded text, fake retrieval returns it as context, and PSKA still owns the
+   workflow/review/export gates.
 
 7. Validate that Graphiti writes are still review-gated and that Hermes cannot
    bypass PSKA by calling Graphiti directly.
