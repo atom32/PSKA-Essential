@@ -200,6 +200,7 @@ Implemented Alpha routes:
 - `GET /api/workflows/{run_id}`
 - `GET /api/workflows/{run_id}/export`
 - `GET /api/reviews`
+- `GET /api/reviews?status={status}`
 - `GET /api/reviews/{review_id}`
 - `POST /api/reviews/{review_id}/decision`
 - `POST /api/reviews/{review_id}/apply-memory`
@@ -217,10 +218,11 @@ depth with max iterations, required context count, and optional graph retrieval
 inside the selected scope. If the required context count is not met, Ask returns
 `insufficient_context`, shows any retrieved partial context, and does not create
 a proposal, review, or export. Review links open exact Review API records by ID.
-Review decisions and memory apply actions refresh the current Ask/Writing state,
-and applied memory state is served back through Review API records. Once durable
-memory has been applied, the accepted review decision is locked; future changes
-require a new proposal and review. Activity
+The Review queue can filter by status while Home keeps an independent pending
+review summary. Review decisions and memory apply actions refresh the current
+Ask/Writing state, and applied memory state is served back through Review API
+records. Once durable memory has been applied, the accepted review decision is
+locked; future changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow
 export records from explicit export actions, review/memory apply records
 with proposal, run, and source trace metadata, and mechanical source operations

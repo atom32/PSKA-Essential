@@ -1,6 +1,8 @@
 const state = {
   datasets: [],
   reviews: [],
+  reviewView: [],
+  pendingReviews: null,
   health: null,
   lastRunId: null,
   reader: null,
@@ -17,6 +19,7 @@ const state = {
   ingestionPoll: null,
   askDocumentsByDataset: {},
   auditAction: "",
+  reviewStatus: "",
 };
 
 const titles = {
@@ -132,6 +135,7 @@ function bindForms() {
     renderAskResult(result);
     renderWriting();
     await loadReviews();
+    await loadPendingReviews();
     await loadWorkflows();
     await loadAuditEvents();
     renderHome();
@@ -149,6 +153,10 @@ function bindRefresh() {
   document.getElementById("ask-add-dataset").addEventListener("click", () => addAskDataset());
   document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
+  document.getElementById("review-status-filter").addEventListener("change", (event) => {
+    state.reviewStatus = event.currentTarget.value || "";
+    loadReviews();
+  });
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("reload-audit").addEventListener("click", loadAuditEvents);
   document.getElementById("audit-action-filter").addEventListener("change", (event) => {
@@ -165,6 +173,7 @@ async function refreshAll() {
     loadDiagnostics(),
     loadDatasets(),
     loadReviews(),
+    loadPendingReviews(),
     loadWorkflows(),
     loadAuditEvents(),
   ]);
@@ -218,13 +227,30 @@ async function loadDatasets() {
 
 async function loadReviews() {
   try {
-    const payload = await api("/api/reviews");
-    state.reviews = [];
-    (payload.reviews || []).forEach((review) => syncReviewRecord(review, { append: true }));
+    const status = state.reviewStatus ? `&status=${encodeURIComponent(state.reviewStatus)}` : "";
+    const payload = await api(`/api/reviews?limit=50${status}`);
+    state.reviewView = payload.reviews || [];
+    if (!state.reviewStatus) {
+      state.reviews = [];
+    }
+    state.reviewView.forEach((review) => syncReviewRecord(review, { append: !state.reviewStatus }));
     renderReviews();
     renderHome();
   } catch (error) {
     renderList(document.getElementById("reviews-list"), [], "Reviews unavailable.");
+    showToast(error.message);
+  }
+}
+
+async function loadPendingReviews() {
+  try {
+    const payload = await api("/api/reviews?status=pending&limit=50");
+    state.pendingReviews = payload.reviews || [];
+    state.pendingReviews.forEach(syncReviewRecord);
+    renderHome();
+  } catch (error) {
+    state.pendingReviews = [];
+    renderHome();
     showToast(error.message);
   }
 }
@@ -282,15 +308,16 @@ async function loadDocuments(datasetId, options = {}) {
 }
 
 function renderHome() {
+  const pendingReviews = Array.isArray(state.pendingReviews)
+    ? state.pendingReviews
+    : state.reviews.filter((item) => item.status === "pending");
   document.getElementById("metric-datasets").textContent = String(state.datasets.length);
-  document.getElementById("metric-reviews").textContent = String(
-    state.reviews.filter((item) => item.status === "pending").length,
-  );
+  document.getElementById("metric-reviews").textContent = String(pendingReviews.length);
   document.getElementById("metric-run").textContent = state.lastRunId ? shortId(state.lastRunId) : "None";
   renderList(document.getElementById("home-datasets"), state.datasets.slice(0, 4), "No datasets loaded.", datasetCard);
   renderList(
     document.getElementById("home-reviews"),
-    state.reviews.filter((item) => item.status === "pending").slice(0, 4),
+    pendingReviews.slice(0, 4),
     "No pending reviews.",
     reviewCard,
   );
@@ -339,7 +366,13 @@ function renderDocuments(documents) {
 }
 
 function renderReviews() {
-  renderList(document.getElementById("reviews-list"), state.reviews, "No reviews loaded.", reviewCard);
+  renderList(document.getElementById("reviews-list"), state.reviewView, "No reviews loaded.", reviewCard);
+}
+
+function setReviewStatusFilter(status) {
+  state.reviewStatus = status || "";
+  const filter = document.getElementById("review-status-filter");
+  if (filter) filter.value = state.reviewStatus;
 }
 
 function renderWorkflowList() {
@@ -1089,11 +1122,13 @@ async function openWritingRun(runId) {
 }
 
 async function openReview(reviewId) {
+  setReviewStatusFilter("");
   state.focusReviewId = reviewId;
   const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}`);
   if (!syncReviewRecord(payload.review)) {
     throw new Error("Review not found.");
   }
+  state.reviewView = [payload.review, ...state.reviewView.filter((review) => review.review_id !== reviewId)];
   renderReviews();
   renderHome();
   document.querySelector('.nav-item[data-view="review"]').click();
@@ -1205,6 +1240,7 @@ async function decideReview(reviewId, decision, reason) {
   syncReviewDecision(payload.decision);
   showToast(`Review ${decision}.`);
   await loadReviews();
+  await loadPendingReviews();
   await loadAuditEvents();
   renderCurrentResultSurfaces();
 }
@@ -1214,6 +1250,7 @@ async function applyMemory(reviewId) {
   syncMemoryApply(reviewId, payload.applied);
   showToast("Memory applied.");
   await loadReviews();
+  await loadPendingReviews();
   await loadAuditEvents();
   renderCurrentResultSurfaces();
 }

@@ -209,7 +209,19 @@
           <div class="panel">
             <div class="panel-header">
               <h2>Review Queue</h2>
-              <button id="reload-reviews" class="secondary-button" type="button">Reload</button>
+              <div class="status-strip">
+                <label class="inline-control">
+                  <span>Status</span>
+                  <select id="review-status-filter">
+                    <option value="">All</option>
+                    <option value="pending">pending</option>
+                    <option value="accepted">accepted</option>
+                    <option value="needs_edit">needs_edit</option>
+                    <option value="rejected">rejected</option>
+                  </select>
+                </label>
+                <button id="reload-reviews" class="secondary-button" type="button">Reload</button>
+              </div>
             </div>
             <div id="reviews-list" class="list empty-list">No reviews loaded.</div>
           </div>
