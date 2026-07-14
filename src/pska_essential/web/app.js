@@ -1583,6 +1583,9 @@ function documentCard(document) {
       el("div", {}, [el("h3", {}, document.name || document.document_id), el("p", {}, detail)]),
       el("div", { className: "card-actions" }, [
         el("span", { className: `tag ${stateName.className}` }, stateName.label),
+        datasetId && documentId && stateName.label === "ready"
+          ? el("button", { className: "secondary-button", onclick: () => askDocument(datasetId, document) }, "Ask")
+          : null,
         datasetId && documentId
           ? el("button", { className: "secondary-button", onclick: () => readDocumentGraph(datasetId, documentId) }, "Graph")
           : null,
@@ -2415,6 +2418,22 @@ function renderCurrentResultSurfaces() {
 function setAskDataset(datasetId) {
   document.querySelector('.nav-item[data-view="ask"]').click();
   prepareAskScope(datasetId || "");
+}
+
+function askDocument(datasetId, document) {
+  const normalizedDatasetId = String(datasetId || "").trim();
+  const documentId = String((document && document.document_id) || "").trim();
+  if (!normalizedDatasetId || !documentId) {
+    showToast("Dataset and document IDs are required.");
+    return;
+  }
+  setAskDatasetIds([normalizedDatasetId]);
+  setAskDocumentIds([documentId]);
+  state.askDocumentsByDataset[normalizedDatasetId] = state.activeDocuments.length ? state.activeDocuments : [document];
+  renderAskScope();
+  document.querySelector('.nav-item[data-view="ask"]').click();
+  void checkAskReadiness({ silent: true });
+  showToast("Document selected for Ask.");
 }
 
 function prepareAskScope(datasetId, documents = []) {

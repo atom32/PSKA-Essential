@@ -285,6 +285,7 @@ agent to provide the question. Dataset cards expose Ask, Upload, and Status
 actions so users can continue the workflow without copying dataset IDs between
 forms, and newly created knowledge bases are selected as upload targets
 automatically. Upload keeps the resolved target selected for additional files.
+Ready document cards can also set a single-document Ask scope directly.
 Ask exposes a scope readiness check that calls the Product API readiness
 gate before the agentic loop starts; submitting Ask still performs the backend
 readiness gate and returns a resumable blocked workflow when needed. The Ask

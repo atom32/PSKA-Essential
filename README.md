@@ -337,6 +337,7 @@ ready dataset in Ask scope when ingestion completes. Dataset cards can open Ask,
 set an existing upload target, or load document status without copying dataset
 IDs, and newly created knowledge bases are selected as upload targets
 automatically. Upload keeps the resolved target selected for additional files.
+Ready document cards can also set a single-document Ask scope directly.
 Ask can check selected scope readiness before running the agentic loop,
 using the same Product API readiness gate that protects retrieval, and then
 offers readiness actions such as Run Ask, Parse Scope, Track Status, and Open

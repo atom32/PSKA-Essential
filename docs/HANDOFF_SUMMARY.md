@@ -200,6 +200,7 @@ Implemented:
 - Newly created knowledge bases are selected as upload targets automatically,
   upload keeps the resolved target selected for additional files, and the upload
   form has a dataset picker backed by Product API dataset state.
+- Ready document cards can set a single-document Ask scope directly.
 - Ask exposes a selected-scope readiness check using the same Product API
   readiness gate that protects retrieval, with explicit Run Ask, Parse Scope,
   Track Status, and Open Status actions for the checked scope. Blocked Ask
@@ -407,7 +408,8 @@ context, and does not create a proposal, review, or export. The Knowledge Bases
 view shows dataset/document
 readiness and normalized ingestion status, can start parsing for loaded unready
 documents, selects newly created knowledge bases as upload targets, keeps the
-resolved upload target selected after ingest, can open
+resolved upload target selected after ingest, can set ready documents as
+single-document Ask scopes, can open
 optional document structure graph data through Product API,
 and automatically refreshes ingestion status.
 
