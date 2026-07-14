@@ -1494,6 +1494,14 @@ function renderWriting() {
   if (loop && loop.steps) {
     container.append(loopPanel({ loop }));
   }
+  if (memoryApply) {
+    container.append(
+      el("div", { className: "panel" }, [
+        el("h2", {}, "Applied Durable Knowledge"),
+        memoryApplyCard(memoryApply),
+      ]),
+    );
+  }
   if (!state.currentBrief.brief && memoryFacts.length) {
     container.append(
       el("div", { className: "panel" }, [
@@ -1658,6 +1666,31 @@ function memoryFactCard(fact) {
         },
         "Create Delete Review",
       ),
+    ]),
+  ]);
+}
+
+function memoryApplyCard(memoryApply) {
+  const action = memoryApplyAction(memoryApply);
+  const operation = memoryApply && memoryApply.metadata && memoryApply.metadata.operation;
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, memoryApplyLabel(memoryApply)),
+        el("p", {}, memoryApply.message || "Durable memory state updated."),
+      ]),
+      el("div", { className: "card-actions" }, [
+        el("span", { className: `tag ${memoryApply.applied ? "ready" : "pending"}` }, memoryApply.applied ? "applied" : "pending"),
+        memoryApply.target_id
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(memoryApply.target_id) }, "History")
+          : null,
+      ]),
+    ]),
+    el("div", { className: "meta-row" }, [
+      memoryApply.backend ? el("span", { className: "tag" }, memoryApply.backend) : null,
+      operation ? el("span", { className: "tag" }, operation) : null,
+      el("span", { className: "tag" }, action),
+      memoryApply.target_id ? el("span", { className: "tag" }, shortId(memoryApply.target_id)) : null,
     ]),
   ]);
 }

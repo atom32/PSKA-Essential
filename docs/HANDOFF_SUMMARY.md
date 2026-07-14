@@ -145,6 +145,7 @@ Implemented:
   before opening state, artifacts, briefs, or exports.
 - Writing shows matched durable memory facts alongside source context when a run
   is reopened, including each memory fact's supporting source trace.
+- Writing shows applied durable knowledge results and links to their lifecycle.
 - Frontend Ask result actions for Writing, Review, and accepted memory changes.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
@@ -391,7 +392,8 @@ Markdown/JSON work products with source manifests, inspected source snippets,
 supporting context, and traceability metadata, include the workflow export audit
 event, and create workflow export audit records. Review
 decisions and memory apply/update/delete actions refresh the current Ask/Writing
-state, and applied memory state is served back through Review API records. Review supports
+state, and applied memory state is served back through Review API records. Writing
+shows the applied durable knowledge result and links to its lifecycle. Review supports
 status filtering without changing the Home pending-review summary. Activity
 shows the recent audit trail with action filtering, including workflow export
 records, review/memory apply/update/delete records with proposal, run, and

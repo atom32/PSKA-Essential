@@ -131,6 +131,7 @@ workspace memory.
 Review decisions and memory apply/update/delete actions refresh the current
 Ask/Writing state, and applied memory state is served back through Review API
 records.
+Writing shows the applied durable knowledge result and links to its lifecycle.
 Review cards show status-specific actions: pending reviews can be decided,
 accepted durable reviews can be applied, `needs_edit` reviews can be revised,
 and rejected reviews are closed.

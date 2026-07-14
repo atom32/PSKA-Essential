@@ -312,6 +312,7 @@ preserving the original review history; Review API records expose revision
 lineage so old and revised candidates can be traced in both directions. Review
 decisions and memory apply/update/delete actions refresh the current Ask/Writing
 state, and applied memory state is served back through Review API records.
+Writing shows the applied durable knowledge result and links to its lifecycle.
 Applied memory can be found by later Ask runs through the memory adapter and is
 shown in Writing as durable workspace context with its supporting source trace.
 Writing can create a governed update review from an explicit MemoryFact; the
