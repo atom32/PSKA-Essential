@@ -101,6 +101,8 @@ Implemented:
 - PSKA-controlled agentic Ask loop with explicit loop diagnostics.
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
 - Frontend Ask scope picker for dataset/document selection through Product API.
+- Frontend Ask controls for loop max iterations, required context count, and
+  optional graph retrieval within selected scope.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
@@ -135,6 +137,7 @@ Expected result:
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, and multipart document upload.
+- Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
 - `make list-tools`: lists 19 PSKA MCP tools.
@@ -191,11 +194,13 @@ open http://127.0.0.1:8765
 The frontend includes Home, Knowledge Bases, Ask, Reader, Writing, Review,
 Activity, and Settings. It calls only same-origin `/api/...` routes, shows
 explicit Ask loop steps including KB readiness, lets users pick dataset/document
-scope through Product API, opens sources through Product API Reader, opens
-sourced briefs in Writing, opens related review items, and can apply accepted
-memory patches. Review decisions and memory apply actions refresh the current
-Ask/Writing state, and applied memory state is served back through Review API
-records. Activity shows the recent audit trail, including workflow export
+scope through Product API, tunes loop max iterations, required context count,
+and optional graph retrieval inside selected scope, opens sources through
+Product API Reader, opens sourced briefs in Writing, opens related review items,
+and can apply accepted memory patches. Review decisions and memory apply
+actions refresh the current Ask/Writing state, and applied memory state is
+served back through Review API records. Activity shows the recent audit trail,
+including workflow export
 records. Settings shows runtime provider configuration and Product API
 diagnostics for review store, KB gateway, retrieval, and memory connectivity.
 Product API health, diagnostics, and audit records include the runtime

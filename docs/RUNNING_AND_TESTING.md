@@ -87,10 +87,12 @@ PYTHONPATH=src python3 -m pska_essential.product_api
 The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
-that syncs to explicit scope IDs. Ask results can jump directly to Writing or
-Review and can apply accepted memory patches through Product API. Review
-decisions and memory apply actions refresh the current Ask/Writing state, and
-applied memory state is served back through Review API records.
+that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
+required context count, and optional graph retrieval inside the selected scope.
+Ask results can jump directly to Writing or Review and can apply accepted
+memory patches through Product API. Review decisions and memory apply actions
+refresh the current Ask/Writing state, and applied memory state is served back
+through Review API records.
 Reader inspects sources through Product API only. Writing opens recent sourced
 briefs and exports Markdown or JSON through Product API; exports create
 workflow audit records. Activity shows the recent audit trail. Upload, parsing,

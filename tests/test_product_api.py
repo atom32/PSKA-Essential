@@ -184,12 +184,19 @@ class ProductApiTests(unittest.TestCase):
                 "question": "Create a sourced brief",
                 "dataset_ids": ["demo"],
                 "limit": 1,
+                "max_iterations": 2,
+                "min_context_packets": 2,
                 "proposal_kind": "writing_brief",
+                "use_kg": True,
             },
         )
         self.assertEqual(asked["status"], "ready")
         self.assertIsNone(asked["review"])
         self.assertFalse(asked["loop"]["review_required"])
+        self.assertTrue(asked["run"]["scope"]["use_kg"])
+        self.assertEqual(len(asked["context_packets"]), 2)
+        retrieve_steps = [step for step in asked["loop"]["steps"] if step["name"] == "context.retrieve"]
+        self.assertEqual(len(retrieve_steps), 2)
 
     def test_readiness_route_reports_scope_status(self):
         readiness = self._post_json("/api/kb/readiness", {"dataset_ids": ["demo"]})["readiness"]
@@ -290,6 +297,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("ask-document-picker", html)
         self.assertIn("ask-add-dataset", html)
         self.assertIn("ask-load-documents", html)
+        self.assertIn("max_iterations", html)
+        self.assertIn("min_context_packets", html)
+        self.assertIn("use_kg", html)
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
         self.assertIn('data-view="activity"', html)
@@ -297,6 +307,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("runtime-diagnostics", html)
         self.assertIn("Workspace", script)
         self.assertIn("Tenant", script)
+        self.assertIn("max_iterations", script)
+        self.assertIn("min_context_packets", script)
+        self.assertIn("use_kg", script)
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/audit?limit=50', script)
         self.assertIn('/api/runtime/diagnostics', script)

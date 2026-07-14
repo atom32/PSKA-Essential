@@ -203,10 +203,12 @@ same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and export preparation. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result
-actions for Writing, Review, and accepted memory application. Review decisions
-and memory apply actions refresh the current Ask/Writing state, and applied
-memory state is served back through Review API records. Activity shows the
-recent audit trail, including workflow export records. If the selected dataset or
+actions for Writing, Review, and accepted memory application. Ask can tune loop
+depth with max iterations, required context count, and optional graph retrieval
+inside the selected scope. Review decisions and memory apply actions refresh the
+current Ask/Writing state, and applied memory state is served back through
+Review API records. Activity shows the recent audit trail, including workflow
+export records. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically

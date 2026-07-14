@@ -177,7 +177,8 @@ V1 frontend should include:
 
 - Home: recent work, pending jobs, pending reviews, recent briefs.
 - Knowledge Bases: create datasets, upload files, track ingestion and readiness.
-- Ask: select scope, run the agentic loop, show sourced answers and source gaps.
+- Ask: select scope, tune the agentic loop, show sourced answers and source
+  gaps.
 - Reader: inspect source chunks/documents, optional source-derived structure
   graphs, and trace where evidence was used.
 - Writing: turn sourced answers into briefs and exports.

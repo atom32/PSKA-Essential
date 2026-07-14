@@ -175,6 +175,14 @@
                 <input name="limit" type="number" min="1" max="20" value="5" />
               </label>
               <label>
+                Max Iterations
+                <input name="max_iterations" type="number" min="1" max="5" value="2" />
+              </label>
+              <label>
+                Min Context
+                <input name="min_context_packets" type="number" min="1" max="20" value="1" />
+              </label>
+              <label>
                 Proposal
                 <select name="proposal_kind">
                   <option value="writing_brief">writing_brief</option>
@@ -185,6 +193,10 @@
               <label class="check-row side-check">
                 <input name="create_review" type="checkbox" />
                 <span>Force review</span>
+              </label>
+              <label class="check-row side-check">
+                <input name="use_kg" type="checkbox" />
+                <span>Use graph retrieval</span>
               </label>
             </div>
             <button type="submit" class="primary-button">Run Ask</button>

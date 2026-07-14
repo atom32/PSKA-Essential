@@ -106,7 +106,10 @@ function bindForms() {
       dataset_ids: splitIds(form.get("dataset_ids")),
       document_ids: splitIds(form.get("document_ids")),
       limit: Number(form.get("limit") || 5),
+      max_iterations: Number(form.get("max_iterations") || 2),
+      min_context_packets: Number(form.get("min_context_packets") || 1),
       proposal_kind: form.get("proposal_kind"),
+      use_kg: Boolean(form.get("use_kg")),
     };
     if (form.get("create_review")) {
       body.create_review = true;
