@@ -197,6 +197,9 @@ Implemented:
   audit event for explicit exports.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
+- Product API, MCP, and frontend Settings expose the workspace governance
+  policy as a product contract, including durable proposal kinds and the
+  transient-results skip rule.
 - Operational upload-to-agentic-question MCP loop.
 - Smoke eval.
 - Hermes skill/config examples.
@@ -238,11 +241,12 @@ Expected result:
   from PSKA audit records.
 - Product API/MCP tests cover revising `needs_edit` reviews into new pending
   review candidates.
+- Product API/MCP/frontend tests cover workspace policy visibility.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 33 PSKA MCP tools.
+- `make list-tools`: lists 34 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -273,6 +277,7 @@ pska_retrieval_probe
 pska_agentic_question_start
 pska_agentic_question_resumable
 pska_agentic_question_resume
+pska_policy_get
 pska_workflow_list
 pska_workflow_artifact
 pska_workflow_brief
@@ -313,8 +318,9 @@ Activity, and Settings. It calls only same-origin `/api/...` routes, shows
 explicit Ask loop steps including KB readiness, lets users pick dataset/document
 scope through Product API, tunes loop max iterations, required context count,
 and optional graph retrieval inside selected scope, opens sources through
-Product API Reader, opens workflow state, work product, source manifest, and
-context in Writing without export side effects, restores persisted loop
+Product API Reader, loads workspace policy from `/api/policy`, opens workflow
+state, work product, source manifest, and context in Writing without export side
+effects, restores persisted loop
 governance/status details, opens related review items, and can apply accepted
 memory patches, reviewed memory updates, or reviewed memory deletions, then
 inspect the reviewed lifecycle for a durable MemoryFact. Explicit

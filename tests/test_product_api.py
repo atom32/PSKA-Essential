@@ -137,6 +137,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(health["governance"]["durable_memory"], "manual_review")
         self.assertEqual(health["workspace"]["workspace_id"], "default")
         self.assertFalse(health["workspace"]["workspace_configured"])
+        policy = self._get_json("/api/policy")
+        self.assertEqual(policy["governance"]["actions"]["memory_patch"], "manual_review")
+        self.assertEqual(policy["governance"]["actions"]["memory_update"], "manual_review")
+        self.assertEqual(policy["governance"]["actions"]["memory_delete"], "manual_review")
+        self.assertEqual(policy["governance"]["transient_results"], "skip")
 
         asked = self._post_json(
             "/api/ask",
@@ -740,6 +745,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('data-view="activity"', html)
         self.assertIn("Brief Workspace", html)
         self.assertIn("runtime-diagnostics", html)
+        self.assertIn("Workspace Policy", html)
+        self.assertIn("policy-settings", html)
         self.assertIn("retrieval-probe-result", html)
         self.assertIn("run-retrieval-probe", html)
         self.assertIn("probe-dataset-picker", html)
@@ -782,6 +789,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('renderIngestResult(result.ingest);\n    await loadDatasets();\n    await loadAuditEvents("kb.ingest");', script)
         self.assertIn('await loadDocuments(datasetId, { silent: true });\n  await loadAuditEvents("kb.parse");', script)
         self.assertIn('/api/runtime/diagnostics', script)
+        self.assertIn('/api/policy', script)
+        self.assertIn('loadPolicy', script)
+        self.assertIn('renderPolicy', script)
+        self.assertIn('policy.actions', script)
         self.assertIn('/api/runtime/retrieval-probe', script)
         self.assertIn('/memory-review', script)
         self.assertIn('/revision', script)

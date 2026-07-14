@@ -35,6 +35,12 @@ class WorkspaceGovernancePolicy:
         return {
             "durable_memory": self.durable_memory,
             "durable_modes": sorted(VALID_DURABLE_MODES),
+            "durable_proposal_kinds": sorted(DURABLE_PROPOSAL_KINDS),
+            "actions": {
+                proposal_kind: self.action_for(proposal_kind)
+                for proposal_kind in sorted(DURABLE_PROPOSAL_KINDS)
+            },
+            "transient_results": "skip",
         }
 
 

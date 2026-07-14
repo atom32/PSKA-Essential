@@ -18,6 +18,8 @@ external KB, GraphRAG, or memory systems.
 - Treat upload, parsing, embedding, and indexing as asynchronous and check
   readiness before asking over a dataset.
 - Do not use case-specific shortcuts, hardcoded domains, or fallback answers.
+- Use `pska_policy_get` to inspect the current workspace governance policy
+  instead of inferring policy from provider capabilities.
 - Memory writes require accepted review.
 - Use workflow artifacts or transient briefs for inspection; explicit exports
   must come from workflow context.

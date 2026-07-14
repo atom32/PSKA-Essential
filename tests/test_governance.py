@@ -18,6 +18,12 @@ class GovernancePolicyTests(unittest.TestCase):
         self.assertEqual(policy.action_for("memory_delete"), MANUAL_REVIEW)
         self.assertEqual(policy.action_for("memory_update"), MANUAL_REVIEW)
         self.assertEqual(policy.action_for("writing_brief"), "skip")
+        snapshot = policy.to_dict()
+        self.assertEqual(snapshot["actions"]["memory_patch"], MANUAL_REVIEW)
+        self.assertEqual(snapshot["actions"]["memory_update"], MANUAL_REVIEW)
+        self.assertEqual(snapshot["actions"]["memory_delete"], MANUAL_REVIEW)
+        self.assertEqual(snapshot["transient_results"], "skip")
+        self.assertIn("memory_patch", snapshot["durable_proposal_kinds"])
 
     def test_env_can_configure_auto_apply(self):
         with patch.dict(os.environ, {"PSKA_GOVERNANCE_DURABLE_MEMORY": AUTO_APPLY}, clear=True):

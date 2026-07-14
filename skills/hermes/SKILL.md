@@ -19,6 +19,8 @@ candidate memory, review, and durable export.
 - Do not use case-specific shortcuts or hardcoded domains.
 - Do not invent fallback answers when retrieval or backend calls fail.
 - Treat retrieved context as workflow-local until review accepts it.
+- Use `pska_policy_get` when you need to understand the current workspace
+  governance policy; do not infer policy from provider capabilities.
 - Do not call `pska_memory_apply` until a review has status `accepted`.
 - Use `pska_workflow_artifact` or `pska_workflow_brief` to inspect transient
   work products without export side effects.

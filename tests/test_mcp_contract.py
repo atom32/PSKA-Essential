@@ -20,6 +20,7 @@ EXPECTED_TOOLS = {
     "pska_workflow_brief",
     "pska_context_retrieve",
     "pska_source_read",
+    "pska_policy_get",
     "pska_propose",
     "pska_review_create",
     "pska_review_list",
@@ -61,6 +62,9 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(len(packets), 1)
         source = tools["pska_source_read"](packets[0]["source_ref"])
         self.assertIn("PSKA-Essential", source["text"])
+        policy = tools["pska_policy_get"]()
+        self.assertEqual(policy["actions"]["memory_patch"], "manual_review")
+        self.assertEqual(policy["transient_results"], "skip")
         proposal = tools["pska_propose"](run["run_id"], "memory_patch", "mcp memory")
         artifact = tools["pska_workflow_artifact"](run["run_id"])
         brief = tools["pska_workflow_brief"](run["run_id"], "markdown")

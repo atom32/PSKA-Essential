@@ -50,6 +50,7 @@ The public tool surface is:
 - `pska_workflow_brief`
 - `pska_context_retrieve`
 - `pska_source_read`
+- `pska_policy_get`
 - `pska_propose`
 - `pska_review_create`
 - `pska_review_list`
@@ -78,6 +79,9 @@ The public tool surface is:
 - `pska_agentic_question_resume`
 
 Backends must be replaceable without changing these tools.
+`pska_policy_get` returns PSKA workspace governance policy; agents must use it
+for product policy awareness instead of inferring review behavior from backend
+capabilities.
 
 ## KB Gateway
 

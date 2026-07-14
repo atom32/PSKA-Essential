@@ -153,6 +153,7 @@ Operational loop tools:
 - `pska_agentic_question_start`
 - `pska_agentic_question_resumable`
 - `pska_agentic_question_resume`
+- `pska_policy_get`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
@@ -171,7 +172,8 @@ Operational loop tools:
 These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 
 ```text
-upload files -> RAGFlow dataset/documents/chunks -> PSKA scoped retrieve
+upload files -> RAGFlow dataset/documents/chunks -> inspect workspace policy
+  -> PSKA scoped retrieve
   -> agent answer/proposal -> Review -> optional memory apply
   -> optional governed memory update review
   -> optional governed memory delete review
@@ -241,6 +243,9 @@ Review, Activity, and Settings. It is served by the Product API and uses only
 same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
+Settings loads `/api/policy` as the product-level workspace governance surface,
+including durable proposal kinds, configured durable-memory action, available
+modes, and the fact that transient results skip durable governance.
 Ask persists the loop summary on the workflow so Writing can reopen governance
 state, durable/transient status, review requirements, and steps later. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result

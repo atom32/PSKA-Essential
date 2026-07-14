@@ -4,6 +4,7 @@ const state = {
   reviewView: [],
   pendingReviews: null,
   health: null,
+  policy: null,
   lastRunId: null,
   reader: null,
   workflows: [],
@@ -186,6 +187,7 @@ function bindRefresh() {
 async function refreshAll() {
   await Promise.allSettled([
     loadHealth(),
+    loadPolicy(),
     loadDiagnostics(),
     loadDatasets(),
     loadReviews(),
@@ -208,6 +210,19 @@ async function loadHealth() {
     const status = document.getElementById("api-status");
     status.textContent = "API error";
     status.className = "status-pill error";
+    showToast(error.message);
+  }
+}
+
+async function loadPolicy() {
+  try {
+    const payload = await api("/api/policy");
+    state.policy = payload.governance || null;
+    renderPolicy();
+    renderSettings();
+  } catch (error) {
+    state.policy = null;
+    renderPolicy();
     showToast(error.message);
   }
 }
@@ -368,7 +383,7 @@ function renderSettings() {
   settings.replaceChildren();
   const providers = (state.health && state.health.providers) || {};
   const workspace = (state.health && state.health.workspace) || {};
-  const governance = (state.health && state.health.governance) || {};
+  const governance = state.policy || (state.health && state.health.governance) || {};
   const diagnostics = state.diagnostics || {};
   [
     ["Product API", state.health ? state.health.product_api : ""],
@@ -382,6 +397,26 @@ function renderSettings() {
     ["Durable Memory Policy", governance.durable_memory || "manual_review"],
   ].forEach(([key, value]) => {
     settings.append(el("dt", {}, key), el("dd", {}, value));
+  });
+  renderPolicy();
+}
+
+function renderPolicy() {
+  const settings = document.getElementById("policy-settings");
+  if (!settings) return;
+  settings.replaceChildren();
+  const policy = state.policy || (state.health && state.health.governance) || {};
+  const actions = policy.actions || {};
+  [
+    ["Durable Memory", policy.durable_memory || "manual_review"],
+    ["Durable Proposal Kinds", (policy.durable_proposal_kinds || []).join(", ")],
+    ["Available Modes", (policy.durable_modes || []).join(", ")],
+    ["Transient Results", policy.transient_results || "skip"],
+    ["Memory Patch Action", actions.memory_patch || policy.durable_memory || "manual_review"],
+    ["Memory Update Action", actions.memory_update || policy.durable_memory || "manual_review"],
+    ["Memory Delete Action", actions.memory_delete || policy.durable_memory || "manual_review"],
+  ].forEach(([key, value]) => {
+    settings.append(el("dt", {}, key), el("dd", {}, value || "not configured"));
   });
 }
 

@@ -12,6 +12,7 @@ from pska_essential.agentic_loop import (
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import add_retrieval_probe_audit, run_retrieval_probe
+from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_graph_read_audit,
@@ -56,6 +57,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_source_read(source_ref: dict[str, Any]):
         return to_jsonable(service.source_read(SourceRef.from_dict(source_ref)))
+
+    def pska_policy_get():
+        return build_workspace_policy_from_env().to_dict()
 
     def pska_propose(run_id: str, kind: str, intent: str = ""):
         return to_jsonable(service.propose(run_id, kind, intent))
@@ -275,6 +279,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_workflow_brief": pska_workflow_brief,
         "pska_context_retrieve": pska_context_retrieve,
         "pska_source_read": pska_source_read,
+        "pska_policy_get": pska_policy_get,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,
         "pska_review_list": pska_review_list,
