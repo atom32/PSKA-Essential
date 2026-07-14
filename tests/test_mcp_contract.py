@@ -172,6 +172,8 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(status["status"], "ready")
         self.assertEqual(status["kb"]["readiness"]["status"], "ready")
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
+        self.assertIn("demo", status["next_actions"][0]["params"]["dataset_ids"])
 
     def test_memory_review_from_workflow_turns_transient_run_into_review(self):
         service = build_fake_service()

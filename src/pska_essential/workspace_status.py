@@ -110,99 +110,133 @@ def _next_actions(
     accepted_unapplied: list[dict[str, Any]],
     resumable: list[dict[str, Any]],
     resumable_error: dict[str, str] | None,
-) -> list[dict[str, str]]:
-    actions: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
     if kb_error:
         actions.append(
-            {
-                "action": "fix_kb_gateway",
-                "label": "Fix KB connection",
-                "reason": kb_error["message"],
-            }
+            _action(
+                "fix_kb_gateway",
+                "Fix KB connection",
+                kb_error["message"],
+                view="settings",
+            )
         )
     elif not datasets:
         actions.append(
-            {
-                "action": "create_or_upload_knowledge_base",
-                "label": "Create or upload knowledge",
-                "reason": "No knowledge base datasets are available.",
-            }
+            _action(
+                "create_or_upload_knowledge_base",
+                "Create or upload knowledge",
+                "No knowledge base datasets are available.",
+                api="POST /api/kb/ingest",
+                tool="pska_kb_ingest_files",
+                view="kb",
+                requires_input=["files", "dataset_name_or_id"],
+            )
         )
     elif readiness and not readiness.get("ready"):
         job = readiness.get("ingestion_status") or {}
         for action in job.get("next_actions") or ["wait_for_ingestion"]:
             actions.append(
-                {
-                    "action": str(action),
-                    "label": _action_label(str(action)),
-                    "reason": str(job.get("message") or readiness.get("message") or "Selected knowledge is not ready."),
-                }
+                _readiness_action(
+                    str(action),
+                    str(job.get("message") or readiness.get("message") or "Selected knowledge is not ready."),
+                    readiness,
+                )
             )
     elif readiness and readiness.get("ready"):
         actions.append(
-            {
-                "action": "run_agentic_question",
-                "label": "Ask over ready knowledge",
-                "reason": "At least one selected dataset is ready for retrieval.",
-            }
+            _action(
+                "run_agentic_question",
+                "Ask over ready knowledge",
+                "At least one selected dataset is ready for retrieval.",
+                api="POST /api/ask",
+                tool="pska_agentic_question_start",
+                view="ask",
+                params=_scope_params(readiness),
+                requires_input=["question"],
+            )
         )
 
     ready_resumable = [item for item in resumable if item.get("can_resume")]
     if ready_resumable:
         actions.append(
-            {
-                "action": "resume_blocked_ask",
-                "label": "Resume blocked Ask",
-                "reason": f"{len(ready_resumable)} blocked Ask workflow(s) can resume.",
-            }
+            _action(
+                "resume_blocked_ask",
+                "Resume blocked Ask",
+                f"{len(ready_resumable)} blocked Ask workflow(s) can resume.",
+                api=f"POST /api/workflows/{ready_resumable[0]['run']['run_id']}/resume-ask",
+                tool="pska_agentic_question_resume",
+                view="ask",
+                params={"run_id": ready_resumable[0]["run"]["run_id"]},
+            )
         )
     elif resumable:
         actions.append(
-            {
-                "action": "wait_for_resumable_ask",
-                "label": "Wait for blocked Ask",
-                "reason": f"{len(resumable)} blocked Ask workflow(s) are still waiting on readiness.",
-            }
+            _action(
+                "wait_for_resumable_ask",
+                "Wait for blocked Ask",
+                f"{len(resumable)} blocked Ask workflow(s) are still waiting on readiness.",
+                api="GET /api/workflows/resumable-asks",
+                tool="pska_agentic_question_resumable",
+                view="activity",
+                params={"run_id": resumable[0]["run"]["run_id"]},
+            )
         )
     elif resumable_error and not kb_error:
         actions.append(
-            {
-                "action": "inspect_resumable_ask_error",
-                "label": "Inspect blocked Ask status",
-                "reason": resumable_error["message"],
-            }
+            _action(
+                "inspect_resumable_ask_error",
+                "Inspect blocked Ask status",
+                resumable_error["message"],
+                api="GET /api/workflows/resumable-asks",
+                tool="pska_agentic_question_resumable",
+                view="activity",
+            )
         )
 
     if accepted_unapplied:
+        review_id = str(accepted_unapplied[0].get("review_id") or "")
         actions.append(
-            {
-                "action": "apply_accepted_memory",
-                "label": "Apply accepted memory",
-                "reason": f"{len(accepted_unapplied)} accepted durable review(s) have not been applied.",
-            }
+            _action(
+                "apply_accepted_memory",
+                "Apply accepted memory",
+                f"{len(accepted_unapplied)} accepted durable review(s) have not been applied.",
+                api=f"POST /api/reviews/{review_id}/apply-memory" if review_id else "POST /api/reviews/{review_id}/apply-memory",
+                tool="pska_memory_apply",
+                view="review",
+                params={"review_id": review_id} if review_id else {},
+            )
         )
     if pending_reviews:
+        review_id = str(pending_reviews[0].get("review_id") or "")
         actions.append(
-            {
-                "action": "review_pending_durable_knowledge",
-                "label": "Review durable knowledge",
-                "reason": f"{len(pending_reviews)} review item(s) are pending.",
-            }
+            _action(
+                "review_pending_durable_knowledge",
+                "Review durable knowledge",
+                f"{len(pending_reviews)} review item(s) are pending.",
+                api=f"GET /api/reviews/{review_id}" if review_id else "GET /api/reviews",
+                tool="pska_review_get",
+                view="review",
+                params={"review_id": review_id} if review_id else {},
+            )
         )
 
     if not actions:
         actions.append(
-            {
-                "action": "monitor_workspace",
-                "label": "Monitor workspace",
-                "reason": "No blocking workflow action is currently pending.",
-            }
+            _action(
+                "monitor_workspace",
+                "Monitor workspace",
+                "No blocking workflow action is currently pending.",
+                api="GET /api/workspace/status",
+                tool="pska_workspace_status",
+                view="home",
+            )
         )
     return actions
 
 
 def _workspace_status(
-    next_actions: list[dict[str, str]],
+    next_actions: list[dict[str, Any]],
     readiness: dict[str, Any] | None,
     kb_error: dict[str, str] | None,
     resumable_error: dict[str, str] | None,
@@ -221,6 +255,74 @@ def _workspace_status(
     if "create_or_upload_knowledge_base" in action_names:
         return "empty"
     return "ok"
+
+
+def _readiness_action(action: str, reason: str, readiness: dict[str, Any]) -> dict[str, Any]:
+    if action == "parse_documents":
+        return _action(
+            action,
+            _action_label(action),
+            reason,
+            api="POST /api/kb/datasets/{dataset_id}/parse",
+            tool="pska_kb_parse_documents",
+            view="kb",
+            params=_scope_params(readiness),
+        )
+    if action in {"inspect_failure", "inspect_cancellation"}:
+        return _action(
+            action,
+            _action_label(action),
+            reason,
+            api="GET /api/kb/datasets/{dataset_id}/documents",
+            tool="pska_kb_document_status",
+            view="kb",
+            params=_scope_params(readiness),
+        )
+    return _action(
+        action,
+        _action_label(action),
+        reason,
+        api="GET /api/kb/datasets/{dataset_id}/ingestion-status",
+        tool="pska_kb_ingestion_status",
+        view="kb",
+        params=_scope_params(readiness),
+    )
+
+
+def _action(
+    action: str,
+    label: str,
+    reason: str,
+    *,
+    api: str = "",
+    tool: str = "",
+    view: str = "",
+    params: dict[str, Any] | None = None,
+    requires_input: list[str] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "action": action,
+        "label": label,
+        "reason": reason,
+    }
+    if api:
+        payload["api"] = api
+    if tool:
+        payload["tool"] = tool
+    if view:
+        payload["view"] = view
+    if params:
+        payload["params"] = params
+    if requires_input:
+        payload["requires_input"] = requires_input
+    return payload
+
+
+def _scope_params(readiness: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "dataset_ids": [str(item) for item in readiness.get("dataset_ids") or []],
+        "document_ids": [str(item) for item in readiness.get("document_ids") or []],
+    }
 
 
 def _action_label(action: str) -> str:

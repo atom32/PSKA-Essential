@@ -86,7 +86,8 @@ for product policy awareness instead of inferring review behavior from backend
 capabilities.
 `pska_workspace_status` returns PSKA-level operational status and next actions;
 agents must use it for workflow navigation instead of inspecting provider state
-directly.
+directly. Next actions may include PSKA tool/API/view hints and safe parameters,
+but must not expose provider-native schemas.
 
 ## KB Gateway
 

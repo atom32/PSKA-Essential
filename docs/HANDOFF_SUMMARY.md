@@ -184,7 +184,9 @@ Implemented:
   connectivity without frontend provider direct calls.
 - Product API, MCP, and frontend Home expose workspace operational status with
   next actions for ready Ask scopes, ingestion waits, resumable Ask workflows,
-  pending reviews, and accepted durable memory awaiting apply.
+  pending reviews, and accepted durable memory awaiting apply. Next actions
+  include PSKA tool/API/view hints and safe parameters for Hermes/frontend
+  navigation without provider direct access.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.

@@ -342,6 +342,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(status["reviews"]["pending_count"], 0)
         self.assertEqual(status["workflows"]["resumable_ask_count"], 0)
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
+        self.assertEqual(status["next_actions"][0]["api"], "POST /api/ask")
+        self.assertEqual(status["next_actions"][0]["view"], "ask")
+        self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["demo"])
 
     def test_workflow_open_does_not_export_until_explicit_export(self):
         asked = self._post_json(
@@ -862,6 +866,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/workspace/status', script)
         self.assertIn('loadWorkspaceStatus', script)
         self.assertIn('workspaceActionCard', script)
+        self.assertIn('openWorkspaceAction', script)
+        self.assertIn('setAskDatasetIds(params.dataset_ids || [])', script)
         self.assertIn('/api/policy', script)
         self.assertIn('loadPolicy', script)
         self.assertIn('renderPolicy', script)

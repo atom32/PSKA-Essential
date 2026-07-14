@@ -422,8 +422,53 @@ function workspaceActionCard(action) {
       el("strong", {}, action.label || readableName(action.action || "action")),
       el("span", { className: `tag ${statusClass(action.action || "")}` }, readableName(action.action || "")),
     ]),
+    el("div", { className: "meta-row" }, [
+      action.tool ? el("span", { className: "tag" }, action.tool) : null,
+      action.api ? el("span", { className: "tag" }, action.api) : null,
+      action.view ? el("span", { className: "tag" }, action.view) : null,
+    ]),
     el("p", {}, action.reason || ""),
+    el("div", { className: "card-actions" }, [
+      el("button", { className: "secondary-button", type: "button", onclick: () => openWorkspaceAction(action) }, "Open"),
+    ]),
   ]);
+}
+
+async function openWorkspaceAction(action) {
+  const params = action.params || {};
+  if (action.action === "run_agentic_question") {
+    setAskDatasetIds(params.dataset_ids || []);
+    setAskDocumentIds(params.document_ids || []);
+    renderAskScope();
+    openView("ask");
+    return;
+  }
+  if (action.action === "resume_blocked_ask" && params.run_id) {
+    await resumeAskRun(params.run_id);
+    return;
+  }
+  if (
+    ["review_pending_durable_knowledge", "apply_accepted_memory"].includes(action.action)
+    && params.review_id
+  ) {
+    await openReview(params.review_id);
+    return;
+  }
+  if (["wait_for_ingestion", "parse_documents", "inspect_failure", "inspect_cancellation"].includes(action.action)) {
+    const datasetId = (params.dataset_ids || [])[0] || state.activeDocumentDatasetId;
+    if (datasetId) {
+      await loadDocuments(datasetId, { silent: true });
+      if (action.action === "wait_for_ingestion") startIngestionPolling(datasetId);
+    }
+    openView("kb");
+    return;
+  }
+  openView(action.view || "home");
+}
+
+function openView(view) {
+  const button = document.querySelector(`.nav-item[data-view="${view}"]`);
+  if (button) button.click();
 }
 
 function renderSettings() {

@@ -253,7 +253,9 @@ and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
 Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
-and accepted durable memory awaiting apply.
+and accepted durable memory awaiting apply. Each next action includes stable
+PSKA tool/API/view hints and safe parameters, so Hermes and the frontend can
+navigate the workflow without inspecting provider internals.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,
