@@ -12,6 +12,7 @@ from pska_essential.workflow import build_fake_service
 EXPECTED_TOOLS = {
     "pska_agentic_question_start",
     "pska_workflow_start",
+    "pska_workflow_list",
     "pska_workflow_state",
     "pska_workflow_artifact",
     "pska_workflow_brief",
@@ -46,6 +47,8 @@ class McpContractTests(unittest.TestCase):
         service = build_fake_service()
         tools = tool_registry(service)
         run = tools["pska_workflow_start"]("mcp loop", {"dataset_ids": ["demo"]})
+        listed = tools["pska_workflow_list"](limit=5)
+        self.assertEqual(listed[0]["run_id"], run["run_id"])
         packets = tools["pska_context_retrieve"]("adapter review", run_id=run["run_id"], limit=1)
         self.assertEqual(len(packets), 1)
         source = tools["pska_source_read"](packets[0]["source_ref"])
@@ -78,6 +81,17 @@ class McpContractTests(unittest.TestCase):
         source_read = next(event for event in service.store.list_audit_events() if event.action == "source.read")
         self.assertEqual(source_read.metadata["adapter"], "fake")
         self.assertEqual(source_read.metadata["document_id"], packets[0]["source_ref"]["document_id"])
+
+    def test_workflow_list_limits_recent_runs(self):
+        tools = tool_registry(build_fake_service())
+        older = tools["pska_workflow_start"]("older run", {"dataset_ids": ["demo"]})
+        newer = tools["pska_workflow_start"]("newer run", {"dataset_ids": ["demo"]})
+
+        listed = tools["pska_workflow_list"](limit=1)
+
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0]["run_id"], newer["run_id"])
+        self.assertNotEqual(listed[0]["run_id"], older["run_id"])
 
     def test_audit_list_supports_ascending_order(self):
         tools = tool_registry(build_fake_service())

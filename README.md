@@ -145,6 +145,7 @@ Operational loop tools:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_agentic_question_start`
+- `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
 - `pska_review_list`

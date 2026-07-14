@@ -113,6 +113,8 @@ Implemented:
   workflow export audit records.
 - Ask persists the agentic loop summary on workflow metadata, including
   governance action, durable/transient status, review requirement, and steps.
+- MCP exposes `pska_workflow_list` so Hermes can recover recent workflow runs
+  before opening state, artifacts, briefs, or exports.
 - Writing shows matched durable memory facts alongside source context when a run
   is reopened.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
@@ -174,7 +176,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 58 tests pass.
+- `make test`: 59 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
@@ -190,7 +192,7 @@ Expected result:
 - Workflow/Product API/MCP tests cover source-read audit records.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 24 PSKA MCP tools.
+- `make list-tools`: lists 25 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -218,6 +220,7 @@ pska_kb_ingest_files
 pska_kb_document_status
 pska_kb_readiness
 pska_agentic_question_start
+pska_workflow_list
 pska_workflow_artifact
 pska_workflow_brief
 pska_review_list

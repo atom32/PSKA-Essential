@@ -24,6 +24,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_workflow_start(intent: str, scope: dict[str, Any] | None = None):
         return to_jsonable(service.start(intent, scope or {}))
 
+    def pska_workflow_list(limit: int = 50):
+        return to_jsonable(service.store.list_workflows(limit=limit))
+
     def pska_workflow_state(run_id: str):
         return to_jsonable(service.state(run_id))
 
@@ -229,6 +232,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     return {
         "pska_workflow_start": pska_workflow_start,
+        "pska_workflow_list": pska_workflow_list,
         "pska_workflow_state": pska_workflow_state,
         "pska_workflow_artifact": pska_workflow_artifact,
         "pska_workflow_brief": pska_workflow_brief,

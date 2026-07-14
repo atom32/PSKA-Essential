@@ -39,6 +39,7 @@ Rules:
 The public tool surface is:
 
 - `pska_workflow_start`
+- `pska_workflow_list`
 - `pska_workflow_state`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
