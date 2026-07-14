@@ -68,6 +68,7 @@ function bindForms() {
     event.currentTarget.reset();
     showToast("Knowledge base created.");
     await loadDatasets();
+    await loadAuditEvents();
   });
 
   document.getElementById("upload-form").addEventListener("submit", async (event) => {
@@ -86,6 +87,7 @@ function bindForms() {
     showToast("Upload accepted.");
     renderIngestResult(result.ingest);
     await loadDatasets();
+    await loadAuditEvents();
     const datasetId = ingestDatasetId(result.ingest);
     if (datasetId) {
       const documents = await loadDocuments(datasetId, { silent: true });
@@ -510,6 +512,7 @@ async function parseActiveDocuments() {
   setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
   startIngestionPolling(datasetId);
   await loadDocuments(datasetId, { silent: true });
+  await loadAuditEvents();
 }
 
 function addAskDataset(datasetId = "") {

@@ -127,6 +127,8 @@ Implemented:
   KB audit records through both Product API and MCP.
 - Workflow-level export audit records and frontend Activity audit trail with
   Product API action filtering.
+- Frontend Knowledge Base create, upload, and parse actions refresh Activity
+  after source-operation audit records are written.
 - Review and memory apply audit records carry proposal, run, and source trace
   metadata for durable knowledge writes.
 - Reviews become immutable after durable memory has been applied; further
@@ -238,9 +240,10 @@ status filtering without changing the Home pending-review summary. Activity
 shows the recent audit trail with action filtering, including workflow export
 records, review/memory apply records with proposal, run, and source trace
 metadata, and KB source operation records for dataset creation, ingestion,
-parsing, and graph reads. Settings shows runtime provider configuration and
-Product API diagnostics for review store, KB gateway, retrieval, and memory
-connectivity.
+parsing, and graph reads. Knowledge Base create, upload, and parse actions
+refresh Activity after their source-operation audit records are written.
+Settings shows runtime provider configuration and Product API diagnostics for
+review store, KB gateway, retrieval, and memory connectivity.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
