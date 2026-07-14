@@ -793,7 +793,13 @@ function renderIngestionActions(datasetId, job, summary) {
   if (actions.has("wait_for_ingestion") || summary.status === "processing") {
     container.append(el("button", { className: "secondary-button", onclick: () => startIngestionPolling(datasetId) }, "Track Status"));
   }
-  if (actions.has("inspect_failure") || actions.has("inspect_failed_documents") || summary.status === "failed") {
+  if (
+    actions.has("inspect_failure") ||
+    actions.has("inspect_failed_documents") ||
+    actions.has("inspect_cancellation") ||
+    actions.has("inspect_cancelled_documents") ||
+    summary.status === "failed"
+  ) {
     container.append(el("button", { className: "secondary-button", onclick: () => loadDocuments(datasetId) }, "Reload Status"));
   }
 }
@@ -2107,8 +2113,15 @@ function documentState(document) {
   const progress = Number(document.progress || 0);
   const chunks = Number(document.chunk_count || 0);
   if (
-    ["FAIL", "FAILED", "CANCEL", "CANCELED", "ERROR"].includes(run) ||
-    ["fail", "failed", "cancel", "canceled", "error"].includes(status) ||
+    ["CANCEL", "CANCELED", "CANCELLED"].includes(run) ||
+    ["cancel", "canceled", "cancelled"].includes(status) ||
+    progressMsg.includes("cancel")
+  ) {
+    return { label: "cancelled", className: "failed" };
+  }
+  if (
+    ["FAIL", "FAILED", "ERROR"].includes(run) ||
+    ["fail", "failed", "error"].includes(status) ||
     progressMsg.includes("fail") ||
     progressMsg.includes("error")
   ) {
@@ -2138,7 +2151,11 @@ function summarizeDocuments(documents) {
 function statusClass(status) {
   const value = String(status || "").toLowerCase();
   if (["ready", "complete", "accepted", "ok"].includes(value)) return "ready";
-  if (["failed", "fail", "missing", "blocked", "rejected", "empty", "error"].includes(value)) return "failed";
+  if (
+    ["failed", "fail", "missing", "blocked", "rejected", "empty", "error", "cancel", "canceled", "cancelled"].includes(value)
+  ) {
+    return "failed";
+  }
   return "pending";
 }
 

@@ -103,7 +103,8 @@ Implemented:
 - PSKA-controlled agentic Ask loop with explicit loop diagnostics.
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
 - Normalized KB ingestion status for Product API, MCP, and frontend flows,
-  including phase, progress, counts, next actions, and failure reasons.
+  including uploaded/parsing/embedding/indexing/ready/failed/cancelled phases,
+  progress, counts, next actions, and failure reasons.
 - MCP ingest and parse tools return normalized readiness and ingestion status
   alongside their operation result, so Hermes can decide whether to wait, parse,
   inspect failure, or Ask without provider direct calls.

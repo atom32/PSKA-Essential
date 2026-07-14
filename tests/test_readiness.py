@@ -29,6 +29,27 @@ class _Gateway:
                 "document_count": 1,
                 "chunk_count": 0,
             },
+            "parsing": {
+                "backend": "test",
+                "dataset_id": "parsing",
+                "name": "Parsing KB",
+                "document_count": 1,
+                "chunk_count": 0,
+            },
+            "indexing": {
+                "backend": "test",
+                "dataset_id": "indexing",
+                "name": "Indexing KB",
+                "document_count": 1,
+                "chunk_count": 0,
+            },
+            "cancelled": {
+                "backend": "test",
+                "dataset_id": "cancelled",
+                "name": "Cancelled KB",
+                "document_count": 1,
+                "chunk_count": 0,
+            },
         }
         self.documents = {
             "ready": [
@@ -51,6 +72,7 @@ class _Gateway:
                     "name": "processing.pdf",
                     "chunk_count": 0,
                     "progress": 0.2,
+                    "progress_msg": "embedding vectors",
                     "run": "RUNNING",
                     "status": "processing",
                 }
@@ -66,6 +88,45 @@ class _Gateway:
                     "progress_msg": "embedding failed",
                     "run": "FAIL",
                     "status": "failed",
+                }
+            ],
+            "parsing": [
+                {
+                    "backend": "test",
+                    "dataset_id": "parsing",
+                    "document_id": "doc-parsing",
+                    "name": "parsing.pdf",
+                    "chunk_count": 0,
+                    "progress": 0.1,
+                    "progress_msg": "parsing pages",
+                    "run": "PARSING",
+                    "status": "processing",
+                }
+            ],
+            "indexing": [
+                {
+                    "backend": "test",
+                    "dataset_id": "indexing",
+                    "document_id": "doc-indexing",
+                    "name": "indexing.pdf",
+                    "chunk_count": 0,
+                    "progress": 0.0,
+                    "progress_msg": "building index",
+                    "run": "INDEXING",
+                    "status": "processing",
+                }
+            ],
+            "cancelled": [
+                {
+                    "backend": "test",
+                    "dataset_id": "cancelled",
+                    "document_id": "doc-cancelled",
+                    "name": "cancelled.pdf",
+                    "chunk_count": 0,
+                    "progress": 0.3,
+                    "progress_msg": "cancelled by user",
+                    "run": "CANCEL",
+                    "status": "cancelled",
                 }
             ],
         }
@@ -92,6 +153,7 @@ class ReadinessTests(unittest.TestCase):
         self.assertTrue(result["ready"])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["blocking"], [])
+        self.assertEqual(result["ingestion_status"]["phase"], "ready")
 
     def test_missing_dataset_blocks_ask(self):
         result = evaluate_kb_readiness(_Gateway(), dataset_ids=["missing"])
@@ -107,11 +169,20 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(result["status"], "processing")
         self.assertEqual(result["datasets"][0]["documents"][0]["status"], "processing")
         self.assertEqual(result["ingestion_status"]["status"], "processing")
-        self.assertEqual(result["ingestion_status"]["phase"], "processing")
+        self.assertEqual(result["ingestion_status"]["phase"], "embedding")
         self.assertEqual(result["ingestion_status"]["progress"], 0.2)
         self.assertEqual(result["ingestion_status"]["next_actions"], ["wait_for_ingestion"])
-        self.assertEqual(result["datasets"][0]["documents"][0]["phase"], "processing")
+        self.assertEqual(result["datasets"][0]["documents"][0]["phase"], "embedding")
         self.assertEqual(result["datasets"][0]["documents"][0]["next_action"], "wait_for_ingestion")
+
+    def test_ingestion_phases_are_granular(self):
+        parsing = evaluate_kb_readiness(_Gateway(), dataset_ids=["parsing"])
+        indexing = evaluate_kb_readiness(_Gateway(), dataset_ids=["indexing"])
+
+        self.assertEqual(parsing["ingestion_status"]["phase"], "parsing")
+        self.assertEqual(parsing["datasets"][0]["documents"][0]["phase"], "parsing")
+        self.assertEqual(indexing["ingestion_status"]["phase"], "indexing")
+        self.assertEqual(indexing["datasets"][0]["documents"][0]["phase"], "indexing")
 
     def test_specific_document_must_be_ready(self):
         result = evaluate_kb_readiness(
@@ -144,6 +215,18 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(result["datasets"][0]["documents"][0]["phase"], "failed")
         self.assertEqual(result["datasets"][0]["documents"][0]["next_action"], "inspect_failure")
         self.assertEqual(result["datasets"][0]["documents"][0]["failure_reason"], "embedding failed")
+
+    def test_cancelled_document_is_explicit(self):
+        result = evaluate_kb_readiness(_Gateway(), dataset_ids=["cancelled"], document_ids=["doc-cancelled"])
+
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["status"], "cancelled")
+        self.assertIn("cancelled", result["blocking"][0])
+        self.assertEqual(result["ingestion_status"]["phase"], "cancelled")
+        self.assertEqual(result["ingestion_status"]["cancelled_count"], 1)
+        self.assertEqual(result["datasets"][0]["documents"][0]["phase"], "cancelled")
+        self.assertEqual(result["datasets"][0]["documents"][0]["next_action"], "inspect_cancellation")
+        self.assertEqual(result["datasets"][0]["documents"][0]["failure_reason"], "cancelled by user")
 
 
 if __name__ == "__main__":

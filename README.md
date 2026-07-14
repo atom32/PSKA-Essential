@@ -251,7 +251,8 @@ and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
-flows can distinguish uploaded, processing, failed, and retrieval-ready scopes.
+flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,
+and cancelled scopes.
 Settings loads `/api/policy` as the product-level workspace governance surface,
 including durable proposal kinds, configured durable-memory action, available
 modes, and the fact that transient results skip durable governance.

@@ -555,7 +555,7 @@ class ProductApiTests(unittest.TestCase):
 
         self.assertTrue(readiness["ready"])
         self.assertEqual(readiness["dataset_ids"], ["demo"])
-        self.assertEqual(payload["ingestion_status"]["phase"], "indexed")
+        self.assertEqual(payload["ingestion_status"]["phase"], "ready")
 
     def test_ingestion_status_route_reports_normalized_job_status(self):
         self.gateway.ready = False

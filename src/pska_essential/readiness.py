@@ -11,6 +11,7 @@ from pska_essential.governance import (
 READY = "ready"
 PROCESSING = "processing"
 FAILED = "failed"
+CANCELLED = "cancelled"
 MISSING = "missing"
 EMPTY = "empty"
 UNKNOWN = "unknown"
@@ -270,13 +271,34 @@ def _document_status(document: dict[str, Any]) -> str:
     progress_msg = str(document.get("progress_msg") or "").strip().lower()
     progress = _float_value(document.get("progress"))
     chunk_count = int(document.get("chunk_count") or 0)
-    if run in {"FAIL", "FAILED", "CANCEL", "CANCELED", "ERROR"} or status in {"fail", "failed", "cancel", "canceled", "error"}:
+    if run in {"CANCEL", "CANCELED", "CANCELLED"} or status in {"cancel", "canceled", "cancelled"}:
+        return CANCELLED
+    if "cancel" in progress_msg:
+        return CANCELLED
+    if run in {"FAIL", "FAILED", "ERROR"} or status in {"fail", "failed", "error"}:
         return FAILED
-    if any(token in progress_msg for token in ("fail", "error", "cancel")):
+    if any(token in progress_msg for token in ("fail", "error")):
         return FAILED
     if chunk_count > 0 or progress >= 1.0 or run in {"DONE", "SUCCESS"} or status in {"ready", "done", "success"}:
         return READY
-    if run in {"", "UNSTART", "START", "STARTED", "RUNNING", "PARSING", "QUEUED", "1"} or progress > 0:
+    processing_runs = {
+        "",
+        "UNSTART",
+        "START",
+        "STARTED",
+        "RUNNING",
+        "PARSING",
+        "QUEUED",
+        "EMBEDDING",
+        "VECTORIZING",
+        "INDEXING",
+        "OCR",
+        "CHUNKING",
+        "TOKENIZING",
+        "1",
+    }
+    processing_statuses = {"processing", "running", "parsing", "embedding", "indexing", "queued", "uploaded", "pending"}
+    if run in processing_runs or status in processing_statuses or progress > 0:
         return PROCESSING
     return UNKNOWN
 
@@ -286,6 +308,9 @@ def _document_blocking_message(doc: dict[str, Any]) -> str:
     if doc["status"] == FAILED:
         reason = doc.get("progress_msg") or doc.get("run") or "failed"
         return f"Document '{label}' failed during ingestion: {reason}."
+    if doc["status"] == CANCELLED:
+        reason = doc.get("progress_msg") or doc.get("run") or "cancelled"
+        return f"Document '{label}' was cancelled during ingestion: {reason}."
     if doc["status"] == PROCESSING:
         return f"Document '{label}' is still processing: progress {doc['progress']:.2f}, run {doc.get('run') or 'unknown'}."
     return f"Document '{label}' is not ready for retrieval."
@@ -297,19 +322,21 @@ def _attach_dataset_ingestion(report: dict[str, Any], *, document_scope: bool) -
     document_count = len(documents) if document_scope else int(report.get("document_count") or len(documents) or 0)
     ready_count = len([document for document in documents if document.get("status") == READY])
     failed_count = len([document for document in documents if document.get("status") == FAILED])
+    cancelled_count = len([document for document in documents if document.get("status") == CANCELLED])
     processing_count = len([document for document in documents if document.get("status") == PROCESSING])
     if not documents and status == READY:
         ready_count = document_count
-    pending_count = max(document_count - ready_count - failed_count - processing_count, 0)
+    pending_count = max(document_count - ready_count - failed_count - cancelled_count - processing_count, 0)
     ingestion = {
         "dataset_id": str(report.get("dataset_id") or ""),
         "status": status,
-        "phase": _dataset_phase(status),
+        "phase": _dataset_phase(status, documents),
         "progress": _dataset_progress(report, documents),
         "document_count": document_count,
         "ready_count": ready_count,
         "processing_count": processing_count,
         "failed_count": failed_count,
+        "cancelled_count": cancelled_count,
         "pending_count": pending_count,
         "next_action": _dataset_next_action(status, documents),
         "message": _dataset_ingestion_message(report, status),
@@ -327,6 +354,7 @@ def _ingestion_status(
     ready_count = sum(int(job.get("ready_count") or 0) for job in dataset_jobs)
     processing_count = sum(int(job.get("processing_count") or 0) for job in dataset_jobs)
     failed_count = sum(int(job.get("failed_count") or 0) for job in dataset_jobs)
+    cancelled_count = sum(int(job.get("cancelled_count") or 0) for job in dataset_jobs)
     pending_count = sum(int(job.get("pending_count") or 0) for job in dataset_jobs)
     weights = [max(int(job.get("document_count") or 0), 1) for job in dataset_jobs]
     progress_values = [_float_value(job.get("progress")) for job in dataset_jobs]
@@ -341,23 +369,24 @@ def _ingestion_status(
         "kind": "kb_ingestion_status",
         "ready": status == READY,
         "status": status,
-        "phase": _dataset_phase(status),
+        "phase": _aggregate_job_phase(dataset_jobs, status),
         "progress": round(max(0.0, min(1.0, progress)), 4),
         "dataset_count": len(dataset_reports),
         "document_count": document_count,
         "ready_count": ready_count,
         "processing_count": processing_count,
         "failed_count": failed_count,
+        "cancelled_count": cancelled_count,
         "pending_count": pending_count,
         "next_actions": next_actions,
-        "message": _ingestion_message(status, blocking, document_count, ready_count, failed_count),
+        "message": _ingestion_message(status, blocking, document_count, ready_count, failed_count, cancelled_count),
     }
 
 
 def _overall_status(statuses: list[str]) -> str:
     if not statuses:
         return UNKNOWN
-    for status in (MISSING, FAILED, EMPTY, PROCESSING, UNKNOWN):
+    for status in (MISSING, FAILED, CANCELLED, EMPTY, PROCESSING, UNKNOWN):
         if status in statuses:
             return status
     return READY
@@ -365,23 +394,40 @@ def _overall_status(statuses: list[str]) -> str:
 
 def _document_phase(document: dict[str, Any], status: str) -> str:
     if status == READY:
-        return "indexed"
+        return "ready"
+    if status == CANCELLED:
+        return "cancelled"
     if status == FAILED:
         return "failed"
     run = str(document.get("run") or "").strip().upper()
     provider_status = str(document.get("status") or "").strip().lower()
+    progress_msg = str(document.get("progress_msg") or "").strip().lower()
+    phase_text = f"{run.lower()} {provider_status} {progress_msg}"
     progress = _float_value(document.get("progress"))
-    if run in {"", "UNSTART"} or provider_status in {"uploaded", "unstart", "pending"}:
+    if _has_any(phase_text, {"embed", "vector"}):
+        return "embedding"
+    if _has_any(phase_text, {"index"}):
+        return "indexing"
+    if _has_any(phase_text, {"parse", "ocr", "chunk", "token"}):
+        return "parsing"
+    if run in {"EMBEDDING", "VECTORIZING"}:
+        return "embedding"
+    if run in {"INDEXING"}:
+        return "indexing"
+    if run in {"PARSING", "OCR", "CHUNKING", "TOKENIZING"}:
+        return "parsing"
+    if run in {"", "UNSTART", "QUEUED"} or provider_status in {"uploaded", "unstart", "pending", "queued"}:
         return "uploaded"
-    if progress > 0 or run in {"START", "STARTED", "RUNNING", "PARSING", "QUEUED", "1"}:
+    if progress > 0 or run in {"START", "STARTED", "RUNNING", "1"}:
         return "processing"
     return "unknown"
 
 
 def _document_failure_reason(document: dict[str, Any], status: str) -> str:
-    if status != FAILED:
+    if status not in {FAILED, CANCELLED}:
         return ""
-    return str(document.get("progress_msg") or document.get("run") or document.get("status") or "failed")
+    default = "cancelled" if status == CANCELLED else "failed"
+    return str(document.get("progress_msg") or document.get("run") or document.get("status") or default)
 
 
 def _document_next_action(status: str, phase: str) -> str:
@@ -389,6 +435,8 @@ def _document_next_action(status: str, phase: str) -> str:
         return "available_for_retrieval"
     if status == FAILED:
         return "inspect_failure"
+    if status == CANCELLED:
+        return "inspect_cancellation"
     if phase == "uploaded":
         return "start_parse"
     if status == PROCESSING:
@@ -396,13 +444,16 @@ def _document_next_action(status: str, phase: str) -> str:
     return "check_provider_status"
 
 
-def _dataset_phase(status: str) -> str:
+def _dataset_phase(status: str, documents: list[dict[str, Any]] | None = None) -> str:
+    documents = documents or []
     if status == READY:
-        return "indexed"
+        return "ready"
     if status == PROCESSING:
-        return "processing"
+        return _aggregate_document_phase(documents) or "processing"
     if status == FAILED:
         return "failed"
+    if status == CANCELLED:
+        return "cancelled"
     if status == EMPTY:
         return "awaiting_upload"
     if status == MISSING:
@@ -419,6 +470,8 @@ def _dataset_next_action(status: str, documents: list[dict[str, Any]]) -> str:
         return "check_dataset_access"
     if status == FAILED:
         return "inspect_failed_documents"
+    if status == CANCELLED:
+        return "inspect_cancelled_documents"
     if any(document.get("next_action") == "start_parse" for document in documents):
         return "start_parse"
     if status == PROCESSING:
@@ -447,6 +500,8 @@ def _dataset_ingestion_message(report: dict[str, Any], status: str) -> str:
         return f"Dataset '{label}' is missing or not visible."
     if status == FAILED:
         return f"Dataset '{label}' has failed ingestion documents."
+    if status == CANCELLED:
+        return f"Dataset '{label}' has cancelled ingestion documents."
     if status == PROCESSING:
         return f"Dataset '{label}' is still being parsed, embedded, or indexed."
     return f"Dataset '{label}' readiness is unknown."
@@ -458,6 +513,7 @@ def _ingestion_message(
     document_count: int,
     ready_count: int,
     failed_count: int,
+    cancelled_count: int,
 ) -> str:
     if blocking:
         return " ".join(str(item) for item in blocking[:3])
@@ -465,11 +521,31 @@ def _ingestion_message(
         return f"{ready_count}/{document_count} document(s) ready for retrieval."
     if status == FAILED:
         return f"{failed_count} document(s) failed during ingestion."
+    if status == CANCELLED:
+        return f"{cancelled_count} document(s) were cancelled during ingestion."
     if status == EMPTY:
         return "No source documents have been uploaded for the selected scope."
     if status == MISSING:
         return "One or more selected datasets or documents are missing."
     return f"{ready_count}/{document_count} document(s) ready; ingestion is still running or unknown."
+
+
+def _aggregate_job_phase(dataset_jobs: list[dict[str, Any]], status: str) -> str:
+    phases = [str(job.get("phase") or "") for job in dataset_jobs]
+    if status == READY:
+        return "ready"
+    for phase in ("failed", "cancelled", "indexing", "embedding", "parsing", "uploaded", "processing"):
+        if phase in phases:
+            return phase
+    return _dataset_phase(status)
+
+
+def _aggregate_document_phase(documents: list[dict[str, Any]]) -> str:
+    phases = [str(document.get("phase") or "") for document in documents]
+    for phase in ("indexing", "embedding", "parsing", "uploaded", "processing"):
+        if phase in phases:
+            return phase
+    return ""
 
 
 def _not_ready_message(readiness: dict[str, Any]) -> str:
@@ -498,6 +574,10 @@ def _unique_strings(values: Any) -> list[str]:
         if normalized and normalized not in result:
             result.append(normalized)
     return result
+
+
+def _has_any(value: str, tokens: set[str]) -> bool:
+    return any(token in value for token in tokens)
 
 
 def _dataset_label(report: dict[str, Any]) -> str:
