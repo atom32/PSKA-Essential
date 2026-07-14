@@ -1008,6 +1008,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('memoryApplyLabel', script)
         self.assertIn('memoryApplyAction', script)
         self.assertIn('syncReviewDecision', script)
+        self.assertIn('state.focusReviewId = reviewId;', script)
+        self.assertIn('if (payload.decision && payload.decision.status) {\n    setReviewStatusFilter("");\n  }', script)
         self.assertIn('reviseReview', script)
         self.assertIn('return `Updated durable memory through ${metadata.backend || "memory backend"}.`;', script)
         self.assertIn('return `Deleted durable memory through ${metadata.backend || "memory backend"}.`;', script)

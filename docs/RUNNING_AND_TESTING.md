@@ -134,6 +134,8 @@ records.
 Review cards show status-specific actions: pending reviews can be decided,
 accepted durable reviews can be applied, `needs_edit` reviews can be revised,
 and rejected reviews are closed.
+After a review decision, the frontend keeps the decided review visible so the
+next action is available.
 Reviews marked `needs_edit` can create a revised candidate review from the same
 workflow and source trace instead of mutating the original review. Review API
 records expose revision lineage so the original and revised candidates remain

@@ -2267,6 +2267,10 @@ async function decideReview(reviewId, decision, reason) {
     method: "POST",
     body: { decision, reason },
   });
+  state.focusReviewId = reviewId;
+  if (payload.decision && payload.decision.status) {
+    setReviewStatusFilter("");
+  }
   syncReviewDecision(payload.decision);
   showToast(`Review ${decision}.`);
   await loadReviews();
