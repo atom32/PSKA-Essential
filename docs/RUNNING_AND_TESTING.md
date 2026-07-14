@@ -124,6 +124,9 @@ Writing can create an update review from an explicit MemoryFact; update is
 applied only after review acceptance and records version metadata.
 Writing can create a deletion review from an explicit MemoryFact; deletion is
 applied only after review acceptance and produces a `memory.delete` audit record.
+Writing can inspect a durable MemoryFact lifecycle from PSKA audit records,
+showing reviewed apply/update/delete history without calling backend memory
+history APIs.
 Reader inspects sources through Product API only. Writing opens workflow state,
 work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions; exports include

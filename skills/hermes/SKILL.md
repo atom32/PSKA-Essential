@@ -32,6 +32,8 @@ candidate memory, review, and durable export.
   backend delete tools directly.
 - If a review is marked `needs_edit`, use `pska_review_revise` to create a new
   candidate review instead of mutating the old review.
+- Use `pska_memory_lifecycle` to inspect a durable memory's reviewed
+  apply/update/delete history; do not query backend memory history directly.
 - Export briefs from workflow context only when the user needs an explicit
   Markdown or JSON handoff.
 

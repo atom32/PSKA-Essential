@@ -1083,7 +1083,12 @@ function memoryFactCard(fact) {
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, fact.fact_id || "Memory"), el("p", {}, fact.text || "")]),
-      el("span", { className: "tag" }, `sources ${sourceRefs.length}`),
+      el("div", { className: "card-actions" }, [
+        fact.fact_id
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(fact.fact_id) }, "History")
+          : null,
+        el("span", { className: "tag" }, `sources ${sourceRefs.length}`),
+      ]),
     ]),
     sourceRefs.length
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
@@ -1678,6 +1683,15 @@ async function createMemoryDeleteReview(fact, reason) {
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
   showToast("Memory delete review created.");
+}
+
+async function openMemoryLifecycle(memoryTargetId) {
+  const payload = await api(`/api/memory/${encodeURIComponent(memoryTargetId)}/lifecycle`);
+  setAuditActionFilter("");
+  state.auditEvents = (payload.lifecycle && payload.lifecycle.events) || [];
+  renderAuditEvents();
+  document.querySelector('.nav-item[data-view="activity"]').click();
+  showToast("Memory lifecycle loaded.");
 }
 
 function memoryApplyLabel(memoryApply) {

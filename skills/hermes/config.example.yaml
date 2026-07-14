@@ -28,6 +28,7 @@ mcp_servers:
         - pska_memory_review_from_workflow
         - pska_memory_update_review
         - pska_memory_delete_review
+        - pska_memory_lifecycle
         - pska_export_brief
         - pska_eval_run
         - pska_kb_list

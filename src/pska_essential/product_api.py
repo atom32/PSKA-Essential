@@ -354,6 +354,15 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return
 
+            memory_lifecycle = _match(path, "/api/memory/", "/lifecycle")
+            if method == "GET" and memory_lifecycle:
+                lifecycle = state.service.memory_lifecycle(
+                    memory_lifecycle,
+                    limit=_int_param(query.get("limit"), 50),
+                )
+                self._send_json({"ok": True, "lifecycle": lifecycle})
+                return
+
             if method == "GET" and path == "/api/reviews":
                 status = query.get("status") or None
                 limit = _int_param(query.get("limit"), 50)

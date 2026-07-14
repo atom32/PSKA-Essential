@@ -306,6 +306,13 @@ class ProductApiTests(unittest.TestCase):
         delete_audit = self._get_json("/api/audit?limit=10&action=memory.delete")
         self.assertEqual(delete_audit["events"][0]["metadata"]["proposal_kind"], "memory_delete")
         self.assertEqual(delete_audit["events"][0]["metadata"]["memory_target_id"], applied["applied"]["target_id"])
+        lifecycle = self._get_json(f"/api/memory/{applied['applied']['target_id']}/lifecycle")
+        self.assertEqual(lifecycle["lifecycle"]["change_count"], 3)
+        self.assertEqual(
+            [event["action"] for event in lifecycle["lifecycle"]["events"]],
+            ["memory.apply", "memory.update", "memory.delete"],
+        )
+        self.assertEqual(lifecycle["lifecycle"]["latest_event"]["action"], "memory.delete")
 
     def test_workflow_open_does_not_export_until_explicit_export(self):
         asked = self._post_json(
@@ -816,6 +823,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/reviews/${encodeURIComponent(reviewId)}', script)
         self.assertIn('/api/memory/delete-review', script)
         self.assertIn('/api/memory/update-review', script)
+        self.assertIn('/api/memory/${encodeURIComponent(memoryTargetId)}/lifecycle', script)
+        self.assertIn('openMemoryLifecycle', script)
+        self.assertIn('Memory lifecycle loaded.', script)
         self.assertIn('syncReviewRecord', script)
         self.assertIn('reviewSourceRow', script)
         self.assertIn('review.source_refs || proposal.source_refs', script)

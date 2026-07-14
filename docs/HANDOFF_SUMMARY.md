@@ -141,6 +141,9 @@ Implemented:
   Product API, MCP, and frontend Writing actions; update applies only after
   accepted review and records version metadata plus `memory.update` audit
   records.
+- Product API, MCP, and frontend Writing can inspect a durable MemoryFact
+  lifecycle from PSKA audit records, showing reviewed apply/update/delete
+  history without direct memory-backend history access.
 - Review queues can be resumed through Product API single-review reads and MCP
   `pska_review_list` / `pska_review_get`; frontend Review actions now open exact
   single-review Product API records by ID.
@@ -181,6 +184,8 @@ Implemented:
   written.
 - Review and memory apply/update/delete audit records carry proposal, run, and
   source trace metadata for durable knowledge writes.
+- Durable memory lifecycle history is derived from those PSKA audit records and
+  exposed as a product contract.
 - Reviews become immutable after durable memory has been applied; further
   durable changes require a new proposal/review.
 - Writing opens workflow state, work product, source manifest, and context
@@ -229,13 +234,15 @@ Expected result:
   Ask runs no longer see deleted fake/stub memory facts.
 - Workflow/Product API/MCP tests cover reviewed memory update/versioning and
   verify later Ask runs see updated fake/stub memory facts.
+- Workflow/Product API/MCP tests cover durable memory lifecycle history derived
+  from PSKA audit records.
 - Product API/MCP tests cover revising `needs_edit` reviews into new pending
   review candidates.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 32 PSKA MCP tools.
+- `make list-tools`: lists 33 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -272,6 +279,7 @@ pska_workflow_brief
 pska_memory_review_from_workflow
 pska_memory_update_review
 pska_memory_delete_review
+pska_memory_lifecycle
 pska_review_list
 pska_review_get
 pska_review_decide
@@ -308,7 +316,8 @@ and optional graph retrieval inside selected scope, opens sources through
 Product API Reader, opens workflow state, work product, source manifest, and
 context in Writing without export side effects, restores persisted loop
 governance/status details, opens related review items, and can apply accepted
-memory patches, reviewed memory updates, or reviewed memory deletions. Explicit
+memory patches, reviewed memory updates, or reviewed memory deletions, then
+inspect the reviewed lifecycle for a durable MemoryFact. Explicit
 exports produce traceable
 Markdown/JSON work products with source manifests, supporting context, and
 traceability metadata, include the workflow export audit event, and create

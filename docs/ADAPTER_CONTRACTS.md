@@ -61,6 +61,7 @@ The public tool surface is:
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
 - `pska_memory_delete_review`
+- `pska_memory_lifecycle`
 - `pska_export_brief`
 - `pska_audit_list`
 - `pska_retrieval_probe`
@@ -135,6 +136,14 @@ Memory update flow:
 memory_search -> pska_memory_update_review(MemoryFact, text) -> review_decide(accept) -> memory_apply
 ```
 
+Durable memory lifecycle inspection:
+
+```text
+pska_memory_lifecycle(memory_target_id) -> PSKA audit-derived apply/update/delete history
+```
+
 `memory_apply` must fail when the review is pending, rejected, or needs edit.
 Once reviewed memory has been applied, the review decision is immutable; later
 changes require a new governed proposal rather than rewriting the old decision.
+Lifecycle history is derived from PSKA audit records and must not require direct
+provider history APIs.

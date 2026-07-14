@@ -137,6 +137,10 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(memory_update.metadata["proposal_kind"], "memory_update")
         self.assertEqual(memory_update.metadata["memory_target_id"], applied.target_id)
         self.assertEqual(memory_update.metadata["version"], 2)
+        lifecycle = service.memory_lifecycle(applied.target_id)
+        self.assertEqual(lifecycle["change_count"], 2)
+        self.assertEqual([event["action"] for event in lifecycle["events"]], ["memory.apply", "memory.update"])
+        self.assertEqual(lifecycle["latest_event"]["action"], "memory.update")
 
     def test_export_brief_uses_workflow_context(self):
         service = build_fake_service()

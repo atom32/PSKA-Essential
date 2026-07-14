@@ -159,6 +159,7 @@ Operational loop tools:
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
 - `pska_memory_delete_review`
+- `pska_memory_lifecycle`
 - `pska_review_list`
 - `pska_review_get`
 - `pska_review_decide`
@@ -174,6 +175,7 @@ upload files -> RAGFlow dataset/documents/chunks -> PSKA scoped retrieve
   -> agent answer/proposal -> Review -> optional memory apply
   -> optional governed memory update review
   -> optional governed memory delete review
+  -> inspect durable memory lifecycle
   -> inspect artifact / transient brief -> explicit export
 ```
 
@@ -224,6 +226,7 @@ Implemented Alpha routes:
 - `POST /api/sources/read`
 - `POST /api/memory/update-review`
 - `POST /api/memory/delete-review`
+- `GET /api/memory/{memory_target_id}/lifecycle`
 - `GET /api/reviews`
 - `GET /api/reviews?status={status}`
 - `GET /api/reviews/{review_id}`
@@ -276,6 +279,8 @@ the memory apply result and `memory.update` audit record.
 Writing can create a governed deletion review from an explicit MemoryFact; the
 delete applies only after the review is accepted and produces a `memory.delete`
 audit record.
+Writing can inspect a MemoryFact lifecycle from PSKA audit records, showing the
+reviewed apply/update/delete chain without calling a memory backend directly.
 Once durable memory has been applied, the accepted review decision is locked;
 future changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow

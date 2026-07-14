@@ -455,6 +455,28 @@ class WorkflowService:
             return result
         raise WorkflowError("only durable memory proposals can be applied to memory")
 
+    def memory_lifecycle(self, memory_target_id: str, limit: int = 50) -> dict[str, Any]:
+        target_id = str(memory_target_id or "").strip()
+        if not target_id:
+            raise WorkflowError("memory lifecycle requires memory_target_id")
+        if limit < 1:
+            raise WorkflowError("memory lifecycle limit must be positive")
+
+        lifecycle_actions = {"memory.apply", "memory.update", "memory.delete"}
+        events = [
+            event
+            for event in self.store.list_audit_events(descending=False)
+            if event.action in lifecycle_actions and str(event.metadata.get("memory_target_id") or "") == target_id
+        ]
+        returned_events = events[-limit:]
+        return {
+            "memory_target_id": target_id,
+            "change_count": len(events),
+            "returned_count": len(returned_events),
+            "latest_event": to_jsonable(events[-1]) if events else None,
+            "events": to_jsonable(returned_events),
+        }
+
     def workflow_artifact(self, run_id: str) -> dict[str, Any]:
         run = self.store.get_workflow(run_id)
         return self._build_workflow_artifact(run)

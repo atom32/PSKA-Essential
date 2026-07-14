@@ -29,6 +29,8 @@ external KB, GraphRAG, or memory systems.
   when durable memory should be removed; do not call backend delete tools.
 - Use `pska_review_revise` for `needs_edit` reviews instead of mutating the
   original review.
+- Use `pska_memory_lifecycle` to inspect PSKA's reviewed apply/update/delete
+  history for durable memory; do not call backend memory history directly.
 
 ## Steps
 

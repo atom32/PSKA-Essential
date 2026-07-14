@@ -29,6 +29,7 @@ EXPECTED_TOOLS = {
     "pska_memory_search",
     "pska_memory_apply",
     "pska_memory_delete_review",
+    "pska_memory_lifecycle",
     "pska_memory_review_from_workflow",
     "pska_memory_update_review",
     "pska_export_brief",
@@ -93,6 +94,13 @@ class McpContractTests(unittest.TestCase):
         self.assertTrue(deleted["applied"])
         self.assertEqual(deleted["metadata"]["operation"], "delete")
         self.assertEqual(tools["pska_memory_search"]("mcp memory", {}, 10), [])
+        lifecycle = tools["pska_memory_lifecycle"](applied["target_id"])
+        self.assertEqual(lifecycle["change_count"], 3)
+        self.assertEqual(
+            [event["action"] for event in lifecycle["events"]],
+            ["memory.apply", "memory.update", "memory.delete"],
+        )
+        self.assertEqual(lifecycle["latest_event"]["action"], "memory.delete")
         exported = tools["pska_export_brief"](run["run_id"], "markdown")
         self.assertIn("PSKA-Essential Brief", exported)
         self.assertIn("workflow.export", [event.action for event in service.store.list_audit_events()])
