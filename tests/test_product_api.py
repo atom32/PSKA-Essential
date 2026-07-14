@@ -339,6 +339,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(status["status"], "ready")
         self.assertEqual(status["kb"]["dataset_count"], 1)
         self.assertEqual(status["kb"]["readiness"]["status"], "ready")
+        self.assertEqual(status["kb"]["dataset_readiness"][0]["dataset_ids"], ["demo"])
         self.assertEqual(status["reviews"]["pending_count"], 0)
         self.assertEqual(status["workflows"]["resumable_ask_count"], 0)
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")

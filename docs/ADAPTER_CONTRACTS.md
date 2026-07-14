@@ -88,6 +88,8 @@ capabilities.
 agents must use it for workflow navigation instead of inspecting provider state
 directly. Next actions may include PSKA tool/API/view hints and safe parameters,
 but must not expose provider-native schemas.
+Workspace status must keep per-dataset readiness visible, so a processing or
+failed dataset does not hide a separate ready dataset from Ask.
 
 ## KB Gateway
 

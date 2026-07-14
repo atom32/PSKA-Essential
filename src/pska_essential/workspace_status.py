@@ -24,7 +24,7 @@ def build_workspace_status(
     error.
     """
 
-    datasets, readiness, kb_error = _kb_state(gateway, page_size=dataset_page_size)
+    datasets, readiness, dataset_readiness, kb_error = _kb_state(gateway, page_size=dataset_page_size)
     reviews = service.store.list_reviews(limit=review_limit)
     pending_reviews = [review for review in reviews if review.get("status") == "pending"]
     accepted_unapplied = [
@@ -39,6 +39,7 @@ def build_workspace_status(
     next_actions = _next_actions(
         datasets=datasets,
         readiness=readiness,
+        dataset_readiness=dataset_readiness,
         kb_error=kb_error,
         pending_reviews=pending_reviews,
         accepted_unapplied=accepted_unapplied,
@@ -65,6 +66,7 @@ def build_workspace_status(
             "dataset_count": len(datasets),
             "datasets": datasets,
             "readiness": readiness,
+            "dataset_readiness": dataset_readiness,
             "error": kb_error,
         },
         "reviews": {
@@ -84,14 +86,22 @@ def build_workspace_status(
     }
 
 
-def _kb_state(gateway: Any, *, page_size: int) -> tuple[list[dict[str, Any]], dict[str, Any] | None, dict[str, str] | None]:
+def _kb_state(
+    gateway: Any,
+    *,
+    page_size: int,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, list[dict[str, Any]], dict[str, str] | None]:
     try:
         datasets = gateway.list_datasets(page_size=page_size)
         dataset_ids = [str(dataset.get("dataset_id") or "") for dataset in datasets if dataset.get("dataset_id")]
         readiness = evaluate_kb_readiness(gateway, dataset_ids=dataset_ids) if dataset_ids else None
-        return datasets, readiness, None
+        dataset_readiness = [
+            evaluate_kb_readiness(gateway, dataset_ids=[dataset_id])
+            for dataset_id in dataset_ids
+        ]
+        return datasets, readiness, dataset_readiness, None
     except Exception as exc:  # noqa: BLE001 - status must surface explicit backend errors.
-        return [], None, {"type": exc.__class__.__name__, "message": str(exc)}
+        return [], None, [], {"type": exc.__class__.__name__, "message": str(exc)}
 
 
 def _resumable_state(service: Any, gateway: Any, *, limit: int) -> tuple[list[dict[str, Any]], dict[str, str] | None]:
@@ -105,6 +115,7 @@ def _next_actions(
     *,
     datasets: list[dict[str, Any]],
     readiness: dict[str, Any] | None,
+    dataset_readiness: list[dict[str, Any]],
     kb_error: dict[str, str] | None,
     pending_reviews: list[dict[str, Any]],
     accepted_unapplied: list[dict[str, Any]],
@@ -133,16 +144,31 @@ def _next_actions(
                 requires_input=["files", "dataset_name_or_id"],
             )
         )
-    elif readiness and not readiness.get("ready"):
-        job = readiness.get("ingestion_status") or {}
-        for action in job.get("next_actions") or ["wait_for_ingestion"]:
+    elif dataset_readiness:
+        ready_scopes = [item for item in dataset_readiness if item.get("ready")]
+        blocked_scopes = [item for item in dataset_readiness if not item.get("ready")]
+        if ready_scopes:
+            ready_dataset_ids = [
+                dataset_id
+                for scope in ready_scopes
+                for dataset_id in scope.get("dataset_ids") or []
+            ]
             actions.append(
-                _readiness_action(
-                    str(action),
-                    str(job.get("message") or readiness.get("message") or "Selected knowledge is not ready."),
-                    readiness,
+                _action(
+                    "run_agentic_question",
+                    "Ask over ready knowledge",
+                    f"{len(ready_dataset_ids)} dataset(s) are ready for retrieval.",
+                    api="POST /api/ask",
+                    tool="pska_agentic_question_start",
+                    view="ask",
+                    params={"dataset_ids": ready_dataset_ids, "document_ids": []},
+                    requires_input=["question"],
                 )
             )
+        for blocked in blocked_scopes:
+            actions.extend(_readiness_actions(blocked))
+    elif readiness and not readiness.get("ready"):
+        actions.extend(_readiness_actions(readiness))
     elif readiness and readiness.get("ready"):
         actions.append(
             _action(
@@ -248,13 +274,22 @@ def _workspace_status(
         return "action_required"
     if {"inspect_failure", "inspect_cancellation", "parse_documents", "inspect_resumable_ask_error"} & action_names:
         return "action_required"
+    if "run_agentic_question" in action_names:
+        return "ready"
     if {"wait_for_ingestion", "wait_for_resumable_ask"} & action_names:
         return "processing"
-    if readiness and readiness.get("ready"):
-        return "ready"
     if "create_or_upload_knowledge_base" in action_names:
         return "empty"
     return "ok"
+
+
+def _readiness_actions(readiness: dict[str, Any]) -> list[dict[str, Any]]:
+    job = readiness.get("ingestion_status") or {}
+    reason = str(job.get("message") or readiness.get("message") or "Selected knowledge is not ready.")
+    return [
+        _readiness_action(str(action), reason, readiness)
+        for action in job.get("next_actions") or ["wait_for_ingestion"]
+    ]
 
 
 def _readiness_action(action: str, reason: str, readiness: dict[str, Any]) -> dict[str, Any]:

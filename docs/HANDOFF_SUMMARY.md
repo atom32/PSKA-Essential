@@ -187,7 +187,9 @@ Implemented:
   pending reviews, and accepted durable memory awaiting apply. Next actions
   include PSKA tool/API/view hints and safe parameters for Hermes/frontend
   navigation without provider direct access, and the frontend refreshes this
-  status after mutating KB, Ask, review, and memory actions.
+  status after mutating KB, Ask, review, and memory actions. Workspace status
+  preserves per-dataset readiness so a processing upload does not hide other
+  ready datasets from Ask.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
@@ -246,7 +248,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 89 tests pass.
+- `make test`: 90 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and

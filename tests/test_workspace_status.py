@@ -42,6 +42,43 @@ class _Gateway:
         ]
 
 
+class _MixedGateway:
+    backend_name = "test"
+
+    def list_datasets(self, *, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": "ready",
+                "name": "Ready",
+                "document_count": 1,
+                "chunk_count": 1,
+            },
+            {
+                "backend": "test",
+                "dataset_id": "processing",
+                "name": "Processing",
+                "document_count": 1,
+                "chunk_count": 0,
+            },
+        ][:page_size]
+
+    def list_documents(self, *, dataset_id, document_id=None, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": dataset_id,
+                "document_id": f"doc-{dataset_id}",
+                "name": f"{dataset_id}.txt",
+                "chunk_count": 1 if dataset_id == "ready" else 0,
+                "progress": 1.0 if dataset_id == "ready" else 0.2,
+                "progress_msg": "ready" if dataset_id == "ready" else "embedding",
+                "run": "DONE" if dataset_id == "ready" else "RUNNING",
+                "status": "ready" if dataset_id == "ready" else "processing",
+            }
+        ]
+
+
 class WorkspaceStatusTests(unittest.TestCase):
     def test_ready_workspace_suggests_agentic_question(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway())
@@ -55,6 +92,16 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["view"], "ask")
         self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["demo"])
         self.assertEqual(status["next_actions"][0]["requires_input"], ["question"])
+
+    def test_mixed_workspace_keeps_ready_scope_action_visible(self):
+        status = build_workspace_status(service=build_fake_service(), gateway=_MixedGateway())
+        actions = {item["action"]: item for item in status["next_actions"]}
+
+        self.assertEqual(status["status"], "ready")
+        self.assertEqual(status["kb"]["readiness"]["status"], "processing")
+        self.assertEqual(len(status["kb"]["dataset_readiness"]), 2)
+        self.assertEqual(actions["run_agentic_question"]["params"]["dataset_ids"], ["ready"])
+        self.assertEqual(actions["wait_for_ingestion"]["params"]["dataset_ids"], ["processing"])
 
     def test_processing_workspace_suggests_waiting_for_ingestion(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway(ready=False))
