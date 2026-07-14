@@ -229,7 +229,7 @@ export records from explicit export actions, review/memory apply records
 with proposal, run, and source trace metadata, and mechanical source operations
 such as dataset creation, ingestion, parsing, source reads, and graph reads.
 Knowledge Base create, upload, parse, source read, and graph read actions
-refresh Activity after the source operation completes. If the selected dataset or
+refresh Activity and focus the matching action after the source operation completes. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically

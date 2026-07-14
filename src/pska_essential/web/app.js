@@ -68,7 +68,7 @@ function bindForms() {
     event.currentTarget.reset();
     showToast("Knowledge base created.");
     await loadDatasets();
-    await loadAuditEvents();
+    await loadAuditEvents("kb.dataset.create");
   });
 
   document.getElementById("upload-form").addEventListener("submit", async (event) => {
@@ -87,7 +87,7 @@ function bindForms() {
     showToast("Upload accepted.");
     renderIngestResult(result.ingest);
     await loadDatasets();
-    await loadAuditEvents();
+    await loadAuditEvents("kb.ingest");
     const datasetId = ingestDatasetId(result.ingest);
     if (datasetId) {
       const documents = await loadDocuments(datasetId, { silent: true });
@@ -139,7 +139,7 @@ function bindForms() {
     await loadReviews();
     await loadPendingReviews();
     await loadWorkflows();
-    await loadAuditEvents();
+    await loadAuditEvents(auditActionForAskResult(result));
     renderHome();
   });
 
@@ -160,7 +160,7 @@ function bindRefresh() {
     loadReviews();
   });
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
-  document.getElementById("reload-audit").addEventListener("click", loadAuditEvents);
+  document.getElementById("reload-audit").addEventListener("click", () => loadAuditEvents());
   document.getElementById("audit-action-filter").addEventListener("change", (event) => {
     state.auditAction = event.currentTarget.value || "";
     loadAuditEvents();
@@ -268,8 +268,11 @@ async function loadWorkflows() {
   }
 }
 
-async function loadAuditEvents() {
+async function loadAuditEvents(actionOverride = undefined) {
   try {
+    if (typeof actionOverride === "string") {
+      setAuditActionFilter(actionOverride);
+    }
     const action = state.auditAction ? `&action=${encodeURIComponent(state.auditAction)}` : "";
     const payload = await api(`/api/audit?limit=50${action}`);
     state.auditEvents = payload.events || [];
@@ -383,6 +386,19 @@ function renderWorkflowList() {
 
 function renderAuditEvents() {
   renderList(document.getElementById("audit-list"), state.auditEvents, "No audit events loaded.", auditEventCard);
+}
+
+function auditActionForAskResult(result) {
+  if (result.status === "not_ready") return "kb.readiness.blocked";
+  if (result.status === "insufficient_context") return "agentic_loop.insufficient_context";
+  if (result.status === "ready") return "agentic_loop.complete";
+  return "";
+}
+
+function setAuditActionFilter(action) {
+  state.auditAction = action || "";
+  const filter = document.getElementById("audit-action-filter");
+  if (filter) filter.value = state.auditAction;
 }
 
 function renderAskDatasetPicker() {
@@ -512,7 +528,7 @@ async function parseActiveDocuments() {
   setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
   startIngestionPolling(datasetId);
   await loadDocuments(datasetId, { silent: true });
-  await loadAuditEvents();
+  await loadAuditEvents("kb.parse");
 }
 
 function addAskDataset(datasetId = "") {
@@ -1156,7 +1172,7 @@ async function exportCurrent(format) {
     state.currentBrief.artifact = payload.export;
   }
   renderWriting();
-  await loadAuditEvents();
+  await loadAuditEvents("workflow.export");
   showToast(`${format.toUpperCase()} export loaded.`);
 }
 
@@ -1164,7 +1180,7 @@ async function readSource(sourceRef) {
   const payload = await api("/api/sources/read", { method: "POST", body: { source_ref: sourceRef } });
   state.reader = payload.source || null;
   renderReader();
-  await loadAuditEvents();
+  await loadAuditEvents("source.read");
   document.querySelector('.nav-item[data-view="reader"]').click();
 }
 
@@ -1174,7 +1190,7 @@ async function readDocumentGraph(datasetId, documentId) {
   );
   state.reader = { kind: "graph", graph: payload.graph || null };
   renderReader();
-  await loadAuditEvents();
+  await loadAuditEvents("kb.graph.read");
   document.querySelector('.nav-item[data-view="reader"]').click();
   showToast("Graph loaded.");
 }
@@ -1250,7 +1266,7 @@ async function decideReview(reviewId, decision, reason) {
   showToast(`Review ${decision}.`);
   await loadReviews();
   await loadPendingReviews();
-  await loadAuditEvents();
+  await loadAuditEvents("review.decide");
   renderCurrentResultSurfaces();
 }
 
@@ -1260,7 +1276,7 @@ async function applyMemory(reviewId) {
   showToast("Memory applied.");
   await loadReviews();
   await loadPendingReviews();
-  await loadAuditEvents();
+  await loadAuditEvents("memory.apply");
   renderCurrentResultSurfaces();
 }
 

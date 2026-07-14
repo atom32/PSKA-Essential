@@ -131,6 +131,9 @@ Implemented:
   Product API action filtering.
 - Frontend Knowledge Base create, upload, and parse actions refresh Activity
   after source-operation audit records are written.
+- Frontend user operations focus Activity on their matching audit action
+  (`kb.ingest`, `source.read`, `workflow.export`, `memory.apply`, and related
+  actions) after records are written.
 - Review and memory apply audit records carry proposal, run, and source trace
   metadata for durable knowledge writes.
 - Reviews become immutable after durable memory has been applied; further
@@ -244,9 +247,11 @@ shows the recent audit trail with action filtering, including workflow export
 records, review/memory apply records with proposal, run, and source trace
 metadata, and KB/source operation records for dataset creation, ingestion,
 parsing, source reads, and graph reads. Knowledge Base create, upload, parse,
-source read, and graph read actions refresh Activity after their source-operation
-audit records are written. Settings shows runtime provider configuration and
-Product API diagnostics for review store, KB gateway, retrieval, and memory
+source read, and graph read actions refresh Activity and focus the matching
+audit action after their source-operation audit records are written. Review,
+memory apply, export, and Ask actions also focus Activity on their matching
+workflow/governance audit action. Settings shows runtime provider configuration
+and Product API diagnostics for review store, KB gateway, retrieval, and memory
 connectivity.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
