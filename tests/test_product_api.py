@@ -993,6 +993,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('review.revision || {}', script)
         self.assertIn('revision.previous_review_id', script)
         self.assertIn('revision.next_review_id', script)
+        self.assertIn('const runId = proposal.run_id || (proposal.metadata && proposal.metadata.run_id) || "";', script)
+        self.assertIn('onclick: () => openWritingRun(runId)', script)
         self.assertIn('className: "review-source-row"', script)
         self.assertIn('review.status === "pending"', script)
         self.assertIn('review.status === "accepted"', script)

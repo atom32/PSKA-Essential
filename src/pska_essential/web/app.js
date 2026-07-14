@@ -1748,10 +1748,14 @@ function reviewCard(review) {
   const proposal = review.proposal || {};
   const sourceRefs = review.source_refs || proposal.source_refs || [];
   const revision = review.revision || {};
+  const runId = proposal.run_id || (proposal.metadata && proposal.metadata.run_id) || "";
   const actions = el("div", { className: "review-actions" }, []);
   const reason = el("input", { placeholder: "Reason", value: "" });
   const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
   const locked = Boolean(memoryApply);
+  if (runId) {
+    actions.append(el("button", { className: "secondary-button", onclick: () => openWritingRun(runId) }, "Open Writing"));
+  }
   if (locked) {
     actions.append(el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)));
     actions.append(el("span", { className: "tag" }, "Locked"));

@@ -304,7 +304,8 @@ Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
 review summary. Review records expose source trace fields, and Review cards can
 open cited sources through the Product API Reader before a durable decision is
-made. Review cards show status-specific actions: pending reviews can be decided,
+made, and can open the originating Writing workflow context. Review cards show
+status-specific actions: pending reviews can be decided,
 accepted durable reviews can be applied, `needs_edit` reviews can be revised,
 and rejected reviews are closed. After a review decision, the frontend keeps the
 decided review visible so the next action is available. Reviews marked `needs_edit` can create a revised candidate review while

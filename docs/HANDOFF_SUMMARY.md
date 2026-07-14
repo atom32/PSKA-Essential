@@ -171,7 +171,8 @@ Implemented:
   Review records expose revision lineage so original and revised candidates can
   be traced in both directions.
 - Review records expose `source_refs` / `source_count`, and the frontend Review
-  queue shows cited sources with Product API Reader actions.
+  queue shows cited sources with Product API Reader actions and can open the
+  originating Writing workflow context.
 - Review cards show status-specific actions: pending decisions, accepted memory
   apply, `needs_edit` revision, and closed rejected reviews.
 - After a review decision, the frontend keeps the decided review visible so the
