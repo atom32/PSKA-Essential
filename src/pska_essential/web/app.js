@@ -784,10 +784,17 @@ function datasetCard(dataset) {
 function documentCard(document) {
   const stateName = documentState(document);
   const progress = Math.max(0, Math.min(1, Number(document.progress || 0)));
+  const datasetId = document.dataset_id || state.activeDocumentDatasetId || "";
+  const documentId = document.document_id || "";
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, document.name || document.document_id), el("p", {}, document.progress_msg || "")]),
-      el("span", { className: `tag ${stateName.className}` }, stateName.label),
+      el("div", { className: "card-actions" }, [
+        el("span", { className: `tag ${stateName.className}` }, stateName.label),
+        datasetId && documentId
+          ? el("button", { className: "secondary-button", onclick: () => readDocumentGraph(datasetId, documentId) }, "Graph")
+          : null,
+      ]),
     ]),
     el("div", { className: "progress-row" }, [
       el("progress", { value: String(progress), max: "1" }, ""),
@@ -967,6 +974,17 @@ async function readSource(sourceRef) {
   document.querySelector('.nav-item[data-view="reader"]').click();
 }
 
+async function readDocumentGraph(datasetId, documentId) {
+  const payload = await api(
+    `/api/kb/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/graph`,
+  );
+  state.reader = { kind: "graph", graph: payload.graph || null };
+  renderReader();
+  await loadAuditEvents();
+  document.querySelector('.nav-item[data-view="reader"]').click();
+  showToast("Graph loaded.");
+}
+
 function renderReader() {
   const source = state.reader;
   const sourceBox = document.getElementById("reader-source");
@@ -979,6 +997,10 @@ function renderReader() {
     status.className = "tag";
     sourceBox.className = "reader-source empty-list";
     sourceBox.textContent = "Select a source from Ask.";
+    return;
+  }
+  if (source.kind === "graph") {
+    renderGraphReader(source.graph || {}, sourceBox, metadata, status);
     return;
   }
   status.textContent = "Loaded";
@@ -1004,6 +1026,25 @@ function renderReader() {
   if (!metadata.children.length) {
     metadata.append(el("dt", {}, "Metadata"), el("dd", {}, "No source coordinates available."));
   }
+}
+
+function renderGraphReader(graph, sourceBox, metadata, status) {
+  const templates = graph.templates || [];
+  status.textContent = "Graph loaded";
+  status.className = "tag ready";
+  sourceBox.className = "reader-source";
+  sourceBox.append(el("pre", {}, JSON.stringify(graph, null, 2)));
+  [
+    ["Backend", graph.backend || ""],
+    ["Dataset", graph.dataset_id || ""],
+    ["Document", graph.document_id || ""],
+    ["Templates", String(templates.length)],
+    ["Note", graph.note || ""],
+  ]
+    .filter(([, value]) => value)
+    .forEach(([key, value]) => {
+      metadata.append(el("dt", {}, key), el("dd", {}, value));
+    });
 }
 
 async function decideReview(reviewId, decision, reason) {

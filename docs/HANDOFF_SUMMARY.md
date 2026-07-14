@@ -107,6 +107,7 @@ Implemented:
 - Frontend ingestion tracking: upload refreshes document status/readiness until
   terminal processing state.
 - Frontend parse action for loaded unready documents through Product API.
+- Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
   connectivity without frontend provider direct calls.
 - Workflow-level export audit records and frontend Activity audit trail.
@@ -128,10 +129,10 @@ make smoke
 
 Expected result:
 
-- `make test`: 41 tests pass.
+- `make test`: 42 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
-  memory apply, audit records, KB readiness blocking, diagnostics, and multipart
-  document upload.
+  memory apply, audit records, KB readiness blocking, diagnostics, document
+  graph read, and multipart document upload.
 - `make list-tools`: lists 19 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
@@ -195,8 +196,9 @@ records. Settings shows runtime provider configuration and Product API
 diagnostics for review store, KB gateway, retrieval, and memory connectivity. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
 does not start retrieval. The Knowledge Bases view shows dataset/document
-readiness and can start parsing for loaded unready documents before
-automatically refreshing ingestion status.
+readiness, can start parsing for loaded unready documents, can open optional
+document structure graph data through Product API, and automatically refreshes
+ingestion status.
 
 ## Local Toolchain Status
 

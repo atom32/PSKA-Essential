@@ -221,6 +221,22 @@ def _handler_class(state: ProductApiState):
                 )
                 return
 
+            document_graph = _match_document_graph(path)
+            if method == "GET" and document_graph:
+                dataset_id, document_id = document_graph
+                graph = state.kb_gateway_factory().document_graph(dataset_id=dataset_id, document_id=document_id)
+                state.service.store.add_audit_event(
+                    audit_event(
+                        "kb.graph.read",
+                        "document",
+                        document_id,
+                        dataset_id=dataset_id,
+                        backend=graph.get("backend", ""),
+                    )
+                )
+                self._send_json({"ok": True, "graph": graph})
+                return
+
             if method == "POST" and path == "/api/ask":
                 payload = self._read_json()
                 question = _required_str(payload, "question")
@@ -451,6 +467,16 @@ def _match(path: str, prefix: str, suffix: str) -> str | None:
         return None
     value = path[len(prefix) : len(path) - len(suffix) if suffix else len(path)]
     return unquote(value.strip("/")) or None
+
+
+def _match_document_graph(path: str) -> tuple[str, str] | None:
+    value = _match(path, "/api/kb/datasets/", "/graph")
+    if not value:
+        return None
+    parts = value.split("/")
+    if len(parts) != 3 or parts[1] != "documents" or not parts[0] or not parts[2]:
+        raise ApiError("document graph route must be /api/kb/datasets/{dataset_id}/documents/{document_id}/graph")
+    return parts[0], parts[2]
 
 
 def _required_str(payload: dict[str, Any], key: str) -> str:

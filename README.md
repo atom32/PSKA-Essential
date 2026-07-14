@@ -186,6 +186,7 @@ Implemented Alpha routes:
 - `GET /api/kb/datasets/{dataset_id}/readiness`
 - `GET /api/kb/datasets/{dataset_id}/documents`
 - `POST /api/kb/datasets/{dataset_id}/parse`
+- `GET /api/kb/datasets/{dataset_id}/documents/{document_id}/graph`
 - `POST /api/ask`
 - `GET /api/workflows`
 - `GET /api/workflows/{run_id}/export`
@@ -207,7 +208,9 @@ recent audit trail, including workflow export records. If the selected dataset o
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically
-refreshes ingestion status after uploads. Writing opens sourced briefs from
-recent workflow runs and exports Markdown or JSON through Product API. Settings
-shows runtime provider configuration and Product API diagnostics for review
-store, KB gateway, retrieval, and memory connectivity.
+refreshes ingestion status after uploads. It can also open optional document
+structure graph data through Product API when the KB backend exposes it. Writing
+opens sourced briefs from recent workflow runs and exports Markdown or JSON
+through Product API. Settings shows runtime provider configuration and Product
+API diagnostics for review store, KB gateway, retrieval, and memory
+connectivity.

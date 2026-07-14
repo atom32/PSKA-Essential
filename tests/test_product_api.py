@@ -89,6 +89,15 @@ class _FakeGateway:
         self.parse_calls.append({"dataset_id": dataset_id, "document_ids": document_ids, "wait": wait})
         return {"backend": "fake-kb", "dataset_id": dataset_id, "document_ids": document_ids, "parse_started": True}
 
+    def document_graph(self, *, dataset_id, document_id):
+        return {
+            "backend": "fake-kb",
+            "dataset_id": dataset_id,
+            "document_id": document_id,
+            "templates": [{"name": "demo-structure", "nodes": [], "edges": []}],
+            "note": "Fake graph for Product API tests.",
+        }
+
 
 class ProductApiTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -195,6 +204,16 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(parsed["parse"]["parse_started"])
         self.assertEqual(self.gateway.parse_calls, [{"dataset_id": "demo", "document_ids": ["doc-1"], "wait": False}])
 
+    def test_document_graph_route_uses_product_api_boundary(self):
+        graph = self._get_json("/api/kb/datasets/demo/documents/doc-1/graph")
+
+        self.assertEqual(graph["graph"]["dataset_id"], "demo")
+        self.assertEqual(graph["graph"]["document_id"], "doc-1")
+        self.assertEqual(len(graph["graph"]["templates"]), 1)
+        audit = self._get_json("/api/audit?limit=5")
+        self.assertEqual(audit["events"][0]["action"], "kb.graph.read")
+        self.assertEqual(audit["events"][0]["metadata"]["dataset_id"], "demo")
+
     def test_runtime_diagnostics_route_reports_product_checks(self):
         payload = self._get_json("/api/runtime/diagnostics")
 
@@ -270,11 +289,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/audit?limit=50', script)
         self.assertIn('/api/runtime/diagnostics', script)
+        self.assertIn('/documents/${encodeURIComponent(documentId)}/graph', script)
         self.assertIn('/api/workflows?limit=20', script)
         self.assertIn('/parse', script)
         self.assertIn('/readiness', script)
         self.assertIn('diagnosticCard', script)
         self.assertIn('auditEventCard', script)
+        self.assertIn('readDocumentGraph', script)
+        self.assertIn('Graph loaded', script)
         self.assertIn('addAskDataset', script)
         self.assertIn('loadAskDocuments', script)
         self.assertIn('askDocumentCard', script)
