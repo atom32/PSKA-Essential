@@ -169,6 +169,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(readiness["ready"])
         self.assertEqual(readiness["status"], "ready")
 
+    def test_dataset_readiness_route_reports_scope_status(self):
+        readiness = self._get_json("/api/kb/datasets/demo/readiness")["readiness"]
+
+        self.assertTrue(readiness["ready"])
+        self.assertEqual(readiness["dataset_ids"], ["demo"])
+
     def test_ask_blocks_dataset_that_is_not_ready(self):
         self.gateway.ready = False
         asked = self._post_json(
@@ -216,11 +222,14 @@ class ProductApiTests(unittest.TestCase):
         html = Path("src/pska_essential/web/index.html").read_text(encoding="utf-8")
         script = Path("src/pska_essential/web/app.js").read_text(encoding="utf-8")
         self.assertIn("Source Reader", html)
+        self.assertIn("ingestion-status", html)
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
         self.assertIn("Brief Workspace", html)
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/workflows?limit=20', script)
+        self.assertIn('/readiness', script)
+        self.assertIn('startIngestionPolling', script)
 
     def _get_text(self, path: str) -> str:
         with urlopen(f"{self.base_url}{path}", timeout=5) as response:

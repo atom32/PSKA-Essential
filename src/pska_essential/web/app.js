@@ -6,6 +6,10 @@ const state = {
   reader: null,
   workflows: [],
   currentBrief: null,
+  activeDocumentDatasetId: null,
+  activeDocuments: [],
+  readinessByDataset: {},
+  ingestionPoll: null,
 };
 
 const titles = {
@@ -71,6 +75,14 @@ function bindForms() {
     showToast("Upload accepted.");
     renderIngestResult(result.ingest);
     await loadDatasets();
+    const datasetId = ingestDatasetId(result.ingest);
+    if (datasetId) {
+      const documents = await loadDocuments(datasetId, { silent: true });
+      const summary = summarizeDocuments(documents);
+      if (result.ingest && result.ingest.parse && result.ingest.parse.parse_started && summary.status === "processing") {
+        startIngestionPolling(datasetId);
+      }
+    }
   });
 
   document.getElementById("document-status-form").addEventListener("submit", async (event) => {
@@ -175,9 +187,33 @@ async function loadWorkflows() {
   }
 }
 
-async function loadDocuments(datasetId) {
-  const payload = await api(`/api/kb/datasets/${encodeURIComponent(datasetId)}/documents`);
-  renderDocuments(payload.documents || []);
+async function loadDocuments(datasetId, options = {}) {
+  const normalizedId = String(datasetId || "").trim();
+  if (!normalizedId) {
+    showToast("Dataset ID is required.");
+    return [];
+  }
+  state.activeDocumentDatasetId = normalizedId;
+  try {
+    const [documentsResult, readinessResult] = await Promise.allSettled([
+      api(`/api/kb/datasets/${encodeURIComponent(normalizedId)}/documents`),
+      api(`/api/kb/datasets/${encodeURIComponent(normalizedId)}/readiness`),
+    ]);
+    if (documentsResult.status === "rejected") {
+      throw documentsResult.reason;
+    }
+    const documents = documentsResult.value.documents || [];
+    state.activeDocuments = documents;
+    renderDocuments(documents);
+    if (readinessResult.status === "fulfilled") {
+      state.readinessByDataset[normalizedId] = readinessResult.value.readiness;
+    }
+    renderIngestionStatus(normalizedId, documents, state.readinessByDataset[normalizedId]);
+    return documents;
+  } catch (error) {
+    if (!options.silent) showToast(error.message);
+    throw error;
+  }
 }
 
 function renderHome() {
@@ -230,7 +266,72 @@ function renderWorkflowList() {
 
 function renderIngestResult(result) {
   const documents = result.documents || [];
+  const datasetId = ingestDatasetId(result);
+  state.activeDocumentDatasetId = datasetId || state.activeDocumentDatasetId;
+  state.activeDocuments = documents;
   renderDocuments(documents);
+  if (datasetId) {
+    renderIngestionStatus(datasetId, documents, null);
+    const statusForm = document.querySelector('#document-status-form input[name="dataset_id"]');
+    if (statusForm) statusForm.value = datasetId;
+  }
+}
+
+function startIngestionPolling(datasetId) {
+  stopIngestionPolling();
+  state.ingestionPoll = {
+    datasetId,
+    attempts: 0,
+    maxAttempts: 120,
+    timer: null,
+  };
+  setIngestionStatus(`Tracking ${shortId(datasetId)} ingestion...`, "pending");
+  state.ingestionPoll.timer = window.setInterval(async () => {
+    if (!state.ingestionPoll || state.ingestionPoll.datasetId !== datasetId) return;
+    state.ingestionPoll.attempts += 1;
+    try {
+      const documents = await loadDocuments(datasetId, { silent: true });
+      await loadDatasets();
+      const summary = summarizeDocuments(documents);
+      if (["ready", "failed", "empty"].includes(summary.status)) {
+        stopIngestionPolling();
+      } else if (state.ingestionPoll && state.ingestionPoll.attempts >= state.ingestionPoll.maxAttempts) {
+        stopIngestionPolling();
+        setIngestionStatus(`Tracking paused for ${shortId(datasetId)}.`, "pending");
+      }
+    } catch (error) {
+      stopIngestionPolling();
+      setIngestionStatus(error.message, "failed");
+    }
+  }, 2500);
+}
+
+function stopIngestionPolling() {
+  if (state.ingestionPoll && state.ingestionPoll.timer) {
+    window.clearInterval(state.ingestionPoll.timer);
+  }
+  state.ingestionPoll = null;
+}
+
+function renderIngestionStatus(datasetId, documents, readiness) {
+  const summary = summarizeDocuments(documents);
+  const readinessStatus = readiness && readiness.status ? readiness.status : summary.status;
+  const label = readiness && readiness.message ? readiness.message : `${summary.ready}/${summary.total} documents ready.`;
+  setIngestionStatus(`${shortId(datasetId)}: ${label}`, readinessStatus);
+}
+
+function setIngestionStatus(message, status) {
+  const node = document.getElementById("ingestion-status");
+  if (!node) return;
+  node.className = `job-status ${statusClass(status)}`;
+  node.textContent = message;
+}
+
+function ingestDatasetId(result) {
+  if (!result) return "";
+  if (result.dataset && result.dataset.dataset_id) return result.dataset.dataset_id;
+  const documents = result.documents || [];
+  return documents.length ? documents[0].dataset_id || "" : "";
 }
 
 function renderAskResult(result) {
@@ -374,13 +475,17 @@ function loopStepCard(step) {
 }
 
 function datasetCard(dataset) {
+  const stateName = datasetState(dataset);
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
         el("h3", {}, dataset.name || dataset.dataset_id),
         el("p", {}, dataset.description || dataset.dataset_id || ""),
       ]),
-      el("button", { className: "secondary-button", onclick: () => setAskDataset(dataset.dataset_id) }, "Use"),
+      el("div", { className: "card-actions" }, [
+        el("span", { className: `tag ${stateName.className}` }, stateName.label),
+        el("button", { className: "secondary-button", onclick: () => setAskDataset(dataset.dataset_id) }, "Use"),
+      ]),
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, `docs ${dataset.document_count || 0}`),
@@ -393,10 +498,15 @@ function datasetCard(dataset) {
 
 function documentCard(document) {
   const stateName = documentState(document);
+  const progress = Math.max(0, Math.min(1, Number(document.progress || 0)));
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, document.name || document.document_id), el("p", {}, document.progress_msg || "")]),
       el("span", { className: `tag ${stateName.className}` }, stateName.label),
+    ]),
+    el("div", { className: "progress-row" }, [
+      el("progress", { value: String(progress), max: "1" }, ""),
+      el("span", {}, `${Math.round(progress * 100)}%`),
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, `chunks ${document.chunk_count || 0}`),
@@ -616,12 +726,47 @@ function shortId(value) {
   return `${text.slice(0, 6)}...${text.slice(-4)}`;
 }
 
+function datasetState(dataset) {
+  const documents = Number(dataset.document_count || 0);
+  const chunks = Number(dataset.chunk_count || 0);
+  if (chunks > 0) return { label: "ready", className: "ready" };
+  if (documents <= 0) return { label: "empty", className: "failed" };
+  return { label: "processing", className: "pending" };
+}
+
 function documentState(document) {
   const run = String(document.run || "").toUpperCase();
+  const status = String(document.status || "").toLowerCase();
+  const progressMsg = String(document.progress_msg || "").toLowerCase();
   const progress = Number(document.progress || 0);
-  if (run === "FAIL" || run === "CANCEL") return { label: run.toLowerCase(), className: "failed" };
-  if (run === "DONE" || progress >= 1) return { label: "ready", className: "ready" };
+  const chunks = Number(document.chunk_count || 0);
+  if (
+    ["FAIL", "FAILED", "CANCEL", "CANCELED", "ERROR"].includes(run) ||
+    ["fail", "failed", "cancel", "canceled", "error"].includes(status) ||
+    progressMsg.includes("fail") ||
+    progressMsg.includes("error")
+  ) {
+    return { label: "failed", className: "failed" };
+  }
+  if (run === "DONE" || progress >= 1 || chunks > 0 || ["ready", "done", "success"].includes(status)) {
+    return { label: "ready", className: "ready" };
+  }
   return { label: "processing", className: "pending" };
+}
+
+function summarizeDocuments(documents) {
+  const total = documents.length;
+  let ready = 0;
+  let failed = 0;
+  documents.forEach((document) => {
+    const stateName = documentState(document);
+    if (stateName.label === "ready") ready += 1;
+    if (stateName.label === "failed") failed += 1;
+  });
+  if (!total) return { status: "empty", total, ready, failed };
+  if (failed) return { status: "failed", total, ready, failed };
+  if (ready === total) return { status: "ready", total, ready, failed };
+  return { status: "processing", total, ready, failed };
 }
 
 function statusClass(status) {

@@ -376,6 +376,14 @@ textarea:focus {
   margin-bottom: 8px;
 }
 
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .item-card p {
   color: var(--muted);
   margin-bottom: 10px;
@@ -414,6 +422,56 @@ textarea:focus {
 .tag.failed {
   color: var(--red);
   background: #fff1f0;
+}
+
+.job-status {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.job-status.ready {
+  color: var(--teal-strong);
+  border-color: #9bc8bf;
+  background: #edf8f5;
+}
+
+.job-status.pending {
+  color: var(--amber);
+  border-color: #e9c58f;
+  background: #fff9ef;
+}
+
+.job-status.failed {
+  color: var(--red);
+  border-color: #e4aaa5;
+  background: #fff1f0;
+}
+
+.progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.progress-row progress {
+  width: 100%;
+  height: 10px;
+  accent-color: var(--teal);
+}
+
+.progress-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
 }
 
 .compact-form {

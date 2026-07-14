@@ -100,6 +100,8 @@ Implemented:
   Ask, Reader, Writing, Review, and Settings.
 - PSKA-controlled agentic Ask loop with explicit loop diagnostics.
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
+- Frontend ingestion tracking: upload refreshes document status/readiness until
+  terminal processing state.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Operational upload-to-agentic-question MCP loop.
@@ -118,7 +120,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 38 tests pass.
+- `make test`: 39 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, KB readiness blocking, and multipart document upload.
 - `make list-tools`: lists 19 PSKA MCP tools.
@@ -177,7 +179,8 @@ Settings. It calls only same-origin `/api/...` routes, shows explicit Ask loop
 steps including KB readiness, opens sources through Product API Reader, and
 exports sourced briefs through Product API Writing. If the selected dataset or
 document scope is not ready, Ask returns `not_ready` and does not start
-retrieval.
+retrieval. The Knowledge Bases view shows dataset/document readiness and
+automatically refreshes ingestion status after uploads.
 
 ## Local Toolchain Status
 

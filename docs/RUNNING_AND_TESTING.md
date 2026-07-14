@@ -87,7 +87,9 @@ Review, and Settings. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval. Reader inspects sources through
 Product API only. Writing opens recent sourced briefs and exports Markdown or
 JSON through Product API. Upload, parsing, embedding, and indexing readiness
-remain visible states rather than hidden side effects.
+remain visible states rather than hidden side effects. After upload, the
+Knowledge Bases view refreshes the selected dataset's document status and
+readiness until processing reaches a terminal state.
 
 Durable memory governance modes:
 

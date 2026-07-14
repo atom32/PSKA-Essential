@@ -182,6 +182,7 @@ Implemented Alpha routes:
 - `POST /api/kb/datasets`
 - `POST /api/kb/ingest`
 - `POST /api/kb/readiness`
+- `GET /api/kb/datasets/{dataset_id}/readiness`
 - `GET /api/kb/datasets/{dataset_id}/documents`
 - `POST /api/kb/datasets/{dataset_id}/parse`
 - `POST /api/ask`
@@ -198,5 +199,7 @@ Review, and Settings. It is served by the Product API and uses only same-origin
 can see scope checks, KB readiness, retrieval, context inspection, proposal
 creation, review creation or skipping, and export preparation. If the selected
 dataset or document scope is not ready for retrieval, Ask returns a structured
-`not_ready` result instead of starting retrieval. Writing opens sourced briefs
-from recent workflow runs and exports Markdown or JSON through Product API.
+`not_ready` result instead of starting retrieval. Knowledge Bases shows
+dataset/document readiness and automatically refreshes ingestion status after
+uploads. Writing opens sourced briefs from recent workflow runs and exports
+Markdown or JSON through Product API.

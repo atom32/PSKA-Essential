@@ -167,6 +167,17 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, "readiness": readiness})
                 return
 
+            dataset_readiness = _match(path, "/api/kb/datasets/", "/readiness")
+            if method == "GET" and dataset_readiness:
+                document_ids = _csv_values(query.get("document_ids") or query.get("document_id") or "")
+                readiness = evaluate_kb_readiness(
+                    state.kb_gateway_factory(),
+                    dataset_ids=[dataset_readiness],
+                    document_ids=document_ids,
+                )
+                self._send_json({"ok": True, "readiness": readiness})
+                return
+
             dataset_documents = _match(path, "/api/kb/datasets/", "/documents")
             if method == "GET" and dataset_documents:
                 dataset_id = dataset_documents
@@ -453,6 +464,10 @@ def _bool_value(value: str | None, default: bool) -> bool:
     if value is None or value == "":
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _csv_values(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def _env_enabled(name: str) -> bool:
