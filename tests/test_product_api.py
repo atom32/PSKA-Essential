@@ -290,6 +290,9 @@ class ProductApiTests(unittest.TestCase):
 
         self.assertTrue(parsed["parse"]["parse_started"])
         self.assertEqual(self.gateway.parse_calls, [{"dataset_id": "demo", "document_ids": ["doc-1"], "wait": False}])
+        audit = self._get_json("/api/audit?limit=5")
+        self.assertEqual(audit["events"][0]["action"], "kb.parse")
+        self.assertEqual(audit["events"][0]["metadata"]["document_ids"], ["doc-1"])
 
     def test_document_graph_route_uses_product_api_boundary(self):
         graph = self._get_json("/api/kb/datasets/demo/documents/doc-1/graph")
@@ -300,6 +303,7 @@ class ProductApiTests(unittest.TestCase):
         audit = self._get_json("/api/audit?limit=5")
         self.assertEqual(audit["events"][0]["action"], "kb.graph.read")
         self.assertEqual(audit["events"][0]["metadata"]["dataset_id"], "demo")
+        self.assertEqual(audit["events"][0]["metadata"]["document_id"], "doc-1")
 
     def test_runtime_diagnostics_route_reports_product_checks(self):
         payload = self._get_json("/api/runtime/diagnostics")
@@ -358,6 +362,22 @@ class ProductApiTests(unittest.TestCase):
             payload = json.loads(response.read().decode("utf-8"))
         self.assertTrue(payload["ok"])
         self.assertEqual(self.gateway.uploaded, [{"name": "note.txt", "text": "trusted workspace notes"}])
+        audit = self._get_json("/api/audit?limit=5")
+        self.assertEqual(audit["events"][0]["action"], "kb.ingest")
+        self.assertEqual(audit["events"][0]["metadata"]["document_names"], ["note.txt"])
+        self.assertTrue(audit["events"][0]["metadata"]["parse_started"])
+
+    def test_dataset_create_writes_kb_audit_record(self):
+        created = self._post_json(
+            "/api/kb/datasets",
+            {"name": "New Dataset", "description": "notes", "chunk_method": "naive"},
+        )
+
+        self.assertEqual(created["dataset"]["dataset_id"], "created")
+        audit = self._get_json("/api/audit?limit=5")
+        self.assertEqual(audit["events"][0]["action"], "kb.dataset.create")
+        self.assertEqual(audit["events"][0]["target_id"], "created")
+        self.assertEqual(audit["events"][0]["metadata"]["dataset_name"], "New Dataset")
 
     def test_bundled_frontend_contains_reader_view(self):
         html = Path("src/pska_essential/web/index.html").read_text(encoding="utf-8")

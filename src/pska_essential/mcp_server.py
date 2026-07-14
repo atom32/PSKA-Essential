@@ -8,6 +8,12 @@ from pska_essential.agentic_loop import run_agentic_question
 from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
+from pska_essential.kb_audit import (
+    add_kb_dataset_create_audit,
+    add_kb_graph_read_audit,
+    add_kb_ingest_audit,
+    add_kb_parse_audit,
+)
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
 
@@ -75,11 +81,13 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         return build_kb_gateway_from_env().list_datasets(name=name, page_size=page_size)
 
     def pska_kb_create(name: str, description: str = "", chunk_method: str = "naive"):
-        return build_kb_gateway_from_env().create_dataset(
+        dataset = build_kb_gateway_from_env().create_dataset(
             name=name,
             description=description,
             chunk_method=chunk_method,
         )
+        add_kb_dataset_create_audit(service.store, dataset)
+        return dataset
 
     def pska_kb_ingest_files(
         file_paths: list[str],
@@ -91,7 +99,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ):
-        return build_kb_gateway_from_env().ingest_files(
+        result = build_kb_gateway_from_env().ingest_files(
             file_paths=file_paths,
             dataset_name=dataset_name,
             dataset_id=dataset_id,
@@ -101,6 +109,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             wait=wait,
             timeout_seconds=timeout_seconds,
         )
+        add_kb_ingest_audit(service.store, result)
+        return result
 
     def pska_kb_document_status(
         dataset_id: str,
@@ -131,15 +141,19 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ):
-        return build_kb_gateway_from_env().parse_documents(
+        result = build_kb_gateway_from_env().parse_documents(
             dataset_id=dataset_id,
             document_ids=document_ids,
             wait=wait,
             timeout_seconds=timeout_seconds,
         )
+        add_kb_parse_audit(service.store, result)
+        return result
 
     def pska_kb_graph_read(dataset_id: str, document_id: str):
-        return build_kb_gateway_from_env().document_graph(dataset_id=dataset_id, document_id=document_id)
+        graph = build_kb_gateway_from_env().document_graph(dataset_id=dataset_id, document_id=document_id)
+        add_kb_graph_read_audit(service.store, graph, dataset_id=dataset_id, document_id=document_id)
+        return graph
 
     def pska_agentic_question_start(
         question: str,

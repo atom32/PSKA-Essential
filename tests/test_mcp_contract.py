@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from pska_essential.mcp_server import tool_registry
@@ -89,6 +91,36 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_ready")
         self.assertEqual(result["context_packets"], [])
         self.assertIn("not ready", result["note"])
+
+    def test_kb_tools_write_source_operation_audit_records(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "note.txt"
+            path.write_text("PSKA source material", encoding="utf-8")
+            with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+                created = tools["pska_kb_create"]("MCP Dataset")
+                ingested = tools["pska_kb_ingest_files"]([str(path)], dataset_name="MCP Dataset", parse=True)
+                parsed = tools["pska_kb_parse_documents"]("demo", ["doc-1"])
+                graph = tools["pska_kb_graph_read"]("demo", "doc-1")
+
+        self.assertTrue(created["dataset_id"].startswith("fake_ds_"))
+        self.assertEqual(ingested["documents"][0]["name"], "note.txt")
+        self.assertTrue(parsed["parse_started"])
+        self.assertEqual(graph["document_id"], "doc-1")
+        events = service.store.list_audit_events()
+        actions = [event.action for event in events]
+        self.assertIn("kb.dataset.create", actions)
+        self.assertIn("kb.ingest", actions)
+        self.assertIn("kb.parse", actions)
+        self.assertIn("kb.graph.read", actions)
+        create_event = next(event for event in events if event.action == "kb.dataset.create")
+        self.assertEqual(create_event.target_id, created["dataset_id"])
+        ingest_event = next(event for event in events if event.action == "kb.ingest")
+        self.assertEqual(ingest_event.metadata["document_names"], ["note.txt"])
+        graph_event = next(event for event in events if event.action == "kb.graph.read")
+        self.assertEqual(graph_event.metadata["dataset_id"], "demo")
+        self.assertEqual(graph_event.metadata["document_id"], "doc-1")
 
 
 if __name__ == "__main__":

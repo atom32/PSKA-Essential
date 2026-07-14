@@ -20,6 +20,12 @@ from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import build_runtime_diagnostics
 from pska_essential.governance import build_workspace_policy_from_env
+from pska_essential.kb_audit import (
+    add_kb_dataset_create_audit,
+    add_kb_graph_read_audit,
+    add_kb_ingest_audit,
+    add_kb_parse_audit,
+)
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
@@ -151,15 +157,14 @@ def _handler_class(state: ProductApiState):
             if method == "POST" and path == "/api/kb/datasets":
                 payload = self._read_json()
                 gateway = state.kb_gateway_factory()
+                dataset = gateway.create_dataset(
+                    name=_required_str(payload, "name"),
+                    description=str(payload.get("description") or ""),
+                    chunk_method=str(payload.get("chunk_method") or "naive"),
+                )
+                add_kb_dataset_create_audit(state.service.store, dataset)
                 self._send_json(
-                    {
-                        "ok": True,
-                        "dataset": gateway.create_dataset(
-                            name=_required_str(payload, "name"),
-                            description=str(payload.get("description") or ""),
-                            chunk_method=str(payload.get("chunk_method") or "naive"),
-                        ),
-                    },
+                    {"ok": True, "dataset": dataset},
                     HTTPStatus.CREATED,
                 )
                 return
@@ -210,32 +215,21 @@ def _handler_class(state: ProductApiState):
             if method == "POST" and dataset_parse:
                 payload = self._read_json()
                 gateway = state.kb_gateway_factory()
-                self._send_json(
-                    {
-                        "ok": True,
-                        "parse": gateway.parse_documents(
-                            dataset_id=dataset_parse,
-                            document_ids=_required_list(payload, "document_ids"),
-                            wait=bool(payload.get("wait", False)),
-                            timeout_seconds=float(payload.get("timeout_seconds") or 300.0),
-                        ),
-                    }
+                parse_result = gateway.parse_documents(
+                    dataset_id=dataset_parse,
+                    document_ids=_required_list(payload, "document_ids"),
+                    wait=bool(payload.get("wait", False)),
+                    timeout_seconds=float(payload.get("timeout_seconds") or 300.0),
                 )
+                add_kb_parse_audit(state.service.store, parse_result)
+                self._send_json({"ok": True, "parse": parse_result})
                 return
 
             document_graph = _match_document_graph(path)
             if method == "GET" and document_graph:
                 dataset_id, document_id = document_graph
                 graph = state.kb_gateway_factory().document_graph(dataset_id=dataset_id, document_id=document_id)
-                state.service.store.add_audit_event(
-                    audit_event(
-                        "kb.graph.read",
-                        "document",
-                        document_id,
-                        dataset_id=dataset_id,
-                        backend=graph.get("backend", ""),
-                    )
-                )
+                add_kb_graph_read_audit(state.service.store, graph, dataset_id=dataset_id, document_id=document_id)
                 self._send_json({"ok": True, "graph": graph})
                 return
 
@@ -382,6 +376,7 @@ def _handler_class(state: ProductApiState):
                         wait=_bool_value(fields.get("wait"), False),
                         timeout_seconds=float(fields.get("timeout_seconds") or 300.0),
                     )
+                add_kb_ingest_audit(state.service.store, result)
                 self._send_json({"ok": True, "ingest": result}, HTTPStatus.CREATED)
                 return
 
@@ -396,6 +391,7 @@ def _handler_class(state: ProductApiState):
                 wait=bool(payload.get("wait", False)),
                 timeout_seconds=float(payload.get("timeout_seconds") or 300.0),
             )
+            add_kb_ingest_audit(state.service.store, result)
             self._send_json({"ok": True, "ingest": result}, HTTPStatus.CREATED)
 
         def _read_json(self) -> dict[str, Any]:

@@ -121,6 +121,8 @@ Implemented:
   connectivity without frontend provider direct calls.
 - Runtime workspace/tenant context surfaced in health, diagnostics, Settings,
   and audit metadata.
+- Dataset creation, document ingestion, parsing, and graph reads write explicit
+  KB audit records through both Product API and MCP.
 - Workflow-level export audit records and frontend Activity audit trail.
 - Review and memory apply audit records carry proposal, run, and source trace
   metadata for durable knowledge writes.
@@ -150,10 +152,10 @@ make smoke
 
 Expected result:
 
-- `make test`: 49 tests pass.
+- `make test`: 51 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
-  graph read, and multipart document upload.
+  graph read, dataset creation, parsing audit, and multipart document upload.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Governance/runtime context tests cover explicit default workspace and audit
@@ -226,10 +228,11 @@ Markdown/JSON work products with source manifests, supporting context, and
 traceability metadata and create workflow export audit records. Review
 decisions and memory apply actions refresh the current Ask/Writing state, and
 applied memory state is served back through Review API records. Activity shows
-the recent audit trail, including workflow export records and review/memory
-apply records with proposal, run, and source trace metadata. Settings shows
-runtime provider configuration and Product API diagnostics for review store, KB
-gateway, retrieval, and memory connectivity.
+the recent audit trail, including workflow export records, review/memory apply
+records with proposal, run, and source trace metadata, and KB source operation
+records for dataset creation, ingestion, parsing, and graph reads. Settings
+shows runtime provider configuration and Product API diagnostics for review
+store, KB gateway, retrieval, and memory connectivity.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
