@@ -327,6 +327,11 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, "reviews": state.service.store.list_reviews(status=status, limit=limit)})
                 return
 
+            review_get = _match(path, "/api/reviews/", "")
+            if method == "GET" and review_get and "/" not in review_get:
+                self._send_json({"ok": True, "review": state.service.store.get_review_record(review_get)})
+                return
+
             review_decision = _match(path, "/api/reviews/", "/decision")
             if method == "POST" and review_decision:
                 payload = self._read_json()

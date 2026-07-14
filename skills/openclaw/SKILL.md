@@ -30,7 +30,8 @@ external KB, GraphRAG, or memory systems.
 4. Retrieve context and answer only from returned context.
 5. Propose digest, writing brief, or memory patch.
 6. Create a review.
-7. Wait for review acceptance.
+7. Wait for review acceptance; use review list/get tools to resume pending
+   review work.
 8. Apply memory only after acceptance.
 9. Inspect `pska_workflow_artifact` or `pska_workflow_brief`.
 10. Export a Markdown or JSON brief only for explicit handoff.

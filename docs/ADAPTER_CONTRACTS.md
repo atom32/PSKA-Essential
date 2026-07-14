@@ -46,6 +46,8 @@ The public tool surface is:
 - `pska_source_read`
 - `pska_propose`
 - `pska_review_create`
+- `pska_review_list`
+- `pska_review_get`
 - `pska_review_decide`
 - `pska_memory_search`
 - `pska_memory_apply`

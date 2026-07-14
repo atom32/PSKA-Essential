@@ -34,7 +34,8 @@ For an existing KB:
 3. Call `pska_propose` with `kind` set to `digest`, `memory_patch`, or
    `writing_brief`.
 4. Call `pska_review_create`.
-5. Ask the human for review.
+5. Ask the human for review. Use `pska_review_list` or `pska_review_get` to
+   resume pending review work if needed.
 6. After acceptance, call `pska_review_decide`.
 7. For memory patches only, call `pska_memory_apply`.
 8. Call `pska_workflow_artifact` or `pska_workflow_brief` to inspect the

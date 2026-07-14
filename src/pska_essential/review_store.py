@@ -161,19 +161,36 @@ class SQLiteReviewStore:
                 """,
                 params,
             ).fetchall()
-        return [
-            {
-                "review_id": str(row["review_id"]),
-                "proposal_id": str(row["proposal_id"]),
-                "status": str(row["status"]),
-                "decision": str(row["decision"]),
-                "reason": str(row["reason"]),
-                "updated_at": str(row["updated_at"]),
-                "proposal": json.loads(row["proposal_json"]),
-                "memory_apply": json.loads(row["memory_apply_json"]) if row["memory_apply_json"] else None,
-            }
-            for row in rows
-        ]
+        return [_review_record_from_row(row) for row in rows]
+
+    def get_review_record(self, review_id: str) -> dict[str, Any]:
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT reviews.review_id,
+                       reviews.proposal_id,
+                       reviews.status,
+                       reviews.decision,
+                       reviews.reason,
+                       reviews.updated_at,
+                       proposals.payload_json AS proposal_json,
+                       memory_applies.payload_json AS memory_apply_json
+                FROM reviews
+                JOIN proposals ON proposals.proposal_id = reviews.proposal_id
+                LEFT JOIN memory_applies ON memory_applies.id = (
+                    SELECT id
+                    FROM memory_applies
+                    WHERE memory_applies.review_id = reviews.review_id
+                    ORDER BY id DESC
+                    LIMIT 1
+                )
+                WHERE reviews.review_id = ?
+                """,
+                (review_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"review not found: {review_id}")
+        return _review_record_from_row(row)
 
     def decide_review(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
         row = self.get_review(review_id)
@@ -308,3 +325,16 @@ def _normalize_decision(decision: str) -> str:
     if normalized not in {"accept", "reject", "edit"}:
         raise ValueError("decision must be one of: accept, reject, edit")
     return normalized
+
+
+def _review_record_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "review_id": str(row["review_id"]),
+        "proposal_id": str(row["proposal_id"]),
+        "status": str(row["status"]),
+        "decision": str(row["decision"]),
+        "reason": str(row["reason"]),
+        "updated_at": str(row["updated_at"]),
+        "proposal": json.loads(row["proposal_json"]),
+        "memory_apply": json.loads(row["memory_apply_json"]) if row["memory_apply_json"] else None,
+    }

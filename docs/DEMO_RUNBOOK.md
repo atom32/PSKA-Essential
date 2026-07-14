@@ -74,6 +74,8 @@ pska_agentic_question_start(
   use_kg=false
 )
 
+pska_review_list("pending")
+pska_review_get("<review_id>")
 pska_review_decide("<review_id>", "accept", "approved for demo")
 pska_memory_apply("<review_id>")
 pska_workflow_artifact("<run_id>")

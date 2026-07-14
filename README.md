@@ -147,6 +147,8 @@ Operational loop tools:
 - `pska_agentic_question_start`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
+- `pska_review_list`
+- `pska_review_get`
 - `pska_export_brief`
 
 These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
@@ -198,6 +200,7 @@ Implemented Alpha routes:
 - `GET /api/workflows/{run_id}`
 - `GET /api/workflows/{run_id}/export`
 - `GET /api/reviews`
+- `GET /api/reviews/{review_id}`
 - `POST /api/reviews/{review_id}/decision`
 - `POST /api/reviews/{review_id}/apply-memory`
 - `GET /api/audit`

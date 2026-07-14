@@ -165,6 +165,10 @@ class ProductApiTests(unittest.TestCase):
 
         reviews = self._get_json("/api/reviews?status=pending")
         self.assertEqual(reviews["reviews"][0]["review_id"], review_id)
+        review_record = self._get_json(f"/api/reviews/{review_id}")["review"]
+        self.assertEqual(review_record["review_id"], review_id)
+        self.assertEqual(review_record["proposal"]["kind"], "memory_patch")
+        self.assertIsNone(review_record["memory_apply"])
 
         decision = self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "accept", "reason": "test"})
         self.assertEqual(decision["decision"]["status"], "accepted")

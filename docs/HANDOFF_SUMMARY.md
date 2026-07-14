@@ -110,6 +110,8 @@ Implemented:
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
+- Review queues can be resumed through Product API single-review reads and MCP
+  `pska_review_list` / `pska_review_get`.
 - Frontend ingestion tracking: upload refreshes document status/readiness until
   terminal processing state.
 - Frontend parse action for loaded unready documents through Product API.
@@ -155,7 +157,7 @@ Expected result:
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 21 PSKA MCP tools.
+- `make list-tools`: lists 23 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -185,6 +187,8 @@ pska_kb_readiness
 pska_agentic_question_start
 pska_workflow_artifact
 pska_workflow_brief
+pska_review_list
+pska_review_get
 pska_review_decide
 pska_memory_apply
 pska_export_brief

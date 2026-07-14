@@ -50,6 +50,12 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_review_create(proposal_id: str):
         return to_jsonable(service.review_create(proposal_id))
 
+    def pska_review_list(status: str | None = None, limit: int = 50):
+        return service.store.list_reviews(status=status or None, limit=limit)
+
+    def pska_review_get(review_id: str):
+        return service.store.get_review_record(review_id)
+
     def pska_review_decide(review_id: str, decision: str, reason: str = ""):
         return to_jsonable(service.review_decide(review_id, decision, reason))
 
@@ -207,6 +213,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_read": pska_source_read,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,
+        "pska_review_list": pska_review_list,
+        "pska_review_get": pska_review_get,
         "pska_review_decide": pska_review_decide,
         "pska_memory_search": pska_memory_search,
         "pska_memory_apply": pska_memory_apply,

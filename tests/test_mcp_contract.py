@@ -17,6 +17,8 @@ EXPECTED_TOOLS = {
     "pska_source_read",
     "pska_propose",
     "pska_review_create",
+    "pska_review_list",
+    "pska_review_get",
     "pska_review_decide",
     "pska_memory_search",
     "pska_memory_apply",
@@ -50,6 +52,10 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("PSKA-Essential Brief", brief)
         self.assertNotIn("workflow.export", [event.action for event in service.store.list_audit_events()])
         review = tools["pska_review_create"](proposal["proposal_id"])
+        pending_reviews = tools["pska_review_list"]("pending")
+        review_record = tools["pska_review_get"](review["review_id"])
+        self.assertEqual(pending_reviews[0]["review_id"], review["review_id"])
+        self.assertEqual(review_record["proposal"]["proposal_id"], proposal["proposal_id"])
         tools["pska_review_decide"](review["review_id"], "accept", "test")
         applied = tools["pska_memory_apply"](review["review_id"])
         self.assertTrue(applied["applied"])
