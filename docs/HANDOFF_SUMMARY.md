@@ -109,6 +109,9 @@ Implemented:
   matched memory facts separate from external source retrieval.
 - Ask returns `insufficient_context` without proposal/review/export when
   retrieved context remains below the required context count.
+- Ask returns `not_ready` before retrieval when KB readiness blocks the selected
+  scope, and persists that blocked state as a recoverable workflow with
+  readiness diagnostics and audit records.
 - Successful Ask prepares a transient sourced brief/artifact without creating
   workflow export audit records.
 - Ask persists the agentic loop summary on workflow metadata, including

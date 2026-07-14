@@ -95,7 +95,9 @@ memory and keeps those facts separate from external source retrieval, so memory
 can inform later work without satisfying source readiness or context minimums.
 If the required context count is not met, Ask returns `insufficient_context`,
 shows any retrieved partial context, and does not create a proposal, review, or
-export. Successful Ask results prepare a transient sourced brief and artifact
+export. If KB readiness blocks the selected scope, Ask returns `not_ready` and
+persists a blocked workflow with readiness diagnostics so frontend and MCP
+flows can recover it later. Successful Ask results prepare a transient sourced brief and artifact
 without creating workflow export audit records. Ask results can jump directly to
 Writing or Review and can apply accepted memory patches through Product API.
 Review decisions and memory apply actions refresh the current Ask/Writing
@@ -215,7 +217,9 @@ structure graph data.
 
 Treat RAGFlow ingestion as asynchronous. Uploading a document only starts the
 chain of parsing, chunking, embedding, and indexing. Frontend and agent flows
-must check readiness before assuming retrieval will work.
+must check readiness before assuming retrieval will work. Readiness-blocked
+Ask calls are persisted as blocked workflows with audit records rather than
+discarded one-off errors.
 
 ### 5. Full Demo / Deployment
 

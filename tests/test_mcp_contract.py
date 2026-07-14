@@ -122,7 +122,8 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("Memory writes still require", result["note"])
 
     def test_agentic_question_start_blocks_unready_scope(self):
-        tools = tool_registry(build_fake_service())
+        service = build_fake_service()
+        tools = tool_registry(service)
         with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
             result = tools["pska_agentic_question_start"](
                 question="Can I ask this missing dataset?",
@@ -130,8 +131,19 @@ class McpContractTests(unittest.TestCase):
                 limit=1,
             )
         self.assertEqual(result["status"], "not_ready")
+        self.assertIsNotNone(result["run"])
+        self.assertEqual(result["run"]["status"], "blocked")
         self.assertEqual(result["context_packets"], [])
+        self.assertEqual(result["artifact"]["traceability"]["context_count"], 0)
+        self.assertEqual(result["artifact"]["traceability"]["proposal_count"], 0)
         self.assertIn("not ready", result["note"])
+        listed = tools["pska_workflow_list"](limit=1)
+        self.assertEqual(listed[0]["run_id"], result["run"]["run_id"])
+        recovered = tools["pska_workflow_artifact"](result["run"]["run_id"])
+        self.assertEqual(recovered["run"]["metadata"]["agentic_loop"]["status"], "not_ready")
+        audit_actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("agentic_loop.not_ready", audit_actions)
+        self.assertIn("kb.readiness.blocked", audit_actions)
 
     def test_kb_tools_write_source_operation_audit_records(self):
         service = build_fake_service()

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from pska_essential.audit import audit_event
-from pska_essential.contracts import ContextPacket, to_jsonable
+from pska_essential.contracts import ContextPacket, to_jsonable, utc_now_iso
 from pska_essential.governance import (
     AUTO_ACCEPT,
     AUTO_APPLY,
@@ -12,6 +12,7 @@ from pska_essential.governance import (
     WorkspaceGovernancePolicy,
     build_workspace_policy_from_env,
 )
+from pska_essential.readiness import build_not_ready_ask_result
 from pska_essential.workflow import WorkflowService
 
 
@@ -278,6 +279,77 @@ def run_agentic_question(
         "brief": brief,
         "loop": loop,
     }
+
+
+def record_not_ready_agentic_question(
+    service: WorkflowService,
+    *,
+    question: str,
+    dataset_ids: list[str],
+    document_ids: list[str] | None,
+    readiness: dict[str, Any],
+    proposal_kind: str = "writing_brief",
+    create_review: bool | None = None,
+    use_kg: bool = False,
+    workspace_policy: WorkspaceGovernancePolicy | None = None,
+) -> dict[str, Any]:
+    """Persist a KB-readiness-blocked Ask as a recoverable workflow state."""
+
+    normalized_question = question.strip()
+    normalized_kind = proposal_kind.strip().lower() or "writing_brief"
+    scope = {
+        "dataset_ids": [str(dataset_id) for dataset_id in dataset_ids if str(dataset_id)],
+        "document_ids": [str(document_id) for document_id in (document_ids or []) if str(document_id)],
+        "use_kg": bool(use_kg),
+    }
+    if not normalized_question:
+        raise ValueError("question is required")
+    if not scope["dataset_ids"]:
+        raise ValueError("dataset_ids is required")
+    result = build_not_ready_ask_result(
+        question=normalized_question,
+        dataset_ids=scope["dataset_ids"],
+        document_ids=scope["document_ids"],
+        readiness=readiness,
+        proposal_kind=normalized_kind,
+        create_review=create_review,
+        use_kg=use_kg,
+        workspace_policy=workspace_policy,
+    )
+    run = service.start(normalized_question, scope)
+    service.store.add_audit_event(
+        audit_event(
+            "agentic_loop.start",
+            "workflow",
+            run.run_id,
+            question=normalized_question,
+            dataset_ids=scope["dataset_ids"],
+            document_ids=scope["document_ids"],
+            proposal_kind=normalized_kind,
+        )
+    )
+    run.status = "blocked"
+    run.metadata["agentic_loop"] = to_jsonable(result["loop"])
+    run.metadata["readiness"] = to_jsonable(readiness)
+    run.metadata["blocked_reason"] = "kb_not_ready"
+    run.updated_at = utc_now_iso()
+    service.store.save_workflow(run)
+    service.store.add_audit_event(
+        audit_event(
+            "agentic_loop.not_ready",
+            "workflow",
+            run.run_id,
+            question=normalized_question,
+            dataset_ids=scope["dataset_ids"],
+            document_ids=scope["document_ids"],
+            proposal_kind=normalized_kind,
+            readiness_status=readiness.get("status") or "",
+            blocking=readiness.get("blocking") or [],
+        )
+    )
+    result["run"] = to_jsonable(service.state(run.run_id))
+    result["artifact"] = service.workflow_artifact(run.run_id)
+    return result
 
 
 def _loop_summary(

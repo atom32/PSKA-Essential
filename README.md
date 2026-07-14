@@ -227,6 +227,9 @@ source retrieval, so memory can inform later work without acting as a source
 fallback. If the required context count is not met, Ask returns
 `insufficient_context`, shows any retrieved partial context, and does not create
 a proposal, review, or export.
+If the selected dataset or document scope is not ready, Ask records a blocked
+workflow with readiness diagnostics so Writing, Activity, and MCP tools can
+recover the blocked state after ingestion continues.
 Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
 review summary. Review records expose source trace fields, and Review cards can
@@ -244,7 +247,8 @@ such as dataset creation, ingestion, parsing, source reads, and graph reads.
 Knowledge Base create, upload, parse, source read, and graph read actions
 refresh Activity and focus the matching action after the source operation completes. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
-result instead of starting retrieval. Knowledge Bases shows dataset/document
+result instead of starting retrieval. The `not_ready` result has a recoverable
+workflow run and audit trail rather than a disposable error response. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically
 refreshes ingestion status after uploads. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing

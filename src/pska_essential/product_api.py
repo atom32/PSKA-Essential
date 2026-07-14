@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
-from pska_essential.agentic_loop import run_agentic_question
+from pska_essential.agentic_loop import record_not_ready_agentic_question, run_agentic_question
 from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
@@ -27,7 +27,7 @@ from pska_essential.kb_audit import (
     add_kb_parse_audit,
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
-from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
+from pska_essential.readiness import build_readiness_loop_step, evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
 from pska_essential.workflow import WorkflowError, WorkflowService
 
@@ -247,18 +247,8 @@ def _handler_class(state: ProductApiState):
                     document_ids=document_ids,
                 )
                 if not readiness["ready"]:
-                    state.service.store.add_audit_event(
-                        audit_event(
-                            "kb.readiness.blocked",
-                            "kb_scope",
-                            ",".join(dataset_ids),
-                            question=question,
-                            dataset_ids=dataset_ids,
-                            document_ids=document_ids,
-                            readiness=readiness,
-                        )
-                    )
-                    result = build_not_ready_ask_result(
+                    result = record_not_ready_agentic_question(
+                        state.service,
                         question=question,
                         dataset_ids=dataset_ids,
                         document_ids=document_ids,
@@ -266,6 +256,17 @@ def _handler_class(state: ProductApiState):
                         proposal_kind=proposal_kind,
                         create_review=create_review,
                         use_kg=use_kg,
+                    )
+                    state.service.store.add_audit_event(
+                        audit_event(
+                            "kb.readiness.blocked",
+                            "workflow",
+                            result["run"]["run_id"],
+                            question=question,
+                            dataset_ids=dataset_ids,
+                            document_ids=document_ids,
+                            readiness=readiness,
+                        )
                     )
                     self._send_json({"ok": True, **result})
                     return

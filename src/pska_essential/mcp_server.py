@@ -4,7 +4,7 @@ import json
 import sys
 from typing import Any, Callable
 
-from pska_essential.agentic_loop import run_agentic_question
+from pska_essential.agentic_loop import record_not_ready_agentic_question, run_agentic_question
 from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
@@ -15,7 +15,7 @@ from pska_essential.kb_audit import (
     add_kb_parse_audit,
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
-from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
+from pska_essential.readiness import build_readiness_loop_step, evaluate_kb_readiness
 
 
 def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
@@ -184,18 +184,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             document_ids=document_ids or [],
         )
         if not readiness["ready"]:
-            service.store.add_audit_event(
-                audit_event(
-                    "kb.readiness.blocked",
-                    "kb_scope",
-                    ",".join(str(dataset_id) for dataset_id in dataset_ids),
-                    question=question,
-                    dataset_ids=dataset_ids,
-                    document_ids=document_ids or [],
-                    readiness=readiness,
-                )
-            )
-            result = build_not_ready_ask_result(
+            result = record_not_ready_agentic_question(
+                service,
                 question=question,
                 dataset_ids=dataset_ids,
                 document_ids=document_ids or [],
@@ -203,6 +193,17 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
                 proposal_kind=proposal_kind,
                 create_review=create_review,
                 use_kg=use_kg,
+            )
+            service.store.add_audit_event(
+                audit_event(
+                    "kb.readiness.blocked",
+                    "workflow",
+                    result["run"]["run_id"],
+                    question=question,
+                    dataset_ids=dataset_ids,
+                    document_ids=document_ids or [],
+                    readiness=readiness,
+                )
             )
             result["note"] = (
                 "Selected knowledge scope is not ready for retrieval. "

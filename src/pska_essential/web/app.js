@@ -658,6 +658,7 @@ function renderAskResult(result) {
         ]),
       );
     }
+    container.append(askResultActions(result));
     return;
   }
   if (result.status === "not_ready") {
@@ -670,6 +671,7 @@ function renderAskResult(result) {
     );
     container.append(readinessPanel(readiness));
     container.append(loopPanel(result));
+    container.append(askResultActions(result));
     return;
   }
   container.append(

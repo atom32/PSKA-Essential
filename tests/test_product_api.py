@@ -380,12 +380,29 @@ class ProductApiTests(unittest.TestCase):
         )
 
         self.assertEqual(asked["status"], "not_ready")
-        self.assertIsNone(asked["run"])
+        self.assertIsNotNone(asked["run"])
+        self.assertEqual(asked["run"]["status"], "blocked")
+        self.assertEqual(asked["run"]["metadata"]["agentic_loop"]["status"], "not_ready")
+        self.assertEqual(asked["artifact"]["traceability"]["context_count"], 0)
+        self.assertEqual(asked["artifact"]["traceability"]["proposal_count"], 0)
+        self.assertIsNone(asked["artifact"]["latest_proposal"])
         self.assertEqual(asked["context_packets"], [])
         self.assertIsNone(asked["proposal"])
         self.assertIsNone(asked["review"])
         self.assertEqual(asked["readiness"]["status"], "processing")
         self.assertEqual(asked["loop"]["steps"][-1]["name"], "kb.readiness")
+        workflows = self._get_json("/api/workflows?limit=5")
+        self.assertEqual(workflows["workflows"][0]["run_id"], asked["run"]["run_id"])
+        opened = self._get_json(f"/api/workflows/{asked['run']['run_id']}")
+        self.assertEqual(opened["workflow"]["status"], "blocked")
+        self.assertEqual(opened["artifact"]["run"]["metadata"]["readiness"]["status"], "processing")
+        audit = self._get_json("/api/audit?limit=20")
+        actions = [event["action"] for event in audit["events"]]
+        self.assertIn("agentic_loop.not_ready", actions)
+        self.assertIn("kb.readiness.blocked", actions)
+        blocked_event = next(event for event in audit["events"] if event["action"] == "kb.readiness.blocked")
+        self.assertEqual(blocked_event["target_type"], "workflow")
+        self.assertEqual(blocked_event["target_id"], asked["run"]["run_id"])
 
     def test_multipart_ingest_uses_product_api_boundary(self):
         boundary = "pska-test-boundary"

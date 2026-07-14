@@ -117,9 +117,11 @@ def build_not_ready_ask_result(
         "review": None,
         "review_decision": None,
         "memory_apply": None,
+        "memory_facts": [],
         "brief": "",
         "readiness": readiness,
         "loop": {
+            "status": "not_ready",
             "steps": steps,
             "review_required": False,
             "durable_proposal": durable_proposal,
