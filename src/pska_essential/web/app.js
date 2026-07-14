@@ -2108,6 +2108,7 @@ async function createMemoryReviewFromRun(runId = "") {
     method: "POST",
     body: { intent },
   });
+  setReviewStatusFilter("");
   syncReviewRecord(payload.review);
   state.focusReviewId = payload.review && payload.review.review_id;
   syncWorkflowMemoryReview(selectedRunId, payload);
@@ -2115,9 +2116,10 @@ async function createMemoryReviewFromRun(runId = "") {
   await loadPendingReviews();
   await loadWorkflows();
   await loadWorkspaceStatus();
-  await loadAuditEvents("review.create");
+  await loadAuditEvents(payload.memory_apply ? memoryApplyAction(payload.memory_apply) : "review.create");
   renderCurrentResultSurfaces();
-  showToast("Memory review created.");
+  document.querySelector('.nav-item[data-view="review"]').click();
+  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : "Memory review created.");
 }
 
 async function readSource(sourceRef) {

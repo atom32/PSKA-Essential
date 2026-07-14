@@ -123,7 +123,8 @@ Ask results can apply accepted memory patches through Product API.
 Writing can also turn an existing sourced transient workflow into a governed
 Memory Review through Product API; this is the explicit transition from
 transient work product to durable memory candidate and follows workspace policy
-for manual review, auto accept, or auto apply.
+for manual review, auto accept, or auto apply. The frontend opens the resulting
+Review record and focuses Activity on the actual governance event.
 Durable memory review creation, review acceptance, and memory apply require a
 source trace; source-less durable proposals fail explicitly instead of becoming
 workspace memory.

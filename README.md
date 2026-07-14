@@ -297,7 +297,9 @@ automatically after a user starts tracking.
 Users can also turn an existing sourced workflow into a durable memory review
 through an explicit Memory Review action; this creates a memory candidate and
 governed review path without re-retrieval or direct memory write, following the
-workspace policy for manual review, auto accept, or auto apply.
+workspace policy for manual review, auto accept, or auto apply. The frontend
+opens the resulting Review record and focuses Activity on the actual governance
+event.
 Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
 review summary. Review records expose source trace fields, and Review cards can

@@ -150,7 +150,8 @@ Implemented:
   backed by Review API memory-apply records.
 - Existing sourced transient workflows can be turned into pending durable memory
   reviews through Product API, MCP, and the frontend Writing/Ask Memory Review
-  action without re-retrieval or direct memory changes.
+  action without re-retrieval or direct memory changes; the frontend opens the
+  resulting Review record and focuses Activity on the actual governance event.
 - Existing durable MemoryFacts can create governed deletion reviews through
   Product API, MCP, and frontend Writing actions; deletion applies only after
   accepted review and writes `memory.delete` audit records.
@@ -373,7 +374,8 @@ graph retrieval inside selected scope, opens sources through
 Product API Reader, loads workspace policy from `/api/policy`, opens workflow
 state, work product, source manifest, and context in Writing without export side
 effects, restores persisted loop
-governance/status details, opens related review items, and can apply accepted
+governance/status details, opens related review items, creates Memory Reviews
+that open the resulting Review record, and can apply accepted
 memory patches, reviewed memory updates, or reviewed memory deletions, then
 inspect the reviewed lifecycle for a durable MemoryFact. Explicit
 exports can also be launched from ready Ask results and produce traceable
