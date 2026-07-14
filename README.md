@@ -198,10 +198,10 @@ Review, and Settings. It is served by the Product API and uses only same-origin
 `/api/...` calls. Ask responses include explicit loop steps so users and agents
 can see scope checks, KB readiness, retrieval, context inspection, proposal
 creation, review creation or skipping, and export preparation. Ask includes a
-dataset/document picker that syncs to explicit scope IDs. If the selected
-dataset or document scope is not ready for retrieval, Ask returns a structured
-`not_ready` result instead of starting retrieval. Knowledge Bases shows
-dataset/document readiness, can start parsing for loaded unready documents,
-and automatically refreshes ingestion status after uploads. Writing opens
-sourced briefs from recent workflow runs and exports Markdown or JSON through
-Product API.
+dataset/document picker that syncs to explicit scope IDs and result actions for
+Writing, Review, and accepted memory application. If the selected dataset or
+document scope is not ready for retrieval, Ask returns a structured `not_ready`
+result instead of starting retrieval. Knowledge Bases shows dataset/document
+readiness, can start parsing for loaded unready documents, and automatically
+refreshes ingestion status after uploads. Writing opens sourced briefs from
+recent workflow runs and exports Markdown or JSON through Product API.

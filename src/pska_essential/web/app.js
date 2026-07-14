@@ -6,6 +6,7 @@ const state = {
   reader: null,
   workflows: [],
   currentBrief: null,
+  focusReviewId: null,
   activeDocumentDatasetId: null,
   activeDocuments: [],
   readinessByDataset: {},
@@ -541,6 +542,7 @@ function renderAskResult(result) {
       el("pre", {}, result.brief || ""),
     ]),
   );
+  container.append(askResultActions(result));
   container.append(loopPanel(result));
   container.append(
     el("div", { className: "panel" }, [
@@ -552,6 +554,35 @@ function renderAskResult(result) {
       ),
     ]),
   );
+}
+
+function askResultActions(result) {
+  const actions = el("div", { className: "result-actions" }, []);
+  if (result.run && result.run.run_id) {
+    actions.append(
+      el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, "Open Writing"),
+    );
+  }
+  if (result.review && result.review.review_id) {
+    actions.append(
+      el("button", { className: "secondary-button", onclick: () => openReview(result.review.review_id) }, "Open Review"),
+    );
+  }
+  if (
+    result.review &&
+    result.review.review_id &&
+    result.review.status === "accepted" &&
+    result.proposal &&
+    result.proposal.kind === "memory_patch"
+  ) {
+    actions.append(
+      el("button", { className: "primary-button", onclick: () => applyMemory(result.review.review_id) }, "Apply Memory"),
+    );
+  }
+  return el("div", { className: "panel compact-panel" }, [
+    el("h2", {}, "Next Actions"),
+    actions.children.length ? actions : el("p", {}, "No follow-up action is available for this result."),
+  ]);
 }
 
 function loopPanel(result) {
@@ -720,7 +751,7 @@ function reviewCard(review) {
       el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
     );
   }
-  return el("article", { className: "item-card" }, [
+  return el("article", { className: review.review_id === state.focusReviewId ? "item-card highlighted" : "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, proposal.title || review.review_id), el("p", {}, proposal.body || "")]),
       el("span", { className: `tag ${review.status === "accepted" ? "ready" : "pending"}` }, review.status),
@@ -759,6 +790,17 @@ async function loadBrief(runId) {
   };
   renderWriting();
   document.querySelector('.nav-item[data-view="writing"]').click();
+}
+
+async function openWritingRun(runId) {
+  await loadBrief(runId);
+}
+
+async function openReview(reviewId) {
+  state.focusReviewId = reviewId;
+  await loadReviews();
+  document.querySelector('.nav-item[data-view="review"]').click();
+  showToast("Review opened.");
 }
 
 async function exportCurrent(format) {

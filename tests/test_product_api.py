@@ -250,6 +250,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('loadAskDocuments', script)
         self.assertIn('askDocumentCard', script)
         self.assertIn('setAskDatasetIds', script)
+        self.assertIn('askResultActions', script)
+        self.assertIn('openWritingRun', script)
+        self.assertIn('openReview', script)
+        self.assertIn('Apply Memory', script)
         self.assertIn('parseActiveDocuments', script)
         self.assertIn('startIngestionPolling', script)
 

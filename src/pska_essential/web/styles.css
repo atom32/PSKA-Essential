@@ -238,6 +238,10 @@ h3 {
   margin-bottom: 18px;
 }
 
+.compact-panel {
+  padding: 14px 16px;
+}
+
 .panel-header {
   display: flex;
   align-items: center;
@@ -371,6 +375,11 @@ button:disabled {
 
 .item-card {
   padding: 14px;
+}
+
+.item-card.highlighted {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(17, 107, 102, 0.14), var(--shadow);
 }
 
 .item-card header {
@@ -550,6 +559,12 @@ pre {
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 12px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .review-actions input {
