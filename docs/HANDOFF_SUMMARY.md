@@ -1,0 +1,460 @@
+# PSKA-Essential Handoff Summary
+
+Last updated: 2026-07-14
+
+This document is the handoff point for a fresh Codex conversation.
+
+## Product Direction
+
+PSKA-Essential is now scoped as an Agent Knowledge Workflow Gate, not a full
+knowledge base, GraphRAG engine, editor, or agent runtime.
+
+Core product narrative:
+
+- Run the agent knowledge workflow end to end.
+- Ship v1 as Hermes-first rather than FastReAct-first.
+- Keep PSKA universal: no domain-specific runtime logic or case-hardcoded
+  shortcuts.
+- Treat upload, parsing, embedding, and indexing as asynchronous product states.
+- Keep agentic question loops first-class, but PSKA-controlled.
+- Keep retrieval and memory backends replaceable.
+- Require review before candidate knowledge enters long-term memory.
+- Keep audit trails for retrieval, proposals, review decisions, memory writes,
+  and exports.
+- Fail explicitly instead of silently falling back to fake data or another
+  backend.
+
+The main user-facing story should not be "evidence is important." Evidence is
+an internal quality mechanism. The product story is workflow closure and
+replaceable infrastructure. Productization requires both a mature frontend and
+the PSKA glue layer: the frontend owns human workflows, while the glue layer
+owns orchestration, normalized contracts, review gates, audit, and tool access.
+
+## Architecture
+
+Current target architecture:
+
+```text
+Hermes Agent
+  -> PSKA-Essential MCP
+    -> Retrieval Adapter: RAGFlow / Company GraphRAG
+    -> Memory Adapter: Graphiti / Company GraphRAG
+    -> Review Store: SQLite
+    -> Export: Markdown / JSON
+```
+
+Important constraints:
+
+- Do not build a custom KB inside PSKA-Essential.
+- Do not build a custom GraphRAG inside PSKA-Essential.
+- Do not expose Graphiti MCP directly to Hermes.
+- Do not expose raw RAGFlow response shape through PSKA MCP contracts.
+- Do not migrate current PSKA/FastReAct job or prompt coupling into this repo.
+- Do not add silent fallback behavior.
+- Do not add hardcoded domain, company, document, or demo-case behavior to
+  runtime code.
+
+## Repositories And Paths
+
+Main project:
+
+```bash
+/Users/xudawei/PSKA-Essential
+```
+
+External components:
+
+```bash
+/Users/xudawei/PSKA-Components
+/Users/xudawei/PSKA-Components/graphiti
+/Users/xudawei/PSKA-Components/ragflow
+```
+
+RAGFlow v0.20.3 image experiment:
+
+```bash
+/Users/xudawei/PSKA-Components/ragflow-v0.20.3
+```
+
+That experiment showed `0xgkd/ragflow-arm64:v0.20.3` is actually `linux/amd64`,
+not native ARM64. The image was removed.
+
+## Current PSKA-Essential Status
+
+Implemented:
+
+- Python project skeleton.
+- Contract models.
+- Ports.
+- Fake retrieval and fake memory adapters.
+- RAGFlow KB gateway glue for dataset creation, document upload, parsing,
+  status polling, and optional structure graph read.
+- RAGFlow retrieval adapter.
+- Graphiti memory adapter.
+- Company GraphRAG stub.
+- SQLite review store.
+- Audit events.
+- MCP tool registry.
+- Operational upload-to-agentic-question MCP loop.
+- Smoke eval.
+- Hermes skill/config examples.
+- Docs and runbook.
+
+Validated commands:
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+make test
+make list-tools
+make smoke
+```
+
+Expected result:
+
+- `make test`: 15 tests pass.
+- `make list-tools`: lists 18 PSKA MCP tools.
+- `make smoke`: fake adapter workflow succeeds.
+
+Key env example:
+
+```bash
+/Users/xudawei/PSKA-Essential/.env.example
+```
+
+Current local RAGFlow endpoint for PSKA:
+
+```bash
+RAGFLOW_BASE_URL=http://127.0.0.1:9380
+```
+
+RAGFlow retrieval still needs a RAGFlow API key:
+
+```bash
+RAGFLOW_API_KEY=...
+```
+
+New operational loop tools:
+
+```text
+pska_kb_ingest_files
+pska_kb_document_status
+pska_agentic_question_start
+pska_review_decide
+pska_memory_apply
+pska_export_brief
+```
+
+This loop lets Hermes upload local documents into a RAGFlow-backed dataset,
+wait for parsing/readiness, run a KB-scoped PSKA workflow, propose reviewed
+memory or writing artifacts, and export a brief. PSKA-Essential still does not
+own the KB/index; RAGFlow remains the KB backend.
+
+`fake` adapters are now explicit development/test adapters only. Product runtime
+must set providers intentionally. Use `PSKA_DEV_FAKE=1` only for local tests or
+tool discovery.
+
+## Local Toolchain Status
+
+Docker Desktop:
+
+- Installed Apple Silicon Docker Desktop.
+- Docker CLI and Compose are ARM64.
+- `docker run --rm hello-world` passed.
+
+Native Homebrew:
+
+```bash
+which brew
+# /opt/homebrew/bin/brew
+
+brew --prefix
+# /opt/homebrew
+```
+
+Confirmed config:
+
+```text
+HOMEBREW_PREFIX: /opt/homebrew
+macOS: 26.5.2-arm64
+Rosetta 2: false
+```
+
+Old Intel/Rosetta Homebrew under `/usr/local` still exists but is no longer the
+default. Do not delete it casually because `/usr/local/bin` belongs to another
+user on this machine and may contain unrelated tools.
+
+Command Line Tools:
+
+- Updated from old `MacOSX10.15.sdk` to current SDK.
+- Old SDK did not support ARM64 system headers and caused C extension build
+  failures.
+- New minimal ARM64 C compile passes.
+
+Installed native brew deps:
+
+```bash
+brew install pkg-config jemalloc cmake libomp unixodbc
+```
+
+## Graphiti Status
+
+Graphiti is running through Docker Compose.
+
+Path:
+
+```bash
+/Users/xudawei/PSKA-Components/graphiti
+```
+
+Compose files:
+
+```bash
+/Users/xudawei/PSKA-Components/graphiti/docker-compose.pska.yml
+/Users/xudawei/PSKA-Components/graphiti/.env.pska
+```
+
+Services:
+
+- Graphiti API: `http://127.0.0.1:8000`
+- Neo4j Browser: `http://127.0.0.1:7474`
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/healthcheck
+```
+
+Expected result:
+
+```json
+{"status":"healthy"}
+```
+
+Start:
+
+```bash
+cd /Users/xudawei/PSKA-Components/graphiti
+docker compose -f docker-compose.pska.yml --env-file .env.pska up -d
+```
+
+Stop:
+
+```bash
+cd /Users/xudawei/PSKA-Components/graphiti
+docker compose -f docker-compose.pska.yml --env-file .env.pska down
+```
+
+Important:
+
+- Add `OPENAI_API_KEY` to `.env.pska` before doing real Graphiti memory
+  extraction/search.
+- PSKA-Essential should call Graphiti only through `GraphitiMemoryAdapter`.
+- Do not expose Graphiti MCP directly to Hermes.
+
+## RAGFlow Status
+
+RAGFlow is running from source on Apple Silicon.
+
+Path:
+
+```bash
+/Users/xudawei/PSKA-Components/ragflow
+```
+
+Current RAGFlow commit:
+
+```text
+2a482f3
+```
+
+Local mode:
+
+- Base services: Docker Compose.
+- Backend/API: local Python source, managed by user launchd.
+- Frontend: Vite dev server, managed by user launchd.
+
+URLs:
+
+- Frontend: `http://127.0.0.1:9222`
+- Backend/API: `http://127.0.0.1:9380`
+- Health: `http://127.0.0.1:9380/api/v1/system/ping`
+
+Health check:
+
+```bash
+curl http://127.0.0.1:9380/api/v1/system/ping
+```
+
+Expected result:
+
+```text
+pong
+```
+
+Base service compose:
+
+```bash
+cd /Users/xudawei/PSKA-Components/ragflow
+docker compose -f docker/docker-compose-base.yml up -d
+docker compose -f docker/docker-compose-base.yml ps
+```
+
+Base services currently used:
+
+- Elasticsearch on `127.0.0.1:1200`
+- MySQL on `127.0.0.1:3306`
+- MinIO on `127.0.0.1:9000` / console `9001`
+- Valkey/Redis on `127.0.0.1:6379`
+
+RAGFlow backend launchd service:
+
+```bash
+/Users/xudawei/Library/LaunchAgents/com.pska.ragflow.plist
+/Users/xudawei/PSKA-Components/ragflow/pska-run-ragflow-server.sh
+```
+
+RAGFlow frontend launchd service:
+
+```bash
+/Users/xudawei/Library/LaunchAgents/com.pska.ragflow.web.plist
+/Users/xudawei/PSKA-Components/ragflow/pska-run-ragflow-web.sh
+```
+
+Start backend/frontend:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.pska.ragflow
+launchctl kickstart -k gui/$(id -u)/com.pska.ragflow.web
+```
+
+Stop backend/frontend:
+
+```bash
+launchctl bootout gui/$(id -u) /Users/xudawei/Library/LaunchAgents/com.pska.ragflow.plist
+launchctl bootout gui/$(id -u) /Users/xudawei/Library/LaunchAgents/com.pska.ragflow.web.plist
+```
+
+Logs:
+
+```bash
+tail -f /Users/xudawei/PSKA-Components/ragflow/.pska-ragflow-server.log
+tail -f /Users/xudawei/PSKA-Components/ragflow/.pska-ragflow-web.log
+```
+
+RAGFlow source setup already completed:
+
+```bash
+cd /Users/xudawei/PSKA-Components/ragflow
+uv sync --python 3.13 --frozen
+uv run python3 ragflow_deps/download_deps.py
+cd web
+npm install
+```
+
+Note:
+
+- The RAGFlow homepage at backend `/` returns 404 in source-backend mode. This
+  is fine. Use the frontend at `http://127.0.0.1:9222`.
+- The backend health endpoint returns `pong`.
+- Create RAGFlow datasets/API keys through the RAGFlow UI before PSKA uses live
+  retrieval.
+
+## Hermes Status
+
+Hermes is installed and was previously connected to PSKA-Essential MCP.
+
+Hermes binary observed earlier:
+
+```bash
+/Users/xudawei/.local/bin/hermes
+```
+
+Use Hermes only against PSKA-Essential MCP tools. Do not connect Hermes directly
+to Graphiti or RAGFlow if doing the PSKA workflow-gate demo.
+
+PSKA MCP command shape:
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+uv sync --extra mcp
+uv run pska-essential-mcp
+```
+
+If using explicit local fake mode:
+
+```bash
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
+  PSKA_REVIEW_DB=:memory: PYTHONPATH=src python3 -m pska_essential --list-tools
+```
+
+## Current Verification Snapshot
+
+These passed at the end of setup:
+
+```bash
+curl http://127.0.0.1:8000/healthcheck
+# {"status":"healthy"}
+
+curl http://127.0.0.1:9380/api/v1/system/ping
+# pong
+
+curl -I http://127.0.0.1:9222/
+# HTTP/1.1 200 OK
+
+cd /Users/xudawei/PSKA-Essential
+make test
+make list-tools
+```
+
+## Next Recommended Steps
+
+1. Open RAGFlow UI:
+
+   ```bash
+   open http://127.0.0.1:9222
+   ```
+
+2. Create or import a small test dataset in RAGFlow.
+
+3. Create a RAGFlow API key.
+
+4. Configure PSKA-Essential for live KB operations and retrieval:
+
+   ```bash
+   export PSKA_RETRIEVAL_PROVIDER=ragflow
+   export PSKA_KB_PROVIDER=ragflow
+   export RAGFLOW_BASE_URL=http://127.0.0.1:9380
+   export RAGFLOW_API_KEY=...
+   ```
+
+5. Configure memory explicitly. Use Graphiti for live product flow; reserve
+   fake memory for `PSKA_DEV_FAKE=1` development tests only:
+
+   ```bash
+   export PSKA_MEMORY_PROVIDER=graphiti
+   export GRAPHITI_BASE_URL=http://127.0.0.1:8000
+   export GRAPHITI_GROUP_ID=pska-essential
+   ```
+
+6. Run an end-to-end upload-to-question PSKA workflow:
+
+   ```text
+   upload -> parse/status -> agentic question -> propose -> review -> apply -> export
+   ```
+
+7. Validate that Graphiti writes are still review-gated and that Hermes cannot
+   bypass PSKA by calling Graphiti directly.
+
+## Known Gotchas
+
+- RAGFlow source backend needs base services running first.
+- RAGFlow live retrieval needs a dataset and API key.
+- RAGFlow ingestion can be slow because parsing, chunking, embedding, and
+  indexing are long-running jobs. Check document status before asking.
+- Graphiti needs `OPENAI_API_KEY` in `.env.pska` before real memory extraction.
+- Docker Desktop is currently configured around 8 GB RAM. This is enough for the
+  current source-run setup, but heavy RAGFlow ingestion can still be slow.
+- The third-party image `0xgkd/ragflow-arm64:v0.20.3` is not ARM64 despite its
+  name. Do not use it as the Apple Silicon backend.
+- Do not replace the PSKA adapter boundary with direct Graphiti/RAGFlow MCP
+  exposure.

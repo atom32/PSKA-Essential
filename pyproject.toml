@@ -1,0 +1,25 @@
+[project]
+name = "pska-essential"
+version = "0.1.0"
+description = "Agent Knowledge Workflow Gate for PSKA-Essential"
+requires-python = ">=3.12"
+readme = "README.md"
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+ragflow = ["ragflow-sdk>=0.19.0"]
+graphiti = ["graphiti-core>=0.29,<0.30"]
+graphiti-falkordb = ["graphiti-core[falkordb]>=0.29,<0.30"]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+pska-essential-mcp = "pska_essential.mcp_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

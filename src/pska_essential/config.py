@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+import os
+
+from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAdapter
+from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
+from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
+from pska_essential.adapters.ragflow import RagflowRetrievalAdapter
+from pska_essential.review_store import SQLiteReviewStore
+from pska_essential.workflow import WorkflowService
+
+
+def build_service_from_env() -> WorkflowService:
+    dev_fake = _env_enabled("PSKA_DEV_FAKE")
+    retrieval_provider = _required_provider("PSKA_RETRIEVAL_PROVIDER", dev_fake)
+    memory_provider = _required_provider("PSKA_MEMORY_PROVIDER", dev_fake)
+
+    company_stub = CompanyGraphRagStubAdapter()
+
+    if retrieval_provider == "fake":
+        _require_dev_fake("PSKA_RETRIEVAL_PROVIDER", dev_fake)
+        retrieval = FakeRetrievalAdapter()
+    elif retrieval_provider == "ragflow":
+        retrieval = RagflowRetrievalAdapter(
+            base_url=os.getenv("RAGFLOW_BASE_URL"),
+            api_key=os.getenv("RAGFLOW_API_KEY"),
+        )
+    elif retrieval_provider in {"company", "company_graphrag_stub"}:
+        retrieval = company_stub
+    else:
+        raise ValueError(f"unsupported retrieval provider: {retrieval_provider}")
+
+    if memory_provider == "fake":
+        _require_dev_fake("PSKA_MEMORY_PROVIDER", dev_fake)
+        memory = FakeMemoryAdapter()
+    elif memory_provider == "graphiti":
+        memory = GraphitiMemoryAdapter(
+            base_url=os.getenv("GRAPHITI_BASE_URL"),
+            group_id=os.getenv("GRAPHITI_GROUP_ID", "pska-essential"),
+        )
+    elif memory_provider in {"company", "company_graphrag_stub"}:
+        memory = company_stub
+    else:
+        raise ValueError(f"unsupported memory provider: {memory_provider}")
+
+    return WorkflowService(
+        retrieval=retrieval,
+        memory=memory,
+        store=SQLiteReviewStore(os.getenv("PSKA_REVIEW_DB", ".pska-essential/review.sqlite3")),
+    )
+
+
+def _required_provider(name: str, dev_fake: bool) -> str:
+    value = os.getenv(name, "").strip().lower()
+    if value:
+        return value
+    if dev_fake:
+        return "fake"
+    raise ValueError(
+        f"{name} is required. Configure an explicit provider; "
+        "set PSKA_DEV_FAKE=1 only for local development or tests."
+    )
+
+
+def _require_dev_fake(name: str, dev_fake: bool) -> None:
+    if not dev_fake:
+        raise ValueError(f"{name}=fake is allowed only when PSKA_DEV_FAKE=1")
+
+
+def _env_enabled(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
