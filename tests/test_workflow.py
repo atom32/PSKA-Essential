@@ -22,6 +22,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(decision.status, "accepted")
         result = service.memory_apply(review.review_id)
         self.assertTrue(result.applied)
+        applied_again = service.memory_apply(review.review_id)
+        self.assertEqual(applied_again.target_id, result.target_id)
 
         facts = service.memory_search("reviewed workflow", {}, 10)
         self.assertEqual(len(facts), 1)

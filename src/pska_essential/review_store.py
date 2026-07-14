@@ -144,9 +144,17 @@ class SQLiteReviewStore:
                        reviews.decision,
                        reviews.reason,
                        reviews.updated_at,
-                       proposals.payload_json AS proposal_json
+                       proposals.payload_json AS proposal_json,
+                       memory_applies.payload_json AS memory_apply_json
                 FROM reviews
                 JOIN proposals ON proposals.proposal_id = reviews.proposal_id
+                LEFT JOIN memory_applies ON memory_applies.id = (
+                    SELECT id
+                    FROM memory_applies
+                    WHERE memory_applies.review_id = reviews.review_id
+                    ORDER BY id DESC
+                    LIMIT 1
+                )
                 {where}
                 ORDER BY reviews.updated_at DESC
                 LIMIT ?
@@ -162,6 +170,7 @@ class SQLiteReviewStore:
                 "reason": str(row["reason"]),
                 "updated_at": str(row["updated_at"]),
                 "proposal": json.loads(row["proposal_json"]),
+                "memory_apply": json.loads(row["memory_apply_json"]) if row["memory_apply_json"] else None,
             }
             for row in rows
         ]
@@ -203,6 +212,20 @@ class SQLiteReviewStore:
                 (review_id, json.dumps(payload, ensure_ascii=False), utc_now_iso()),
             )
             self._conn.commit()
+
+    def get_memory_apply(self, review_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT payload_json
+                FROM memory_applies
+                WHERE review_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (review_id,),
+            ).fetchone()
+        return json.loads(row["payload_json"]) if row else None
 
     def add_audit_event(self, event: AuditEvent) -> AuditEvent:
         with self._lock:

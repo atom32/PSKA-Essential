@@ -150,6 +150,11 @@ class ProductApiTests(unittest.TestCase):
 
         applied = self._post_json(f"/api/reviews/{review_id}/apply-memory", {})
         self.assertTrue(applied["applied"]["applied"])
+        applied_again = self._post_json(f"/api/reviews/{review_id}/apply-memory", {})
+        self.assertEqual(applied_again["applied"]["target_id"], applied["applied"]["target_id"])
+
+        accepted_reviews = self._get_json("/api/reviews?status=accepted")
+        self.assertEqual(accepted_reviews["reviews"][0]["memory_apply"]["target_id"], applied["applied"]["target_id"])
 
     def test_transient_ask_does_not_create_review_by_default(self):
         asked = self._post_json(
@@ -254,6 +259,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('openWritingRun', script)
         self.assertIn('openReview', script)
         self.assertIn('Apply Memory', script)
+        self.assertIn('syncReviewDecision', script)
+        self.assertIn('syncMemoryApply', script)
+        self.assertIn('Memory applied', script)
+        self.assertIn('memory_apply', script)
         self.assertIn('parseActiveDocuments', script)
         self.assertIn('startIngestionPolling', script)
 

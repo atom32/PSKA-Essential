@@ -142,6 +142,9 @@ class WorkflowService:
         return self.memory.search(query, dict(scope or {}), limit)
 
     def memory_apply(self, review_id: str) -> MemoryApplyResult:
+        existing = self.store.get_memory_apply(review_id)
+        if existing:
+            return MemoryApplyResult(**existing)
         review = self.store.get_review(review_id)
         if review["status"] != "accepted":
             raise WorkflowError("memory apply requires an accepted review")

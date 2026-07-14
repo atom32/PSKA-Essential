@@ -102,6 +102,8 @@ Implemented:
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
 - Frontend Ask scope picker for dataset/document selection through Product API.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
+- Frontend review/apply state synchronization across Ask, Review, and Writing,
+  backed by Review API memory-apply records.
 - Frontend ingestion tracking: upload refreshes document status/readiness until
   terminal processing state.
 - Frontend parse action for loaded unready documents through Product API.
@@ -181,7 +183,9 @@ The frontend includes Home, Knowledge Bases, Ask, Reader, Writing, Review, and
 Settings. It calls only same-origin `/api/...` routes, shows explicit Ask loop
 steps including KB readiness, lets users pick dataset/document scope through
 Product API, opens sources through Product API Reader, opens sourced briefs in
-Writing, opens related review items, and can apply accepted memory patches. If
+Writing, opens related review items, and can apply accepted memory patches.
+Review decisions and memory apply actions refresh the current Ask/Writing
+state, and applied memory state is served back through Review API records. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
 does not start retrieval. The Knowledge Bases view shows dataset/document
 readiness and can start parsing for loaded unready documents before

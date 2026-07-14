@@ -6,7 +6,9 @@ const state = {
   reader: null,
   workflows: [],
   currentBrief: null,
+  currentAskResult: null,
   focusReviewId: null,
+  memoryApplyByReview: {},
   activeDocumentDatasetId: null,
   activeDocuments: [],
   readinessByDataset: {},
@@ -108,6 +110,7 @@ function bindForms() {
     }
     const result = await api("/api/ask", { method: "POST", body });
     state.lastRunId = result.run && result.run.run_id;
+    state.currentAskResult = result.run ? result : null;
     state.currentBrief = result.run
       ? {
           run: result.run,
@@ -115,6 +118,8 @@ function bindForms() {
           status: result.status,
           proposal: result.proposal,
           review: result.review,
+          review_decision: result.review_decision,
+          memory_apply: result.memory_apply,
         }
       : null;
     renderAskResult(result);
@@ -179,6 +184,11 @@ async function loadReviews() {
   try {
     const payload = await api("/api/reviews");
     state.reviews = payload.reviews || [];
+    state.reviews.forEach((review) => {
+      if (review.review_id && review.memory_apply) {
+        state.memoryApplyByReview[review.review_id] = review.memory_apply;
+      }
+    });
     renderReviews();
     renderHome();
   } catch (error) {
@@ -558,26 +568,32 @@ function renderAskResult(result) {
 
 function askResultActions(result) {
   const actions = el("div", { className: "result-actions" }, []);
+  const reviewId = result.review && result.review.review_id;
+  const memoryApply = result.memory_apply || (reviewId && state.memoryApplyByReview[reviewId]);
   if (result.run && result.run.run_id) {
     actions.append(
       el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, "Open Writing"),
     );
   }
-  if (result.review && result.review.review_id) {
+  if (reviewId) {
     actions.append(
-      el("button", { className: "secondary-button", onclick: () => openReview(result.review.review_id) }, "Open Review"),
+      el("button", { className: "secondary-button", onclick: () => openReview(reviewId) }, "Open Review"),
     );
   }
   if (
     result.review &&
-    result.review.review_id &&
+    reviewId &&
     result.review.status === "accepted" &&
     result.proposal &&
-    result.proposal.kind === "memory_patch"
+    result.proposal.kind === "memory_patch" &&
+    !memoryApply
   ) {
     actions.append(
-      el("button", { className: "primary-button", onclick: () => applyMemory(result.review.review_id) }, "Apply Memory"),
+      el("button", { className: "primary-button", onclick: () => applyMemory(reviewId) }, "Apply Memory"),
     );
+  }
+  if (memoryApply) {
+    actions.append(el("span", { className: "tag ready" }, "Memory applied"));
   }
   return el("div", { className: "panel compact-panel" }, [
     el("h2", {}, "Next Actions"),
@@ -656,6 +672,8 @@ function renderWriting() {
     return;
   }
   const run = state.currentBrief.run || {};
+  const review = state.currentBrief.review || {};
+  const memoryApply = state.currentBrief.memory_apply || (review.review_id && state.memoryApplyByReview[review.review_id]);
   container.append(
     el("article", { className: "item-card" }, [
       el("header", {}, [
@@ -663,8 +681,14 @@ function renderWriting() {
           el("h3", {}, run.intent || "Sourced brief"),
           el("p", {}, run.run_id || ""),
         ]),
-        el("span", { className: "tag ready" }, state.currentBrief.status || "ready"),
+        el("span", { className: `tag ${statusClass(review.status || state.currentBrief.status)}` }, review.status || state.currentBrief.status || "ready"),
       ]),
+      review.review_id
+        ? el("div", { className: "meta-row" }, [
+            el("span", { className: "tag" }, shortId(review.review_id)),
+            memoryApply ? el("span", { className: "tag ready" }, "memory applied") : null,
+          ])
+        : null,
       el("pre", {}, state.currentBrief.brief || ""),
     ]),
   );
@@ -740,16 +764,19 @@ function reviewCard(review) {
   const proposal = review.proposal || {};
   const actions = el("div", { className: "review-actions" }, []);
   const reason = el("input", { placeholder: "Reason", value: "" });
+  const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
   actions.append(
     reason,
     el("button", { className: "primary-button", onclick: () => decideReview(review.review_id, "accept", reason.value) }, "Accept"),
     el("button", { className: "secondary-button", onclick: () => decideReview(review.review_id, "edit", reason.value) }, "Edit"),
     el("button", { className: "danger-button", onclick: () => decideReview(review.review_id, "reject", reason.value) }, "Reject"),
   );
-  if (review.status === "accepted" && proposal.kind === "memory_patch") {
+  if (review.status === "accepted" && proposal.kind === "memory_patch" && !memoryApply) {
     actions.append(
       el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
     );
+  } else if (memoryApply) {
+    actions.append(el("span", { className: "tag ready" }, "Memory applied"));
   }
   return el("article", { className: review.review_id === state.focusReviewId ? "item-card highlighted" : "item-card" }, [
     el("header", {}, [
@@ -793,6 +820,20 @@ async function loadBrief(runId) {
 }
 
 async function openWritingRun(runId) {
+  if (state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.run_id === runId) {
+    state.currentBrief = {
+      run: state.currentAskResult.run,
+      brief: state.currentAskResult.brief || "",
+      status: state.currentAskResult.status,
+      proposal: state.currentAskResult.proposal,
+      review: state.currentAskResult.review,
+      review_decision: state.currentAskResult.review_decision,
+      memory_apply: state.currentAskResult.memory_apply,
+    };
+    renderWriting();
+    document.querySelector('.nav-item[data-view="writing"]').click();
+    return;
+  }
   await loadBrief(runId);
 }
 
@@ -863,18 +904,58 @@ function renderReader() {
 }
 
 async function decideReview(reviewId, decision, reason) {
-  await api(`/api/reviews/${encodeURIComponent(reviewId)}/decision`, {
+  const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}/decision`, {
     method: "POST",
     body: { decision, reason },
   });
+  syncReviewDecision(payload.decision);
   showToast(`Review ${decision}.`);
   await loadReviews();
+  renderCurrentResultSurfaces();
 }
 
 async function applyMemory(reviewId) {
-  await api(`/api/reviews/${encodeURIComponent(reviewId)}/apply-memory`, { method: "POST", body: {} });
+  const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}/apply-memory`, { method: "POST", body: {} });
+  syncMemoryApply(reviewId, payload.applied);
   showToast("Memory applied.");
   await loadReviews();
+  renderCurrentResultSurfaces();
+}
+
+function syncReviewDecision(decision) {
+  if (!decision || !decision.review_id) return;
+  const update = (target) => {
+    if (!target || !target.review || target.review.review_id !== decision.review_id) return;
+    target.review = {
+      ...target.review,
+      decision: decision.decision,
+      reason: decision.reason,
+      status: decision.status,
+      decided_at: decision.decided_at,
+    };
+    target.review_decision = decision;
+  };
+  update(state.currentAskResult);
+  update(state.currentBrief);
+}
+
+function syncMemoryApply(reviewId, applied) {
+  if (!reviewId || !applied) return;
+  state.memoryApplyByReview[reviewId] = applied;
+  const update = (target) => {
+    if (!target || !target.review || target.review.review_id !== reviewId) return;
+    target.memory_apply = applied;
+  };
+  update(state.currentAskResult);
+  update(state.currentBrief);
+}
+
+function renderCurrentResultSurfaces() {
+  if (state.currentAskResult) {
+    renderAskResult(state.currentAskResult);
+  }
+  renderWriting();
+  renderHome();
 }
 
 function setAskDataset(datasetId) {
