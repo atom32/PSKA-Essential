@@ -379,12 +379,34 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(audit["events"][0]["target_id"], "created")
         self.assertEqual(audit["events"][0]["metadata"]["dataset_name"], "New Dataset")
 
+    def test_audit_route_filters_by_action(self):
+        self._post_json(
+            "/api/kb/datasets",
+            {"name": "Filtered Dataset", "description": "", "chunk_method": "naive"},
+        )
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a sourced brief",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+        self._get_json(f"/api/workflows/{asked['run']['run_id']}/export?format=markdown")
+
+        filtered = self._get_json("/api/audit?limit=20&action=workflow.export")
+
+        self.assertTrue(filtered["events"])
+        self.assertEqual({event["action"] for event in filtered["events"]}, {"workflow.export"})
+
     def test_bundled_frontend_contains_reader_view(self):
         html = Path("src/pska_essential/web/index.html").read_text(encoding="utf-8")
         script = Path("src/pska_essential/web/app.js").read_text(encoding="utf-8")
         self.assertIn("Source Reader", html)
         self.assertIn("ingestion-status", html)
         self.assertIn("parse-documents", html)
+        self.assertIn("audit-action-filter", html)
         self.assertIn("ask-dataset-picker", html)
         self.assertIn("ask-document-picker", html)
         self.assertIn("ask-add-dataset", html)
@@ -404,6 +426,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("use_kg", script)
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/audit?limit=50', script)
+        self.assertIn('state.auditAction', script)
+        self.assertIn('action=${encodeURIComponent(state.auditAction)}', script)
+        self.assertIn('auditSummary', script)
         self.assertIn('/api/runtime/diagnostics', script)
         self.assertIn('/api/workflows/${encodeURIComponent(runId)}', script)
         self.assertIn('/documents/${encodeURIComponent(documentId)}/graph', script)

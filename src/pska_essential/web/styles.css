@@ -577,6 +577,25 @@ pre {
   flex-wrap: wrap;
 }
 
+.inline-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.inline-control span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.inline-control select {
+  min-width: 180px;
+}
+
 .review-actions input {
   flex: 1 1 240px;
   min-width: 160px;

@@ -345,6 +345,7 @@ def _handler_class(state: ProductApiState):
 
             if method == "GET" and path == "/api/audit":
                 events = state.service.store.list_audit_events(
+                    action=query.get("action") or None,
                     limit=_int_param(query.get("limit"), 50),
                     descending=True,
                 )

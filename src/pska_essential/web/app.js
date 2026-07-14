@@ -16,6 +16,7 @@ const state = {
   readinessByDataset: {},
   ingestionPoll: null,
   askDocumentsByDataset: {},
+  auditAction: "",
 };
 
 const titles = {
@@ -150,6 +151,10 @@ function bindRefresh() {
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("reload-audit").addEventListener("click", loadAuditEvents);
+  document.getElementById("audit-action-filter").addEventListener("change", (event) => {
+    state.auditAction = event.currentTarget.value || "";
+    loadAuditEvents();
+  });
   document.getElementById("export-markdown").addEventListener("click", () => exportCurrent("markdown"));
   document.getElementById("export-json").addEventListener("click", () => exportCurrent("json"));
 }
@@ -237,7 +242,8 @@ async function loadWorkflows() {
 
 async function loadAuditEvents() {
   try {
-    const payload = await api("/api/audit?limit=50");
+    const action = state.auditAction ? `&action=${encodeURIComponent(state.auditAction)}` : "";
+    const payload = await api(`/api/audit?limit=50${action}`);
     state.auditEvents = payload.events || [];
     renderAuditEvents();
   } catch (error) {
@@ -995,16 +1001,51 @@ function auditEventCard(event) {
   if (metadata.source_count !== undefined) tags.push(el("span", { className: "tag" }, `sources: ${metadata.source_count}`));
   if (metadata.proposal_kind) tags.push(el("span", { className: "tag" }, metadata.proposal_kind));
   if (metadata.memory_target_id) tags.push(el("span", { className: "tag" }, shortId(metadata.memory_target_id)));
+  if (metadata.document_count !== undefined) tags.push(el("span", { className: "tag" }, `documents: ${metadata.document_count}`));
+  if (metadata.dataset_name) tags.push(el("span", { className: "tag" }, metadata.dataset_name));
+  if (metadata.parse_started !== undefined) {
+    tags.push(el("span", { className: `tag ${metadata.parse_started ? "ready" : "pending"}` }, metadata.parse_started ? "parse started" : "parse skipped"));
+  }
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
         el("h3", {}, event.action || "audit.event"),
-        el("p", {}, event.created_at || ""),
+        el("p", {}, auditSummary(event)),
       ]),
       el("span", { className: "tag ready" }, "recorded"),
     ]),
     el("div", { className: "meta-row" }, tags),
   ]);
+}
+
+function auditSummary(event) {
+  const metadata = event.metadata || {};
+  if (event.action === "kb.ingest") {
+    const names = (metadata.document_names || []).join(", ");
+    return names ? `Ingested ${names}` : `${metadata.document_count || 0} document(s) ingested.`;
+  }
+  if (event.action === "kb.parse") {
+    return `${(metadata.document_ids || []).length} document(s) sent to parsing.`;
+  }
+  if (event.action === "kb.dataset.create") {
+    return `Dataset ${metadata.dataset_name || event.target_id || ""} created.`;
+  }
+  if (event.action === "kb.graph.read") {
+    return `Graph read for document ${shortId(metadata.document_id || event.target_id || "")}.`;
+  }
+  if (event.action === "workflow.export") {
+    return `Exported ${metadata.format || "work product"} with ${metadata.source_count || 0} source(s).`;
+  }
+  if (event.action === "memory.apply") {
+    return `Applied durable memory through ${metadata.backend || "memory backend"}.`;
+  }
+  if (event.action === "review.decide") {
+    return `Review ${metadata.decision || metadata.status || "decided"}.`;
+  }
+  if (event.action === "review.create") {
+    return `Review created for ${metadata.proposal_kind || "proposal"}.`;
+  }
+  return event.created_at || "";
 }
 
 async function openWorkflowRun(runId) {

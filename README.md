@@ -204,6 +204,7 @@ Implemented Alpha routes:
 - `POST /api/reviews/{review_id}/decision`
 - `POST /api/reviews/{review_id}/apply-memory`
 - `GET /api/audit`
+- `GET /api/audit?action={action}`
 
 The bundled frontend exposes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. It is served by the Product API and uses only
@@ -220,7 +221,7 @@ Review decisions and memory apply actions refresh the current Ask/Writing state,
 and applied memory state is served back through Review API records. Once durable
 memory has been applied, the accepted review decision is locked; future changes
 require a new proposal and review. Activity
-shows the recent audit trail, including workflow
+shows the recent audit trail with action filtering, including workflow
 export records from explicit export actions, review/memory apply records
 with proposal, run, and source trace metadata, and mechanical source operations
 such as dataset creation, ingestion, parsing, and graph reads. If the selected dataset or

@@ -255,7 +255,26 @@
           <div class="panel">
             <div class="panel-header">
               <h2>Audit Trail</h2>
-              <button id="reload-audit" class="secondary-button" type="button">Reload</button>
+              <div class="status-strip">
+                <label class="inline-control">
+                  <span>Action</span>
+                  <select id="audit-action-filter">
+                    <option value="">All</option>
+                    <option value="kb.dataset.create">kb.dataset.create</option>
+                    <option value="kb.ingest">kb.ingest</option>
+                    <option value="kb.parse">kb.parse</option>
+                    <option value="kb.graph.read">kb.graph.read</option>
+                    <option value="agentic_loop.complete">agentic_loop.complete</option>
+                    <option value="agentic_loop.insufficient_context">agentic_loop.insufficient_context</option>
+                    <option value="kb.readiness.blocked">kb.readiness.blocked</option>
+                    <option value="review.create">review.create</option>
+                    <option value="review.decide">review.decide</option>
+                    <option value="memory.apply">memory.apply</option>
+                    <option value="workflow.export">workflow.export</option>
+                  </select>
+                </label>
+                <button id="reload-audit" class="secondary-button" type="button">Reload</button>
+              </div>
             </div>
             <div id="audit-list" class="list empty-list">No audit events loaded.</div>
           </div>
