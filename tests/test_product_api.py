@@ -177,6 +177,31 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("memory.apply", actions)
         self.assertEqual(audit["events"][0]["metadata"]["workspace_id"], "default")
 
+    def test_workflow_open_does_not_export_until_explicit_export(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "How does PSKA govern exports?",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+        run_id = asked["run"]["run_id"]
+
+        def workflow_export_count() -> int:
+            audit = self._get_json("/api/audit?limit=50")
+            return sum(1 for event in audit["events"] if event["action"] == "workflow.export")
+
+        before_open = workflow_export_count()
+        opened = self._get_json(f"/api/workflows/{run_id}")
+        self.assertEqual(opened["workflow"]["run_id"], run_id)
+        self.assertEqual(workflow_export_count(), before_open)
+
+        exported = self._get_json(f"/api/workflows/{run_id}/export?format=markdown")
+        self.assertIn("PSKA-Essential Brief", exported["export"])
+        self.assertEqual(workflow_export_count(), before_open + 1)
+
     def test_transient_ask_does_not_create_review_by_default(self):
         asked = self._post_json(
             "/api/ask",
@@ -336,6 +361,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/sources/read', script)
         self.assertIn('/api/audit?limit=50', script)
         self.assertIn('/api/runtime/diagnostics', script)
+        self.assertIn('/api/workflows/${encodeURIComponent(runId)}', script)
         self.assertIn('/documents/${encodeURIComponent(documentId)}/graph', script)
         self.assertIn('/api/workflows?limit=20', script)
         self.assertIn('/parse', script)
@@ -349,7 +375,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('askDocumentCard', script)
         self.assertIn('setAskDatasetIds', script)
         self.assertIn('askResultActions', script)
+        self.assertIn('openWorkflowRun', script)
         self.assertIn('openWritingRun', script)
+        self.assertNotIn('function loadBrief', script)
         self.assertIn('openReview', script)
         self.assertIn('Apply Memory', script)
         self.assertIn('syncReviewDecision', script)

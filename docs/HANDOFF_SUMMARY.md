@@ -117,6 +117,8 @@ Implemented:
 - Runtime workspace/tenant context surfaced in health, diagnostics, Settings,
   and audit metadata.
 - Workflow-level export audit records and frontend Activity audit trail.
+- Writing opens workflow state/context without export side effects; Markdown
+  and JSON buttons perform explicit exports.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Operational upload-to-agentic-question MCP loop.
@@ -199,11 +201,11 @@ Activity, and Settings. It calls only same-origin `/api/...` routes, shows
 explicit Ask loop steps including KB readiness, lets users pick dataset/document
 scope through Product API, tunes loop max iterations, required context count,
 and optional graph retrieval inside selected scope, opens sources through
-Product API Reader, opens sourced briefs in Writing, opens related review items,
-and can apply accepted memory patches. Review decisions and memory apply
-actions refresh the current Ask/Writing state, and applied memory state is
-served back through Review API records. Activity shows the recent audit trail,
-including workflow export
+Product API Reader, opens workflow state/context in Writing without export side
+effects, opens related review items, and can apply accepted memory patches.
+Review decisions and memory apply actions refresh the current Ask/Writing
+state, and applied memory state is served back through Review API records.
+Activity shows the recent audit trail, including workflow export
 records. Settings shows runtime provider configuration and Product API
 diagnostics for review store, KB gateway, retrieval, and memory connectivity.
 Product API health, diagnostics, and audit records include the runtime

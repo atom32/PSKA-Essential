@@ -216,8 +216,9 @@ result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically
 refreshes ingestion status after uploads. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
-opens sourced briefs from recent workflow runs and exports Markdown or JSON
-through Product API. Settings shows runtime provider configuration and Product
-API diagnostics for review store, KB gateway, retrieval, and memory
-connectivity. Product API health, diagnostics, and audit records include the
-runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.
+opens workflow state and context without creating an export, then exports
+Markdown or JSON through explicit Product API actions. Settings shows runtime
+provider configuration and Product API diagnostics for review store, KB gateway,
+retrieval, and memory connectivity. Product API health, diagnostics, and audit
+records include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID`
+and `PSKA_TENANT_ID`.

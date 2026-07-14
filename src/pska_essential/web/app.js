@@ -677,13 +677,10 @@ function askResultActions(result) {
 }
 
 function loopPanel(result) {
+  const governanceAction = ((result.loop || {}).governance || {}).action;
   return el("div", { className: "panel" }, [
     el("h2", {}, "Loop"),
-    el(
-      "p",
-      {},
-      `Governance action: ${((result.loop || {}).governance || {}).action || "unknown"}`,
-    ),
+    governanceAction ? el("p", {}, `Governance action: ${governanceAction}`) : null,
     el(
       "div",
       { className: "source-list" },
@@ -764,9 +761,23 @@ function renderWriting() {
             memoryApply ? el("span", { className: "tag ready" }, "memory applied") : null,
           ])
         : null,
-      el("pre", {}, state.currentBrief.brief || ""),
+      state.currentBrief.brief
+        ? el("pre", {}, state.currentBrief.brief)
+        : el("p", { className: "empty-list" }, "Run loaded. Use Markdown or JSON to create an export."),
     ]),
   );
+  const loop = run.metadata && run.metadata.agentic_loop;
+  if (loop && loop.steps) {
+    container.append(loopPanel({ loop: { steps: loop.steps, governance: {} } }));
+  }
+  if (!state.currentBrief.brief && (run.context_packets || []).length) {
+    container.append(
+      el("div", { className: "panel" }, [
+        el("h2", {}, "Context"),
+        el("div", { className: "source-list" }, (run.context_packets || []).map((packet) => contextCard(packet))),
+      ]),
+    );
+  }
 }
 
 function loopStepCard(step) {
@@ -880,7 +891,7 @@ function workflowCard(workflow) {
         el("h3", {}, workflow.intent || workflow.run_id),
         el("p", {}, `${workflow.context_packets ? workflow.context_packets.length : 0} context packets`),
       ]),
-      el("button", { className: "secondary-button", onclick: () => loadBrief(workflow.run_id) }, "Open"),
+      el("button", { className: "secondary-button", onclick: () => openWorkflowRun(workflow.run_id) }, "Open"),
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, shortId(workflow.run_id || "")),
@@ -935,13 +946,14 @@ function auditEventCard(event) {
   ]);
 }
 
-async function loadBrief(runId) {
-  const payload = await api(`/api/workflows/${encodeURIComponent(runId)}/export?format=markdown`);
-  const workflow = state.workflows.find((item) => item.run_id === runId) || { run_id: runId };
+async function openWorkflowRun(runId) {
+  const payload = await api(`/api/workflows/${encodeURIComponent(runId)}`);
+  const workflow = payload.workflow || state.workflows.find((item) => item.run_id === runId) || { run_id: runId };
+  const loopStatus = workflow.metadata && workflow.metadata.agentic_loop && workflow.metadata.agentic_loop.status;
   state.currentBrief = {
     run: workflow,
-    brief: payload.export || "",
-    status: workflow.status || "active",
+    brief: "",
+    status: loopStatus || workflow.status || "active",
   };
   renderWriting();
   document.querySelector('.nav-item[data-view="writing"]').click();
@@ -962,7 +974,7 @@ async function openWritingRun(runId) {
     document.querySelector('.nav-item[data-view="writing"]').click();
     return;
   }
-  await loadBrief(runId);
+  await openWorkflowRun(runId);
 }
 
 async function openReview(reviewId) {

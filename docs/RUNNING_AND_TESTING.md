@@ -95,9 +95,10 @@ export. Ask results can jump directly to Writing or Review and can apply
 accepted memory patches through Product API. Review decisions and memory apply
 actions refresh the current Ask/Writing state, and applied memory state is
 served back through Review API records.
-Reader inspects sources through Product API only. Writing opens recent sourced
-briefs and exports Markdown or JSON through Product API; exports create
-workflow audit records. Activity shows the recent audit trail. Upload, parsing,
+Reader inspects sources through Product API only. Writing opens workflow state
+and context without creating an export, then exports Markdown or JSON through
+explicit Product API actions; exports create workflow audit records. Activity
+shows the recent audit trail. Upload, parsing,
 embedding, indexing, and optional graph extraction readiness remain visible
 states rather than hidden side effects. After upload, the Knowledge Bases view
 can start parsing for loaded unready documents, open optional document
