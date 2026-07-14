@@ -145,12 +145,16 @@ Operational loop tools:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_agentic_question_start`
+- `pska_workflow_artifact`
+- `pska_workflow_brief`
+- `pska_export_brief`
 
 These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> PSKA scoped retrieve
-  -> agent answer/proposal -> Review -> optional memory apply -> explicit export
+  -> agent answer/proposal -> Review -> optional memory apply
+  -> inspect artifact / transient brief -> explicit export
 ```
 
 See:

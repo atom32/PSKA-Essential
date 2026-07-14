@@ -155,7 +155,7 @@ Expected result:
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 19 PSKA MCP tools.
+- `make list-tools`: lists 21 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -183,6 +183,8 @@ pska_kb_ingest_files
 pska_kb_document_status
 pska_kb_readiness
 pska_agentic_question_start
+pska_workflow_artifact
+pska_workflow_brief
 pska_review_decide
 pska_memory_apply
 pska_export_brief
@@ -190,8 +192,9 @@ pska_export_brief
 
 This loop lets Hermes upload local documents into a RAGFlow-backed dataset,
 wait for parsing/readiness, run a KB-scoped PSKA workflow, propose reviewed
-memory or writing artifacts, and explicitly export a brief. PSKA-Essential
-still does not own the KB/index; RAGFlow remains the KB backend.
+memory or writing artifacts, inspect the transient artifact/brief without
+export side effects, and explicitly export a brief. PSKA-Essential still does
+not own the KB/index; RAGFlow remains the KB backend.
 
 `fake` adapters are now explicit development/test adapters only. Product runtime
 must set providers intentionally. Use `PSKA_DEV_FAKE=1` only for local tests or

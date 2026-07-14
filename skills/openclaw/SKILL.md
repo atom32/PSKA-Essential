@@ -19,7 +19,8 @@ external KB, GraphRAG, or memory systems.
   readiness before asking over a dataset.
 - Do not use case-specific shortcuts, hardcoded domains, or fallback answers.
 - Memory writes require accepted review.
-- Exported briefs must come from workflow context.
+- Use workflow artifacts or transient briefs for inspection; explicit exports
+  must come from workflow context.
 
 ## Steps
 
@@ -31,4 +32,5 @@ external KB, GraphRAG, or memory systems.
 6. Create a review.
 7. Wait for review acceptance.
 8. Apply memory only after acceptance.
-9. Export a Markdown or JSON brief.
+9. Inspect `pska_workflow_artifact` or `pska_workflow_brief`.
+10. Export a Markdown or JSON brief only for explicit handoff.

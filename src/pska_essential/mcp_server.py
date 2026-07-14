@@ -21,6 +21,12 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_workflow_state(run_id: str):
         return to_jsonable(service.state(run_id))
 
+    def pska_workflow_artifact(run_id: str):
+        return service.workflow_artifact(run_id)
+
+    def pska_workflow_brief(run_id: str, format: str = "markdown"):
+        return service.render_brief(run_id, format)
+
     def pska_context_retrieve(
         query: str,
         scope: dict[str, Any] | None = None,
@@ -195,6 +201,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     return {
         "pska_workflow_start": pska_workflow_start,
         "pska_workflow_state": pska_workflow_state,
+        "pska_workflow_artifact": pska_workflow_artifact,
+        "pska_workflow_brief": pska_workflow_brief,
         "pska_context_retrieve": pska_context_retrieve,
         "pska_source_read": pska_source_read,
         "pska_propose": pska_propose,

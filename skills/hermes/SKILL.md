@@ -20,7 +20,10 @@ candidate memory, review, and durable export.
 - Do not invent fallback answers when retrieval or backend calls fail.
 - Treat retrieved context as workflow-local until review accepts it.
 - Do not call `pska_memory_apply` until a review has status `accepted`.
-- Export briefs from workflow context, not model-only memory.
+- Use `pska_workflow_artifact` or `pska_workflow_brief` to inspect transient
+  work products without export side effects.
+- Export briefs from workflow context only when the user needs an explicit
+  Markdown or JSON handoff.
 
 ## Workflow
 
@@ -34,7 +37,9 @@ For an existing KB:
 5. Ask the human for review.
 6. After acceptance, call `pska_review_decide`.
 7. For memory patches only, call `pska_memory_apply`.
-8. Call `pska_export_brief` for Markdown or JSON handoff.
+8. Call `pska_workflow_artifact` or `pska_workflow_brief` to inspect the
+   transient work product.
+9. Call `pska_export_brief` only for explicit Markdown or JSON handoff.
 
 For a new document:
 
@@ -45,20 +50,20 @@ For a new document:
 3. Call `pska_agentic_question_start` with the returned `dataset_id`.
 4. If context is insufficient, retrieve again within the same explicit scope or
    report that the question cannot be answered from the selected materials.
-5. Answer from the returned context and brief.
+5. Answer from the returned context, artifact, and brief.
 6. If a memory patch was proposed, wait for human acceptance before applying it.
-7. Export a Markdown or JSON brief.
+7. Use `pska_export_brief` only when the user asks for an explicit export.
 
 ## Good Prompt
 
 ```text
 Use PSKA-Essential to retrieve context for this question, propose a reviewed
-memory patch, and export a brief. Stop before applying memory until review is
-accepted.
+memory patch, and prepare a sourced brief. Stop before applying memory until
+review is accepted, and export only if I ask for a handoff.
 ```
 
 ```text
 Use PSKA-Essential to ingest this local document into a RAGFlow-backed
 knowledge base, ask a scoped question over that KB, propose any long-term
-memory as a review item, and export a brief.
+memory as a review item, and prepare a sourced brief with explicit citations.
 ```

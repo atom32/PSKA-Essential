@@ -76,6 +76,8 @@ pska_agentic_question_start(
 
 pska_review_decide("<review_id>", "accept", "approved for demo")
 pska_memory_apply("<review_id>")
+pska_workflow_artifact("<run_id>")
+pska_workflow_brief("<run_id>", "markdown")
 pska_export_brief("<run_id>", "markdown")
 ```
 

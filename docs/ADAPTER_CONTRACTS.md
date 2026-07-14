@@ -40,6 +40,8 @@ The public tool surface is:
 
 - `pska_workflow_start`
 - `pska_workflow_state`
+- `pska_workflow_artifact`
+- `pska_workflow_brief`
 - `pska_context_retrieve`
 - `pska_source_read`
 - `pska_propose`
