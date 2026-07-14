@@ -153,6 +153,13 @@ class ProductApiTests(unittest.TestCase):
         review_id = asked["review"]["review_id"]
         source = self._post_json("/api/sources/read", {"source_ref": asked["context_packets"][0]["source_ref"]})
         self.assertIn("PSKA-Essential", source["source"]["text"])
+        source_audit = self._get_json("/api/audit?limit=10&action=source.read")
+        self.assertEqual(source_audit["events"][0]["action"], "source.read")
+        self.assertEqual(source_audit["events"][0]["metadata"]["adapter"], "fake")
+        self.assertEqual(
+            source_audit["events"][0]["metadata"]["document_id"],
+            asked["context_packets"][0]["source_ref"]["document_id"],
+        )
         workflows = self._get_json("/api/workflows?limit=5")
         self.assertEqual(workflows["workflows"][0]["run_id"], asked["run"]["run_id"])
         exported = self._get_json(f"/api/workflows/{asked['run']['run_id']}/export?format=markdown")
@@ -190,6 +197,7 @@ class ProductApiTests(unittest.TestCase):
         actions = [event["action"] for event in audit["events"]]
         self.assertIn("workflow.export", actions)
         self.assertIn("memory.apply", actions)
+        self.assertIn("source.read", actions)
         memory_event = next(event for event in audit["events"] if event["action"] == "memory.apply")
         self.assertEqual(memory_event["metadata"]["proposal_kind"], "memory_patch")
         self.assertEqual(memory_event["metadata"]["source_count"], 1)
@@ -407,6 +415,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("ingestion-status", html)
         self.assertIn("parse-documents", html)
         self.assertIn("audit-action-filter", html)
+        self.assertIn("source.read", html)
         self.assertIn("review-status-filter", html)
         self.assertIn("needs_edit", html)
         self.assertIn("ask-dataset-picker", html)
@@ -431,6 +440,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('state.auditAction', script)
         self.assertIn('action=${encodeURIComponent(state.auditAction)}', script)
         self.assertIn('auditSummary', script)
+        self.assertIn('event.action === "source.read"', script)
+        self.assertIn("await loadAuditEvents();\n  document.querySelector('.nav-item[data-view=\"reader\"]').click();", script)
         self.assertIn('/api/reviews?limit=50', script)
         self.assertIn('/api/reviews?status=pending&limit=50', script)
         self.assertIn('state.reviewStatus', script)

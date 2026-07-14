@@ -47,6 +47,8 @@ class McpContractTests(unittest.TestCase):
         run = tools["pska_workflow_start"]("mcp loop", {"dataset_ids": ["demo"]})
         packets = tools["pska_context_retrieve"]("adapter review", run_id=run["run_id"], limit=1)
         self.assertEqual(len(packets), 1)
+        source = tools["pska_source_read"](packets[0]["source_ref"])
+        self.assertIn("PSKA-Essential", source["text"])
         proposal = tools["pska_propose"](run["run_id"], "memory_patch", "mcp memory")
         artifact = tools["pska_workflow_artifact"](run["run_id"])
         brief = tools["pska_workflow_brief"](run["run_id"], "markdown")
@@ -64,6 +66,9 @@ class McpContractTests(unittest.TestCase):
         exported = tools["pska_export_brief"](run["run_id"], "markdown")
         self.assertIn("PSKA-Essential Brief", exported)
         self.assertIn("workflow.export", [event.action for event in service.store.list_audit_events()])
+        source_read = next(event for event in service.store.list_audit_events() if event.action == "source.read")
+        self.assertEqual(source_read.metadata["adapter"], "fake")
+        self.assertEqual(source_read.metadata["document_id"], packets[0]["source_ref"]["document_id"])
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         tools = tool_registry(build_fake_service())

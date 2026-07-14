@@ -104,6 +104,20 @@ class WorkflowTests(unittest.TestCase):
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertNotIn("workflow.export", audit_actions)
 
+    def test_source_read_writes_source_audit_record(self):
+        service = build_fake_service()
+        run = service.start("source workflow", {"dataset_ids": ["demo"]})
+        packet = service.context_retrieve(run.run_id, "adapter", 1)[0]
+
+        source = service.source_read(packet.source_ref)
+
+        self.assertTrue(source.text)
+        source_read = next(event for event in service.store.list_audit_events() if event.action == "source.read")
+        self.assertEqual(source_read.target_type, "source")
+        self.assertEqual(source_read.metadata["adapter"], "fake")
+        self.assertEqual(source_read.metadata["document_id"], packet.source_ref.document_id)
+        self.assertEqual(source_read.metadata["source_ref"]["adapter"], "fake")
+
     def test_smoke_eval(self):
         service = build_fake_service()
         result = service.eval_run("smoke")

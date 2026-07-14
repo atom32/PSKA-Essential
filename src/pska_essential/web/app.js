@@ -1038,6 +1038,8 @@ function auditEventCard(event) {
   if (metadata.proposal_kind) tags.push(el("span", { className: "tag" }, metadata.proposal_kind));
   if (metadata.memory_target_id) tags.push(el("span", { className: "tag" }, shortId(metadata.memory_target_id)));
   if (metadata.document_count !== undefined) tags.push(el("span", { className: "tag" }, `documents: ${metadata.document_count}`));
+  if (metadata.document_id) tags.push(el("span", { className: "tag" }, `doc ${shortId(metadata.document_id)}`));
+  if (metadata.chunk_id) tags.push(el("span", { className: "tag" }, `chunk ${shortId(metadata.chunk_id)}`));
   if (metadata.dataset_name) tags.push(el("span", { className: "tag" }, metadata.dataset_name));
   if (metadata.parse_started !== undefined) {
     tags.push(el("span", { className: `tag ${metadata.parse_started ? "ready" : "pending"}` }, metadata.parse_started ? "parse started" : "parse skipped"));
@@ -1068,6 +1070,9 @@ function auditSummary(event) {
   }
   if (event.action === "kb.graph.read") {
     return `Graph read for document ${shortId(metadata.document_id || event.target_id || "")}.`;
+  }
+  if (event.action === "source.read") {
+    return `Source opened from ${metadata.adapter || "adapter"} ${shortId(metadata.document_id || metadata.source_id || event.target_id || "")}.`;
   }
   if (event.action === "workflow.export") {
     return `Exported ${metadata.format || "work product"} with ${metadata.source_count || 0} source(s).`;
@@ -1159,6 +1164,7 @@ async function readSource(sourceRef) {
   const payload = await api("/api/sources/read", { method: "POST", body: { source_ref: sourceRef } });
   state.reader = payload.source || null;
   renderReader();
+  await loadAuditEvents();
   document.querySelector('.nav-item[data-view="reader"]').click();
 }
 

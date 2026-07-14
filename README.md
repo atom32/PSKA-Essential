@@ -199,6 +199,7 @@ Implemented Alpha routes:
 - `GET /api/workflows`
 - `GET /api/workflows/{run_id}`
 - `GET /api/workflows/{run_id}/export`
+- `POST /api/sources/read`
 - `GET /api/reviews`
 - `GET /api/reviews?status={status}`
 - `GET /api/reviews/{review_id}`
@@ -226,9 +227,9 @@ locked; future changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow
 export records from explicit export actions, review/memory apply records
 with proposal, run, and source trace metadata, and mechanical source operations
-such as dataset creation, ingestion, parsing, and graph reads. Knowledge Base
-create, upload, and parse actions refresh Activity after the source operation
-completes. If the selected dataset or
+such as dataset creation, ingestion, parsing, source reads, and graph reads.
+Knowledge Base create, upload, parse, source read, and graph read actions
+refresh Activity after the source operation completes. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically

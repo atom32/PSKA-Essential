@@ -77,7 +77,25 @@ class WorkflowService:
 
     def source_read(self, source_ref: SourceRef | dict[str, Any]) -> SourceContext:
         ref = source_ref if isinstance(source_ref, SourceRef) else SourceRef.from_dict(source_ref)
-        return self.retrieval.read_source(ref)
+        source = self.retrieval.read_source(ref)
+        self.store.add_audit_event(
+            audit_event(
+                "source.read",
+                "source",
+                _source_display_id(ref) or ref.external_id or ref.source_id or ref.document_id or ref.adapter or "source",
+                adapter=ref.adapter,
+                dataset_id=ref.dataset_id or "",
+                document_id=ref.document_id or "",
+                chunk_id=ref.chunk_id or "",
+                source_id=ref.source_id or "",
+                external_id=ref.external_id or "",
+                title=ref.title or "",
+                path=ref.path or "",
+                url=ref.url or "",
+                source_ref=to_jsonable(ref),
+            )
+        )
+        return source
 
     def propose(self, run_id: str, kind: str, intent: str = "") -> Proposal:
         normalized = kind.strip().lower()

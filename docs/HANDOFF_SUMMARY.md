@@ -125,6 +125,8 @@ Implemented:
   and audit metadata.
 - Dataset creation, document ingestion, parsing, and graph reads write explicit
   KB audit records through both Product API and MCP.
+- Source reads write explicit `source.read` audit records through the shared
+  workflow service, covering both Product API and MCP source reads.
 - Workflow-level export audit records and frontend Activity audit trail with
   Product API action filtering.
 - Frontend Knowledge Base create, upload, and parse actions refresh Activity
@@ -157,7 +159,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 52 tests pass.
+- `make test`: 53 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
@@ -166,6 +168,7 @@ Expected result:
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Product API tests cover audit action filtering.
+- Workflow/Product API/MCP tests cover source-read audit records.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
 - `make list-tools`: lists 23 PSKA MCP tools.
@@ -239,11 +242,12 @@ applied memory state is served back through Review API records. Review supports
 status filtering without changing the Home pending-review summary. Activity
 shows the recent audit trail with action filtering, including workflow export
 records, review/memory apply records with proposal, run, and source trace
-metadata, and KB source operation records for dataset creation, ingestion,
-parsing, and graph reads. Knowledge Base create, upload, and parse actions
-refresh Activity after their source-operation audit records are written.
-Settings shows runtime provider configuration and Product API diagnostics for
-review store, KB gateway, retrieval, and memory connectivity.
+metadata, and KB/source operation records for dataset creation, ingestion,
+parsing, source reads, and graph reads. Knowledge Base create, upload, parse,
+source read, and graph read actions refresh Activity after their source-operation
+audit records are written. Settings shows runtime provider configuration and
+Product API diagnostics for review store, KB gateway, retrieval, and memory
+connectivity.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
