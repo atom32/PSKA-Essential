@@ -182,6 +182,8 @@ class ProductApiTests(unittest.TestCase):
         review_record = self._get_json(f"/api/reviews/{review_id}")["review"]
         self.assertEqual(review_record["review_id"], review_id)
         self.assertEqual(review_record["proposal"]["kind"], "memory_patch")
+        self.assertEqual(review_record["source_count"], 1)
+        self.assertEqual(review_record["source_refs"][0]["adapter"], "fake")
         self.assertIsNone(review_record["memory_apply"])
 
         decision = self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "accept", "reason": "test"})
@@ -507,6 +509,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('openReview', script)
         self.assertIn('/api/reviews/${encodeURIComponent(reviewId)}', script)
         self.assertIn('syncReviewRecord', script)
+        self.assertIn('reviewSourceRow', script)
+        self.assertIn('review.source_refs || proposal.source_refs', script)
+        self.assertIn('className: "review-source-row"', script)
         self.assertIn('Apply Memory', script)
         self.assertIn('syncReviewDecision', script)
         self.assertIn('syncMemoryApply', script)

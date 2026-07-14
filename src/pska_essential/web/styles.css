@@ -571,6 +571,35 @@ pre {
   margin-top: 12px;
 }
 
+.review-source-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.review-source-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.review-source-row strong,
+.review-source-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.review-source-row span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .result-actions {
   display: flex;
   gap: 10px;

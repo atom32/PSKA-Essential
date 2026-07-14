@@ -117,6 +117,8 @@ Implemented:
 - Review queues can be resumed through Product API single-review reads and MCP
   `pska_review_list` / `pska_review_get`; frontend Review actions now open exact
   single-review Product API records by ID.
+- Review records expose `source_refs` / `source_count`, and the frontend Review
+  queue shows cited sources with Product API Reader actions.
 - Frontend Review queue supports status filtering while Home keeps an
   independent pending-review summary.
 - Frontend ingestion tracking: upload refreshes document status/readiness until
@@ -172,8 +174,8 @@ Expected result:
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
-- Product API/static frontend tests cover Review status filtering and pending
-  review summaries.
+- Product API/static frontend tests cover Review status filtering, pending
+  review summaries, and review source trace display.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Adapter/Workflow/Product API tests cover graph retrieval hint propagation to
   RAGFlow retrieval and audit/loop metadata.

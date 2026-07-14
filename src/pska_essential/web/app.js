@@ -982,6 +982,7 @@ function syncReviewRecord(review, options = {}) {
 
 function reviewCard(review) {
   const proposal = review.proposal || {};
+  const sourceRefs = review.source_refs || proposal.source_refs || [];
   const actions = el("div", { className: "review-actions" }, []);
   const reason = el("input", { placeholder: "Reason", value: "" });
   const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
@@ -1010,8 +1011,26 @@ function reviewCard(review) {
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, proposal.kind || "proposal"),
       el("span", { className: "tag" }, shortId(review.review_id)),
+      el("span", { className: "tag" }, `sources ${review.source_count ?? sourceRefs.length}`),
     ]),
+    sourceRefs.length
+      ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
+      : el("p", { className: "empty-list" }, "No source trace is attached to this review."),
     actions,
+  ]);
+}
+
+function reviewSourceRow(sourceRef, index) {
+  return el("div", { className: "review-source-row" }, [
+    el("div", {}, [
+      el("strong", {}, sourceRef.title || sourceRef.document_id || sourceRef.source_id || `Source ${index + 1}`),
+      el(
+        "span",
+        {},
+        `${sourceRef.adapter || "adapter"} / ${shortId(sourceRef.document_id || sourceRef.source_id || sourceRef.external_id || "")}`,
+      ),
+    ]),
+    el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, "Source"),
   ]);
 }
 

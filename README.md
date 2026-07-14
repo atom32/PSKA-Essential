@@ -225,10 +225,12 @@ required context count is not met, Ask returns `insufficient_context`, shows any
 retrieved partial context, and does not create a proposal, review, or export.
 Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
-review summary. Review decisions and memory apply actions refresh the current
-Ask/Writing state, and applied memory state is served back through Review API
-records. Once durable memory has been applied, the accepted review decision is
-locked; future changes require a new proposal and review. Activity
+review summary. Review records expose source trace fields, and Review cards can
+open cited sources through the Product API Reader before a durable decision is
+made. Review decisions and memory apply actions refresh the current Ask/Writing
+state, and applied memory state is served back through Review API records. Once
+durable memory has been applied, the accepted review decision is locked; future
+changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow
 export records from explicit export actions, review/memory apply records
 with proposal, run, and source trace metadata, and mechanical source operations

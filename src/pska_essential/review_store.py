@@ -338,6 +338,8 @@ def _normalize_decision(decision: str) -> str:
 
 
 def _review_record_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    proposal = json.loads(row["proposal_json"])
+    source_refs = proposal.get("source_refs") or []
     return {
         "review_id": str(row["review_id"]),
         "proposal_id": str(row["proposal_id"]),
@@ -345,6 +347,8 @@ def _review_record_from_row(row: sqlite3.Row) -> dict[str, Any]:
         "decision": str(row["decision"]),
         "reason": str(row["reason"]),
         "updated_at": str(row["updated_at"]),
-        "proposal": json.loads(row["proposal_json"]),
+        "proposal": proposal,
+        "source_refs": source_refs,
+        "source_count": len(source_refs),
         "memory_apply": json.loads(row["memory_apply_json"]) if row["memory_apply_json"] else None,
     }
