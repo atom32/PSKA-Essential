@@ -15,6 +15,8 @@ const state = {
   diagnostics: null,
   workspaceStatus: null,
   retrievalProbe: null,
+  askReadiness: null,
+  askReadinessScopeKey: "",
   focusReviewId: null,
   memoryApplyByReview: {},
   activeDocumentDatasetId: null,
@@ -134,8 +136,8 @@ function bindForms() {
   });
 
   const askForm = document.getElementById("ask-form");
-  askForm.elements.dataset_ids.addEventListener("input", renderAskScope);
-  askForm.elements.document_ids.addEventListener("input", renderAskScope);
+  askForm.elements.dataset_ids.addEventListener("input", handleAskScopeInput);
+  askForm.elements.document_ids.addEventListener("input", handleAskScopeInput);
 }
 
 async function applyAskResult(result, options = {}) {
@@ -174,6 +176,7 @@ function bindRefresh() {
   document.getElementById("parse-documents").addEventListener("click", parseActiveDocuments);
   document.getElementById("ask-add-dataset").addEventListener("click", () => addAskDataset());
   document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
+  document.getElementById("ask-check-readiness").addEventListener("click", () => checkAskReadiness());
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
   document.getElementById("review-status-filter").addEventListener("change", (event) => {
     state.reviewStatus = event.currentTarget.value || "";
@@ -715,7 +718,82 @@ function renderAskScope() {
       });
     }
   }
+  renderAskReadinessStatus();
   renderAskDocumentPicker();
+}
+
+function handleAskScopeInput() {
+  invalidateAskReadiness();
+  renderAskScope();
+}
+
+function invalidateAskReadiness() {
+  state.askReadiness = null;
+  state.askReadinessScopeKey = "";
+}
+
+async function checkAskReadiness(options = {}) {
+  const datasetIds = askDatasetIds();
+  const documentIds = askDocumentIds();
+  if (!datasetIds.length) {
+    state.askReadiness = null;
+    state.askReadinessScopeKey = "";
+    renderAskReadinessStatus();
+    if (!options.silent) showToast("Select at least one dataset.");
+    return null;
+  }
+  try {
+    const payload = await api("/api/kb/readiness", {
+      method: "POST",
+      body: {
+        dataset_ids: datasetIds,
+        document_ids: documentIds,
+      },
+    });
+    state.askReadiness = payload.readiness || null;
+    state.askReadinessScopeKey = askScopeKey(datasetIds, documentIds);
+    renderAskReadinessStatus();
+    if (!options.silent) {
+      showToast(state.askReadiness && state.askReadiness.ready ? "Ask scope is ready." : "Ask scope is not ready.");
+    }
+    return state.askReadiness;
+  } catch (error) {
+    state.askReadiness = {
+      status: "failed",
+      ready: false,
+      message: error.message,
+      ingestion_status: {},
+    };
+    state.askReadinessScopeKey = askScopeKey(datasetIds, documentIds);
+    renderAskReadinessStatus();
+    if (!options.silent) showToast(error.message);
+    return null;
+  }
+}
+
+function renderAskReadinessStatus() {
+  const node = document.getElementById("ask-readiness-status");
+  if (!node) return;
+  const datasetIds = askDatasetIds();
+  const documentIds = askDocumentIds();
+  const currentKey = askScopeKey(datasetIds, documentIds);
+  if (!datasetIds.length) {
+    node.className = "job-status pending";
+    node.textContent = "No Ask scope selected.";
+    return;
+  }
+  if (!state.askReadiness || state.askReadinessScopeKey !== currentKey) {
+    node.className = "job-status pending";
+    node.textContent = "Ask scope readiness has not been checked.";
+    return;
+  }
+  const readiness = state.askReadiness;
+  const job = readiness.ingestion_status || {};
+  const actions = (job.next_actions || []).map(readableName).join(", ");
+  const suffix = actions ? ` Next: ${actions}.` : "";
+  const progress = job.kind ? ` ${formatPercent(job.progress)}.` : "";
+  node.className = `job-status ${statusClass(readiness.status)}`;
+  node.textContent = `${readiness.message || "Ask scope readiness checked."}${progress}${suffix}`;
 }
 
 function renderAskDocumentPicker() {
@@ -2156,6 +2234,7 @@ function prepareAskScope(datasetId, documents = []) {
     state.askDocumentsByDataset[normalized] = documents;
   }
   renderAskScope();
+  void checkAskReadiness({ silent: true });
   return true;
 }
 
@@ -2232,11 +2311,17 @@ function askDocumentIds() {
 function setAskDatasetIds(datasetIds) {
   const input = document.querySelector('#ask-form input[name="dataset_ids"]');
   if (input) input.value = uniqueIds(datasetIds).join(", ");
+  invalidateAskReadiness();
 }
 
 function setAskDocumentIds(documentIds) {
   const input = document.querySelector('#ask-form input[name="document_ids"]');
   if (input) input.value = uniqueIds(documentIds).join(", ");
+  invalidateAskReadiness();
+}
+
+function askScopeKey(datasetIds = askDatasetIds(), documentIds = askDocumentIds()) {
+  return `${uniqueIds(datasetIds).join("|")}::${uniqueIds(documentIds).join("|")}`;
 }
 
 function uniqueIds(values) {

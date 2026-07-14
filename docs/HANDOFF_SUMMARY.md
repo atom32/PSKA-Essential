@@ -196,6 +196,8 @@ Implemented:
   knowledge.
 - Dataset cards expose Ask, Upload, and Status actions, so frontend users do
   not need to copy dataset IDs between workflow forms.
+- Ask exposes a selected-scope readiness check using the same Product API
+  readiness gate that protects retrieval.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
