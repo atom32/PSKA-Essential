@@ -64,7 +64,7 @@ function bindForms() {
   document.getElementById("create-kb-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    await api("/api/kb/datasets", {
+    const payload = await api("/api/kb/datasets", {
       method: "POST",
       body: {
         name: form.get("name"),
@@ -73,7 +73,12 @@ function bindForms() {
       },
     });
     event.currentTarget.reset();
-    showToast("Knowledge base created.");
+    if (payload.dataset && payload.dataset.dataset_id) {
+      setUploadDataset(payload.dataset.dataset_id);
+      showToast("Knowledge base created and selected for upload.");
+    } else {
+      showToast("Knowledge base created.");
+    }
     await loadDatasets();
     await loadWorkspaceStatus();
     await loadAuditEvents("kb.dataset.create");
@@ -173,6 +178,7 @@ async function applyAskResult(result, options = {}) {
 function bindRefresh() {
   document.getElementById("refresh-all").addEventListener("click", refreshAll);
   document.getElementById("reload-datasets").addEventListener("click", loadDatasets);
+  document.getElementById("upload-use-dataset").addEventListener("click", setUploadDatasetFromPicker);
   document.getElementById("parse-documents").addEventListener("click", parseActiveDocuments);
   document.getElementById("ask-add-dataset").addEventListener("click", () => addAskDataset());
   document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
@@ -280,6 +286,7 @@ async function loadDatasets() {
     const payload = await api("/api/kb/datasets");
     state.datasets = payload.datasets || [];
     renderDatasets();
+    renderUploadDatasetPicker();
     renderAskDatasetPicker();
     renderProbeDatasetPicker();
     renderAskScope();
@@ -495,6 +502,10 @@ function setUploadDataset(datasetIds) {
   if (!datasetId) return false;
   const field = document.querySelector('#upload-form input[name="dataset_id"]');
   if (field) field.value = datasetId;
+  const picker = document.getElementById("upload-dataset-picker");
+  if (picker && Array.from(picker.options).some((option) => option.value === datasetId)) {
+    picker.value = datasetId;
+  }
   const nameField = document.querySelector('#upload-form input[name="dataset_name"]');
   if (nameField) nameField.value = "";
   return true;
@@ -602,6 +613,43 @@ function renderProbeDatasetPicker() {
   if (current && state.datasets.some((dataset) => dataset.dataset_id === current)) {
     picker.value = current;
   }
+}
+
+function renderUploadDatasetPicker() {
+  const picker = document.getElementById("upload-dataset-picker");
+  if (!picker) return;
+  const field = document.querySelector('#upload-form input[name="dataset_id"]');
+  const current = (field && field.value) || picker.value || "";
+  picker.replaceChildren();
+  if (!state.datasets.length) {
+    picker.append(el("option", { value: "" }, "No datasets"));
+    picker.disabled = true;
+    return;
+  }
+  picker.disabled = false;
+  state.datasets.forEach((dataset) => {
+    picker.append(
+      el(
+        "option",
+        { value: dataset.dataset_id || "" },
+        `${dataset.name || dataset.dataset_id} (${shortId(dataset.dataset_id || "")})`,
+      ),
+    );
+  });
+  if (current && state.datasets.some((dataset) => dataset.dataset_id === current)) {
+    picker.value = current;
+  }
+}
+
+function setUploadDatasetFromPicker() {
+  const picker = document.getElementById("upload-dataset-picker");
+  const datasetId = String((picker && picker.value) || "").trim();
+  if (!datasetId) {
+    showToast("Select a knowledge base.");
+    return;
+  }
+  setUploadDataset(datasetId);
+  showToast("Upload target selected.");
 }
 
 async function runRetrievalProbe() {

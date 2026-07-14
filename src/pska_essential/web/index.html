@@ -102,6 +102,13 @@
 
             <form id="upload-form" class="panel">
               <h2>Upload Documents</h2>
+              <div class="form-row">
+                <label>
+                  Upload Target
+                  <select id="upload-dataset-picker"></select>
+                </label>
+                <button id="upload-use-dataset" type="button" class="secondary-button">Use Selected</button>
+              </div>
               <label>
                 Existing Dataset ID
                 <input name="dataset_id" autocomplete="off" />
