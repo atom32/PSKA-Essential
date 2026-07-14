@@ -195,14 +195,15 @@ Implemented Alpha routes:
 - `GET /api/audit`
 
 The bundled frontend exposes Home, Knowledge Bases, Ask, Reader, Writing,
-Review, and Settings. It is served by the Product API and uses only same-origin
-`/api/...` calls. Ask responses include explicit loop steps so users and agents
-can see scope checks, KB readiness, retrieval, context inspection, proposal
-creation, review creation or skipping, and export preparation. Ask includes a
-dataset/document picker that syncs to explicit scope IDs and result actions for
-Writing, Review, and accepted memory application. Review decisions and memory
-apply actions refresh the current Ask/Writing state, and applied memory state is
-served back through Review API records. If the selected dataset or
+Review, Activity, and Settings. It is served by the Product API and uses only
+same-origin `/api/...` calls. Ask responses include explicit loop steps so users
+and agents can see scope checks, KB readiness, retrieval, context inspection,
+proposal creation, review creation or skipping, and export preparation. Ask
+includes a dataset/document picker that syncs to explicit scope IDs and result
+actions for Writing, Review, and accepted memory application. Review decisions
+and memory apply actions refresh the current Ask/Writing state, and applied
+memory state is served back through Review API records. Activity shows the
+recent audit trail, including workflow export records. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically

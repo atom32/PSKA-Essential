@@ -155,6 +155,10 @@ class ProductApiTests(unittest.TestCase):
 
         accepted_reviews = self._get_json("/api/reviews?status=accepted")
         self.assertEqual(accepted_reviews["reviews"][0]["memory_apply"]["target_id"], applied["applied"]["target_id"])
+        audit = self._get_json("/api/audit?limit=20")
+        actions = [event["action"] for event in audit["events"]]
+        self.assertIn("workflow.export", actions)
+        self.assertIn("memory.apply", actions)
 
     def test_transient_ask_does_not_create_review_by_default(self):
         asked = self._post_json(
@@ -260,14 +264,17 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("ask-load-documents", html)
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
+        self.assertIn('data-view="activity"', html)
         self.assertIn("Brief Workspace", html)
         self.assertIn("runtime-diagnostics", html)
         self.assertIn('/api/sources/read', script)
+        self.assertIn('/api/audit?limit=50', script)
         self.assertIn('/api/runtime/diagnostics', script)
         self.assertIn('/api/workflows?limit=20', script)
         self.assertIn('/parse', script)
         self.assertIn('/readiness', script)
         self.assertIn('diagnosticCard', script)
+        self.assertIn('auditEventCard', script)
         self.assertIn('addAskDataset', script)
         self.assertIn('loadAskDocuments', script)
         self.assertIn('askDocumentCard', script)

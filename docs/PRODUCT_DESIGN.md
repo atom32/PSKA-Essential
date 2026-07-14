@@ -182,6 +182,8 @@ V1 frontend should include:
 - Writing: turn sourced answers into briefs and exports.
 - Review: inspect and decide durable knowledge changes according to workspace
   policy.
+- Activity: inspect the audit trail for workflow, review, memory, and export
+  events.
 - Settings: configure providers, keys, embedding service, workspace/tenant scope.
 
 The frontend should be a real application surface, not a demo page. It must make

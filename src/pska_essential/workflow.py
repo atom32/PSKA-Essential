@@ -173,6 +173,15 @@ class WorkflowService:
         if fmt not in {"markdown", "json"}:
             raise WorkflowError("export format must be markdown or json")
         packet_payload = [to_jsonable(packet) for packet in run.context_packets]
+        self.store.add_audit_event(
+            audit_event(
+                "workflow.export",
+                "workflow",
+                run_id,
+                format=fmt,
+                context_count=len(packet_payload),
+            )
+        )
         if fmt == "json":
             return {"run": to_jsonable(run), "context_packets": packet_payload}
         lines = [f"# PSKA-Essential Brief: {run.intent}", "", f"- Run: `{run.run_id}`", ""]

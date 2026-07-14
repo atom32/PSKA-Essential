@@ -5,6 +5,7 @@ const state = {
   lastRunId: null,
   reader: null,
   workflows: [],
+  auditEvents: [],
   currentBrief: null,
   currentAskResult: null,
   diagnostics: null,
@@ -24,6 +25,7 @@ const titles = {
   reader: "Reader",
   writing: "Writing",
   review: "Review",
+  activity: "Activity",
   settings: "Settings",
 };
 
@@ -127,6 +129,7 @@ function bindForms() {
     renderWriting();
     await loadReviews();
     await loadWorkflows();
+    await loadAuditEvents();
     renderHome();
   });
 
@@ -143,12 +146,20 @@ function bindRefresh() {
   document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
+  document.getElementById("reload-audit").addEventListener("click", loadAuditEvents);
   document.getElementById("export-markdown").addEventListener("click", () => exportCurrent("markdown"));
   document.getElementById("export-json").addEventListener("click", () => exportCurrent("json"));
 }
 
 async function refreshAll() {
-  await Promise.allSettled([loadHealth(), loadDiagnostics(), loadDatasets(), loadReviews(), loadWorkflows()]);
+  await Promise.allSettled([
+    loadHealth(),
+    loadDiagnostics(),
+    loadDatasets(),
+    loadReviews(),
+    loadWorkflows(),
+    loadAuditEvents(),
+  ]);
   renderHome();
 }
 
@@ -221,6 +232,17 @@ async function loadWorkflows() {
     renderWorkflowList();
   } catch (error) {
     renderList(document.getElementById("workflow-list"), [], "Runs unavailable.");
+    showToast(error.message);
+  }
+}
+
+async function loadAuditEvents() {
+  try {
+    const payload = await api("/api/audit?limit=50");
+    state.auditEvents = payload.events || [];
+    renderAuditEvents();
+  } catch (error) {
+    renderList(document.getElementById("audit-list"), [], "Audit events unavailable.");
     showToast(error.message);
   }
 }
@@ -314,6 +336,10 @@ function renderReviews() {
 
 function renderWorkflowList() {
   renderList(document.getElementById("workflow-list"), state.workflows, "No runs loaded.", workflowCard);
+}
+
+function renderAuditEvents() {
+  renderList(document.getElementById("audit-list"), state.auditEvents, "No audit events loaded.", auditEventCard);
 }
 
 function renderAskDatasetPicker() {
@@ -861,6 +887,28 @@ function diagnosticCard(check) {
   ]);
 }
 
+function auditEventCard(event) {
+  const metadata = event.metadata || {};
+  const tags = [
+    el("span", { className: "tag" }, event.target_type || "target"),
+    el("span", { className: "tag" }, shortId(event.target_id || "")),
+  ];
+  if (metadata.format) tags.push(el("span", { className: "tag" }, metadata.format));
+  if (metadata.status) tags.push(el("span", { className: `tag ${statusClass(metadata.status)}` }, metadata.status));
+  if (metadata.backend) tags.push(el("span", { className: "tag" }, metadata.backend));
+  if (metadata.context_count !== undefined) tags.push(el("span", { className: "tag" }, `context: ${metadata.context_count}`));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, event.action || "audit.event"),
+        el("p", {}, event.created_at || ""),
+      ]),
+      el("span", { className: "tag ready" }, "recorded"),
+    ]),
+    el("div", { className: "meta-row" }, tags),
+  ]);
+}
+
 async function loadBrief(runId) {
   const payload = await api(`/api/workflows/${encodeURIComponent(runId)}/export?format=markdown`);
   const workflow = state.workflows.find((item) => item.run_id === runId) || { run_id: runId };
@@ -908,6 +956,7 @@ async function exportCurrent(format) {
   const content = typeof payload.export === "string" ? payload.export : JSON.stringify(payload.export, null, 2);
   state.currentBrief.brief = content;
   renderWriting();
+  await loadAuditEvents();
   showToast(`${format.toUpperCase()} export loaded.`);
 }
 
@@ -965,6 +1014,7 @@ async function decideReview(reviewId, decision, reason) {
   syncReviewDecision(payload.decision);
   showToast(`Review ${decision}.`);
   await loadReviews();
+  await loadAuditEvents();
   renderCurrentResultSurfaces();
 }
 
@@ -973,6 +1023,7 @@ async function applyMemory(reviewId) {
   syncMemoryApply(reviewId, payload.applied);
   showToast("Memory applied.");
   await loadReviews();
+  await loadAuditEvents();
   renderCurrentResultSurfaces();
 }
 

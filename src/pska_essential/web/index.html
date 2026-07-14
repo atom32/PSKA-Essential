@@ -23,6 +23,7 @@
           <button class="nav-item" data-view="reader">Reader</button>
           <button class="nav-item" data-view="writing">Writing</button>
           <button class="nav-item" data-view="review">Review</button>
+          <button class="nav-item" data-view="activity">Activity</button>
           <button class="nav-item" data-view="settings">Settings</button>
         </nav>
       </aside>
@@ -235,6 +236,16 @@
               <h2>Source Coordinates</h2>
               <dl id="reader-metadata" class="settings-list"></dl>
             </div>
+          </div>
+        </section>
+
+        <section id="activity" class="view">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Audit Trail</h2>
+              <button id="reload-audit" class="secondary-button" type="button">Reload</button>
+            </div>
+            <div id="audit-list" class="list empty-list">No audit events loaded.</div>
           </div>
         </section>
 

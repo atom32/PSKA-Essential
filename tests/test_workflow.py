@@ -35,6 +35,8 @@ class WorkflowTests(unittest.TestCase):
         brief = service.export_brief(run.run_id, "markdown")
         self.assertIn("PSKA-Essential Brief", brief)
         self.assertIn("Source:", brief)
+        audit_actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("workflow.export", audit_actions)
 
     def test_smoke_eval(self):
         service = build_fake_service()

@@ -246,9 +246,15 @@ class SQLiteReviewStore:
             self._conn.commit()
         return event
 
-    def list_audit_events(self) -> list[AuditEvent]:
+    def list_audit_events(self, *, limit: int | None = None, descending: bool = False) -> list[AuditEvent]:
+        order = "DESC" if descending else "ASC"
+        query = f"SELECT payload_json FROM audit_events ORDER BY created_at {order}"
+        params: tuple[Any, ...] = ()
+        if limit is not None:
+            query += " LIMIT ?"
+            params = (limit,)
         with self._lock:
-            rows = self._conn.execute("SELECT payload_json FROM audit_events ORDER BY created_at").fetchall()
+            rows = self._conn.execute(query, params).fetchall()
         return [AuditEvent(**json.loads(row["payload_json"])) for row in rows]
 
     def _init_schema(self) -> None:

@@ -320,7 +320,11 @@ def _handler_class(state: ProductApiState):
                 return
 
             if method == "GET" and path == "/api/audit":
-                self._send_json({"ok": True, "events": to_jsonable(state.service.store.list_audit_events())})
+                events = state.service.store.list_audit_events(
+                    limit=_int_param(query.get("limit"), 50),
+                    descending=True,
+                )
+                self._send_json({"ok": True, "events": to_jsonable(events)})
                 return
 
             raise ApiError(f"route not found: {method} {path}", HTTPStatus.NOT_FOUND)
