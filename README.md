@@ -234,9 +234,9 @@ open cited sources through the Product API Reader before a durable decision is
 made. Review decisions and memory apply actions refresh the current Ask/Writing
 state, and applied memory state is served back through Review API records.
 Applied memory can be found by later Ask runs through the memory adapter and is
-shown in Writing as durable workspace context. Once durable memory has been
-applied, the accepted review decision is locked; future changes require a new
-proposal and review. Activity
+shown in Writing as durable workspace context with its supporting source trace.
+Once durable memory has been applied, the accepted review decision is locked;
+future changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow
 export records from explicit export actions, review/memory apply records
 with proposal, run, and source trace metadata, and mechanical source operations
@@ -251,7 +251,8 @@ structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
 through explicit Product API actions. Exported work products include the
-workflow export audit event in their traceability metadata. Settings shows
+workflow export audit event and durable-memory source trace in their
+traceability metadata. Settings shows
 runtime provider configuration and Product API diagnostics for review store, KB
 gateway, retrieval, and memory connectivity. Product API health, diagnostics,
 and audit records include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID`

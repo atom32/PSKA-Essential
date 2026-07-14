@@ -116,7 +116,7 @@ Implemented:
 - MCP exposes `pska_workflow_list` so Hermes can recover recent workflow runs
   before opening state, artifacts, briefs, or exports.
 - Writing shows matched durable memory facts alongside source context when a run
-  is reopened.
+  is reopened, including each memory fact's supporting source trace.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
@@ -157,7 +157,8 @@ Implemented:
   exports.
 - Exports are traceable work products: Markdown and JSON include proposal/work
   product content, source manifests, supporting context, and traceability
-  metadata, including the workflow export audit event for explicit exports.
+  metadata, including durable-memory source manifests and the workflow export
+  audit event for explicit exports.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Operational upload-to-agentic-question MCP loop.

@@ -205,7 +205,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(followup["status"], "ready")
         self.assertEqual(len(followup["memory_facts"]), 1)
         self.assertEqual(followup["artifact"]["traceability"]["memory_count"], 1)
+        self.assertEqual(followup["artifact"]["traceability"]["memory_source_count"], 1)
+        self.assertEqual(followup["artifact"]["memory_source_manifest"][0]["adapter"], "fake")
         self.assertIn("Durable workspace memory", followup["proposal"]["body"])
+        followup_export = self._get_json(f"/api/workflows/{followup['run']['run_id']}/export?format=json")
+        self.assertEqual(followup_export["export"]["traceability"]["memory_source_count"], 1)
         memory_audit = self._get_json("/api/audit?limit=10&action=memory.search")
         self.assertEqual(memory_audit["events"][0]["metadata"]["count"], 1)
         late_decision = self._post_json_error(

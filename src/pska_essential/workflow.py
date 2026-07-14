@@ -245,6 +245,7 @@ class WorkflowService:
         packet_payload = artifact["context_packets"]
         proposal_payload = artifact["proposals"]
         source_manifest = artifact["source_manifest"]
+        memory_source_manifest = artifact["memory_source_manifest"]
         export_event = self.store.add_audit_event(
             audit_event(
                 "workflow.export",
@@ -252,6 +253,8 @@ class WorkflowService:
                 run_id,
                 format=fmt,
                 context_count=len(packet_payload),
+                memory_count=len(artifact.get("memory_facts") or []),
+                memory_source_count=len(memory_source_manifest),
                 proposal_count=len(proposal_payload),
                 source_count=len(source_manifest),
                 scope=run.scope,
@@ -275,6 +278,7 @@ class WorkflowService:
     ) -> str | dict[str, Any]:
         source_manifest = artifact["source_manifest"]
         memory_facts = artifact.get("memory_facts") or []
+        memory_source_manifest = artifact.get("memory_source_manifest") or []
         if fmt == "json":
             return artifact
         lines = [
@@ -334,6 +338,25 @@ class WorkflowService:
             lines.extend(["## Durable Workspace Memory", ""])
             for index, fact in enumerate(memory_facts, start=1):
                 lines.extend([f"### Memory [{index}] `{fact.get('fact_id') or ''}`", "", str(fact.get("text") or ""), ""])
+                memory_sources = [source for source in memory_source_manifest if source["memory_index"] == index]
+                if memory_sources:
+                    lines.extend(
+                        [
+                            "| Source | Adapter | Dataset | Document | Chunk/Source |",
+                            "| --- | --- | --- | --- | --- |",
+                        ]
+                    )
+                    for source in memory_sources:
+                        lines.append(
+                            "| {source_index} | {adapter} | {dataset_id} | {document_id} | {source_id} |".format(
+                                source_index=source["source_index"],
+                                adapter=_markdown_cell(source["adapter"]),
+                                dataset_id=_markdown_cell(source["dataset_id"]),
+                                document_id=_markdown_cell(source["document_id"]),
+                                source_id=_markdown_cell(source["source_id"]),
+                            )
+                        )
+                    lines.append("")
         lines.extend(["## Supporting Context", ""])
         for index, packet in enumerate(run.context_packets, start=1):
             title = packet.title or packet.source_ref.title or packet.context_id
@@ -356,6 +379,7 @@ class WorkflowService:
         ]
         memory_facts = list(run.metadata.get("memory_context") or [])
         source_manifest = _source_manifest(run.context_packets)
+        memory_source_manifest = _memory_source_manifest(memory_facts)
         return {
             "run": to_jsonable(run),
             "scope": run.scope,
@@ -364,9 +388,11 @@ class WorkflowService:
             "source_manifest": source_manifest,
             "context_packets": packet_payload,
             "memory_facts": memory_facts,
+            "memory_source_manifest": memory_source_manifest,
             "traceability": {
                 "context_count": len(packet_payload),
                 "memory_count": len(memory_facts),
+                "memory_source_count": len(memory_source_manifest),
                 "proposal_count": len(proposal_payload),
                 "source_count": len(source_manifest),
             },
@@ -469,6 +495,26 @@ def _memory_source_refs(run: WorkflowRun) -> list[SourceRef]:
         for source_ref in fact.get("source_refs") or []:
             refs.append(SourceRef.from_dict(source_ref))
     return refs
+
+
+def _memory_source_manifest(memory_facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    manifest: list[dict[str, Any]] = []
+    for memory_index, fact in enumerate(memory_facts, start=1):
+        for source_index, source_ref in enumerate(fact.get("source_refs") or [], start=1):
+            ref = SourceRef.from_dict(source_ref)
+            manifest.append(
+                {
+                    "memory_index": memory_index,
+                    "memory_fact_id": fact.get("fact_id") or "",
+                    "source_index": source_index,
+                    "adapter": ref.adapter,
+                    "dataset_id": ref.dataset_id or "",
+                    "document_id": ref.document_id or "",
+                    "source_id": _source_display_id(ref),
+                    "source_ref": to_jsonable(ref),
+                }
+            )
+    return manifest
 
 
 def _source_display_id(ref: SourceRef) -> str:

@@ -163,9 +163,24 @@ class AgenticLoopTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "ready")
         self.assertEqual(len(result["memory_facts"]), 1)
+        expected_memory_source_count = len(result["memory_facts"][0]["source_refs"])
         self.assertEqual(result["artifact"]["traceability"]["memory_count"], 1)
+        self.assertEqual(result["artifact"]["traceability"]["memory_source_count"], expected_memory_source_count)
+        self.assertEqual(len(result["artifact"]["memory_source_manifest"]), expected_memory_source_count)
+        self.assertEqual(result["artifact"]["memory_source_manifest"][0]["adapter"], "fake")
         self.assertEqual(result["artifact"]["memory_facts"][0]["fact_id"], result["memory_facts"][0]["fact_id"])
         self.assertIn("Durable workspace memory", result["proposal"]["body"])
+        exported = service.export_brief(result["run"]["run_id"], "markdown")
+        self.assertIn("## Durable Workspace Memory", exported)
+        self.assertIn("| Source | Adapter | Dataset | Document | Chunk/Source |", exported)
+        self.assertIn("| 1 | fake |", exported)
+        exported_json = service.export_brief(result["run"]["run_id"], "json")
+        self.assertEqual(exported_json["traceability"]["memory_source_count"], expected_memory_source_count)
+        export_events = [
+            event for event in service.store.list_audit_events() if event.action == "workflow.export"
+        ]
+        self.assertEqual(export_events[-1].metadata["memory_count"], 1)
+        self.assertEqual(export_events[-1].metadata["memory_source_count"], expected_memory_source_count)
         memory_step = next(step for step in result["loop"]["steps"] if step["name"] == "memory.search")
         self.assertEqual(memory_step["metadata"]["returned_count"], 1)
         memory_search_events = [
