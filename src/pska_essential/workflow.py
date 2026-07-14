@@ -213,6 +213,34 @@ class WorkflowService:
         )
         return decided
 
+    def review_revise(self, review_id: str, intent: str = "") -> dict[str, Any]:
+        review = self.store.get_review(review_id)
+        if str(review["status"]) != "needs_edit":
+            raise WorkflowError("review revision requires needs_edit status")
+        original = self.store.get_proposal(str(review["proposal_id"]))
+        revision_intent = intent or str(review.get("reason") or "") or original.intent
+        proposal = self.propose(original.run_id, original.kind, revision_intent)
+        revised = self.review_create(proposal.proposal_id)
+        self.store.add_audit_event(
+            audit_event(
+                "review.revise",
+                "review",
+                revised.review_id,
+                previous_review_id=review_id,
+                previous_proposal_id=original.proposal_id,
+                proposal_id=proposal.proposal_id,
+                run_id=proposal.run_id,
+                proposal_kind=proposal.kind,
+                source_count=len(proposal.source_refs),
+            )
+        )
+        return {
+            "previous_review": self.store.get_review_record(review_id),
+            "proposal": to_jsonable(proposal),
+            "review": self.store.get_review_record(revised.review_id),
+            "artifact": self.workflow_artifact(proposal.run_id),
+        }
+
     def memory_search(self, query: str, scope: dict[str, Any] | None = None, limit: int = 10) -> list[MemoryFact]:
         search_scope = dict(scope or {})
         facts = self.memory.search(query, search_scope, limit)

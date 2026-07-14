@@ -1144,6 +1144,11 @@ function reviewCard(review) {
         el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
       );
     }
+    if (review.status === "needs_edit") {
+      actions.append(
+        el("button", { className: "primary-button", onclick: () => reviseReview(review.review_id, reason.value) }, "Revise"),
+      );
+    }
   }
   return el("article", { className: review.review_id === state.focusReviewId ? "item-card highlighted" : "item-card" }, [
     el("header", {}, [
@@ -1366,6 +1371,9 @@ function auditSummary(event) {
   if (event.action === "review.create") {
     return `Review created for ${metadata.proposal_kind || "proposal"}.`;
   }
+  if (event.action === "review.revise") {
+    return `Review revision created for ${metadata.proposal_kind || "proposal"}.`;
+  }
   return event.created_at || "";
 }
 
@@ -1569,6 +1577,23 @@ async function decideReview(reviewId, decision, reason) {
   await loadPendingReviews();
   await loadAuditEvents("review.decide");
   renderCurrentResultSurfaces();
+}
+
+async function reviseReview(reviewId, intent) {
+  const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}/revision`, {
+    method: "POST",
+    body: { intent },
+  });
+  syncReviewRecord(payload.previous_review);
+  syncReviewRecord(payload.review);
+  state.focusReviewId = payload.review && payload.review.review_id;
+  setReviewStatusFilter("");
+  state.reviewView = [payload.review, ...state.reviewView.filter((review) => review.review_id !== payload.review.review_id)];
+  await loadReviews();
+  await loadPendingReviews();
+  await loadAuditEvents("review.revise");
+  renderCurrentResultSurfaces();
+  showToast("Review revision created.");
 }
 
 async function applyMemory(reviewId) {

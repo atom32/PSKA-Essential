@@ -23,6 +23,8 @@ external KB, GraphRAG, or memory systems.
   must come from workflow context.
 - Use `pska_memory_review_from_workflow` when an existing transient workflow
   should become a durable memory candidate.
+- Use `pska_review_revise` for `needs_edit` reviews instead of mutating the
+  original review.
 
 ## Steps
 
@@ -35,6 +37,7 @@ external KB, GraphRAG, or memory systems.
    transient sourced workflow.
 7. Wait for review acceptance; use review list/get tools to resume pending
    review work.
-8. Apply memory only after acceptance.
+8. If review asks for edits, create a revised review; apply memory only after
+   acceptance.
 9. Inspect `pska_workflow_artifact` or `pska_workflow_brief`.
 10. Export a Markdown or JSON brief only for explicit handoff.

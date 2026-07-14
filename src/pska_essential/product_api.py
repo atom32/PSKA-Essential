@@ -357,6 +357,16 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, "decision": to_jsonable(decision)})
                 return
 
+            review_revision = _match(path, "/api/reviews/", "/revision")
+            if method == "POST" and review_revision:
+                payload = self._read_json()
+                revised = state.service.review_revise(
+                    review_revision,
+                    intent=str(payload.get("intent") or ""),
+                )
+                self._send_json({"ok": True, **revised}, HTTPStatus.CREATED)
+                return
+
             review_apply = _match(path, "/api/reviews/", "/apply-memory")
             if method == "POST" and review_apply:
                 applied = state.service.memory_apply(review_apply)

@@ -112,6 +112,8 @@ transient work product to durable memory candidate and follows workspace policy
 for manual review, auto accept, or auto apply.
 Review decisions and memory apply actions refresh the current Ask/Writing
 state, and applied memory state is served back through Review API records.
+Reviews marked `needs_edit` can create a revised candidate review from the same
+workflow and source trace instead of mutating the original review.
 Later Ask runs can find applied memory through the memory adapter and Writing
 shows matched durable memory alongside source context, including the memory
 fact's supporting source trace.

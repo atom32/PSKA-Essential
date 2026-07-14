@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "pska_review_list",
     "pska_review_get",
     "pska_review_decide",
+    "pska_review_revise",
     "pska_memory_search",
     "pska_memory_apply",
     "pska_memory_review_from_workflow",
@@ -146,6 +147,24 @@ class McpContractTests(unittest.TestCase):
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("proposal.create", actions)
         self.assertIn("review.create", actions)
+
+    def test_review_revise_creates_new_pending_review_from_needs_edit(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        run = tools["pska_workflow_start"]("needs revision", {"dataset_ids": ["demo"]})
+        tools["pska_context_retrieve"]("adapter review", run_id=run["run_id"], limit=1)
+        proposal = tools["pska_propose"](run["run_id"], "memory_patch", "needs revision")
+        review = tools["pska_review_create"](proposal["proposal_id"])
+        tools["pska_review_decide"](review["review_id"], "edit", "revise it")
+
+        revised = tools["pska_review_revise"](review["review_id"], "revised memory")
+
+        self.assertEqual(revised["previous_review"]["status"], "needs_edit")
+        self.assertEqual(revised["review"]["status"], "pending")
+        self.assertNotEqual(revised["review"]["review_id"], review["review_id"])
+        self.assertEqual(revised["proposal"]["kind"], "memory_patch")
+        actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("review.revise", actions)
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         tools = tool_registry(build_fake_service())

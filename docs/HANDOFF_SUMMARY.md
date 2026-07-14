@@ -137,6 +137,8 @@ Implemented:
 - Review queues can be resumed through Product API single-review reads and MCP
   `pska_review_list` / `pska_review_get`; frontend Review actions now open exact
   single-review Product API records by ID.
+- Reviews marked `needs_edit` can create revised pending reviews from the same
+  workflow/source trace through Product API, MCP, and frontend Review actions.
 - Review records expose `source_refs` / `source_count`, and the frontend Review
   queue shows cited sources with Product API Reader actions.
 - Frontend Review queue supports status filtering while Home keeps an
@@ -196,7 +198,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 70 tests pass.
+- `make test`: 73 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -213,11 +215,13 @@ Expected result:
 - Workflow/Product API/MCP tests cover source-read audit records.
 - Product API/MCP tests cover turning transient sourced workflows into durable
   memory reviews, including workspace-policy auto apply.
+- Product API/MCP tests cover revising `needs_edit` reviews into new pending
+  review candidates.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 29 PSKA MCP tools.
+- `make list-tools`: lists 30 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -255,6 +259,7 @@ pska_memory_review_from_workflow
 pska_review_list
 pska_review_get
 pska_review_decide
+pska_review_revise
 pska_memory_apply
 pska_export_brief
 pska_audit_list

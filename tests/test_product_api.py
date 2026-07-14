@@ -332,6 +332,51 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("proposal.create", actions)
         self.assertIn("review.create", actions)
 
+    def test_needs_edit_review_can_create_revision(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a memory candidate that needs revision",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "memory_patch",
+            },
+        )
+        review_id = asked["review"]["review_id"]
+        self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "edit", "reason": "Make it shorter"})
+
+        revised = self._post_json(f"/api/reviews/{review_id}/revision", {"intent": "Shorter durable memory"})
+
+        self.assertEqual(revised["previous_review"]["status"], "needs_edit")
+        self.assertEqual(revised["review"]["status"], "pending")
+        self.assertEqual(revised["proposal"]["kind"], "memory_patch")
+        self.assertEqual(revised["proposal"]["run_id"], asked["run"]["run_id"])
+        self.assertNotEqual(revised["review"]["review_id"], review_id)
+        self.assertEqual(revised["review"]["source_count"], 1)
+        self.assertEqual(revised["artifact"]["latest_proposal"]["proposal_id"], revised["proposal"]["proposal_id"])
+        audit = self._get_json("/api/audit?limit=10&action=review.revise")
+        self.assertEqual(audit["events"][0]["metadata"]["previous_review_id"], review_id)
+        self.assertEqual(audit["events"][0]["metadata"]["proposal_kind"], "memory_patch")
+
+    def test_review_revision_requires_needs_edit_status(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a memory candidate that is still pending",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "memory_patch",
+            },
+        )
+
+        failed = self._post_json_error(
+            f"/api/reviews/{asked['review']['review_id']}/revision",
+            {"intent": "not ready"},
+        )
+
+        self.assertEqual(failed["status"], 400)
+        self.assertIn("needs_edit", failed["body"]["error"]["message"])
+
     def test_memory_review_from_workflow_honors_auto_apply_policy(self):
         asked = self._post_json(
             "/api/ask",
@@ -596,6 +641,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("review-status-filter", html)
         self.assertIn("memory.search", html)
         self.assertIn("needs_edit", html)
+        self.assertIn("review.revise", html)
+        self.assertIn("Revise", script)
         self.assertIn("ask-dataset-picker", html)
         self.assertIn("ask-document-picker", html)
         self.assertIn("ask-add-dataset", html)
@@ -652,6 +699,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/runtime/diagnostics', script)
         self.assertIn('/api/runtime/retrieval-probe', script)
         self.assertIn('/memory-review', script)
+        self.assertIn('/revision', script)
         self.assertIn('/api/workflows/${encodeURIComponent(runId)}', script)
         self.assertIn('/documents/${encodeURIComponent(documentId)}/graph', script)
         self.assertIn('/api/workflows?limit=20', script)
@@ -694,6 +742,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('className: "review-source-row"', script)
         self.assertIn('Apply Memory', script)
         self.assertIn('syncReviewDecision', script)
+        self.assertIn('reviseReview', script)
+        self.assertIn('return `Review revision created for ${metadata.proposal_kind || "proposal"}.`;', script)
         self.assertIn('syncMemoryApply', script)
         self.assertIn('Memory applied', script)
         self.assertIn('Locked', script)
