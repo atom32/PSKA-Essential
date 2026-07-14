@@ -34,7 +34,7 @@ PY
 ```text
 Use PSKA-Essential to start a workflow about adapter replaceability, retrieve
 context, propose a memory patch, create a review item, stop for review, then
-export a brief.
+explicitly export a brief.
 ```
 
 4. Manually call `pska_review_decide(..., decision="accept")`.

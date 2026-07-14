@@ -33,7 +33,11 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertEqual(result["status"], "ready")
         self.assertIsNone(result["review"])
         self.assertFalse(result["loop"]["review_required"])
+        self.assertEqual(result["artifact"]["latest_proposal"]["kind"], "writing_brief")
+        self.assertIn("brief.prepare", [step["name"] for step in result["loop"]["steps"]])
         self.assertEqual(service.store.list_reviews(), [])
+        audit_actions = [event.action for event in service.store.list_audit_events()]
+        self.assertNotIn("workflow.export", audit_actions)
 
     def test_durable_memory_patch_creates_review_even_when_caller_does_not_force_it(self):
         service = build_fake_service()
@@ -49,6 +53,8 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertIsNotNone(result["review"])
         self.assertTrue(result["loop"]["review_required"])
         self.assertEqual(len(service.store.list_reviews(status="pending")), 1)
+        audit_actions = [event.action for event in service.store.list_audit_events()]
+        self.assertNotIn("workflow.export", audit_actions)
 
     def test_no_context_returns_insufficient_context_without_proposal(self):
         service = WorkflowService(

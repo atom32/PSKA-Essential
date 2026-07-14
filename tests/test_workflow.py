@@ -69,6 +69,19 @@ class WorkflowTests(unittest.TestCase):
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertNotIn("workflow.export", audit_actions)
 
+    def test_render_brief_does_not_create_export_audit(self):
+        service = build_fake_service()
+        run = service.start("render workflow", {"dataset_ids": ["demo"]})
+        service.context_retrieve(run.run_id, "adapter", 1)
+        service.propose(run.run_id, "writing_brief", "render without export")
+
+        brief = service.render_brief(run.run_id, "markdown")
+
+        self.assertIn("PSKA-Essential Brief", brief)
+        self.assertIn("## Source Manifest", brief)
+        audit_actions = [event.action for event in service.store.list_audit_events()]
+        self.assertNotIn("workflow.export", audit_actions)
+
     def test_smoke_eval(self):
         service = build_fake_service()
         result = service.eval_run("smoke")

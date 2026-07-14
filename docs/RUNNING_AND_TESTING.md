@@ -91,10 +91,11 @@ that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, and optional graph retrieval inside the selected scope.
 If the required context count is not met, Ask returns `insufficient_context`,
 shows any retrieved partial context, and does not create a proposal, review, or
-export. Ask results can jump directly to Writing or Review and can apply
-accepted memory patches through Product API. Review decisions and memory apply
-actions refresh the current Ask/Writing state, and applied memory state is
-served back through Review API records.
+export. Successful Ask results prepare a transient sourced brief and artifact
+without creating workflow export audit records. Ask results can jump directly to
+Writing or Review and can apply accepted memory patches through Product API.
+Review decisions and memory apply actions refresh the current Ask/Writing
+state, and applied memory state is served back through Review API records.
 Reader inspects sources through Product API only. Writing opens workflow state,
 work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions; exports include

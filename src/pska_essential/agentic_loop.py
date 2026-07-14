@@ -199,8 +199,9 @@ def run_agentic_question(
     else:
         add_step("review.skip", "complete", "No review required for transient output.")
 
-    brief = service.export_brief(run.run_id, "markdown")
-    add_step("export.prepare", "complete", "Prepared sourced brief.", format="markdown")
+    brief = service.render_brief(run.run_id, "markdown")
+    artifact = service.workflow_artifact(run.run_id)
+    add_step("brief.prepare", "complete", "Prepared transient sourced brief.", format="markdown")
     _save_loop_metadata(service, run.run_id, "ready", steps)
     service.store.add_audit_event(
         audit_event(
@@ -234,6 +235,7 @@ def run_agentic_question(
         "review": review_payload,
         "review_decision": to_jsonable(review_decision) if review_decision else None,
         "memory_apply": to_jsonable(memory_apply) if memory_apply else None,
+        "artifact": artifact,
         "brief": brief,
         "loop": {
             "steps": steps,

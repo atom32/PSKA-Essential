@@ -48,7 +48,7 @@ start question
   -> produce transient answer / brief
   -> optionally propose durable knowledge changes
   -> apply workspace governance when persistence is requested
-  -> export
+  -> make the work product available for explicit export
 ```
 
 The loop can call retrieval multiple times, but it must never expand scope

@@ -172,6 +172,14 @@ class WorkflowService:
         run = self.store.get_workflow(run_id)
         return self._build_workflow_artifact(run)
 
+    def render_brief(self, run_id: str, format: str = "markdown") -> str | dict[str, Any]:
+        run = self.store.get_workflow(run_id)
+        artifact = self._build_workflow_artifact(run)
+        fmt = format.strip().lower()
+        if fmt not in {"markdown", "json"}:
+            raise WorkflowError("export format must be markdown or json")
+        return self._format_artifact(run, artifact, fmt)
+
     def export_brief(self, run_id: str, format: str = "markdown") -> str | dict[str, Any]:
         run = self.store.get_workflow(run_id)
         artifact = self._build_workflow_artifact(run)
@@ -193,6 +201,15 @@ class WorkflowService:
                 scope=run.scope,
             )
         )
+        return self._format_artifact(run, artifact, fmt)
+
+    def _format_artifact(
+        self,
+        run: WorkflowRun,
+        artifact: dict[str, Any],
+        fmt: str,
+    ) -> str | dict[str, Any]:
+        source_manifest = artifact["source_manifest"]
         if fmt == "json":
             return artifact
         lines = [
@@ -206,6 +223,7 @@ class WorkflowService:
             "## Work Product",
             "",
         ]
+        proposal_payload = artifact["proposals"]
         if proposal_payload:
             latest = proposal_payload[-1]
             lines.extend([str(latest.get("body") or ""), ""])

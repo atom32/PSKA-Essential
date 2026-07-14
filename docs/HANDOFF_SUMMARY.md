@@ -105,6 +105,8 @@ Implemented:
   optional graph retrieval within selected scope.
 - Ask returns `insufficient_context` without proposal/review/export when
   retrieved context remains below the required context count.
+- Successful Ask prepares a transient sourced brief/artifact without creating
+  workflow export audit records.
 - Frontend Ask result actions for Writing, Review, and accepted memory apply.
 - Frontend review/apply state synchronization across Ask, Review, and Writing,
   backed by Review API memory-apply records.
@@ -141,7 +143,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 48 tests pass.
+- `make test`: 49 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, and multipart document upload.
@@ -184,8 +186,8 @@ pska_export_brief
 
 This loop lets Hermes upload local documents into a RAGFlow-backed dataset,
 wait for parsing/readiness, run a KB-scoped PSKA workflow, propose reviewed
-memory or writing artifacts, and export a brief. PSKA-Essential still does not
-own the KB/index; RAGFlow remains the KB backend.
+memory or writing artifacts, and explicitly export a brief. PSKA-Essential
+still does not own the KB/index; RAGFlow remains the KB backend.
 
 `fake` adapters are now explicit development/test adapters only. Product runtime
 must set providers intentionally. Use `PSKA_DEV_FAKE=1` only for local tests or
@@ -209,11 +211,12 @@ Product API Reader, opens workflow state, work product, source manifest, and
 context in Writing without export side effects, opens related review items, and
 can apply accepted memory patches. Explicit exports produce traceable
 Markdown/JSON work products with source manifests, supporting context, and
-traceability metadata. Review decisions and memory apply actions refresh the
-current Ask/Writing state, and applied memory state is served back through
-Review API records. Activity shows the recent audit trail, including workflow
-export records. Settings shows runtime provider configuration and Product API
-diagnostics for review store, KB gateway, retrieval, and memory connectivity.
+traceability metadata and create workflow export audit records. Review
+decisions and memory apply actions refresh the current Ask/Writing state, and
+applied memory state is served back through Review API records. Activity shows
+the recent audit trail, including workflow export records. Settings shows
+runtime provider configuration and Product API diagnostics for review store, KB
+gateway, retrieval, and memory connectivity.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
@@ -511,7 +514,7 @@ make list-tools
 6. Run an end-to-end upload-to-question PSKA workflow:
 
    ```text
-   upload -> parse/status -> agentic question -> propose -> review -> apply -> export
+   upload -> parse/status -> agentic question -> propose -> review -> apply -> explicit export
    ```
 
 7. Validate that Graphiti writes are still review-gated and that Hermes cannot

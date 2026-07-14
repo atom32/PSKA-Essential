@@ -150,7 +150,7 @@ These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> PSKA scoped retrieve
-  -> agent answer/proposal -> Review -> optional memory apply -> export
+  -> agent answer/proposal -> Review -> optional memory apply -> explicit export
 ```
 
 See:
@@ -202,7 +202,7 @@ The bundled frontend exposes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. It is served by the Product API and uses only
 same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
-proposal creation, review creation or skipping, and export preparation. Ask
+proposal creation, review creation or skipping, and transient brief preparation. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result
 actions for Writing, Review, and accepted memory application. Ask can tune loop
 depth with max iterations, required context count, and optional graph retrieval
@@ -211,7 +211,7 @@ inside the selected scope. If the required context count is not met, Ask returns
 a proposal, review, or export. Review decisions and memory apply actions refresh
 the current Ask/Writing state, and applied memory state is served back through
 Review API records. Activity shows the recent audit trail, including workflow
-export records. If the selected dataset or
+export records from explicit export actions. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically

@@ -199,6 +199,7 @@ class ProductApiTests(unittest.TestCase):
             return sum(1 for event in audit["events"] if event["action"] == "workflow.export")
 
         before_open = workflow_export_count()
+        self.assertEqual(before_open, 0)
         opened = self._get_json(f"/api/workflows/{run_id}")
         self.assertEqual(opened["workflow"]["run_id"], run_id)
         self.assertEqual(opened["artifact"]["run"]["run_id"], run_id)

@@ -1007,7 +1007,7 @@ async function openWritingRun(runId) {
   if (state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.run_id === runId) {
     state.currentBrief = {
       run: state.currentAskResult.run,
-      artifact: {
+      artifact: state.currentAskResult.artifact || {
         run: state.currentAskResult.run,
         latest_proposal: state.currentAskResult.proposal,
         proposals: state.currentAskResult.proposal ? [state.currentAskResult.proposal] : [],

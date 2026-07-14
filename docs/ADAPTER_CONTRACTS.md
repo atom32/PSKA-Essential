@@ -87,7 +87,8 @@ agentic Ask loop. That loop should remain PSKA-controlled:
 
 ```text
 start -> check scope/readiness -> retrieve -> inspect sources
-  -> optionally retrieve again -> synthesize/propose -> review -> export
+  -> optionally retrieve again -> synthesize/propose -> review
+  -> make available for explicit export
 ```
 
 The loop may iterate, but it must not silently change user-selected scope or
