@@ -12,7 +12,7 @@ from pska_essential.governance import (
     WorkspaceGovernancePolicy,
     build_workspace_policy_from_env,
 )
-from pska_essential.readiness import build_not_ready_ask_result
+from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
 from pska_essential.workflow import WorkflowService
 
 
@@ -30,6 +30,7 @@ def run_agentic_question(
     min_context_packets: int = 1,
     workspace_policy: WorkspaceGovernancePolicy | None = None,
     preflight_steps: list[dict[str, Any]] | None = None,
+    resumed_from_run_id: str | None = None,
 ) -> dict[str, Any]:
     """Run a PSKA-controlled Ask loop.
 
@@ -63,6 +64,17 @@ def run_agentic_question(
         steps.append({"name": name, "status": status, "message": message, "metadata": metadata})
 
     run = service.start(normalized_question, scope)
+    ask_request = _ask_request(
+        question=normalized_question,
+        scope=scope,
+        limit=limit,
+        proposal_kind=normalized_kind,
+        create_review=create_review,
+        max_iterations=max_iterations,
+        min_context_packets=min_context_packets,
+    )
+    _save_ask_request(service, run.run_id, ask_request, resumed_from_run_id=resumed_from_run_id)
+    run = service.state(run.run_id)
     service.store.add_audit_event(
         audit_event(
             "agentic_loop.start",
@@ -72,9 +84,17 @@ def run_agentic_question(
             dataset_ids=scope["dataset_ids"],
             document_ids=scope["document_ids"],
             proposal_kind=normalized_kind,
+            resumed_from_run_id=resumed_from_run_id or "",
         )
     )
     add_step("scope.check", "complete", "Selected scope accepted.", scope=scope)
+    if resumed_from_run_id:
+        add_step(
+            "workflow.resume",
+            "complete",
+            "Resumed Ask from a previous workflow.",
+            resumed_from_run_id=resumed_from_run_id,
+        )
     if scope["use_kg"]:
         add_step(
             "graph.retrieval",
@@ -155,6 +175,7 @@ def run_agentic_question(
             memory_count=len(memory_facts),
             required_context_count=target_context,
             message=message,
+            resumed_from_run_id=resumed_from_run_id or "",
         )
         _save_loop_metadata(service, run.run_id, loop)
         service.store.add_audit_event(
@@ -165,6 +186,7 @@ def run_agentic_question(
                 question=normalized_question,
                 required_count=target_context,
                 unique_count=len(retrieved),
+                resumed_from_run_id=resumed_from_run_id or "",
             )
         )
         return {
@@ -238,6 +260,7 @@ def run_agentic_question(
         proposal_id=proposal.proposal_id,
         review_id=review.review_id if review else "",
         memory_apply_target_id=memory_apply.target_id if memory_apply else "",
+        resumed_from_run_id=resumed_from_run_id or "",
     )
     _save_loop_metadata(service, run.run_id, loop)
     brief = service.render_brief(run.run_id, "markdown")
@@ -252,6 +275,7 @@ def run_agentic_question(
             proposal_id=proposal.proposal_id,
             review_id=review.review_id if review else "",
             governance_action=governance_action,
+            resumed_from_run_id=resumed_from_run_id or "",
         )
     )
 
@@ -291,7 +315,11 @@ def record_not_ready_agentic_question(
     proposal_kind: str = "writing_brief",
     create_review: bool | None = None,
     use_kg: bool = False,
+    limit: int = 5,
+    max_iterations: int = 2,
+    min_context_packets: int = 1,
     workspace_policy: WorkspaceGovernancePolicy | None = None,
+    resumed_from_run_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist a KB-readiness-blocked Ask as a recoverable workflow state."""
 
@@ -317,6 +345,17 @@ def record_not_ready_agentic_question(
         workspace_policy=workspace_policy,
     )
     run = service.start(normalized_question, scope)
+    ask_request = _ask_request(
+        question=normalized_question,
+        scope=scope,
+        limit=limit,
+        proposal_kind=normalized_kind,
+        create_review=create_review,
+        max_iterations=max_iterations,
+        min_context_packets=min_context_packets,
+    )
+    _save_ask_request(service, run.run_id, ask_request, resumed_from_run_id=resumed_from_run_id)
+    run = service.state(run.run_id)
     service.store.add_audit_event(
         audit_event(
             "agentic_loop.start",
@@ -326,9 +365,21 @@ def record_not_ready_agentic_question(
             dataset_ids=scope["dataset_ids"],
             document_ids=scope["document_ids"],
             proposal_kind=normalized_kind,
+            resumed_from_run_id=resumed_from_run_id or "",
         )
     )
     run.status = "blocked"
+    if resumed_from_run_id:
+        result["loop"]["steps"].insert(
+            1,
+            {
+                "name": "workflow.resume",
+                "status": "complete",
+                "message": "Resumed Ask from a previous workflow.",
+                "metadata": {"resumed_from_run_id": resumed_from_run_id},
+            },
+        )
+        result["loop"]["resumed_from_run_id"] = resumed_from_run_id
     run.metadata["agentic_loop"] = to_jsonable(result["loop"])
     run.metadata["readiness"] = to_jsonable(readiness)
     run.metadata["blocked_reason"] = "kb_not_ready"
@@ -345,10 +396,114 @@ def record_not_ready_agentic_question(
             proposal_kind=normalized_kind,
             readiness_status=readiness.get("status") or "",
             blocking=readiness.get("blocking") or [],
+            resumed_from_run_id=resumed_from_run_id or "",
         )
     )
     result["run"] = to_jsonable(service.state(run.run_id))
     result["artifact"] = service.workflow_artifact(run.run_id)
+    return result
+
+
+def run_agentic_question_with_readiness(
+    service: WorkflowService,
+    gateway: Any,
+    *,
+    question: str,
+    dataset_ids: list[str],
+    document_ids: list[str] | None = None,
+    limit: int = 5,
+    proposal_kind: str = "writing_brief",
+    create_review: bool | None = None,
+    use_kg: bool = False,
+    max_iterations: int = 2,
+    min_context_packets: int = 1,
+    resumed_from_run_id: str | None = None,
+) -> dict[str, Any]:
+    readiness = evaluate_kb_readiness(
+        gateway,
+        dataset_ids=dataset_ids,
+        document_ids=document_ids or [],
+    )
+    if not readiness["ready"]:
+        result = record_not_ready_agentic_question(
+            service,
+            question=question,
+            dataset_ids=dataset_ids,
+            document_ids=document_ids or [],
+            readiness=readiness,
+            proposal_kind=proposal_kind,
+            create_review=create_review,
+            use_kg=use_kg,
+            limit=limit,
+            max_iterations=max_iterations,
+            min_context_packets=min_context_packets,
+            resumed_from_run_id=resumed_from_run_id,
+        )
+        service.store.add_audit_event(
+            audit_event(
+                "kb.readiness.blocked",
+                "workflow",
+                result["run"]["run_id"],
+                question=question,
+                dataset_ids=dataset_ids,
+                document_ids=document_ids or [],
+                readiness=readiness,
+                resumed_from_run_id=resumed_from_run_id or "",
+            )
+        )
+        result["readiness"] = readiness
+        return result
+
+    result = run_agentic_question(
+        service,
+        question=question,
+        dataset_ids=dataset_ids,
+        document_ids=document_ids or [],
+        limit=limit,
+        proposal_kind=proposal_kind,
+        create_review=create_review,
+        use_kg=use_kg,
+        max_iterations=max_iterations,
+        min_context_packets=min_context_packets,
+        preflight_steps=[build_readiness_loop_step(readiness)],
+        resumed_from_run_id=resumed_from_run_id,
+    )
+    result["readiness"] = readiness
+    return result
+
+
+def resume_agentic_question(service: WorkflowService, gateway: Any, *, run_id: str) -> dict[str, Any]:
+    previous_run = service.state(run_id)
+    if previous_run.metadata.get("blocked_reason") != "kb_not_ready":
+        raise ValueError("only readiness-blocked ask workflows can be resumed")
+    ask_request = previous_run.metadata.get("ask_request")
+    if not isinstance(ask_request, dict):
+        raise ValueError("workflow does not contain a resumable ask_request")
+    result = run_agentic_question_with_readiness(
+        service,
+        gateway,
+        question=str(ask_request.get("question") or previous_run.intent),
+        dataset_ids=[str(item) for item in ask_request.get("dataset_ids") or []],
+        document_ids=[str(item) for item in ask_request.get("document_ids") or []],
+        limit=int(ask_request.get("limit") or 5),
+        proposal_kind=str(ask_request.get("proposal_kind") or "writing_brief"),
+        create_review=ask_request.get("create_review") if "create_review" in ask_request else None,
+        use_kg=bool(ask_request.get("use_kg", False)),
+        max_iterations=int(ask_request.get("max_iterations") or 2),
+        min_context_packets=int(ask_request.get("min_context_packets") or 1),
+        resumed_from_run_id=run_id,
+    )
+    service.store.add_audit_event(
+        audit_event(
+            "agentic_loop.resume",
+            "workflow",
+            result["run"]["run_id"],
+            resumed_from_run_id=run_id,
+            previous_status=previous_run.status,
+            status=result["status"],
+        )
+    )
+    result["resumed_from_run_id"] = run_id
     return result
 
 
@@ -392,6 +547,44 @@ def _save_memory_context(service: WorkflowService, run_id: str, memory_facts: li
     run = service.state(run_id)
     run.metadata["memory_context"] = to_jsonable(memory_facts)
     service.store.save_workflow(run)
+
+
+def _save_ask_request(
+    service: WorkflowService,
+    run_id: str,
+    ask_request: dict[str, Any],
+    *,
+    resumed_from_run_id: str | None,
+) -> None:
+    run = service.state(run_id)
+    run.metadata["ask_request"] = to_jsonable(ask_request)
+    if resumed_from_run_id:
+        run.metadata["resumed_from_run_id"] = resumed_from_run_id
+    run.updated_at = utc_now_iso()
+    service.store.save_workflow(run)
+
+
+def _ask_request(
+    *,
+    question: str,
+    scope: dict[str, Any],
+    limit: int,
+    proposal_kind: str,
+    create_review: bool | None,
+    max_iterations: int,
+    min_context_packets: int,
+) -> dict[str, Any]:
+    return {
+        "question": question,
+        "dataset_ids": list(scope.get("dataset_ids") or []),
+        "document_ids": list(scope.get("document_ids") or []),
+        "use_kg": bool(scope.get("use_kg", False)),
+        "limit": limit,
+        "proposal_kind": proposal_kind,
+        "create_review": create_review,
+        "max_iterations": max_iterations,
+        "min_context_packets": min_context_packets,
+    }
 
 
 def _unique_context_packets(packets: list[ContextPacket]) -> list[ContextPacket]:

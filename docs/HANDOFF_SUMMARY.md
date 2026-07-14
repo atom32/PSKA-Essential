@@ -112,6 +112,9 @@ Implemented:
 - Ask returns `not_ready` before retrieval when KB readiness blocks the selected
   scope, and persists that blocked state as a recoverable workflow with
   readiness diagnostics and audit records.
+- Product API and MCP can resume a readiness-blocked Ask from the stored
+  workflow request once the selected scope becomes ready, creating a new audited
+  workflow linked to the blocked run.
 - Successful Ask prepares a transient sourced brief/artifact without creating
   workflow export audit records.
 - Ask persists the agentic loop summary on workflow metadata, including
@@ -196,7 +199,7 @@ Expected result:
 - Workflow/Product API/MCP tests cover source-read audit records.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 25 PSKA MCP tools.
+- `make list-tools`: lists 26 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -224,6 +227,7 @@ pska_kb_ingest_files
 pska_kb_document_status
 pska_kb_readiness
 pska_agentic_question_start
+pska_agentic_question_resume
 pska_workflow_list
 pska_workflow_artifact
 pska_workflow_brief

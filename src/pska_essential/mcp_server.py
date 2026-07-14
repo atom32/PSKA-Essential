@@ -4,8 +4,7 @@ import json
 import sys
 from typing import Any, Callable
 
-from pska_essential.agentic_loop import record_not_ready_agentic_question, run_agentic_question
-from pska_essential.audit import audit_event
+from pska_essential.agentic_loop import resume_agentic_question, run_agentic_question_with_readiness
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.kb_audit import (
@@ -15,7 +14,7 @@ from pska_essential.kb_audit import (
     add_kb_parse_audit,
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
-from pska_essential.readiness import build_readiness_loop_step, evaluate_kb_readiness
+from pska_essential.readiness import evaluate_kb_readiness
 
 
 def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
@@ -178,41 +177,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         max_iterations: int = 2,
         min_context_packets: int = 1,
     ):
-        readiness = evaluate_kb_readiness(
-            build_kb_gateway_from_env(),
-            dataset_ids=dataset_ids,
-            document_ids=document_ids or [],
-        )
-        if not readiness["ready"]:
-            result = record_not_ready_agentic_question(
-                service,
-                question=question,
-                dataset_ids=dataset_ids,
-                document_ids=document_ids or [],
-                readiness=readiness,
-                proposal_kind=proposal_kind,
-                create_review=create_review,
-                use_kg=use_kg,
-            )
-            service.store.add_audit_event(
-                audit_event(
-                    "kb.readiness.blocked",
-                    "workflow",
-                    result["run"]["run_id"],
-                    question=question,
-                    dataset_ids=dataset_ids,
-                    document_ids=document_ids or [],
-                    readiness=readiness,
-                )
-            )
-            result["note"] = (
-                "Selected knowledge scope is not ready for retrieval. "
-                "Check pska_kb_readiness or pska_kb_document_status before asking again."
-            )
-            return result
-
-        result = run_agentic_question(
+        result = run_agentic_question_with_readiness(
             service,
+            build_kb_gateway_from_env(),
             question=question,
             dataset_ids=dataset_ids,
             document_ids=document_ids or [],
@@ -222,12 +189,35 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             use_kg=use_kg,
             max_iterations=max_iterations,
             min_context_packets=min_context_packets,
-            preflight_steps=[build_readiness_loop_step(readiness)],
         )
+        if result["status"] == "not_ready":
+            result["note"] = (
+                "Selected knowledge scope is not ready for retrieval. "
+                "Check pska_kb_readiness or pska_kb_document_status before asking again."
+            )
+            return result
         result["note"] = (
             "Agent should answer from returned context and brief. "
             "Transient work products do not require review by default. "
             "Memory writes still require an accepted review before pska_memory_apply."
+        )
+        return result
+
+    def pska_agentic_question_resume(run_id: str):
+        result = resume_agentic_question(
+            service,
+            build_kb_gateway_from_env(),
+            run_id=run_id,
+        )
+        if result["status"] == "not_ready":
+            result["note"] = (
+                "Selected knowledge scope is still not ready for retrieval. "
+                "Check pska_kb_readiness or pska_kb_document_status before resuming again."
+            )
+            return result
+        result["note"] = (
+            "Resumed Ask created a new workflow run. "
+            "Use returned context/brief and keep durable memory writes behind review."
         )
         return result
 
@@ -257,6 +247,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_kb_parse_documents": pska_kb_parse_documents,
         "pska_kb_graph_read": pska_kb_graph_read,
         "pska_agentic_question_start": pska_agentic_question_start,
+        "pska_agentic_question_resume": pska_agentic_question_resume,
     }
 
 

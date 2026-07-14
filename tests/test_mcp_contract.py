@@ -11,6 +11,7 @@ from pska_essential.workflow import build_fake_service
 
 EXPECTED_TOOLS = {
     "pska_agentic_question_start",
+    "pska_agentic_question_resume",
     "pska_workflow_start",
     "pska_workflow_list",
     "pska_workflow_state",
@@ -144,6 +145,37 @@ class McpContractTests(unittest.TestCase):
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("agentic_loop.not_ready", audit_actions)
         self.assertIn("kb.readiness.blocked", audit_actions)
+
+    def test_agentic_question_resume_uses_persisted_ask_request(self):
+        service = build_fake_service()
+        run = service.start("Resume this Ask", {"dataset_ids": ["demo"], "document_ids": [], "use_kg": False})
+        run.status = "blocked"
+        run.metadata["blocked_reason"] = "kb_not_ready"
+        run.metadata["ask_request"] = {
+            "question": "Resume this Ask",
+            "dataset_ids": ["demo"],
+            "document_ids": [],
+            "use_kg": False,
+            "limit": 1,
+            "proposal_kind": "writing_brief",
+            "create_review": None,
+            "max_iterations": 1,
+            "min_context_packets": 1,
+        }
+        service.store.save_workflow(run)
+        tools = tool_registry(service)
+
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            resumed = tools["pska_agentic_question_resume"](run.run_id)
+
+        self.assertEqual(resumed["status"], "ready")
+        self.assertNotEqual(resumed["run"]["run_id"], run.run_id)
+        self.assertEqual(resumed["resumed_from_run_id"], run.run_id)
+        self.assertEqual(resumed["run"]["metadata"]["ask_request"]["question"], "Resume this Ask")
+        self.assertEqual(resumed["run"]["metadata"]["resumed_from_run_id"], run.run_id)
+        self.assertIn("Resumed Ask created", resumed["note"])
+        audit_actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("agentic_loop.resume", audit_actions)
 
     def test_kb_tools_write_source_operation_audit_records(self):
         service = build_fake_service()

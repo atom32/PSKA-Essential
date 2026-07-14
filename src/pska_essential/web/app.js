@@ -121,31 +121,40 @@ function bindForms() {
       body.create_review = true;
     }
     const result = await api("/api/ask", { method: "POST", body });
-    state.lastRunId = result.run && result.run.run_id;
-    state.currentAskResult = result.run ? result : null;
-    state.currentBrief = result.run
-      ? {
-          run: result.run,
-          brief: result.brief || "",
-          status: result.status,
-          proposal: result.proposal,
-          review: result.review,
-          review_decision: result.review_decision,
-          memory_apply: result.memory_apply,
-        }
-      : null;
-    renderAskResult(result);
-    renderWriting();
-    await loadReviews();
-    await loadPendingReviews();
-    await loadWorkflows();
-    await loadAuditEvents(auditActionForAskResult(result));
-    renderHome();
+    await applyAskResult(result);
   });
 
   const askForm = document.getElementById("ask-form");
   askForm.elements.dataset_ids.addEventListener("input", renderAskScope);
   askForm.elements.document_ids.addEventListener("input", renderAskScope);
+}
+
+async function applyAskResult(result, options = {}) {
+  state.lastRunId = result.run && result.run.run_id;
+  state.currentAskResult = result.run ? result : null;
+  state.currentBrief = result.run
+    ? {
+        run: result.run,
+        artifact: result.artifact,
+        brief: result.brief || "",
+        status: result.status,
+        proposal: result.proposal,
+        review: result.review,
+        review_decision: result.review_decision,
+        memory_apply: result.memory_apply,
+        memory_facts: result.memory_facts || [],
+      }
+    : null;
+  renderAskResult(result);
+  renderWriting();
+  await loadReviews();
+  await loadPendingReviews();
+  await loadWorkflows();
+  await loadAuditEvents(auditActionForAskResult(result));
+  renderHome();
+  if (options.toast) {
+    showToast(options.toast);
+  }
 }
 
 function bindRefresh() {
@@ -705,6 +714,11 @@ function askResultActions(result) {
     actions.append(
       el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, "Open Writing"),
     );
+    if (result.status === "not_ready") {
+      actions.append(
+        el("button", { className: "primary-button", onclick: () => resumeAskRun(result.run.run_id) }, "Resume Ask"),
+      );
+    }
   }
   if (reviewId) {
     actions.append(
@@ -1059,13 +1073,19 @@ function reviewSourceRow(sourceRef, index) {
 }
 
 function workflowCard(workflow) {
+  const blockedByKb = workflow.metadata && workflow.metadata.blocked_reason === "kb_not_ready";
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
         el("h3", {}, workflow.intent || workflow.run_id),
         el("p", {}, `${workflow.context_packets ? workflow.context_packets.length : 0} context packets`),
       ]),
-      el("button", { className: "secondary-button", onclick: () => openWorkflowRun(workflow.run_id) }, "Open"),
+      el("div", { className: "result-actions" }, [
+        blockedByKb
+          ? el("button", { className: "primary-button", onclick: () => resumeAskRun(workflow.run_id) }, "Resume Ask")
+          : null,
+        el("button", { className: "secondary-button", onclick: () => openWorkflowRun(workflow.run_id) }, "Open"),
+      ]),
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, shortId(workflow.run_id || "")),
@@ -1179,6 +1199,14 @@ async function openWorkflowRun(runId) {
   };
   renderWriting();
   document.querySelector('.nav-item[data-view="writing"]').click();
+}
+
+async function resumeAskRun(runId) {
+  const result = await api(`/api/workflows/${encodeURIComponent(runId)}/resume-ask`, { method: "POST", body: {} });
+  await applyAskResult(result, {
+    toast: result.status === "ready" ? "Ask resumed." : "Knowledge scope is still not ready.",
+  });
+  document.querySelector('.nav-item[data-view="ask"]').click();
 }
 
 async function openWritingRun(runId) {

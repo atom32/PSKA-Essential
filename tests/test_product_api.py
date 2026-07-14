@@ -404,6 +404,26 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(blocked_event["target_type"], "workflow")
         self.assertEqual(blocked_event["target_id"], asked["run"]["run_id"])
 
+        self.gateway.ready = True
+        resumed = self._post_json(f"/api/workflows/{asked['run']['run_id']}/resume-ask", {})
+
+        self.assertEqual(resumed["status"], "ready")
+        self.assertNotEqual(resumed["run"]["run_id"], asked["run"]["run_id"])
+        self.assertEqual(resumed["resumed_from_run_id"], asked["run"]["run_id"])
+        self.assertEqual(resumed["run"]["metadata"]["resumed_from_run_id"], asked["run"]["run_id"])
+        self.assertEqual(resumed["run"]["metadata"]["ask_request"]["question"], "Can this be answered yet?")
+        self.assertEqual(resumed["run"]["metadata"]["ask_request"]["dataset_ids"], ["demo"])
+        self.assertEqual(resumed["run"]["metadata"]["agentic_loop"]["resumed_from_run_id"], asked["run"]["run_id"])
+        self.assertEqual(resumed["artifact"]["traceability"]["context_count"], 1)
+        old_opened = self._get_json(f"/api/workflows/{asked['run']['run_id']}")
+        self.assertEqual(old_opened["workflow"]["status"], "blocked")
+        resume_audit = self._get_json("/api/audit?limit=20&action=agentic_loop.resume")
+        self.assertEqual(resume_audit["events"][0]["target_id"], resumed["run"]["run_id"])
+        self.assertEqual(resume_audit["events"][0]["metadata"]["resumed_from_run_id"], asked["run"]["run_id"])
+        retry_ready = self._post_json_error(f"/api/workflows/{resumed['run']['run_id']}/resume-ask", {})
+        self.assertEqual(retry_ready["status"], 400)
+        self.assertIn("only readiness-blocked", retry_ready["body"]["error"]["message"])
+
     def test_multipart_ingest_uses_product_api_boundary(self):
         boundary = "pska-test-boundary"
         body = (
@@ -500,6 +520,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('setAuditActionFilter', script)
         self.assertIn('auditActionForAskResult', script)
         self.assertIn('result.status === "not_ready"', script)
+        self.assertIn('resumeAskRun', script)
+        self.assertIn('/resume-ask', script)
+        self.assertIn('metadata.blocked_reason === "kb_not_ready"', script)
         self.assertIn('return "agentic_loop.complete"', script)
         self.assertIn('event.action === "source.read"', script)
         self.assertIn("await loadAuditEvents(\"source.read\");\n  document.querySelector('.nav-item[data-view=\"reader\"]').click();", script)

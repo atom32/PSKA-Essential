@@ -145,6 +145,7 @@ Operational loop tools:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_agentic_question_start`
+- `pska_agentic_question_resume`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
@@ -200,6 +201,7 @@ Implemented Alpha routes:
 - `POST /api/ask`
 - `GET /api/workflows`
 - `GET /api/workflows/{run_id}`
+- `POST /api/workflows/{run_id}/resume-ask`
 - `GET /api/workflows/{run_id}/export`
 - `POST /api/sources/read`
 - `GET /api/reviews`
@@ -229,7 +231,9 @@ fallback. If the required context count is not met, Ask returns
 a proposal, review, or export.
 If the selected dataset or document scope is not ready, Ask records a blocked
 workflow with readiness diagnostics so Writing, Activity, and MCP tools can
-recover the blocked state after ingestion continues.
+recover the blocked state after ingestion continues. Users and agents can resume
+that blocked Ask from the stored workflow when the selected scope becomes ready;
+the resumed Ask creates a new audited workflow linked back to the blocked run.
 Review links open exact Review API records by ID.
 The Review queue can filter by status while Home keeps an independent pending
 review summary. Review records expose source trace fields, and Review cards can

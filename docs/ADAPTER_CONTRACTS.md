@@ -63,6 +63,7 @@ The public tool surface is:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_agentic_question_start`
+- `pska_agentic_question_resume`
 
 Backends must be replaceable without changing these tools.
 
@@ -99,6 +100,9 @@ start -> check scope/readiness -> retrieve -> inspect sources
 
 The loop may iterate, but it must not silently change user-selected scope or
 write memory/graph state before review.
+If readiness blocks the selected scope, PSKA must persist the blocked workflow
+and allow a later resume to create a new audited Ask workflow from the stored
+request.
 
 ## Review Gate
 
