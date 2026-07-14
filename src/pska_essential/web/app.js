@@ -799,19 +799,24 @@ function renderAskReadinessStatus() {
   renderAskReadinessActions(actionsNode, readiness);
 }
 
-function renderAskReadinessActions(container, readiness) {
+function renderAskReadinessActions(container, readiness, options = {}) {
   if (!container || !readiness) return;
   const job = readiness.ingestion_status || {};
   const actions = new Set(job.next_actions || []);
-  const datasetId = readinessDatasetForAction(readiness, "") || (readiness.dataset_ids || [])[0] || "";
-  if (readiness.ready || actions.has("run_ask")) {
+  const datasetIds = options.datasetIds || readiness.dataset_ids || askDatasetIds();
+  const documentIds = options.documentIds || readiness.document_ids || askDocumentIds();
+  const datasetId = readinessDatasetForAction(readiness, "", datasetIds) || datasetIds[0] || "";
+  if (options.includeRunAsk !== false && (readiness.ready || actions.has("run_ask"))) {
     container.append(el("button", { className: "primary-button", onclick: submitAskForm }, "Run Ask"));
   }
   if (actions.has("start_parse")) {
     container.append(
       el(
         "button",
-        { className: "primary-button", onclick: () => handleAskReadinessAction("start_parse") },
+        {
+          className: "primary-button",
+          onclick: () => handleAskReadinessAction("start_parse", { readiness, datasetIds, documentIds }),
+        },
         "Parse Scope",
       ),
     );
@@ -820,7 +825,10 @@ function renderAskReadinessActions(container, readiness) {
     container.append(
       el(
         "button",
-        { className: "secondary-button", onclick: () => handleAskReadinessAction("wait_for_ingestion") },
+        {
+          className: "secondary-button",
+          onclick: () => handleAskReadinessAction("wait_for_ingestion", { readiness, datasetIds, documentIds }),
+        },
         "Track Status",
       ),
     );
@@ -829,23 +837,28 @@ function renderAskReadinessActions(container, readiness) {
     container.append(
       el(
         "button",
-        { className: "secondary-button", onclick: () => handleAskReadinessAction("open_status") },
+        {
+          className: "secondary-button",
+          onclick: () => handleAskReadinessAction("open_status", { readiness, datasetIds, documentIds }),
+        },
         "Open Status",
       ),
     );
   }
 }
 
-async function handleAskReadinessAction(action) {
-  const readiness = state.askReadiness || {};
-  const datasetId = readinessDatasetForAction(readiness, action) || (askDatasetIds() || [])[0] || "";
+async function handleAskReadinessAction(action, options = {}) {
+  const readiness = options.readiness || state.askReadiness || {};
+  const datasetIds = options.datasetIds || askDatasetIds();
+  const documentIds = options.documentIds || askDocumentIds();
+  const datasetId = readinessDatasetForAction(readiness, action, datasetIds) || datasetIds[0] || "";
   if (!datasetId) {
     showToast("Select at least one dataset.");
     return;
   }
   await openDatasetStatus(datasetId);
   if (action === "start_parse") {
-    await parseDatasetDocuments(datasetId, askDocumentIds());
+    await parseDatasetDocuments(datasetId, documentIds);
     return;
   }
   if (action === "wait_for_ingestion") {
@@ -853,11 +866,11 @@ async function handleAskReadinessAction(action) {
   }
 }
 
-function readinessDatasetForAction(readiness, action) {
+function readinessDatasetForAction(readiness, action, fallbackDatasetIds = []) {
   const productAction = productReadinessAction(action);
   const datasets = readiness.datasets || [];
   const match = datasets.find((dataset) => productReadinessAction((dataset.ingestion || {}).next_action) === productAction);
-  return String((match && match.dataset_id) || (readiness.dataset_ids || [])[0] || "");
+  return String((match && match.dataset_id) || (readiness.dataset_ids || fallbackDatasetIds || [])[0] || "");
 }
 
 function productReadinessAction(action) {
@@ -1219,8 +1232,15 @@ function askResultActions(result) {
     }
     if (result.status === "not_ready") {
       const fresh = resumableAskFor(result.run.run_id);
+      const askRequest = (fresh && fresh.ask_request) || (result.run.metadata && result.run.metadata.ask_request) || {};
+      const readiness = (fresh && fresh.readiness) || result.readiness || {};
       const canResume = fresh ? Boolean(fresh.can_resume) : Boolean(result.readiness && result.readiness.ready);
       const tracking = state.blockedAskPoll && state.blockedAskPoll.runId === result.run.run_id;
+      renderAskReadinessActions(actions, readiness, {
+        datasetIds: askRequest.dataset_ids || readiness.dataset_ids || [],
+        documentIds: askRequest.document_ids || readiness.document_ids || [],
+        includeRunAsk: false,
+      });
       actions.append(
         el(
           "button",

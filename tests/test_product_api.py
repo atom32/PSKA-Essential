@@ -918,6 +918,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('readinessDatasetForAction', script)
         self.assertIn('productReadinessAction', script)
         self.assertIn('submitAskForm', script)
+        self.assertIn('includeRunAsk: false', script)
+        self.assertIn('fresh && fresh.ask_request', script)
+        self.assertIn('askRequest.dataset_ids || readiness.dataset_ids || []', script)
+        self.assertIn('askRequest.document_ids || readiness.document_ids || []', script)
         self.assertIn('askScopeKey', script)
         self.assertIn('Ask scope is ready.', script)
         self.assertIn('Ask scope is not ready.', script)
@@ -994,7 +998,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('Retrieved Context', script)
         self.assertIn('parseActiveDocuments', script)
         self.assertIn('parseDatasetDocuments', script)
-        self.assertIn('await parseDatasetDocuments(datasetId, askDocumentIds());', script)
+        self.assertIn('await parseDatasetDocuments(datasetId, documentIds);', script)
         self.assertIn('startIngestionPolling', script)
 
     def _get_text(self, path: str) -> str:
