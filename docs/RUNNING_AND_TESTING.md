@@ -249,8 +249,10 @@ pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_ingestion_status
 ```
 
 These tools do not make PSKA-Essential a KB implementation. They call RAGFlow
-dataset/document/chunk APIs and return normalized IDs, readiness, and optional
-ingestion status, readiness, and optional structure graph data.
+dataset/document/chunk APIs and return normalized IDs, readiness, ingestion
+status, and optional structure graph data.
+`pska_kb_ingest_files` and `pska_kb_parse_documents` include normalized
+`readiness` and `ingestion_status` in their returned operation payloads.
 
 Treat RAGFlow ingestion as asynchronous. Uploading a document only starts the
 chain of parsing, chunking, embedding, and indexing. Frontend and agent flows
@@ -265,6 +267,8 @@ Use `pska_kb_ingestion_status`, `POST /api/kb/ingestion-status`, or
 `GET /api/kb/datasets/{dataset_id}/ingestion-status` when the user or agent
 needs a normalized job summary with phase, progress, next actions, and failure
 reasons before deciding whether to wait, parse, inspect a failure, or Ask.
+The frontend Knowledge Bases view renders those next actions as explicit status
+buttons when possible.
 
 Use `pska_retrieval_probe` or `POST /api/runtime/retrieval-probe` against a
 selected ready dataset when RAGFlow is reachable but Ask still fails at

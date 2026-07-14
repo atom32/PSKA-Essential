@@ -62,10 +62,10 @@ For an existing KB:
 For a new document:
 
 1. Call `pska_kb_ingest_files` with absolute file paths, a dataset name, and
-   `parse=true`.
-2. If ingestion did not wait, call `pska_kb_document_status` and
-   `pska_kb_ingestion_status` until the selected scope is ready, failed, or
-   requires parsing.
+   `parse=true`; inspect the returned `readiness` and `ingestion_status`.
+2. If ingestion did not wait or the returned status is not ready, call
+   `pska_kb_document_status` and `pska_kb_ingestion_status` until the selected
+   scope is ready, failed, or requires parsing.
 3. If ingestion status returns a failed scope, report the failure reason instead
    of asking.
 4. Call `pska_agentic_question_start` with the returned `dataset_id`.

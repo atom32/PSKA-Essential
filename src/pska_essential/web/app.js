@@ -654,7 +654,7 @@ async function parseActiveDocuments() {
     showToast("No unready documents to parse.");
     return;
   }
-  await api(`/api/kb/datasets/${encodeURIComponent(datasetId)}/parse`, {
+  const parsed = await api(`/api/kb/datasets/${encodeURIComponent(datasetId)}/parse`, {
     method: "POST",
     body: {
       document_ids: documentIds,
@@ -662,8 +662,15 @@ async function parseActiveDocuments() {
     },
   });
   showToast("Parse started.");
-  setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
-  startIngestionPolling(datasetId);
+  if (parsed.readiness) {
+    state.readinessByDataset[datasetId] = parsed.readiness;
+    renderIngestionStatus(datasetId, mergeReadinessDocuments(documents, parsed.readiness), parsed.readiness);
+  } else {
+    setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
+  }
+  if (!parsed.readiness || !parsed.readiness.ready) {
+    startIngestionPolling(datasetId);
+  }
   await loadDocuments(datasetId, { silent: true });
   await loadAuditEvents("kb.parse");
 }
@@ -750,11 +757,13 @@ function renderIngestionStatus(datasetId, documents, readiness) {
     const actions = (job.next_actions || []).map(readableName).join(", ");
     const suffix = actions ? ` Next: ${actions}.` : "";
     setIngestionStatus(`${shortId(datasetId)}: ${job.message || readiness.message} ${formatPercent(job.progress)}.${suffix}`, job.status);
+    renderIngestionActions(datasetId, job, summary);
     return;
   }
   const readinessStatus = readiness && readiness.status ? readiness.status : summary.status;
   const label = readiness && readiness.message ? readiness.message : `${summary.ready}/${summary.total} documents ready.`;
   setIngestionStatus(`${shortId(datasetId)}: ${label}`, readinessStatus);
+  renderIngestionActions(datasetId, null, summary);
 }
 
 function setIngestionStatus(message, status) {
@@ -762,6 +771,27 @@ function setIngestionStatus(message, status) {
   if (!node) return;
   node.className = `job-status ${statusClass(status)}`;
   node.textContent = message;
+  const actions = document.getElementById("ingestion-actions");
+  if (actions) actions.replaceChildren();
+}
+
+function renderIngestionActions(datasetId, job, summary) {
+  const container = document.getElementById("ingestion-actions");
+  if (!container) return;
+  container.replaceChildren();
+  const actions = new Set((job && job.next_actions) || []);
+  if ((job && job.ready) || actions.has("run_ask") || summary.status === "ready") {
+    container.append(el("button", { className: "primary-button", onclick: () => setAskDataset(datasetId) }, "Ask This KB"));
+  }
+  if (actions.has("start_parse")) {
+    container.append(el("button", { className: "primary-button", onclick: parseActiveDocuments }, "Parse Listed"));
+  }
+  if (actions.has("wait_for_ingestion") || summary.status === "processing") {
+    container.append(el("button", { className: "secondary-button", onclick: () => startIngestionPolling(datasetId) }, "Track Status"));
+  }
+  if (actions.has("inspect_failure") || actions.has("inspect_failed_documents") || summary.status === "failed") {
+    container.append(el("button", { className: "secondary-button", onclick: () => loadDocuments(datasetId) }, "Reload Status"));
+  }
 }
 
 function syncParseButton(documents = state.activeDocuments || []) {

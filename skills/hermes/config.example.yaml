@@ -36,6 +36,8 @@ mcp_servers:
         - pska_kb_create
         - pska_kb_ingest_files
         - pska_kb_document_status
+        - pska_kb_readiness
+        - pska_kb_ingestion_status
         - pska_kb_parse_documents
         - pska_kb_graph_read
         - pska_retrieval_probe

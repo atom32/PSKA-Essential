@@ -104,6 +104,9 @@ Implemented:
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
 - Normalized KB ingestion status for Product API, MCP, and frontend flows,
   including phase, progress, counts, next actions, and failure reasons.
+- MCP ingest and parse tools return normalized readiness and ingestion status
+  alongside their operation result, so Hermes can decide whether to wait, parse,
+  inspect failure, or Ask without provider direct calls.
 - Frontend Ask scope picker for dataset/document selection through Product API.
 - Frontend Ask controls for loop max iterations, required context count, and
   optional graph retrieval within selected scope.
@@ -164,7 +167,8 @@ Implemented:
 - Frontend Review queue supports status filtering while Home keeps an
   independent pending-review summary.
 - Frontend ingestion tracking: upload refreshes document status, readiness, and
-  normalized ingestion job status until terminal processing state.
+  normalized ingestion job status until terminal processing state, and exposes
+  status actions for parse, tracking, failure reload, and ready-to-Ask states.
 - Frontend parse action for loaded unready documents through Product API.
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider

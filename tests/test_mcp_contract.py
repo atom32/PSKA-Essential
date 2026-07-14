@@ -303,15 +303,20 @@ class McpContractTests(unittest.TestCase):
                     [ingested["dataset"]["dataset_id"]],
                     [ingested["documents"][0]["document_id"]],
                 )
-                parsed = tools["pska_kb_parse_documents"]("demo", ["doc-1"])
-                graph = tools["pska_kb_graph_read"]("demo", "doc-1")
+                parsed = tools["pska_kb_parse_documents"]("demo", ["demo-1"])
+                graph = tools["pska_kb_graph_read"]("demo", "demo-1")
 
         self.assertTrue(created["dataset_id"].startswith("fake_ds_"))
         self.assertEqual(ingested["documents"][0]["name"], "note.txt")
+        self.assertEqual(ingested["ingestion_status"]["status"], "ready")
+        self.assertTrue(ingested["readiness"]["ready"])
+        self.assertIn("Upload accepted", ingested["note"])
         self.assertEqual(ingestion_status["ingestion_status"]["status"], "ready")
         self.assertIn("readiness.ready", ingestion_status["note"])
         self.assertTrue(parsed["parse_started"])
-        self.assertEqual(graph["document_id"], "doc-1")
+        self.assertEqual(parsed["ingestion_status"]["status"], "ready")
+        self.assertIn("Parse started", parsed["note"])
+        self.assertEqual(graph["document_id"], "demo-1")
         events = service.store.list_audit_events()
         actions = [event.action for event in events]
         self.assertIn("kb.dataset.create", actions)
@@ -324,7 +329,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(ingest_event.metadata["document_names"], ["note.txt"])
         graph_event = next(event for event in events if event.action == "kb.graph.read")
         self.assertEqual(graph_event.metadata["dataset_id"], "demo")
-        self.assertEqual(graph_event.metadata["document_id"], "doc-1")
+        self.assertEqual(graph_event.metadata["document_id"], "demo-1")
 
 
 if __name__ == "__main__":

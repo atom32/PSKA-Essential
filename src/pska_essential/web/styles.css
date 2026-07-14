@@ -467,6 +467,17 @@ button:disabled {
   background: #fff1f0;
 }
 
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -6px 0 18px;
+}
+
+.status-actions:empty {
+  display: none;
+}
+
 .progress-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 48px;

@@ -153,7 +153,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ):
-        result = build_kb_gateway_from_env().ingest_files(
+        gateway = build_kb_gateway_from_env()
+        result = gateway.ingest_files(
             file_paths=file_paths,
             dataset_name=dataset_name,
             dataset_id=dataset_id,
@@ -164,7 +165,14 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             timeout_seconds=timeout_seconds,
         )
         add_kb_ingest_audit(service.store, result)
-        return result
+        return {
+            **result,
+            **_kb_operation_status_payload(gateway, result),
+            "note": (
+                "Upload accepted. Use ingestion_status/readiness before asking; "
+                "uploaded or processing scopes are not retrieval-ready yet."
+            ),
+        }
 
     def pska_kb_document_status(
         dataset_id: str,
@@ -193,14 +201,13 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         dataset_ids: list[str],
         document_ids: list[str] | None = None,
     ):
-        readiness = evaluate_kb_readiness(
+        payload = _kb_status_payload(
             build_kb_gateway_from_env(),
             dataset_ids=dataset_ids,
             document_ids=document_ids or [],
         )
         return {
-            "readiness": readiness,
-            "ingestion_status": readiness.get("ingestion_status") or {},
+            **payload,
             "note": (
                 "Use readiness.ready before retrieval. If ingestion_status is not ready, "
                 "wait, parse listed documents, or inspect failure reasons instead of asking."
@@ -213,14 +220,19 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ):
-        result = build_kb_gateway_from_env().parse_documents(
+        gateway = build_kb_gateway_from_env()
+        result = gateway.parse_documents(
             dataset_id=dataset_id,
             document_ids=document_ids,
             wait=wait,
             timeout_seconds=timeout_seconds,
         )
         add_kb_parse_audit(service.store, result)
-        return result
+        return {
+            **result,
+            **_kb_status_payload(gateway, dataset_ids=[dataset_id], document_ids=document_ids),
+            "note": "Parse started. Use ingestion_status/readiness before asking over this scope.",
+        }
 
     def pska_kb_graph_read(dataset_id: str, document_id: str):
         graph = build_kb_gateway_from_env().document_graph(dataset_id=dataset_id, document_id=document_id)
@@ -330,6 +342,33 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_agentic_question_resumable": pska_agentic_question_resumable,
         "pska_agentic_question_resume": pska_agentic_question_resume,
     }
+
+
+def _kb_status_payload(
+    gateway: Any,
+    *,
+    dataset_ids: list[str],
+    document_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    readiness = evaluate_kb_readiness(
+        gateway,
+        dataset_ids=dataset_ids,
+        document_ids=document_ids or [],
+    )
+    return {"readiness": readiness, "ingestion_status": readiness.get("ingestion_status") or {}}
+
+
+def _kb_operation_status_payload(gateway: Any, result: dict[str, Any]) -> dict[str, Any]:
+    dataset = result.get("dataset") or {}
+    dataset_id = str(dataset.get("dataset_id") or "")
+    if not dataset_id:
+        return {"readiness": {}, "ingestion_status": {}}
+    document_ids = [
+        str(document.get("document_id") or "")
+        for document in result.get("documents") or []
+        if document.get("document_id")
+    ]
+    return _kb_status_payload(gateway, dataset_ids=[dataset_id], document_ids=document_ids)
 
 
 def build_fastmcp(service=None):

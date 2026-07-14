@@ -36,9 +36,10 @@ external KB, GraphRAG, or memory systems.
 
 ## Steps
 
-1. If needed, upload documents with `pska_kb_ingest_files`.
+1. If needed, upload documents with `pska_kb_ingest_files` and inspect the
+   returned `readiness` / `ingestion_status`.
 2. Confirm readiness with `pska_kb_document_status` and
-   `pska_kb_ingestion_status`.
+   `pska_kb_ingestion_status` before asking.
 3. Start a scoped PSKA workflow or call `pska_agentic_question_start`.
 4. Pass explicit `retrieval_queries` when useful follow-up angles are known;
    PSKA will run them inside the selected scope and record the query plan.

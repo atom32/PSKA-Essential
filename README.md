@@ -171,6 +171,9 @@ Operational loop tools:
 - `pska_audit_list`
 
 These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
+KB ingest and parse tools return normalized `readiness` and
+`ingestion_status` along with their operation result, so agents can decide
+whether to wait, parse, inspect a failure, or Ask without calling provider APIs.
 
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> inspect workspace policy
@@ -309,7 +312,8 @@ document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. The `not_ready` result has a recoverable
 workflow run and audit trail rather than a disposable error response. Knowledge Bases shows dataset/document
 readiness and normalized ingestion status, can start parsing for loaded unready
-documents, and automatically refreshes ingestion status after uploads. It can also open optional document
+documents, offers status actions such as parse, track, and ask when the scope is
+ready, and automatically refreshes ingestion status after uploads. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
