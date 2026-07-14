@@ -21,7 +21,7 @@ from pska_essential.agentic_loop import (
 )
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
-from pska_essential.diagnostics import build_runtime_diagnostics
+from pska_essential.diagnostics import add_retrieval_probe_audit, build_runtime_diagnostics, run_retrieval_probe
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
@@ -142,6 +142,21 @@ def _handler_class(state: ProductApiState):
                     kb_gateway_factory=state.kb_gateway_factory,
                 )
                 self._send_json({"ok": True, "diagnostics": diagnostics})
+                return
+
+            if method == "POST" and path == "/api/runtime/retrieval-probe":
+                payload = self._read_json()
+                probe = run_retrieval_probe(
+                    state.service,
+                    state.kb_gateway_factory(),
+                    question=str(payload.get("question") or "PSKA retrieval probe"),
+                    dataset_ids=_required_list(payload, "dataset_ids"),
+                    document_ids=[str(item) for item in payload.get("document_ids") or []],
+                    limit=int(payload.get("limit") or 1),
+                    use_kg=bool(payload.get("use_kg", False)),
+                )
+                add_retrieval_probe_audit(state.service.store, probe)
+                self._send_json({"ok": True, "probe": probe})
                 return
 
             if method == "GET" and path == "/api/kb/datasets":

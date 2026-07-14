@@ -29,6 +29,7 @@ EXPECTED_TOOLS = {
     "pska_memory_apply",
     "pska_export_brief",
     "pska_audit_list",
+    "pska_retrieval_probe",
     "pska_eval_run",
     "pska_kb_create",
     "pska_kb_document_status",
@@ -107,6 +108,25 @@ class McpContractTests(unittest.TestCase):
 
         self.assertEqual(audit[0]["action"], "workflow.start")
         self.assertEqual(audit[-1]["action"], "workflow.export")
+
+    def test_retrieval_probe_reports_scope_and_writes_audit(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            probe = tools["pska_retrieval_probe"](
+                question="Can retrieval answer?",
+                dataset_ids=["demo"],
+                limit=1,
+            )
+
+        self.assertEqual(probe["status"], "ok")
+        self.assertEqual(probe["provider"], "fake")
+        self.assertEqual(probe["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(probe["context_count"], 1)
+        event = service.store.list_audit_events(action="retrieval.probe", limit=1)[0]
+        self.assertEqual(event.metadata["status"], "ok")
+        self.assertEqual(event.metadata["context_count"], 1)
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         tools = tool_registry(build_fake_service())

@@ -12,6 +12,7 @@ const state = {
   currentBrief: null,
   currentAskResult: null,
   diagnostics: null,
+  retrievalProbe: null,
   focusReviewId: null,
   memoryApplyByReview: {},
   activeDocumentDatasetId: null,
@@ -172,6 +173,7 @@ function bindRefresh() {
   });
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("reload-audit").addEventListener("click", () => loadAuditEvents());
+  document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
   document.getElementById("audit-action-filter").addEventListener("change", (event) => {
     state.auditAction = event.currentTarget.value || "";
     loadAuditEvents();
@@ -231,6 +233,7 @@ async function loadDatasets() {
     state.datasets = payload.datasets || [];
     renderDatasets();
     renderAskDatasetPicker();
+    renderProbeDatasetPicker();
     renderAskScope();
     renderHome();
   } catch (error) {
@@ -390,6 +393,66 @@ function renderDiagnostics() {
   status.textContent = diagnostics.status || "not checked";
   status.className = `tag ${statusClass(diagnostics.status || "pending")}`;
   renderList(container, checks, "No diagnostics loaded.", diagnosticCard);
+}
+
+function renderProbeDatasetPicker() {
+  const picker = document.getElementById("probe-dataset-picker");
+  if (!picker) return;
+  const current = picker.value;
+  picker.replaceChildren();
+  if (!state.datasets.length) {
+    picker.append(el("option", { value: "" }, "No datasets"));
+    picker.disabled = true;
+    return;
+  }
+  picker.disabled = false;
+  state.datasets.forEach((dataset) => {
+    picker.append(
+      el(
+        "option",
+        { value: dataset.dataset_id || "" },
+        `${dataset.name || dataset.dataset_id} (${shortId(dataset.dataset_id || "")})`,
+      ),
+    );
+  });
+  if (current && state.datasets.some((dataset) => dataset.dataset_id === current)) {
+    picker.value = current;
+  }
+}
+
+async function runRetrievalProbe() {
+  const picker = document.getElementById("probe-dataset-picker");
+  const question = document.getElementById("probe-question");
+  const datasetId = String((picker && picker.value) || "").trim();
+  if (!datasetId) {
+    showToast("Select a dataset.");
+    return;
+  }
+  const payload = await api("/api/runtime/retrieval-probe", {
+    method: "POST",
+    body: {
+      question: question && question.value ? question.value : "PSKA retrieval probe",
+      dataset_ids: [datasetId],
+      limit: 1,
+    },
+  });
+  state.retrievalProbe = payload.probe || null;
+  renderRetrievalProbe();
+  await loadAuditEvents("retrieval.probe");
+  showToast("Retrieval probe recorded.");
+}
+
+function renderRetrievalProbe() {
+  const container = document.getElementById("retrieval-probe-result");
+  if (!container) return;
+  container.replaceChildren();
+  if (!state.retrievalProbe) {
+    container.classList.add("empty-list");
+    container.textContent = "No retrieval probe run.";
+    return;
+  }
+  container.classList.remove("empty-list");
+  container.append(retrievalProbeCard(state.retrievalProbe));
 }
 
 function renderDatasets() {
@@ -1201,6 +1264,28 @@ function diagnosticCard(check) {
   ]);
 }
 
+function retrievalProbeCard(probe) {
+  const error = probe.error || {};
+  const readiness = probe.readiness || {};
+  const sourceRefs = probe.source_refs || [];
+  const tags = [
+    el("span", { className: "tag" }, probe.provider || "provider"),
+    el("span", { className: `tag ${statusClass(readiness.status)}` }, readiness.status || "readiness"),
+    el("span", { className: "tag" }, `context ${probe.context_count || 0}`),
+  ];
+  if (error.type) tags.push(el("span", { className: "tag error" }, error.type));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, "Retrieval Probe"), el("p", {}, probe.message || "")]),
+      el("span", { className: `tag ${statusClass(probe.status)}` }, probe.status || "unknown"),
+    ]),
+    el("div", { className: "meta-row" }, tags),
+    sourceRefs.length
+      ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
+      : null,
+  ]);
+}
+
 function auditEventCard(event) {
   const metadata = event.metadata || {};
   const tags = [
@@ -1221,6 +1306,8 @@ function auditEventCard(event) {
   if (metadata.parse_started !== undefined) {
     tags.push(el("span", { className: `tag ${metadata.parse_started ? "ready" : "pending"}` }, metadata.parse_started ? "parse started" : "parse skipped"));
   }
+  if (metadata.provider) tags.push(el("span", { className: "tag" }, metadata.provider));
+  if (metadata.error_type) tags.push(el("span", { className: "tag error" }, metadata.error_type));
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -1250,6 +1337,9 @@ function auditSummary(event) {
   }
   if (event.action === "source.read") {
     return `Source opened from ${metadata.adapter || "adapter"} ${shortId(metadata.document_id || metadata.source_id || event.target_id || "")}.`;
+  }
+  if (event.action === "retrieval.probe") {
+    return `Retrieval probe ${metadata.status || "recorded"} with ${metadata.context_count || 0} context packet(s).`;
   }
   if (event.action === "workflow.export") {
     return `Exported ${metadata.format || "work product"} with ${metadata.source_count || 0} source(s).`;

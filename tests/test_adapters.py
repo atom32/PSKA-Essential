@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAdapter
-from pska_essential.adapters.ragflow import RagflowRetrievalAdapter
+from pska_essential.adapters.ragflow import RagflowAdapterError, RagflowRetrievalAdapter
 from pska_essential.contracts import MemoryPatch
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowService
@@ -86,6 +86,20 @@ class AdapterTests(unittest.TestCase):
 
         self.assertEqual(packets[0].text, "HTTP chunk")
         self.assertTrue(captured["body"]["use_kg"])
+
+    def test_ragflow_http_retrieval_model_provider_error_is_actionable(self):
+        def fake_urlopen(request, timeout):
+            return _HttpResponse(
+                {
+                    "code": 102,
+                    "message": "LookupError('Provider xxxx not found for model bge-m3@xxxx.')",
+                }
+            )
+
+        adapter = RagflowRetrievalAdapter(base_url="http://ragflow.local", api_key="key")
+        with patch("pska_essential.adapters.ragflow.retrieval.urlopen", fake_urlopen):
+            with self.assertRaisesRegex(RagflowAdapterError, "model-provider configuration"):
+                adapter.retrieve("hello", {"dataset_ids": ["dataset-1"]}, 5)
 
     def test_company_stub_can_replace_retrieval_and_memory(self):
         adapter = CompanyGraphRagStubAdapter()

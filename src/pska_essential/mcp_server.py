@@ -11,6 +11,7 @@ from pska_essential.agentic_loop import (
 )
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
+from pska_essential.diagnostics import add_retrieval_probe_audit, run_retrieval_probe
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_graph_read_audit,
@@ -88,6 +89,25 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
                 descending=descending,
             )
         )
+
+    def pska_retrieval_probe(
+        question: str,
+        dataset_ids: list[str],
+        document_ids: list[str] | None = None,
+        limit: int = 1,
+        use_kg: bool = False,
+    ):
+        probe = run_retrieval_probe(
+            service,
+            build_kb_gateway_from_env(),
+            question=question,
+            dataset_ids=dataset_ids,
+            document_ids=document_ids or [],
+            limit=limit,
+            use_kg=use_kg,
+        )
+        add_retrieval_probe_audit(service.store, probe)
+        return probe
 
     def pska_eval_run(suite: str = "smoke"):
         return service.eval_run(suite)
@@ -249,6 +269,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_apply": pska_memory_apply,
         "pska_export_brief": pska_export_brief,
         "pska_audit_list": pska_audit_list,
+        "pska_retrieval_probe": pska_retrieval_probe,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,
         "pska_kb_create": pska_kb_create,

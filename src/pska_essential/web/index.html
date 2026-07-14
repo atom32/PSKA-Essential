@@ -280,6 +280,7 @@
                     <option value="kb.ingest">kb.ingest</option>
                     <option value="kb.parse">kb.parse</option>
                     <option value="kb.graph.read">kb.graph.read</option>
+                    <option value="retrieval.probe">retrieval.probe</option>
                     <option value="source.read">source.read</option>
                     <option value="agentic_loop.complete">agentic_loop.complete</option>
                     <option value="agentic_loop.insufficient_context">agentic_loop.insufficient_context</option>
@@ -309,6 +310,23 @@
               <span id="diagnostics-status" class="tag pending">Not checked</span>
             </div>
             <div id="runtime-diagnostics" class="list empty-list">No diagnostics loaded.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Retrieval Probe</h2>
+              <button id="run-retrieval-probe" class="secondary-button" type="button">Run Probe</button>
+            </div>
+            <div class="form-row">
+              <label>
+                Knowledge Base
+                <select id="probe-dataset-picker"></select>
+              </label>
+              <label>
+                Question
+                <input id="probe-question" autocomplete="off" value="PSKA retrieval probe" />
+              </label>
+            </div>
+            <div id="retrieval-probe-result" class="list empty-list">No retrieval probe run.</div>
           </div>
           <div class="panel">
             <h2>Product Boundary</h2>

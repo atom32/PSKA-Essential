@@ -149,6 +149,7 @@ Operational loop tools:
 - `pska_kb_readiness`
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
+- `pska_retrieval_probe`
 - `pska_agentic_question_start`
 - `pska_agentic_question_resumable`
 - `pska_agentic_question_resume`
@@ -196,6 +197,7 @@ Implemented Alpha routes:
 - `GET /api/health`
 - `GET /api/policy`
 - `GET /api/runtime/diagnostics`
+- `POST /api/runtime/retrieval-probe`
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`
 - `POST /api/kb/ingest`
@@ -267,8 +269,9 @@ opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
 through explicit Product API actions. Exported work products include the
 workflow export audit event and durable-memory source trace in their
-traceability metadata. Settings shows
-runtime provider configuration and Product API diagnostics for review store, KB
-gateway, retrieval, and memory connectivity. Product API health, diagnostics,
-and audit records include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID`
-and `PSKA_TENANT_ID`.
+traceability metadata. Settings shows runtime provider configuration, Product
+API diagnostics for review store, KB gateway, retrieval, and memory
+connectivity, and an explicit retrieval probe for the selected dataset before
+running Ask. Product API health, diagnostics, probe audit records, and other
+audit records include the runtime workspace/tenant context from
+`PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.

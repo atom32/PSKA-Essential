@@ -144,6 +144,9 @@ Implemented:
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
   connectivity without frontend provider direct calls.
+- Product API, MCP, and frontend Settings expose an explicit retrieval probe
+  for selected ready scopes; it writes `retrieval.probe` audit records and
+  reports provider/model errors without falling back.
 - Runtime workspace/tenant context surfaced in health, diagnostics, Settings,
   and audit metadata.
 - Dataset creation, document ingestion, parsing, and graph reads write explicit
@@ -190,13 +193,13 @@ make smoke
 
 Expected result:
 
-- `make test`: 62 tests pass.
+- `make test`: 67 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
   fake upload-to-Ask source reads.
 - Product API/static frontend tests cover Review status filtering, pending
-  review summaries, and review source trace display.
+  review summaries, review source trace display, and retrieval probe UI.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Adapter/Workflow/Product API tests cover graph retrieval hint propagation to
   RAGFlow retrieval and audit/loop metadata.
@@ -205,9 +208,11 @@ Expected result:
 - Product API and agentic loop tests cover partial-context insufficiency gating.
 - Product API tests cover audit action filtering.
 - Workflow/Product API/MCP tests cover source-read audit records.
+- Product API/MCP tests cover explicit retrieval probes and their audit records.
+- RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 27 PSKA MCP tools.
+- `make list-tools`: lists 28 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -234,6 +239,7 @@ New operational loop tools:
 pska_kb_ingest_files
 pska_kb_document_status
 pska_kb_readiness
+pska_retrieval_probe
 pska_agentic_question_start
 pska_agentic_question_resumable
 pska_agentic_question_resume

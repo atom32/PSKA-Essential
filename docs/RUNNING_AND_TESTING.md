@@ -233,6 +233,13 @@ the selected scope becomes ready. Use `pska_agentic_question_resumable` or
 `GET /api/workflows/resumable-asks` to list readiness-blocked Ask runs with a
 fresh readiness check.
 
+Use `pska_retrieval_probe` or `POST /api/runtime/retrieval-probe` against a
+selected ready dataset when RAGFlow is reachable but Ask still fails at
+retrieval time. The probe first checks PSKA readiness, then runs a limit-1
+retrieval through the configured retrieval adapter, records a `retrieval.probe`
+audit event, and surfaces provider errors such as missing embedding model
+providers explicitly.
+
 ### 5. Full Demo / Deployment
 
 Use Docker Compose or another yaml-based orchestrator only for full-stack demo,
@@ -260,6 +267,7 @@ Core tests:
 - KB gateway glue without live RAGFlow
 - Product API and frontend boundary smoke tests
 - agentic Ask loop diagnostics and durable-governance defaults
+- explicit retrieval probe diagnostics for selected ready scopes
 
 Integration tests:
 

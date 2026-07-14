@@ -370,6 +370,34 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(checks["retrieval_provider"]["metadata"]["provider"], "fake")
         self.assertEqual(checks["memory_provider"]["metadata"]["provider"], "fake")
 
+    def test_retrieval_probe_route_checks_ready_scope_and_writes_audit(self):
+        probe = self._post_json(
+            "/api/runtime/retrieval-probe",
+            {"question": "How does PSKA retrieve?", "dataset_ids": ["demo"], "limit": 1},
+        )["probe"]
+
+        self.assertEqual(probe["status"], "ok")
+        self.assertEqual(probe["provider"], "fake")
+        self.assertEqual(probe["readiness"]["status"], "ready")
+        self.assertEqual(probe["context_count"], 1)
+        self.assertEqual(probe["scope"]["dataset_ids"], ["demo"])
+        audit = self._get_json("/api/audit?limit=5&action=retrieval.probe")
+        self.assertEqual(audit["events"][0]["action"], "retrieval.probe")
+        self.assertEqual(audit["events"][0]["metadata"]["status"], "ok")
+        self.assertEqual(audit["events"][0]["metadata"]["context_count"], 1)
+
+    def test_retrieval_probe_does_not_retrieve_unready_scope(self):
+        self.gateway.ready = False
+        probe = self._post_json(
+            "/api/runtime/retrieval-probe",
+            {"question": "Can this retrieve?", "dataset_ids": ["demo"], "limit": 1},
+        )["probe"]
+
+        self.assertEqual(probe["status"], "not_ready")
+        self.assertEqual(probe["context_count"], 0)
+        self.assertEqual(probe["readiness"]["status"], "processing")
+        self.assertIn("not ready", probe["message"])
+
     def test_ask_blocks_dataset_that_is_not_ready(self):
         self.gateway.ready = False
         asked = self._post_json(
@@ -518,6 +546,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('data-view="activity"', html)
         self.assertIn("Brief Workspace", html)
         self.assertIn("runtime-diagnostics", html)
+        self.assertIn("retrieval-probe-result", html)
+        self.assertIn("run-retrieval-probe", html)
+        self.assertIn("probe-dataset-picker", html)
+        self.assertIn("retrieval.probe", html)
         self.assertIn("home-resumable-asks", html)
         self.assertIn("Workspace", script)
         self.assertIn("Tenant", script)
@@ -554,6 +586,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('renderIngestResult(result.ingest);\n    await loadDatasets();\n    await loadAuditEvents("kb.ingest");', script)
         self.assertIn('await loadDocuments(datasetId, { silent: true });\n  await loadAuditEvents("kb.parse");', script)
         self.assertIn('/api/runtime/diagnostics', script)
+        self.assertIn('/api/runtime/retrieval-probe', script)
         self.assertIn('/api/workflows/${encodeURIComponent(runId)}', script)
         self.assertIn('/documents/${encodeURIComponent(documentId)}/graph', script)
         self.assertIn('/api/workflows?limit=20', script)
@@ -571,6 +604,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/parse', script)
         self.assertIn('/readiness', script)
         self.assertIn('diagnosticCard', script)
+        self.assertIn('retrievalProbeCard', script)
         self.assertIn('auditEventCard', script)
         self.assertIn('source_count', script)
         self.assertIn('memory_target_id', script)

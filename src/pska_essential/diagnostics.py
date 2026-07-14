@@ -6,7 +6,10 @@ from typing import Any, Callable
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from pska_essential.audit import audit_event
+from pska_essential.contracts import to_jsonable
 from pska_essential.governance import build_workspace_policy_from_env
+from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
 
 
@@ -33,6 +36,106 @@ def build_runtime_diagnostics(*, service: Any, kb_gateway_factory: KbGatewayFact
         "governance": build_workspace_policy_from_env().to_dict(),
         "checks": checks,
     }
+
+
+def run_retrieval_probe(
+    service: Any,
+    gateway: Any,
+    *,
+    question: str,
+    dataset_ids: list[str],
+    document_ids: list[str] | None = None,
+    limit: int = 1,
+    use_kg: bool = False,
+) -> dict[str, Any]:
+    selected_dataset_ids = _normalized_ids(dataset_ids)
+    selected_document_ids = _normalized_ids(document_ids or [])
+    if not selected_dataset_ids:
+        raise ValueError("dataset_ids is required")
+    normalized_question = question.strip() or "PSKA retrieval probe"
+    scope = {
+        "dataset_ids": selected_dataset_ids,
+        "document_ids": selected_document_ids,
+        "use_kg": bool(use_kg),
+    }
+    provider = _provider_name("PSKA_RETRIEVAL_PROVIDER", getattr(service, "retrieval", None))
+    readiness = evaluate_kb_readiness(
+        gateway,
+        dataset_ids=selected_dataset_ids,
+        document_ids=selected_document_ids,
+    )
+    if not readiness["ready"]:
+        return {
+            "status": "not_ready",
+            "provider": provider,
+            "message": "Selected knowledge scope is not ready, so retrieval probe was not run.",
+            "query": normalized_question,
+            "scope": scope,
+            "readiness": readiness,
+            "context_count": 0,
+            "source_refs": [],
+        }
+    try:
+        packets = service.retrieval.retrieve(
+            normalized_question,
+            scope,
+            max(1, int(limit or 1)),
+            options={"diagnostic": True, "use_kg": bool(use_kg)},
+        )
+    except Exception as exc:  # noqa: BLE001 - probe must return explicit provider errors.
+        return {
+            "status": "error",
+            "provider": provider,
+            "message": _retrieval_probe_error_message(exc),
+            "query": normalized_question,
+            "scope": scope,
+            "readiness": readiness,
+            "context_count": 0,
+            "source_refs": [],
+            "error": {
+                "type": exc.__class__.__name__,
+                "message": str(exc),
+            },
+        }
+    source_refs = [packet.source_ref for packet in packets]
+    status = "ok" if packets else "warning"
+    return {
+        "status": status,
+        "provider": provider,
+        "message": (
+            f"Retrieval provider returned {len(packets)} context packet(s)."
+            if packets
+            else "Retrieval provider responded but returned no context packets."
+        ),
+        "query": normalized_question,
+        "scope": scope,
+        "readiness": readiness,
+        "context_count": len(packets),
+        "source_refs": to_jsonable(source_refs),
+    }
+
+
+def add_retrieval_probe_audit(store: Any, probe: dict[str, Any]) -> None:
+    scope = probe.get("scope") or {}
+    dataset_ids = [str(item) for item in scope.get("dataset_ids") or []]
+    document_ids = [str(item) for item in scope.get("document_ids") or []]
+    error = probe.get("error") or {}
+    store.add_audit_event(
+        audit_event(
+            "retrieval.probe",
+            "retrieval_scope",
+            ",".join(dataset_ids) or "unknown",
+            provider=str(probe.get("provider") or ""),
+            status=str(probe.get("status") or ""),
+            dataset_ids=dataset_ids,
+            document_ids=document_ids,
+            use_kg=bool(scope.get("use_kg", False)),
+            context_count=int(probe.get("context_count") or 0),
+            readiness_status=str((probe.get("readiness") or {}).get("status") or ""),
+            error_type=str(error.get("type") or ""),
+            error_message=str(error.get("message") or ""),
+        )
+    )
 
 
 def _review_store_check(service: Any) -> dict[str, Any]:
@@ -130,6 +233,20 @@ def _provider_name(env_name: str, adapter: Any) -> str:
 
 def _missing_env(*names: str) -> list[str]:
     return [name for name in names if not os.getenv(name, "").strip()]
+
+
+def _normalized_ids(values: list[str] | None) -> list[str]:
+    return [str(value).strip() for value in values or [] if str(value).strip()]
+
+
+def _retrieval_probe_error_message(exc: Exception) -> str:
+    raw = str(exc) or exc.__class__.__name__
+    if "not found for model" in raw and "Provider" in raw:
+        return (
+            f"Retrieval provider failed: {raw}. "
+            "Check the KB embedding model and model-provider configuration before running Ask."
+        )
+    return f"Retrieval provider failed: {raw}"
 
 
 def _overall_status(checks: list[dict[str, Any]]) -> str:

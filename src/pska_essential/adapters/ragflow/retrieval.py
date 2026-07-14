@@ -104,7 +104,7 @@ class RagflowRetrievalAdapter:
         except URLError as exc:
             raise RagflowAdapterError(str(exc)) from exc
         if envelope.get("code") != 0:
-            raise RagflowAdapterError(str(envelope.get("message") or "RAGFlow retrieval failed"))
+            raise RagflowAdapterError(_ragflow_error_message(str(envelope.get("message") or "RAGFlow retrieval failed")))
         return dict(envelope.get("data") or {})
 
     def _chunk_to_context(self, chunk: Any, index: int) -> ContextPacket:
@@ -183,3 +183,11 @@ def _optional_str(value: Any) -> str | None:
         return None
     text = str(value)
     return text or None
+
+
+def _ragflow_error_message(message: str) -> str:
+    if "Provider" in message and "not found for model" in message:
+        return (
+            f"{message} Check RAGFlow model-provider configuration and the dataset embedding model before running Ask."
+        )
+    return message
