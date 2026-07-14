@@ -161,7 +161,7 @@ class SQLiteReviewStore:
                 """,
                 params,
             ).fetchall()
-        return [_review_record_from_row(row) for row in rows]
+        return self._attach_review_revision_lineage([_review_record_from_row(row) for row in rows])
 
     def get_review_record(self, review_id: str) -> dict[str, Any]:
         with self._lock:
@@ -190,7 +190,7 @@ class SQLiteReviewStore:
             ).fetchone()
         if row is None:
             raise KeyError(f"review not found: {review_id}")
-        return _review_record_from_row(row)
+        return self._attach_review_revision_lineage([_review_record_from_row(row)])[0]
 
     def decide_review(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
         row = self.get_review(review_id)
@@ -284,6 +284,45 @@ class SQLiteReviewStore:
             rows = self._conn.execute(query, tuple(params)).fetchall()
         return [AuditEvent(**json.loads(row["payload_json"])) for row in rows]
 
+    def _attach_review_revision_lineage(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not records:
+            return records
+
+        by_review_id = {str(record["review_id"]): record for record in records}
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT target_id, payload_json
+                FROM audit_events
+                WHERE action = ?
+                ORDER BY created_at ASC
+                """,
+                ("review.revise",),
+            ).fetchall()
+
+        for row in rows:
+            event = json.loads(row["payload_json"])
+            metadata = event.get("metadata") or {}
+            previous_review_id = _nonempty_str(metadata.get("previous_review_id"))
+            previous_proposal_id = _nonempty_str(metadata.get("previous_proposal_id"))
+            next_review_id = _nonempty_str(event.get("target_id")) or _nonempty_str(row["target_id"])
+            next_proposal_id = _nonempty_str(metadata.get("proposal_id"))
+
+            if previous_review_id in by_review_id:
+                _merge_revision(
+                    by_review_id[previous_review_id],
+                    next_review_id=next_review_id,
+                    next_proposal_id=next_proposal_id,
+                )
+            if next_review_id in by_review_id:
+                _merge_revision(
+                    by_review_id[next_review_id],
+                    previous_review_id=previous_review_id,
+                    previous_proposal_id=previous_proposal_id,
+                )
+
+        return records
+
     def _init_schema(self) -> None:
         with self._lock:
             self._conn.executescript(
@@ -335,6 +374,15 @@ def _normalize_decision(decision: str) -> str:
     if normalized not in {"accept", "reject", "edit"}:
         raise ValueError("decision must be one of: accept, reject, edit")
     return normalized
+
+
+def _nonempty_str(value: Any) -> str:
+    return str(value) if value else ""
+
+
+def _merge_revision(record: dict[str, Any], **fields: str) -> None:
+    revision = record.setdefault("revision", {})
+    revision.update({key: value for key, value in fields.items() if value})
 
 
 def _review_record_from_row(row: sqlite3.Row) -> dict[str, Any]:

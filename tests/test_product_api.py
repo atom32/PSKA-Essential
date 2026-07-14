@@ -354,6 +354,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertNotEqual(revised["review"]["review_id"], review_id)
         self.assertEqual(revised["review"]["source_count"], 1)
         self.assertEqual(revised["artifact"]["latest_proposal"]["proposal_id"], revised["proposal"]["proposal_id"])
+        self.assertEqual(revised["previous_review"]["revision"]["next_review_id"], revised["review"]["review_id"])
+        self.assertEqual(revised["review"]["revision"]["previous_review_id"], review_id)
+        old_record = self._get_json(f"/api/reviews/{review_id}")["review"]
+        new_record = self._get_json(f"/api/reviews/{revised['review']['review_id']}")["review"]
+        self.assertEqual(old_record["revision"]["next_review_id"], revised["review"]["review_id"])
+        self.assertEqual(new_record["revision"]["previous_review_id"], review_id)
         audit = self._get_json("/api/audit?limit=10&action=review.revise")
         self.assertEqual(audit["events"][0]["metadata"]["previous_review_id"], review_id)
         self.assertEqual(audit["events"][0]["metadata"]["proposal_kind"], "memory_patch")
@@ -739,6 +745,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('syncReviewRecord', script)
         self.assertIn('reviewSourceRow', script)
         self.assertIn('review.source_refs || proposal.source_refs', script)
+        self.assertIn('review.revision || {}', script)
+        self.assertIn('revision.previous_review_id', script)
+        self.assertIn('revision.next_review_id', script)
         self.assertIn('className: "review-source-row"', script)
         self.assertIn('Apply Memory', script)
         self.assertIn('syncReviewDecision', script)

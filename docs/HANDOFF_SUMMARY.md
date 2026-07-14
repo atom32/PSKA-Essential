@@ -139,6 +139,8 @@ Implemented:
   single-review Product API records by ID.
 - Reviews marked `needs_edit` can create revised pending reviews from the same
   workflow/source trace through Product API, MCP, and frontend Review actions.
+  Review records expose revision lineage so original and revised candidates can
+  be traced in both directions.
 - Review records expose `source_refs` / `source_count`, and the frontend Review
   queue shows cited sources with Product API Reader actions.
 - Frontend Review queue supports status filtering while Home keeps an

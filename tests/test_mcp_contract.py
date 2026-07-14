@@ -163,6 +163,12 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(revised["review"]["status"], "pending")
         self.assertNotEqual(revised["review"]["review_id"], review["review_id"])
         self.assertEqual(revised["proposal"]["kind"], "memory_patch")
+        self.assertEqual(revised["previous_review"]["revision"]["next_review_id"], revised["review"]["review_id"])
+        self.assertEqual(revised["review"]["revision"]["previous_review_id"], review["review_id"])
+        old_record = tools["pska_review_get"](review["review_id"])
+        new_record = tools["pska_review_get"](revised["review"]["review_id"])
+        self.assertEqual(old_record["revision"]["next_review_id"], revised["review"]["review_id"])
+        self.assertEqual(new_record["revision"]["previous_review_id"], review["review_id"])
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("review.revise", actions)
 

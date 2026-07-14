@@ -258,9 +258,10 @@ The Review queue can filter by status while Home keeps an independent pending
 review summary. Review records expose source trace fields, and Review cards can
 open cited sources through the Product API Reader before a durable decision is
 made. Reviews marked `needs_edit` can create a revised candidate review while
-preserving the original review history. Review decisions and memory apply
-actions refresh the current Ask/Writing state, and applied memory state is
-served back through Review API records.
+preserving the original review history; Review API records expose revision
+lineage so old and revised candidates can be traced in both directions. Review
+decisions and memory apply actions refresh the current Ask/Writing state, and
+applied memory state is served back through Review API records.
 Applied memory can be found by later Ask runs through the memory adapter and is
 shown in Writing as durable workspace context with its supporting source trace.
 Once durable memory has been applied, the accepted review decision is locked;

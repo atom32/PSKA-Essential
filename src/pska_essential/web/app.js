@@ -1125,6 +1125,7 @@ function syncReviewRecord(review, options = {}) {
 function reviewCard(review) {
   const proposal = review.proposal || {};
   const sourceRefs = review.source_refs || proposal.source_refs || [];
+  const revision = review.revision || {};
   const actions = el("div", { className: "review-actions" }, []);
   const reason = el("input", { placeholder: "Reason", value: "" });
   const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
@@ -1159,6 +1160,8 @@ function reviewCard(review) {
       el("span", { className: "tag" }, proposal.kind || "proposal"),
       el("span", { className: "tag" }, shortId(review.review_id)),
       el("span", { className: "tag" }, `sources ${review.source_count ?? sourceRefs.length}`),
+      revision.previous_review_id ? el("span", { className: "tag" }, `from ${shortId(revision.previous_review_id)}`) : null,
+      revision.next_review_id ? el("span", { className: "tag" }, `to ${shortId(revision.next_review_id)}`) : null,
     ]),
     sourceRefs.length
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
