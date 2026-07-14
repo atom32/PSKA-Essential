@@ -95,6 +95,12 @@ Implemented:
 - SQLite review store.
 - Audit events.
 - MCP tool registry.
+- Product API over the PSKA workflow and KB gateway.
+- Frontend Alpha served by the Product API, including Home, Knowledge Bases,
+  Ask, Reader, Writing, Review, and Settings.
+- PSKA-controlled agentic Ask loop with explicit loop diagnostics.
+- Workspace governance policy for durable memory: manual review, auto accept,
+  or auto apply.
 - Operational upload-to-agentic-question MCP loop.
 - Smoke eval.
 - Hermes skill/config examples.
@@ -111,7 +117,9 @@ make smoke
 
 Expected result:
 
-- `make test`: 15 tests pass.
+- `make test`: 29 tests pass.
+- Product API tests cover health, static frontend serving, scoped Ask, Review,
+  memory apply, and multipart document upload.
 - `make list-tools`: lists 18 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
@@ -152,6 +160,20 @@ own the KB/index; RAGFlow remains the KB backend.
 `fake` adapters are now explicit development/test adapters only. Product runtime
 must set providers intentionally. Use `PSKA_DEV_FAKE=1` only for local tests or
 tool discovery.
+
+Product API and frontend:
+
+```bash
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
+  PSKA_REVIEW_DB=.pska-essential/dev.sqlite3 \
+  PYTHONPATH=src python3 -m pska_essential.product_api
+open http://127.0.0.1:8765
+```
+
+The frontend includes Home, Knowledge Bases, Ask, Reader, Writing, Review, and
+Settings. It calls only same-origin `/api/...` routes, shows explicit Ask loop
+steps, opens sources through Product API Reader, and exports sourced briefs
+through Product API Writing.
 
 ## Local Toolchain Status
 

@@ -49,6 +49,20 @@ print(build_fake_service().eval_run("smoke"))
 PY
 ```
 
+Run the Product API and frontend in explicit local development mode:
+
+```bash
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
+  PSKA_REVIEW_DB=.pska-essential/dev.sqlite3 \
+  PYTHONPATH=src python3 -m pska_essential.product_api
+```
+
+Then open:
+
+```bash
+open http://127.0.0.1:8765
+```
+
 ## External Backends
 
 Production mode requires explicit providers:
@@ -76,6 +90,13 @@ export GRAPHITI_BASE_URL=http://localhost:8000
 export GRAPHITI_GROUP_ID=pska-essential
 ```
 
+Workspace governance policy:
+
+```bash
+# manual_review | auto_accept | auto_apply
+export PSKA_GOVERNANCE_DURABLE_MEMORY=manual_review
+```
+
 Local Graphiti install:
 
 ```bash
@@ -96,6 +117,7 @@ Explicit local fake mode for tests and tool discovery:
 ```bash
 export PSKA_DEV_FAKE=1
 export PSKA_RETRIEVAL_PROVIDER=fake
+export PSKA_KB_PROVIDER=fake
 export PSKA_MEMORY_PROVIDER=fake
 ```
 
@@ -138,3 +160,39 @@ See:
 - `docs/RUNNING_AND_TESTING.md`
 - `skills/hermes/SKILL.md`
 - `skills/openclaw/SKILL.md`
+
+## Product API And Frontend
+
+The Product API is the frontend-facing boundary. The frontend must call PSKA
+Product API routes only; it must not call RAGFlow, Graphiti, embedding services,
+LLM providers, databases, or queues directly.
+
+Default local URL:
+
+```text
+http://127.0.0.1:8765
+```
+
+Implemented Alpha routes:
+
+- `GET /api/health`
+- `GET /api/policy`
+- `GET /api/kb/datasets`
+- `POST /api/kb/datasets`
+- `POST /api/kb/ingest`
+- `GET /api/kb/datasets/{dataset_id}/documents`
+- `POST /api/kb/datasets/{dataset_id}/parse`
+- `POST /api/ask`
+- `GET /api/workflows`
+- `GET /api/workflows/{run_id}/export`
+- `GET /api/reviews`
+- `POST /api/reviews/{review_id}/decision`
+- `POST /api/reviews/{review_id}/apply-memory`
+- `GET /api/audit`
+
+The bundled frontend exposes Home, Knowledge Bases, Ask, Reader, Writing,
+Review, and Settings. It is served by the Product API and uses only same-origin
+`/api/...` calls. Ask responses include explicit loop steps so users and agents
+can see scope checks, retrieval, context inspection, proposal creation, review
+creation or skipping, and export preparation. Writing opens sourced briefs from
+recent workflow runs and exports Markdown or JSON through Product API.

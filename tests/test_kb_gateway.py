@@ -3,8 +3,9 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from pska_essential.kb_gateway import RagflowKnowledgeGateway
+from pska_essential.kb_gateway import KbGatewayError, RagflowKnowledgeGateway, build_kb_gateway_from_env
 
 
 class _Gateway(RagflowKnowledgeGateway):
@@ -82,6 +83,19 @@ class KbGatewayTests(unittest.TestCase):
 
         self.assertTrue(result["dataset_created"])
         self.assertEqual(result["dataset"]["dataset_id"], "dataset-new")
+
+    def test_fake_kb_provider_requires_explicit_dev_mode(self):
+        with patch.dict("os.environ", {"PSKA_KB_PROVIDER": "fake"}, clear=True):
+            with self.assertRaisesRegex(KbGatewayError, "PSKA_KB_PROVIDER=fake"):
+                build_kb_gateway_from_env()
+
+    def test_fake_kb_provider_supports_dev_frontend(self):
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=True):
+            gateway = build_kb_gateway_from_env()
+            datasets = gateway.list_datasets()
+
+        self.assertEqual(datasets[0]["backend"], "fake")
+        self.assertEqual(datasets[0]["dataset_id"], "demo")
 
 
 if __name__ == "__main__":

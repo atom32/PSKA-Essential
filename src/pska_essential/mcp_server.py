@@ -4,6 +4,7 @@ import json
 import sys
 from typing import Any, Callable
 
+from pska_essential.agentic_loop import run_agentic_question
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.kb_gateway import build_kb_gateway_from_env
@@ -122,29 +123,29 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         document_ids: list[str] | None = None,
         limit: int = 5,
         proposal_kind: str = "writing_brief",
-        create_review: bool = True,
+        create_review: bool | None = None,
         use_kg: bool = False,
+        max_iterations: int = 2,
+        min_context_packets: int = 1,
     ):
-        scope = {
-            "dataset_ids": dataset_ids,
-            "document_ids": document_ids or [],
-            "use_kg": use_kg,
-        }
-        run = service.start(question, scope)
-        packets = service.context_retrieve(run.run_id, question, limit)
-        proposal = service.propose(run.run_id, proposal_kind, question)
-        review = service.review_create(proposal.proposal_id) if create_review else None
-        return {
-            "run": to_jsonable(service.state(run.run_id)),
-            "context_packets": to_jsonable(packets),
-            "proposal": to_jsonable(proposal),
-            "review": to_jsonable(review) if review else None,
-            "brief": service.export_brief(run.run_id, "markdown"),
-            "note": (
-                "Agent should answer from returned context and brief. "
-                "Memory writes still require an accepted review before pska_memory_apply."
-            ),
-        }
+        result = run_agentic_question(
+            service,
+            question=question,
+            dataset_ids=dataset_ids,
+            document_ids=document_ids or [],
+            limit=limit,
+            proposal_kind=proposal_kind,
+            create_review=create_review,
+            use_kg=use_kg,
+            max_iterations=max_iterations,
+            min_context_packets=min_context_packets,
+        )
+        result["note"] = (
+            "Agent should answer from returned context and brief. "
+            "Transient work products do not require review by default. "
+            "Memory writes still require an accepted review before pska_memory_apply."
+        )
+        return result
 
     return {
         "pska_workflow_start": pska_workflow_start,

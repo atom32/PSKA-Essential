@@ -52,7 +52,50 @@ Hermes test:
 hermes mcp test pska-essential
 ```
 
-### 3. Adapter Integration Development
+### 3. Product API And Frontend Development
+
+The Product API serves the frontend and exposes stable PSKA routes. The frontend
+must call only this API; it must not call external providers directly.
+
+Explicit local fake mode:
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
+  PSKA_REVIEW_DB=.pska-essential/dev.sqlite3 \
+  PYTHONPATH=src python3 -m pska_essential.product_api
+open http://127.0.0.1:8765
+```
+
+Live RAGFlow/Graphiti mode uses the same Product API command after setting
+providers explicitly:
+
+```bash
+export PSKA_RETRIEVAL_PROVIDER=ragflow
+export PSKA_KB_PROVIDER=ragflow
+export PSKA_MEMORY_PROVIDER=graphiti
+export RAGFLOW_BASE_URL=http://127.0.0.1:9380
+export RAGFLOW_API_KEY=...
+export GRAPHITI_BASE_URL=http://127.0.0.1:8000
+export GRAPHITI_GROUP_ID=pska-essential
+export PSKA_GOVERNANCE_DURABLE_MEMORY=manual_review
+PYTHONPATH=src python3 -m pska_essential.product_api
+```
+
+The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
+Review, and Settings. Ask displays explicit PSKA-controlled loop steps. Reader
+inspects sources through Product API only. Writing opens recent sourced briefs
+and exports Markdown or JSON through Product API. Upload, parsing, embedding,
+and indexing readiness remain visible states rather than hidden side effects.
+
+Durable memory governance modes:
+
+- `manual_review`: create a pending review before durable memory can be applied.
+- `auto_accept`: create and accept a review through workspace policy, but leave
+  memory application explicit.
+- `auto_apply`: create and accept a review, then apply memory through policy.
+
+### 4. Adapter Integration Development
 
 RAGFlow and Graphiti run independently. PSKA-Essential only receives env vars
 pointing at them.
@@ -137,7 +180,7 @@ Treat RAGFlow ingestion as asynchronous. Uploading a document only starts the
 chain of parsing, chunking, embedding, and indexing. Frontend and agent flows
 must check readiness before assuming retrieval will work.
 
-### 4. Full Demo / Deployment
+### 5. Full Demo / Deployment
 
 Use Docker Compose or another yaml-based orchestrator only for full-stack demo,
 CI integration, or deployment packaging.
@@ -162,12 +205,15 @@ Core tests:
 - export
 - adapter replacement with company stub
 - KB gateway glue without live RAGFlow
+- Product API and frontend boundary smoke tests
+- agentic Ask loop diagnostics and durable-governance defaults
 
 Integration tests:
 
 - RAGFlow retrieval mapping against a live RAGFlow instance
 - Graphiti reviewed memory apply against a live Graphiti instance
 - Hermes MCP discovery and smoke workflow
+- Product API against live RAGFlow KB operations
 
 Full-stack tests:
 

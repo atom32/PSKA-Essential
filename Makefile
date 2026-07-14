@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke clean
+.PHONY: test list-tools smoke serve-api serve-dev clean
 
 PYTHON ?= python3
 
@@ -10,6 +10,12 @@ list-tools:
 
 smoke:
 	PYTHONPATH=src $(PYTHON) -c 'from pska_essential.workflow import build_fake_service; print(build_fake_service().eval_run("smoke"))'
+
+serve-api:
+	PYTHONPATH=src $(PYTHON) -m pska_essential.product_api
+
+serve-dev:
+	PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake PSKA_REVIEW_DB=.pska-essential/dev.sqlite3 PYTHONPATH=src $(PYTHON) -m pska_essential.product_api
 
 clean:
 	find . -type d \( -name __pycache__ -o -name .pytest_cache \) -prune -exec rm -rf {} +

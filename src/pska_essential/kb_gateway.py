@@ -257,8 +257,221 @@ class RagflowKnowledgeGateway:
         return envelope.get("data") or {}
 
 
-def build_kb_gateway_from_env() -> RagflowKnowledgeGateway:
-    provider = os.getenv("PSKA_KB_PROVIDER", "ragflow").strip().lower()
+class FakeKnowledgeGateway:
+    """Explicit development/test KB gateway.
+
+    This gateway is available only when `PSKA_DEV_FAKE=1`. It lets Product API
+    and frontend flows exercise KB behavior without silently falling back from a
+    configured provider.
+    """
+
+    backend_name = "fake"
+
+    def __init__(self) -> None:
+        self.datasets: dict[str, dict[str, Any]] = {
+            "demo": {
+                "backend": self.backend_name,
+                "dataset_id": "demo",
+                "name": "Demo Knowledge Base",
+                "description": "Local development dataset",
+                "document_count": 1,
+                "chunk_count": 2,
+                "chunk_method": "naive",
+                "embedding_model": "fake",
+                "permission": "me",
+            }
+        }
+        self.documents: dict[str, list[dict[str, Any]]] = {
+            "demo": [
+                {
+                    "backend": self.backend_name,
+                    "dataset_id": "demo",
+                    "document_id": "demo-1",
+                    "name": "pska-doctrine.txt",
+                    "chunk_method": "naive",
+                    "chunk_count": 2,
+                    "token_count": 42,
+                    "progress": 1.0,
+                    "progress_msg": "ready",
+                    "run": "DONE",
+                    "status": "ready",
+                }
+            ]
+        }
+
+    def list_datasets(self, *, name: str | None = None, page_size: int = 30) -> list[dict[str, Any]]:
+        datasets = list(self.datasets.values())
+        if name:
+            datasets = [dataset for dataset in datasets if dataset.get("name") == name]
+        return [dict(dataset) for dataset in datasets[:page_size]]
+
+    def create_dataset(self, *, name: str, description: str = "", chunk_method: str = "naive") -> dict[str, Any]:
+        dataset_id = f"fake_ds_{uuid4().hex[:12]}"
+        dataset = {
+            "backend": self.backend_name,
+            "dataset_id": dataset_id,
+            "name": name,
+            "description": description,
+            "document_count": 0,
+            "chunk_count": 0,
+            "chunk_method": chunk_method,
+            "embedding_model": "fake",
+            "permission": "me",
+        }
+        self.datasets[dataset_id] = dataset
+        self.documents[dataset_id] = []
+        return dict(dataset)
+
+    def ensure_dataset(self, *, name: str, description: str = "", chunk_method: str = "naive") -> dict[str, Any]:
+        for dataset in self.datasets.values():
+            if dataset.get("name") == name:
+                return {"created": False, "dataset": dict(dataset)}
+        return {
+            "created": True,
+            "dataset": self.create_dataset(name=name, description=description, chunk_method=chunk_method),
+        }
+
+    def list_documents(
+        self,
+        *,
+        dataset_id: str,
+        document_id: str | None = None,
+        name: str | None = None,
+        page_size: int = 30,
+    ) -> list[dict[str, Any]]:
+        docs = list(self.documents.get(dataset_id, []))
+        if document_id:
+            docs = [doc for doc in docs if doc.get("document_id") == document_id]
+        if name:
+            docs = [doc for doc in docs if doc.get("name") == name]
+        return [dict(doc) for doc in docs[:page_size]]
+
+    def upload_documents(self, *, dataset_id: str, file_paths: list[str]) -> list[dict[str, Any]]:
+        if dataset_id not in self.datasets:
+            self.datasets[dataset_id] = {
+                "backend": self.backend_name,
+                "dataset_id": dataset_id,
+                "name": dataset_id,
+                "description": "",
+                "document_count": 0,
+                "chunk_count": 0,
+                "chunk_method": "naive",
+                "embedding_model": "fake",
+                "permission": "me",
+            }
+            self.documents[dataset_id] = []
+        docs = []
+        for file_path in file_paths:
+            path = _checked_file(file_path)
+            doc = {
+                "backend": self.backend_name,
+                "dataset_id": dataset_id,
+                "document_id": f"fake_doc_{uuid4().hex[:12]}",
+                "name": path.name,
+                "chunk_method": "naive",
+                "chunk_count": 0,
+                "token_count": 0,
+                "progress": 0.0,
+                "progress_msg": "uploaded",
+                "run": "UNSTART",
+                "status": "uploaded",
+            }
+            docs.append(doc)
+            self.documents.setdefault(dataset_id, []).append(doc)
+        self.datasets[dataset_id]["document_count"] = len(self.documents.get(dataset_id, []))
+        return [dict(doc) for doc in docs]
+
+    def parse_documents(
+        self,
+        *,
+        dataset_id: str,
+        document_ids: list[str],
+        wait: bool = False,
+        timeout_seconds: float = 300.0,
+    ) -> dict[str, Any]:
+        docs = self.documents.get(dataset_id, [])
+        for doc in docs:
+            if doc.get("document_id") in document_ids:
+                doc["chunk_count"] = max(int(doc.get("chunk_count") or 0), 1)
+                doc["token_count"] = max(int(doc.get("token_count") or 0), 8)
+                doc["progress"] = 1.0
+                doc["progress_msg"] = "ready"
+                doc["run"] = "DONE"
+                doc["status"] = "ready"
+        self.datasets[dataset_id]["chunk_count"] = sum(int(doc.get("chunk_count") or 0) for doc in docs)
+        result: dict[str, Any] = {
+            "backend": self.backend_name,
+            "dataset_id": dataset_id,
+            "document_ids": document_ids,
+            "parse_started": True,
+        }
+        if wait:
+            result["documents"] = self.list_documents(dataset_id=dataset_id, page_size=100)
+        return result
+
+    def document_graph(self, *, dataset_id: str, document_id: str) -> dict[str, Any]:
+        return {
+            "backend": self.backend_name,
+            "dataset_id": dataset_id,
+            "document_id": document_id,
+            "templates": [],
+            "note": "Fake KB gateway does not build structure graphs.",
+        }
+
+    def ingest_files(
+        self,
+        *,
+        file_paths: list[str],
+        dataset_id: str | None = None,
+        dataset_name: str | None = None,
+        description: str = "",
+        chunk_method: str = "naive",
+        parse: bool = True,
+        wait: bool = False,
+        timeout_seconds: float = 300.0,
+    ) -> dict[str, Any]:
+        created = False
+        if dataset_id:
+            dataset = self.datasets.get(dataset_id, {"dataset_id": dataset_id, "name": dataset_id})
+        else:
+            if not dataset_name:
+                raise KbGatewayError("dataset_name is required when dataset_id is not provided")
+            ensured = self.ensure_dataset(name=dataset_name, description=description, chunk_method=chunk_method)
+            created = bool(ensured["created"])
+            dataset = ensured["dataset"]
+            dataset_id = str(dataset["dataset_id"])
+        documents = self.upload_documents(dataset_id=dataset_id, file_paths=file_paths)
+        result: dict[str, Any] = {
+            "backend": self.backend_name,
+            "dataset_created": created,
+            "dataset": dict(self.datasets.get(dataset_id, dataset)),
+            "documents": documents,
+        }
+        if parse:
+            result["parse"] = self.parse_documents(
+                dataset_id=dataset_id,
+                document_ids=[doc["document_id"] for doc in documents],
+                wait=wait,
+                timeout_seconds=timeout_seconds,
+            )
+            result["documents"] = self.list_documents(dataset_id=dataset_id, page_size=100)
+        return result
+
+
+_FAKE_KB_GATEWAY = FakeKnowledgeGateway()
+
+
+def build_kb_gateway_from_env() -> RagflowKnowledgeGateway | FakeKnowledgeGateway:
+    provider = os.getenv("PSKA_KB_PROVIDER", "").strip().lower()
+    if not provider:
+        if _env_enabled("PSKA_DEV_FAKE"):
+            provider = "fake"
+        else:
+            raise KbGatewayError("PSKA_KB_PROVIDER is required")
+    if provider == "fake":
+        if not _env_enabled("PSKA_DEV_FAKE"):
+            raise KbGatewayError("PSKA_KB_PROVIDER=fake is allowed only when PSKA_DEV_FAKE=1")
+        return _FAKE_KB_GATEWAY
     if provider != "ragflow":
         raise KbGatewayError(f"unsupported KB provider: {provider}")
     return RagflowKnowledgeGateway(
@@ -338,3 +551,7 @@ def _multipart_files(paths: list[Path]) -> tuple[bytes, str]:
         )
     chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
     return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
+def _env_enabled(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}

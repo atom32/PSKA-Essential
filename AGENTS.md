@@ -3,6 +3,12 @@
 This repository builds PSKA as a universal product, not a domain-specific demo.
 Codex and other coding agents must follow these rules.
 
+## Product Philosophy
+
+PSKA is not another RAG system, another memory engine, or another agent
+framework. PSKA provides a stable, governance-driven orchestration layer that
+connects independent AI systems into a coherent, auditable knowledge workspace.
+
 ## Product Boundary
 
 - PSKA-Essential is the glue and control layer for knowledge workflows.
@@ -15,6 +21,38 @@ Codex and other coding agents must follow these rules.
   the frontend owns user workflows, and the glue layer owns backend orchestration,
   review gates, normalized contracts, audit, and MCP/tool access.
 
+## Layer Rule
+
+- Frontend code must communicate only with PSKA services, product APIs, and MCP
+  tools.
+- Frontend code must never call RAGFlow, Graphiti, embedding services, LLM
+  providers, databases, queues, or other backend systems directly.
+- Backend integrations belong exclusively to adapters.
+
+## API Boundary
+
+- All external access must go through stable PSKA APIs, MCP tools, CLI/SDK
+  surfaces, or adapter contracts.
+- Do not expose internal databases, queues, or provider APIs directly to
+  clients.
+- Do not let temporary integration convenience become a public contract.
+
+## Canonical Model Rule
+
+- PSKA owns the canonical domain model.
+- External systems may use different schemas, IDs, and payloads internally, but
+  adapters must translate them into PSKA contracts.
+- Do not leak provider-specific data structures outside adapters.
+- Frontend, MCP, SDK, CLI, audit, review, and export flows should speak PSKA
+  contract language, not provider-native language.
+
+## Provider Independence Rule
+
+- Do not encode provider-specific prompts, response formats, tool names, API
+  shapes, or runtime assumptions into core modules.
+- Provider-specific behavior belongs inside adapters, skills, or configuration.
+- Hermes is the first supported agent host, not a permanent coupling point.
+
 ## Universal Product Rule
 
 - Do not add case-specific logic, hardcoded companies, hardcoded industries,
@@ -23,6 +61,8 @@ Codex and other coding agents must follow these rules.
   product behavior.
 - Product features must be driven by user-provided workspace, dataset, document,
   schema, taxonomy, or prompt inputs.
+- Product behavior is determined by workspace configuration, selected datasets,
+  schemas, prompts, and policies, never by runtime special cases.
 
 ## No Fallback Rule
 
@@ -43,6 +83,15 @@ Codex and other coding agents must follow these rules.
 - Agent output must remain scoped to selected datasets/documents/memory. If
   context is insufficient, the workflow must ask for more context or report that
   it cannot answer.
+
+## Deterministic Workflow Rule
+
+- Workflow state transitions must be explicit and auditable.
+- Every review, memory application, graph write, durable knowledge update, and
+  export must produce traceable records.
+- Avoid hidden state changes.
+- Never write durable memory, graph, profile, or summary state as a side effect
+  of retrieval, answering, ingestion, or export.
 
 ## Embedding And Ingestion Rule
 

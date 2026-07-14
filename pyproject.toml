@@ -15,6 +15,7 @@ dev = ["pytest>=8.0.0"]
 
 [project.scripts]
 pska-essential-mcp = "pska_essential.mcp_server:main"
+pska-essential-api = "pska_essential.product_api:main"
 
 [build-system]
 requires = ["hatchling"]

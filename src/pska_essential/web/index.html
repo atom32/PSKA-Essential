@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PSKA Essential</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary">
+        <div class="brand">
+          <span class="brand-mark">P</span>
+          <div>
+            <strong>PSKA</strong>
+            <span>Essential Alpha</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="home">Home</button>
+          <button class="nav-item" data-view="kb">Knowledge Bases</button>
+          <button class="nav-item" data-view="ask">Ask</button>
+          <button class="nav-item" data-view="reader">Reader</button>
+          <button class="nav-item" data-view="writing">Writing</button>
+          <button class="nav-item" data-view="review">Review</button>
+          <button class="nav-item" data-view="settings">Settings</button>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Knowledge Workspace</p>
+            <h1 id="view-title">Home</h1>
+          </div>
+          <div class="status-strip">
+            <span id="api-status" class="status-pill pending">Checking API</span>
+            <button id="refresh-all" class="secondary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <section id="home" class="view active">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span>Datasets</span>
+              <strong id="metric-datasets">0</strong>
+            </div>
+            <div class="metric-card">
+              <span>Pending Reviews</span>
+              <strong id="metric-reviews">0</strong>
+            </div>
+            <div class="metric-card">
+              <span>Last Run</span>
+              <strong id="metric-run">None</strong>
+            </div>
+          </div>
+
+          <div class="work-band">
+            <div>
+              <h2>Recent Knowledge Bases</h2>
+              <div id="home-datasets" class="list empty-list">No datasets loaded.</div>
+            </div>
+            <div>
+              <h2>Review Queue</h2>
+              <div id="home-reviews" class="list empty-list">No pending reviews.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="kb" class="view">
+          <div class="two-column">
+            <form id="create-kb-form" class="panel">
+              <h2>Create Knowledge Base</h2>
+              <label>
+                Name
+                <input name="name" autocomplete="off" required />
+              </label>
+              <label>
+                Description
+                <textarea name="description" rows="3"></textarea>
+              </label>
+              <label>
+                Chunk Method
+                <select name="chunk_method">
+                  <option value="naive">naive</option>
+                  <option value="paper">paper</option>
+                  <option value="book">book</option>
+                  <option value="qa">qa</option>
+                </select>
+              </label>
+              <button type="submit" class="primary-button">Create</button>
+            </form>
+
+            <form id="upload-form" class="panel">
+              <h2>Upload Documents</h2>
+              <label>
+                Existing Dataset ID
+                <input name="dataset_id" autocomplete="off" />
+              </label>
+              <label>
+                New Dataset Name
+                <input name="dataset_name" autocomplete="off" />
+              </label>
+              <label>
+                Files
+                <input name="file" type="file" multiple required />
+              </label>
+              <div class="inline-options">
+                <label class="check-row">
+                  <input name="parse" type="checkbox" checked />
+                  <span>Parse after upload</span>
+                </label>
+                <label class="check-row">
+                  <input name="wait" type="checkbox" />
+                  <span>Wait for completion</span>
+                </label>
+              </div>
+              <button type="submit" class="primary-button">Upload</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Datasets</h2>
+              <button id="reload-datasets" class="secondary-button" type="button">Reload</button>
+            </div>
+            <div id="datasets-list" class="list empty-list">No datasets loaded.</div>
+          </div>
+
+          <form id="document-status-form" class="panel compact-form">
+            <h2>Document Status</h2>
+            <label>
+              Dataset ID
+              <input name="dataset_id" autocomplete="off" required />
+            </label>
+            <button type="submit" class="secondary-button">Check</button>
+          </form>
+          <div id="documents-list" class="list"></div>
+        </section>
+
+        <section id="ask" class="view">
+          <form id="ask-form" class="panel ask-panel">
+            <h2>Scoped Question</h2>
+            <label>
+              Dataset IDs
+              <input name="dataset_ids" placeholder="dataset-a, dataset-b" autocomplete="off" required />
+            </label>
+            <label>
+              Document IDs
+              <input name="document_ids" placeholder="optional comma-separated ids" autocomplete="off" />
+            </label>
+            <label>
+              Question
+              <textarea name="question" rows="5" required></textarea>
+            </label>
+            <div class="form-row">
+              <label>
+                Limit
+                <input name="limit" type="number" min="1" max="20" value="5" />
+              </label>
+              <label>
+                Proposal
+                <select name="proposal_kind">
+                  <option value="writing_brief">writing_brief</option>
+                  <option value="digest">digest</option>
+                  <option value="memory_patch">memory_patch</option>
+                </select>
+              </label>
+              <label class="check-row side-check">
+                <input name="create_review" type="checkbox" />
+                <span>Force review</span>
+              </label>
+            </div>
+            <button type="submit" class="primary-button">Run Ask</button>
+          </form>
+
+          <div id="ask-result" class="results-zone"></div>
+        </section>
+
+        <section id="review" class="view">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Review Queue</h2>
+              <button id="reload-reviews" class="secondary-button" type="button">Reload</button>
+            </div>
+            <div id="reviews-list" class="list empty-list">No reviews loaded.</div>
+          </div>
+        </section>
+
+        <section id="writing" class="view">
+          <div class="writing-layout">
+            <div class="panel">
+              <div class="panel-header">
+                <h2>Brief Workspace</h2>
+                <div class="status-strip">
+                  <button id="reload-workflows" class="secondary-button" type="button">Reload Runs</button>
+                  <button id="export-markdown" class="secondary-button" type="button">Markdown</button>
+                  <button id="export-json" class="secondary-button" type="button">JSON</button>
+                </div>
+              </div>
+              <div id="writing-current" class="empty-list">Run Ask to create a sourced brief.</div>
+            </div>
+            <div class="panel">
+              <h2>Recent Runs</h2>
+              <div id="workflow-list" class="list empty-list">No runs loaded.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="reader" class="view">
+          <div class="reader-layout">
+            <div class="panel">
+              <div class="panel-header">
+                <h2>Source Reader</h2>
+                <span id="reader-status" class="tag">No source selected</span>
+              </div>
+              <div id="reader-source" class="reader-source empty-list">Select a source from Ask.</div>
+            </div>
+            <div class="panel">
+              <h2>Source Coordinates</h2>
+              <dl id="reader-metadata" class="settings-list"></dl>
+            </div>
+          </div>
+        </section>
+
+        <section id="settings" class="view">
+          <div class="panel">
+            <h2>Runtime</h2>
+            <dl id="runtime-settings" class="settings-list"></dl>
+          </div>
+          <div class="panel">
+            <h2>Product Boundary</h2>
+            <ul class="boundary-list">
+              <li>Frontend calls PSKA Product API only.</li>
+              <li>Provider payloads stay behind adapters.</li>
+              <li>Durable knowledge changes go through workspace governance.</li>
+              <li>Backend failures surface as explicit errors.</li>
+            </ul>
+          </div>
+        </section>
+
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
