@@ -198,9 +198,10 @@ Implemented:
   without export side effects; Markdown and JSON buttons perform explicit
   exports.
 - Exports are traceable work products: Markdown and JSON include proposal/work
-  product content, source manifests, supporting context, and traceability
-  metadata, including durable-memory source manifests and the workflow export
-  audit event for explicit exports.
+  product content, source manifests, inspected source snippets, supporting
+  context, and traceability metadata, including durable-memory source manifests,
+  source inspection counts, and the workflow export audit event for explicit
+  exports.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Product API, MCP, and frontend Settings expose the workspace governance
@@ -336,9 +337,9 @@ governance/status details, opens related review items, and can apply accepted
 memory patches, reviewed memory updates, or reviewed memory deletions, then
 inspect the reviewed lifecycle for a durable MemoryFact. Explicit
 exports produce traceable
-Markdown/JSON work products with source manifests, supporting context, and
-traceability metadata, include the workflow export audit event, and create
-workflow export audit records. Review
+Markdown/JSON work products with source manifests, inspected source snippets,
+supporting context, and traceability metadata, include the workflow export audit
+event, and create workflow export audit records. Review
 decisions and memory apply/update/delete actions refresh the current Ask/Writing
 state, and applied memory state is served back through Review API records. Review supports
 status filtering without changing the Home pending-review summary. Activity

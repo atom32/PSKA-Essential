@@ -140,8 +140,9 @@ history APIs.
 Reader inspects sources through Product API only. Writing opens workflow state,
 work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions; exports include
-the work product, source manifest, durable-memory source trace, supporting
-context, and traceability metadata, and create workflow audit records. Activity shows the recent audit
+the work product, source manifest, inspected source snippets, durable-memory
+source trace, supporting context, and traceability metadata, and create workflow
+audit records. Activity shows the recent audit
 trail, including review and memory apply/update/delete records with proposal,
 run, and source trace metadata. Upload, parsing,
 embedding, indexing, and optional graph extraction readiness remain visible

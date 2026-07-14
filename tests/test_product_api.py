@@ -180,9 +180,12 @@ class ProductApiTests(unittest.TestCase):
         exported = self._get_json(f"/api/workflows/{asked['run']['run_id']}/export?format=markdown")
         self.assertIn("PSKA-Essential Brief", exported["export"])
         self.assertIn("## Source Manifest", exported["export"])
+        self.assertIn("## Inspected Sources", exported["export"])
         exported_json = self._get_json(f"/api/workflows/{asked['run']['run_id']}/export?format=json")
         self.assertEqual(exported_json["export"]["traceability"]["context_count"], 1)
+        self.assertEqual(exported_json["export"]["traceability"]["source_inspection_count"], 1)
         self.assertEqual(exported_json["export"]["traceability"]["source_count"], 1)
+        self.assertEqual(exported_json["export"]["traceability"]["export"]["source_inspection_count"], 1)
         self.assertEqual(exported_json["export"]["latest_proposal"]["kind"], "memory_patch")
 
         reviews = self._get_json("/api/reviews?status=pending")

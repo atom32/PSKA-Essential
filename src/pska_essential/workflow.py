@@ -498,6 +498,7 @@ class WorkflowService:
         packet_payload = artifact["context_packets"]
         proposal_payload = artifact["proposals"]
         source_manifest = artifact["source_manifest"]
+        source_inspections = artifact.get("source_inspections") or []
         memory_source_manifest = artifact["memory_source_manifest"]
         export_event = self.store.add_audit_event(
             audit_event(
@@ -506,6 +507,7 @@ class WorkflowService:
                 run_id,
                 format=fmt,
                 context_count=len(packet_payload),
+                source_inspection_count=len(source_inspections),
                 memory_count=len(artifact.get("memory_facts") or []),
                 memory_source_count=len(memory_source_manifest),
                 proposal_count=len(proposal_payload),
@@ -519,6 +521,7 @@ class WorkflowService:
             "target_type": export_event.target_type,
             "target_id": export_event.target_id,
             "format": fmt,
+            "source_inspection_count": len(source_inspections),
             "exported_at": export_event.created_at,
         }
         return self._format_artifact(run, artifact, fmt)
@@ -530,6 +533,7 @@ class WorkflowService:
         fmt: str,
     ) -> str | dict[str, Any]:
         source_manifest = artifact["source_manifest"]
+        source_inspections = artifact.get("source_inspections") or []
         memory_facts = artifact.get("memory_facts") or []
         memory_source_manifest = artifact.get("memory_source_manifest") or []
         if fmt == "json":
@@ -541,6 +545,7 @@ class WorkflowService:
             f"- Status: `{run.status}`",
             f"- Scope: `{_json_inline(run.scope)}`",
             f"- Source count: `{len(source_manifest)}`",
+            f"- Inspected source count: `{len(source_inspections)}`",
         ]
         export_trace = artifact.get("traceability", {}).get("export")
         if export_trace:
@@ -587,6 +592,21 @@ class WorkflowService:
             lines.append("")
         else:
             lines.extend(["No source manifest is available for this workflow.", ""])
+        if source_inspections:
+            lines.extend(["## Inspected Sources", ""])
+            for index, source in enumerate(source_inspections, start=1):
+                source_ref = SourceRef.from_dict(source.get("source_ref") or {})
+                title = source_ref.title or source_ref.document_id or source_ref.source_id or f"Source {index}"
+                lines.extend(
+                    [
+                        f"### [{index}] {title}",
+                        "",
+                        str(source.get("text") or ""),
+                        "",
+                        f"Source [{index}]: `{source_ref.adapter}` / `{_source_display_id(source_ref)}`",
+                        "",
+                    ]
+                )
         if memory_facts:
             lines.extend(["## Durable Workspace Memory", ""])
             for index, fact in enumerate(memory_facts, start=1):

@@ -245,14 +245,18 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertEqual(result["artifact"]["memory_facts"][0]["fact_id"], result["memory_facts"][0]["fact_id"])
         self.assertIn("Durable workspace memory", result["proposal"]["body"])
         exported = service.export_brief(result["run"]["run_id"], "markdown")
+        self.assertIn("## Inspected Sources", exported)
         self.assertIn("## Durable Workspace Memory", exported)
         self.assertIn("| Source | Adapter | Dataset | Document | Chunk/Source |", exported)
         self.assertIn("| 1 | fake |", exported)
         exported_json = service.export_brief(result["run"]["run_id"], "json")
+        self.assertEqual(exported_json["traceability"]["source_inspection_count"], 2)
+        self.assertEqual(exported_json["traceability"]["export"]["source_inspection_count"], 2)
         self.assertEqual(exported_json["traceability"]["memory_source_count"], expected_memory_source_count)
         export_events = [
             event for event in service.store.list_audit_events() if event.action == "workflow.export"
         ]
+        self.assertEqual(export_events[-1].metadata["source_inspection_count"], 2)
         self.assertEqual(export_events[-1].metadata["memory_count"], 1)
         self.assertEqual(export_events[-1].metadata["memory_source_count"], expected_memory_source_count)
         memory_step = next(step for step in result["loop"]["steps"] if step["name"] == "memory.search")

@@ -308,8 +308,8 @@ structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
 through explicit Product API actions. Exported work products include the
-workflow export audit event and durable-memory source trace in their
-traceability metadata. Settings shows runtime provider configuration, Product
+workflow export audit event, inspected source snippets, and durable-memory
+source trace in their traceability metadata. Settings shows runtime provider configuration, Product
 API diagnostics for review store, KB gateway, retrieval, and memory
 connectivity, and an explicit retrieval probe for the selected dataset before
 running Ask. Product API health, diagnostics, probe audit records, and other
