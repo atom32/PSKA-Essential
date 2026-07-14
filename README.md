@@ -334,7 +334,9 @@ ready, automatically refreshes ingestion status after uploads, and preselects a
 ready dataset in Ask scope when ingestion completes. Dataset cards can open Ask,
 set an existing upload target, or load document status without copying dataset
 IDs. Ask can check selected scope readiness before running the agentic loop,
-using the same Product API readiness gate that protects retrieval. It can also open optional document
+using the same Product API readiness gate that protects retrieval, and then
+offers readiness actions such as Run Ask, Parse Scope, Track Status, and Open
+Status without leaving the selected scope. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products

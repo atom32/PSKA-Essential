@@ -773,6 +773,8 @@ async function checkAskReadiness(options = {}) {
 
 function renderAskReadinessStatus() {
   const node = document.getElementById("ask-readiness-status");
+  const actionsNode = document.getElementById("ask-readiness-actions");
+  if (actionsNode) actionsNode.replaceChildren();
   if (!node) return;
   const datasetIds = askDatasetIds();
   const documentIds = askDocumentIds();
@@ -794,6 +796,84 @@ function renderAskReadinessStatus() {
   const progress = job.kind ? ` ${formatPercent(job.progress)}.` : "";
   node.className = `job-status ${statusClass(readiness.status)}`;
   node.textContent = `${readiness.message || "Ask scope readiness checked."}${progress}${suffix}`;
+  renderAskReadinessActions(actionsNode, readiness);
+}
+
+function renderAskReadinessActions(container, readiness) {
+  if (!container || !readiness) return;
+  const job = readiness.ingestion_status || {};
+  const actions = new Set(job.next_actions || []);
+  const datasetId = readinessDatasetForAction(readiness, "") || (readiness.dataset_ids || [])[0] || "";
+  if (readiness.ready || actions.has("run_ask")) {
+    container.append(el("button", { className: "primary-button", onclick: submitAskForm }, "Run Ask"));
+  }
+  if (actions.has("start_parse")) {
+    container.append(
+      el(
+        "button",
+        { className: "primary-button", onclick: () => handleAskReadinessAction("start_parse") },
+        "Parse Scope",
+      ),
+    );
+  }
+  if (actions.has("wait_for_ingestion")) {
+    container.append(
+      el(
+        "button",
+        { className: "secondary-button", onclick: () => handleAskReadinessAction("wait_for_ingestion") },
+        "Track Status",
+      ),
+    );
+  }
+  if (datasetId) {
+    container.append(
+      el(
+        "button",
+        { className: "secondary-button", onclick: () => handleAskReadinessAction("open_status") },
+        "Open Status",
+      ),
+    );
+  }
+}
+
+async function handleAskReadinessAction(action) {
+  const readiness = state.askReadiness || {};
+  const datasetId = readinessDatasetForAction(readiness, action) || (askDatasetIds() || [])[0] || "";
+  if (!datasetId) {
+    showToast("Select at least one dataset.");
+    return;
+  }
+  await openDatasetStatus(datasetId);
+  if (action === "start_parse") {
+    await parseDatasetDocuments(datasetId, askDocumentIds());
+    return;
+  }
+  if (action === "wait_for_ingestion") {
+    startIngestionPolling(datasetId);
+  }
+}
+
+function readinessDatasetForAction(readiness, action) {
+  const productAction = productReadinessAction(action);
+  const datasets = readiness.datasets || [];
+  const match = datasets.find((dataset) => productReadinessAction((dataset.ingestion || {}).next_action) === productAction);
+  return String((match && match.dataset_id) || (readiness.dataset_ids || [])[0] || "");
+}
+
+function productReadinessAction(action) {
+  const mapping = {
+    inspect_cancelled_documents: "inspect_cancellation",
+    inspect_failed_documents: "inspect_failure",
+    open_status: "open_status",
+    run_ask: "run_agentic_question",
+    start_parse: "parse_documents",
+  };
+  return mapping[action] || action || "";
+}
+
+function submitAskForm() {
+  const form = document.getElementById("ask-form");
+  if (form) form.requestSubmit();
 }
 
 function renderAskDocumentPicker() {
@@ -859,6 +939,10 @@ async function parseActiveDocuments() {
   const field = document.querySelector('#document-status-form input[name="dataset_id"]');
   const requestedDatasetId = field ? field.value.trim() : "";
   const datasetId = requestedDatasetId || state.activeDocumentDatasetId || "";
+  await parseDatasetDocuments(datasetId);
+}
+
+async function parseDatasetDocuments(datasetId, requestedDocumentIds = []) {
   if (!datasetId) {
     showToast("Load a dataset before parsing documents.");
     return;
@@ -867,7 +951,9 @@ async function parseActiveDocuments() {
   if (!documents.length) {
     documents = await loadDocuments(datasetId);
   }
+  const requested = new Set(uniqueIds(requestedDocumentIds));
   const documentIds = documents
+    .filter((document) => !requested.size || requested.has(document.document_id))
     .filter((document) => documentState(document).label !== "ready")
     .map((document) => document.document_id)
     .filter(Boolean);
