@@ -342,7 +342,9 @@ original workflow request. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
-through explicit Product API actions. Exported work products include the
+through explicit Product API actions; ready Ask results can also trigger those
+Markdown/JSON exports directly and open the generated work product in Writing.
+Exported work products include the
 workflow export audit event, inspected source snippets, and durable-memory
 source trace in their traceability metadata. Settings shows runtime provider configuration, Product
 API diagnostics for review store, KB gateway, retrieval, and memory

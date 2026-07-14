@@ -116,8 +116,10 @@ shows any retrieved partial context, and does not create a proposal, review, or
 export. If KB readiness blocks the selected scope, Ask returns `not_ready` and
 persists a blocked workflow with readiness diagnostics so frontend and MCP
 flows can recover it later. Successful Ask results prepare a transient sourced brief and artifact
-without creating workflow export audit records. Ask results can jump directly to
-Writing or Review and can apply accepted memory patches through Product API.
+without creating workflow export audit records. Ready Ask results can trigger
+explicit Markdown/JSON exports and open the generated work product in Writing,
+or jump directly to Writing or Review, through Product API.
+Ask results can apply accepted memory patches through Product API.
 Writing can also turn an existing sourced transient workflow into a governed
 Memory Review through Product API; this is the explicit transition from
 transient work product to durable memory candidate and follows workspace policy
@@ -144,7 +146,8 @@ showing reviewed apply/update/delete history without calling backend memory
 history APIs.
 Reader inspects sources through Product API only. Writing opens workflow state,
 work product, source manifest, and context without creating an export, then
-exports Markdown or JSON through explicit Product API actions; exports include
+exports Markdown or JSON through explicit Product API actions. Ready Ask results
+can also trigger the same explicit exports and open Writing. Exports include
 the work product, source manifest, inspected source snippets, durable-memory
 source trace, supporting context, and traceability metadata, and create workflow
 audit records. Activity shows the recent audit

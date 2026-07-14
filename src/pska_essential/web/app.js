@@ -1221,6 +1221,20 @@ function askResultActions(result) {
     actions.append(
       el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, "Open Writing"),
     );
+    if (result.status === "ready") {
+      actions.append(
+        el(
+          "button",
+          { className: "secondary-button", onclick: () => exportWorkflow(result.run.run_id, "markdown", { openWriting: true }) },
+          "Markdown",
+        ),
+        el(
+          "button",
+          { className: "secondary-button", onclick: () => exportWorkflow(result.run.run_id, "json", { openWriting: true }) },
+          "JSON",
+        ),
+      );
+    }
     if (result.status === "ready" && !reviewId) {
       actions.append(
         el(
@@ -2046,15 +2060,35 @@ async function exportCurrent(format) {
     showToast("No run selected.");
     return;
   }
-  const runId = state.currentBrief.run.run_id;
-  const payload = await api(`/api/workflows/${encodeURIComponent(runId)}/export?format=${encodeURIComponent(format)}`);
+  await exportWorkflow(state.currentBrief.run.run_id, format);
+}
+
+async function exportWorkflow(runId, format, options = {}) {
+  const selectedRunId = String(runId || "").trim();
+  if (!selectedRunId) {
+    showToast("No run selected.");
+    return;
+  }
+  const payload = await api(`/api/workflows/${encodeURIComponent(selectedRunId)}/export?format=${encodeURIComponent(format)}`);
   const content = typeof payload.export === "string" ? payload.export : JSON.stringify(payload.export, null, 2);
+  const current =
+    state.currentBrief && state.currentBrief.run && state.currentBrief.run.run_id === selectedRunId
+      ? state.currentBrief
+      : {
+          run: state.workflows.find((workflow) => workflow.run_id === selectedRunId) || { run_id: selectedRunId },
+          artifact: {},
+          status: "ready",
+        };
+  state.currentBrief = current;
   state.currentBrief.brief = content;
   if (payload.export && typeof payload.export === "object") {
     state.currentBrief.artifact = payload.export;
   }
   renderWriting();
   await loadAuditEvents("workflow.export");
+  if (options.openWriting) {
+    document.querySelector('.nav-item[data-view="writing"]').click();
+  }
   showToast(`${format.toUpperCase()} export loaded.`);
 }
 

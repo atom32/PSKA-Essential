@@ -231,6 +231,8 @@ Implemented:
 - Writing opens workflow state, work product, source manifest, and context
   without export side effects; Markdown and JSON buttons perform explicit
   exports.
+- Ready Ask results can trigger explicit Markdown/JSON exports and open the
+  generated work product in Writing.
 - Exports are traceable work products: Markdown and JSON include proposal/work
   product content, source manifests, inspected source snippets, supporting
   context, and traceability metadata, including durable-memory source manifests,
@@ -374,7 +376,7 @@ effects, restores persisted loop
 governance/status details, opens related review items, and can apply accepted
 memory patches, reviewed memory updates, or reviewed memory deletions, then
 inspect the reviewed lifecycle for a durable MemoryFact. Explicit
-exports produce traceable
+exports can also be launched from ready Ask results and produce traceable
 Markdown/JSON work products with source manifests, inspected source snippets,
 supporting context, and traceability metadata, include the workflow export audit
 event, and create workflow export audit records. Review
