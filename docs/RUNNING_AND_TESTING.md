@@ -284,7 +284,8 @@ frontend preselects that dataset in Ask scope but still waits for the user or
 agent to provide the question. Dataset cards expose Ask, Upload, and Status
 actions so users can continue the workflow without copying dataset IDs between
 forms, and newly created knowledge bases are selected as upload targets
-automatically. Ask exposes a scope readiness check that calls the Product API readiness
+automatically. Upload keeps the resolved target selected for additional files.
+Ask exposes a scope readiness check that calls the Product API readiness
 gate before the agentic loop starts; submitting Ask still performs the backend
 readiness gate and returns a resumable blocked workflow when needed. The Ask
 readiness preview renders explicit actions for the checked scope, including Run

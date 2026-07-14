@@ -96,12 +96,17 @@ function bindForms() {
     payload.append("parse", form.get("parse") ? "true" : "false");
     payload.append("wait", form.get("wait") ? "true" : "false");
     const result = await api("/api/kb/ingest", { method: "POST", formData: payload });
+    const datasetId = ingestDatasetId(result.ingest);
     event.currentTarget.reset();
-    showToast("Upload accepted.");
+    if (datasetId) {
+      setUploadDataset(datasetId);
+      showToast("Upload accepted. Target kept for more files.");
+    } else {
+      showToast("Upload accepted.");
+    }
     renderIngestResult(result.ingest, result.readiness);
     await loadDatasets();
     await loadAuditEvents("kb.ingest");
-    const datasetId = ingestDatasetId(result.ingest);
     if (datasetId) {
       const documents = await loadDocuments(datasetId, { silent: true });
       const summary = summarizeDocuments(documents);

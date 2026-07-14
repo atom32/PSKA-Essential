@@ -198,7 +198,8 @@ Implemented:
 - Dataset cards expose Ask, Upload, and Status actions, so frontend users do
   not need to copy dataset IDs between workflow forms.
 - Newly created knowledge bases are selected as upload targets automatically,
-  and the upload form has a dataset picker backed by Product API dataset state.
+  upload keeps the resolved target selected for additional files, and the upload
+  form has a dataset picker backed by Product API dataset state.
 - Ask exposes a selected-scope readiness check using the same Product API
   readiness gate that protects retrieval, with explicit Run Ask, Parse Scope,
   Track Status, and Open Status actions for the checked scope. Blocked Ask
@@ -405,7 +406,8 @@ context count, Ask returns `insufficient_context`, shows any retrieved partial
 context, and does not create a proposal, review, or export. The Knowledge Bases
 view shows dataset/document
 readiness and normalized ingestion status, can start parsing for loaded unready
-documents, selects newly created knowledge bases as upload targets, can open
+documents, selects newly created knowledge bases as upload targets, keeps the
+resolved upload target selected after ingest, can open
 optional document structure graph data through Product API,
 and automatically refreshes ingestion status.
 

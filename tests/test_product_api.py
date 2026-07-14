@@ -875,6 +875,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('showToast("Knowledge base created and selected for upload.");', script)
         self.assertIn('setUploadDataset(payload.dataset.dataset_id);', script)
         self.assertIn('document.getElementById("upload-use-dataset").addEventListener("click", setUploadDatasetFromPicker);', script)
+        self.assertIn('const datasetId = ingestDatasetId(result.ingest);', script)
+        self.assertIn('showToast("Upload accepted. Target kept for more files.");', script)
         self.assertIn('renderIngestResult(result.ingest, result.readiness);\n    await loadDatasets();\n    await loadAuditEvents("kb.ingest");', script)
         self.assertIn('await loadDocuments(datasetId, { silent: true });\n  await loadWorkspaceStatus();\n  await loadAuditEvents("kb.parse");', script)
         self.assertIn('/api/runtime/diagnostics', script)
