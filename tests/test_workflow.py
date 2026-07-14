@@ -58,6 +58,8 @@ class WorkflowTests(unittest.TestCase):
 
         brief = service.export_brief(run.run_id, "markdown")
         self.assertIn("PSKA-Essential Brief", brief)
+        self.assertIn("Export audit event:", brief)
+        self.assertIn("Export format: `markdown`", brief)
         self.assertIn("## Work Product", brief)
         self.assertIn(proposal.body, brief)
         self.assertIn("## Source Manifest", brief)
@@ -70,10 +72,19 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(json_export["traceability"]["context_count"], 1)
         self.assertEqual(json_export["traceability"]["proposal_count"], 1)
         self.assertEqual(json_export["traceability"]["source_count"], 1)
+        self.assertEqual(json_export["traceability"]["export"]["action"], "workflow.export")
+        self.assertEqual(json_export["traceability"]["export"]["target_id"], run.run_id)
+        self.assertEqual(json_export["traceability"]["export"]["format"], "json")
         self.assertEqual(json_export["source_manifest"][0]["source_ref"]["adapter"], "fake")
 
-        audit_actions = [event.action for event in service.store.list_audit_events()]
-        self.assertIn("workflow.export", audit_actions)
+        export_events = [
+            event for event in service.store.list_audit_events() if event.action == "workflow.export"
+        ]
+        self.assertEqual(len(export_events), 2)
+        self.assertEqual(
+            json_export["traceability"]["export"]["audit_event_id"],
+            export_events[-1].audit_event_id,
+        )
 
     def test_workflow_artifact_reads_work_product_without_export_audit(self):
         service = build_fake_service()
@@ -88,6 +99,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(artifact["traceability"]["context_count"], 1)
         self.assertEqual(artifact["traceability"]["proposal_count"], 1)
         self.assertEqual(artifact["traceability"]["source_count"], 1)
+        self.assertNotIn("export", artifact["traceability"])
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertNotIn("workflow.export", audit_actions)
 
@@ -101,6 +113,7 @@ class WorkflowTests(unittest.TestCase):
 
         self.assertIn("PSKA-Essential Brief", brief)
         self.assertIn("## Source Manifest", brief)
+        self.assertNotIn("Export audit event:", brief)
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertNotIn("workflow.export", audit_actions)
 

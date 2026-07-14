@@ -145,7 +145,7 @@ Implemented:
   exports.
 - Exports are traceable work products: Markdown and JSON include proposal/work
   product content, source manifests, supporting context, and traceability
-  metadata.
+  metadata, including the workflow export audit event for explicit exports.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Operational upload-to-agentic-question MCP loop.
@@ -242,7 +242,8 @@ Product API Reader, opens workflow state, work product, source manifest, and
 context in Writing without export side effects, opens related review items, and
 can apply accepted memory patches. Explicit exports produce traceable
 Markdown/JSON work products with source manifests, supporting context, and
-traceability metadata and create workflow export audit records. Review
+traceability metadata, include the workflow export audit event, and create
+workflow export audit records. Review
 decisions and memory apply actions refresh the current Ask/Writing state, and
 applied memory state is served back through Review API records. Review supports
 status filtering without changing the Home pending-review summary. Activity

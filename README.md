@@ -238,8 +238,9 @@ refreshes ingestion status after uploads. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
-through explicit Product API actions. Settings shows runtime provider
-configuration and Product API diagnostics for review store, KB gateway,
-retrieval, and memory connectivity. Product API health, diagnostics, and audit
-records include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID`
+through explicit Product API actions. Exported work products include the
+workflow export audit event in their traceability metadata. Settings shows
+runtime provider configuration and Product API diagnostics for review store, KB
+gateway, retrieval, and memory connectivity. Product API health, diagnostics,
+and audit records include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID`
 and `PSKA_TENANT_ID`.

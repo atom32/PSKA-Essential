@@ -228,11 +228,18 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(opened["artifact"]["latest_proposal"]["kind"], "writing_brief")
         self.assertEqual(opened["artifact"]["traceability"]["context_count"], 1)
         self.assertEqual(opened["artifact"]["traceability"]["source_count"], 1)
+        self.assertNotIn("export", opened["artifact"]["traceability"])
         self.assertEqual(workflow_export_count(), before_open)
 
         exported = self._get_json(f"/api/workflows/{run_id}/export?format=markdown")
         self.assertIn("PSKA-Essential Brief", exported["export"])
+        self.assertIn("Export audit event:", exported["export"])
         self.assertEqual(workflow_export_count(), before_open + 1)
+        json_exported = self._get_json(f"/api/workflows/{run_id}/export?format=json")
+        self.assertEqual(json_exported["export"]["traceability"]["export"]["action"], "workflow.export")
+        self.assertEqual(json_exported["export"]["traceability"]["export"]["target_id"], run_id)
+        self.assertEqual(json_exported["export"]["traceability"]["export"]["format"], "json")
+        self.assertEqual(workflow_export_count(), before_open + 2)
 
     def test_transient_ask_does_not_create_review_by_default(self):
         asked = self._post_json(

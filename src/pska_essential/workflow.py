@@ -230,7 +230,7 @@ class WorkflowService:
         packet_payload = artifact["context_packets"]
         proposal_payload = artifact["proposals"]
         source_manifest = artifact["source_manifest"]
-        self.store.add_audit_event(
+        export_event = self.store.add_audit_event(
             audit_event(
                 "workflow.export",
                 "workflow",
@@ -242,6 +242,14 @@ class WorkflowService:
                 scope=run.scope,
             )
         )
+        artifact["traceability"]["export"] = {
+            "audit_event_id": export_event.audit_event_id,
+            "action": export_event.action,
+            "target_type": export_event.target_type,
+            "target_id": export_event.target_id,
+            "format": fmt,
+            "exported_at": export_event.created_at,
+        }
         return self._format_artifact(run, artifact, fmt)
 
     def _format_artifact(
@@ -260,10 +268,23 @@ class WorkflowService:
             f"- Status: `{run.status}`",
             f"- Scope: `{_json_inline(run.scope)}`",
             f"- Source count: `{len(source_manifest)}`",
-            "",
-            "## Work Product",
-            "",
         ]
+        export_trace = artifact.get("traceability", {}).get("export")
+        if export_trace:
+            lines.extend(
+                [
+                    f"- Export audit event: `{export_trace['audit_event_id']}`",
+                    f"- Exported at: `{export_trace['exported_at']}`",
+                    f"- Export format: `{export_trace['format']}`",
+                ]
+            )
+        lines.extend(
+            [
+                "",
+                "## Work Product",
+                "",
+            ]
+        )
         proposal_payload = artifact["proposals"]
         if proposal_payload:
             latest = proposal_payload[-1]
