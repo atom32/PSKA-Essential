@@ -15,6 +15,7 @@ from pska_essential.workflow import build_fake_service
 class _FakeGateway:
     def __init__(self) -> None:
         self.uploaded: list[dict[str, str]] = []
+        self.ready = True
 
     def list_datasets(self, *, name=None, page_size=30):
         datasets = [
@@ -23,7 +24,7 @@ class _FakeGateway:
                 "dataset_id": "demo",
                 "name": "Demo",
                 "document_count": 1,
-                "chunk_count": 2,
+                "chunk_count": 2 if self.ready else 0,
             }
         ]
         if name:
@@ -77,8 +78,9 @@ class _FakeGateway:
                 "dataset_id": dataset_id,
                 "document_id": document_id or "doc-1",
                 "name": name or "note.txt",
-                "progress": 1.0,
-                "run": "DONE",
+                "chunk_count": 1 if self.ready else 0,
+                "progress": 1.0 if self.ready else 0.1,
+                "run": "DONE" if self.ready else "RUNNING",
             }
         ]
 
@@ -126,6 +128,10 @@ class ProductApiTests(unittest.TestCase):
         )
         self.assertEqual(asked["status"], "ready")
         self.assertEqual(len(asked["context_packets"]), 1)
+        self.assertEqual(
+            [step["name"] for step in asked["loop"]["steps"][:3]],
+            ["scope.check", "governance.policy", "kb.readiness"],
+        )
         review_id = asked["review"]["review_id"]
         source = self._post_json("/api/sources/read", {"source_ref": asked["context_packets"][0]["source_ref"]})
         self.assertIn("PSKA-Essential", source["source"]["text"])
@@ -156,6 +162,32 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(asked["status"], "ready")
         self.assertIsNone(asked["review"])
         self.assertFalse(asked["loop"]["review_required"])
+
+    def test_readiness_route_reports_scope_status(self):
+        readiness = self._post_json("/api/kb/readiness", {"dataset_ids": ["demo"]})["readiness"]
+
+        self.assertTrue(readiness["ready"])
+        self.assertEqual(readiness["status"], "ready")
+
+    def test_ask_blocks_dataset_that_is_not_ready(self):
+        self.gateway.ready = False
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Can this be answered yet?",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+
+        self.assertEqual(asked["status"], "not_ready")
+        self.assertIsNone(asked["run"])
+        self.assertEqual(asked["context_packets"], [])
+        self.assertIsNone(asked["proposal"])
+        self.assertIsNone(asked["review"])
+        self.assertEqual(asked["readiness"]["status"], "processing")
+        self.assertEqual(asked["loop"]["steps"][-1]["name"], "kb.readiness")
 
     def test_multipart_ingest_uses_product_api_boundary(self):
         boundary = "pska-test-boundary"

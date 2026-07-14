@@ -94,13 +94,15 @@ function bindForms() {
     }
     const result = await api("/api/ask", { method: "POST", body });
     state.lastRunId = result.run && result.run.run_id;
-    state.currentBrief = {
-      run: result.run,
-      brief: result.brief || "",
-      status: result.status,
-      proposal: result.proposal,
-      review: result.review,
-    };
+    state.currentBrief = result.run
+      ? {
+          run: result.run,
+          brief: result.brief || "",
+          status: result.status,
+          proposal: result.proposal,
+          review: result.review,
+        }
+      : null;
     renderAskResult(result);
     renderWriting();
     await loadReviews();
@@ -243,6 +245,18 @@ function renderAskResult(result) {
     );
     return;
   }
+  if (result.status === "not_ready") {
+    const readiness = result.readiness || {};
+    container.append(
+      el("div", { className: "item-card" }, [
+        el("h3", {}, "Knowledge Scope Not Ready"),
+        el("p", {}, result.message || readiness.message || "Selected knowledge scope is not ready for retrieval."),
+      ]),
+    );
+    container.append(readinessPanel(readiness));
+    container.append(loopPanel(result));
+    return;
+  }
   container.append(
     el("div", { className: "panel" }, [
       el("div", { className: "panel-header" }, [
@@ -252,21 +266,7 @@ function renderAskResult(result) {
       el("pre", {}, result.brief || ""),
     ]),
   );
-  container.append(
-    el("div", { className: "panel" }, [
-      el("h2", {}, "Loop"),
-      el(
-        "p",
-        {},
-        `Governance action: ${((result.loop || {}).governance || {}).action || "unknown"}`,
-      ),
-      el(
-        "div",
-        { className: "source-list" },
-        ((result.loop && result.loop.steps) || []).map((step) => loopStepCard(step)),
-      ),
-    ]),
-  );
+  container.append(loopPanel(result));
   container.append(
     el("div", { className: "panel" }, [
       el("h2", {}, "Context"),
@@ -277,6 +277,68 @@ function renderAskResult(result) {
       ),
     ]),
   );
+}
+
+function loopPanel(result) {
+  return el("div", { className: "panel" }, [
+    el("h2", {}, "Loop"),
+    el(
+      "p",
+      {},
+      `Governance action: ${((result.loop || {}).governance || {}).action || "unknown"}`,
+    ),
+    el(
+      "div",
+      { className: "source-list" },
+      ((result.loop && result.loop.steps) || []).map((step) => loopStepCard(step)),
+    ),
+  ]);
+}
+
+function readinessPanel(readiness) {
+  const blocking = readiness.blocking || [];
+  const datasets = readiness.datasets || [];
+  return el("div", { className: "panel" }, [
+    el("div", { className: "panel-header" }, [
+      el("h2", {}, "Readiness"),
+      el("span", { className: `tag ${statusClass(readiness.status)}` }, readiness.status || "unknown"),
+    ]),
+    blocking.length
+      ? el("div", { className: "source-list" }, blocking.map((item) => el("p", {}, item)))
+      : el("p", {}, readiness.message || "Selected knowledge scope is ready for retrieval."),
+    el("div", { className: "source-list" }, datasets.map((dataset) => readinessDatasetCard(dataset))),
+  ]);
+}
+
+function readinessDatasetCard(dataset) {
+  const documents = dataset.documents || [];
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, dataset.name || dataset.dataset_id || "dataset"),
+        el("p", {}, dataset.dataset_id || ""),
+      ]),
+      el("span", { className: `tag ${statusClass(dataset.status)}` }, dataset.status || "unknown"),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, `docs ${dataset.document_count || 0}`),
+      el("span", { className: "tag" }, `chunks ${dataset.chunk_count || 0}`),
+      el("span", { className: "tag" }, dataset.exists ? "visible" : "missing"),
+    ]),
+    documents.length
+      ? el(
+          "div",
+          { className: "meta-row" },
+          documents.map((document) =>
+            el(
+              "span",
+              { className: `tag ${statusClass(document.status)}` },
+              `${document.name || shortId(document.document_id)}: ${document.status}`,
+            ),
+          ),
+        )
+      : null,
+  ]);
 }
 
 function renderWriting() {
@@ -306,7 +368,7 @@ function loopStepCard(step) {
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, step.name || "step"), el("p", {}, step.message || "")]),
-      el("span", { className: `tag ${step.status === "complete" ? "ready" : "pending"}` }, step.status || ""),
+      el("span", { className: `tag ${statusClass(step.status)}` }, step.status || ""),
     ]),
   ]);
 }
@@ -560,6 +622,13 @@ function documentState(document) {
   if (run === "FAIL" || run === "CANCEL") return { label: run.toLowerCase(), className: "failed" };
   if (run === "DONE" || progress >= 1) return { label: "ready", className: "ready" };
   return { label: "processing", className: "pending" };
+}
+
+function statusClass(status) {
+  const value = String(status || "").toLowerCase();
+  if (["ready", "complete", "accepted"].includes(value)) return "ready";
+  if (["failed", "fail", "missing", "blocked", "rejected", "empty"].includes(value)) return "failed";
+  return "pending";
 }
 
 function showToast(message) {

@@ -15,10 +15,12 @@ from typing import Any, Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
 from pska_essential.agentic_loop import run_agentic_question
+from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
 from pska_essential.workflow import WorkflowError, WorkflowService
 
 
@@ -155,6 +157,16 @@ def _handler_class(state: ProductApiState):
                 self._handle_ingest()
                 return
 
+            if method == "POST" and path == "/api/kb/readiness":
+                payload = self._read_json()
+                readiness = evaluate_kb_readiness(
+                    state.kb_gateway_factory(),
+                    dataset_ids=_required_list(payload, "dataset_ids"),
+                    document_ids=[str(item) for item in payload.get("document_ids") or []],
+                )
+                self._send_json({"ok": True, "readiness": readiness})
+                return
+
             dataset_documents = _match(path, "/api/kb/datasets/", "/documents")
             if method == "GET" and dataset_documents:
                 dataset_id = dataset_documents
@@ -191,17 +203,52 @@ def _handler_class(state: ProductApiState):
 
             if method == "POST" and path == "/api/ask":
                 payload = self._read_json()
+                question = _required_str(payload, "question")
+                dataset_ids = _required_list(payload, "dataset_ids")
+                document_ids = [str(item) for item in payload.get("document_ids") or []]
+                proposal_kind = str(payload.get("proposal_kind") or "writing_brief")
+                create_review = payload.get("create_review") if "create_review" in payload else None
+                use_kg = bool(payload.get("use_kg", False))
+                readiness = evaluate_kb_readiness(
+                    state.kb_gateway_factory(),
+                    dataset_ids=dataset_ids,
+                    document_ids=document_ids,
+                )
+                if not readiness["ready"]:
+                    state.service.store.add_audit_event(
+                        audit_event(
+                            "kb.readiness.blocked",
+                            "kb_scope",
+                            ",".join(dataset_ids),
+                            question=question,
+                            dataset_ids=dataset_ids,
+                            document_ids=document_ids,
+                            readiness=readiness,
+                        )
+                    )
+                    result = build_not_ready_ask_result(
+                        question=question,
+                        dataset_ids=dataset_ids,
+                        document_ids=document_ids,
+                        readiness=readiness,
+                        proposal_kind=proposal_kind,
+                        create_review=create_review,
+                        use_kg=use_kg,
+                    )
+                    self._send_json({"ok": True, **result})
+                    return
                 result = run_agentic_question(
                     state.service,
-                    question=_required_str(payload, "question"),
-                    dataset_ids=_required_list(payload, "dataset_ids"),
-                    document_ids=[str(item) for item in payload.get("document_ids") or []],
+                    question=question,
+                    dataset_ids=dataset_ids,
+                    document_ids=document_ids,
                     limit=int(payload.get("limit") or 5),
-                    proposal_kind=str(payload.get("proposal_kind") or "writing_brief"),
-                    create_review=payload.get("create_review") if "create_review" in payload else None,
-                    use_kg=bool(payload.get("use_kg", False)),
+                    proposal_kind=proposal_kind,
+                    create_review=create_review,
+                    use_kg=use_kg,
                     max_iterations=int(payload.get("max_iterations") or 2),
                     min_context_packets=int(payload.get("min_context_packets") or 1),
+                    preflight_steps=[build_readiness_loop_step(readiness)],
                 )
                 self._send_json({"ok": True, **result})
                 return

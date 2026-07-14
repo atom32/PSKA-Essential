@@ -5,9 +5,11 @@ import sys
 from typing import Any, Callable
 
 from pska_essential.agentic_loop import run_agentic_question
+from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
 
 
 def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
@@ -101,6 +103,16 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             page_size=page_size,
         )
 
+    def pska_kb_readiness(
+        dataset_ids: list[str],
+        document_ids: list[str] | None = None,
+    ):
+        return evaluate_kb_readiness(
+            build_kb_gateway_from_env(),
+            dataset_ids=dataset_ids,
+            document_ids=document_ids or [],
+        )
+
     def pska_kb_parse_documents(
         dataset_id: str,
         document_ids: list[str],
@@ -128,6 +140,38 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         max_iterations: int = 2,
         min_context_packets: int = 1,
     ):
+        readiness = evaluate_kb_readiness(
+            build_kb_gateway_from_env(),
+            dataset_ids=dataset_ids,
+            document_ids=document_ids or [],
+        )
+        if not readiness["ready"]:
+            service.store.add_audit_event(
+                audit_event(
+                    "kb.readiness.blocked",
+                    "kb_scope",
+                    ",".join(str(dataset_id) for dataset_id in dataset_ids),
+                    question=question,
+                    dataset_ids=dataset_ids,
+                    document_ids=document_ids or [],
+                    readiness=readiness,
+                )
+            )
+            result = build_not_ready_ask_result(
+                question=question,
+                dataset_ids=dataset_ids,
+                document_ids=document_ids or [],
+                readiness=readiness,
+                proposal_kind=proposal_kind,
+                create_review=create_review,
+                use_kg=use_kg,
+            )
+            result["note"] = (
+                "Selected knowledge scope is not ready for retrieval. "
+                "Check pska_kb_readiness or pska_kb_document_status before asking again."
+            )
+            return result
+
         result = run_agentic_question(
             service,
             question=question,
@@ -139,6 +183,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             use_kg=use_kg,
             max_iterations=max_iterations,
             min_context_packets=min_context_packets,
+            preflight_steps=[build_readiness_loop_step(readiness)],
         )
         result["note"] = (
             "Agent should answer from returned context and brief. "
@@ -163,6 +208,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_kb_create": pska_kb_create,
         "pska_kb_ingest_files": pska_kb_ingest_files,
         "pska_kb_document_status": pska_kb_document_status,
+        "pska_kb_readiness": pska_kb_readiness,
         "pska_kb_parse_documents": pska_kb_parse_documents,
         "pska_kb_graph_read": pska_kb_graph_read,
         "pska_agentic_question_start": pska_agentic_question_start,

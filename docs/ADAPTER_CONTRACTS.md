@@ -53,6 +53,7 @@ The public tool surface is:
 - `pska_kb_create`
 - `pska_kb_ingest_files`
 - `pska_kb_document_status`
+- `pska_kb_readiness`
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_agentic_question_start`
@@ -71,6 +72,8 @@ Rules:
 - PSKA-Essential must not persist raw documents or build its own index.
 - Public tools return normalized dataset/document IDs and status fields, not
   raw provider responses.
+- Readiness checks return PSKA status language and must not leak provider-native
+  task or document payloads outside the gateway.
 - Agentic questions should carry explicit `dataset_ids` and optional
   `document_ids` into the normal retrieval workflow.
 - Upload, parsing, embedding, indexing, and optional graph extraction are

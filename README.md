@@ -139,6 +139,7 @@ Operational loop tools:
 - `pska_kb_create`
 - `pska_kb_ingest_files`
 - `pska_kb_document_status`
+- `pska_kb_readiness`
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_agentic_question_start`
@@ -180,6 +181,7 @@ Implemented Alpha routes:
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`
 - `POST /api/kb/ingest`
+- `POST /api/kb/readiness`
 - `GET /api/kb/datasets/{dataset_id}/documents`
 - `POST /api/kb/datasets/{dataset_id}/parse`
 - `POST /api/ask`
@@ -193,6 +195,8 @@ Implemented Alpha routes:
 The bundled frontend exposes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, and Settings. It is served by the Product API and uses only same-origin
 `/api/...` calls. Ask responses include explicit loop steps so users and agents
-can see scope checks, retrieval, context inspection, proposal creation, review
-creation or skipping, and export preparation. Writing opens sourced briefs from
-recent workflow runs and exports Markdown or JSON through Product API.
+can see scope checks, KB readiness, retrieval, context inspection, proposal
+creation, review creation or skipping, and export preparation. If the selected
+dataset or document scope is not ready for retrieval, Ask returns a structured
+`not_ready` result instead of starting retrieval. Writing opens sourced briefs
+from recent workflow runs and exports Markdown or JSON through Product API.

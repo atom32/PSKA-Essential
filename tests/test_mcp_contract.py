@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from pska_essential.mcp_server import tool_registry
 from pska_essential.workflow import build_fake_service
@@ -25,6 +26,7 @@ EXPECTED_TOOLS = {
     "pska_kb_ingest_files",
     "pska_kb_list",
     "pska_kb_parse_documents",
+    "pska_kb_readiness",
 }
 
 
@@ -46,16 +48,30 @@ class McpContractTests(unittest.TestCase):
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         tools = tool_registry(build_fake_service())
-        result = tools["pska_agentic_question_start"](
-            question="How does the workflow gate work?",
-            dataset_ids=["demo"],
-            limit=1,
-            proposal_kind="memory_patch",
-        )
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            result = tools["pska_agentic_question_start"](
+                question="How does the workflow gate work?",
+                dataset_ids=["demo"],
+                limit=1,
+                proposal_kind="memory_patch",
+            )
         self.assertEqual(len(result["context_packets"]), 1)
         self.assertEqual(result["proposal"]["kind"], "memory_patch")
         self.assertEqual(result["review"]["status"], "pending")
+        self.assertIn("kb.readiness", [step["name"] for step in result["loop"]["steps"]])
         self.assertIn("Memory writes still require", result["note"])
+
+    def test_agentic_question_start_blocks_unready_scope(self):
+        tools = tool_registry(build_fake_service())
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            result = tools["pska_agentic_question_start"](
+                question="Can I ask this missing dataset?",
+                dataset_ids=["missing-dataset"],
+                limit=1,
+            )
+        self.assertEqual(result["status"], "not_ready")
+        self.assertEqual(result["context_packets"], [])
+        self.assertIn("not ready", result["note"])
 
 
 if __name__ == "__main__":

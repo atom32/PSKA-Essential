@@ -28,6 +28,7 @@ def run_agentic_question(
     max_iterations: int = 2,
     min_context_packets: int = 1,
     workspace_policy: WorkspaceGovernancePolicy | None = None,
+    preflight_steps: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run a PSKA-controlled Ask loop.
 
@@ -81,6 +82,7 @@ def run_agentic_question(
         durable=durable_proposal,
         policy=policy.to_dict(),
     )
+    steps.extend(preflight_steps or [])
 
     retrieved: list[ContextPacket] = []
     target_context = max(1, min_context_packets)

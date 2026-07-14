@@ -1,6 +1,6 @@
 # PSKA-Essential Handoff Summary
 
-Last updated: 2026-07-14
+Last updated: 2026-07-15
 
 This document is the handoff point for a fresh Codex conversation.
 
@@ -99,6 +99,7 @@ Implemented:
 - Frontend Alpha served by the Product API, including Home, Knowledge Bases,
   Ask, Reader, Writing, Review, and Settings.
 - PSKA-controlled agentic Ask loop with explicit loop diagnostics.
+- Canonical KB readiness checks for Product API and MCP Ask entry points.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Operational upload-to-agentic-question MCP loop.
@@ -117,10 +118,10 @@ make smoke
 
 Expected result:
 
-- `make test`: 29 tests pass.
+- `make test`: 38 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
-  memory apply, and multipart document upload.
-- `make list-tools`: lists 18 PSKA MCP tools.
+  memory apply, KB readiness blocking, and multipart document upload.
+- `make list-tools`: lists 19 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -146,6 +147,7 @@ New operational loop tools:
 ```text
 pska_kb_ingest_files
 pska_kb_document_status
+pska_kb_readiness
 pska_agentic_question_start
 pska_review_decide
 pska_memory_apply
@@ -172,8 +174,10 @@ open http://127.0.0.1:8765
 
 The frontend includes Home, Knowledge Bases, Ask, Reader, Writing, Review, and
 Settings. It calls only same-origin `/api/...` routes, shows explicit Ask loop
-steps, opens sources through Product API Reader, and exports sourced briefs
-through Product API Writing.
+steps including KB readiness, opens sources through Product API Reader, and
+exports sourced briefs through Product API Writing. If the selected dataset or
+document scope is not ready, Ask returns `not_ready` and does not start
+retrieval.
 
 ## Local Toolchain Status
 

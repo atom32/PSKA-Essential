@@ -83,10 +83,11 @@ PYTHONPATH=src python3 -m pska_essential.product_api
 ```
 
 The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
-Review, and Settings. Ask displays explicit PSKA-controlled loop steps. Reader
-inspects sources through Product API only. Writing opens recent sourced briefs
-and exports Markdown or JSON through Product API. Upload, parsing, embedding,
-and indexing readiness remain visible states rather than hidden side effects.
+Review, and Settings. Ask displays explicit PSKA-controlled loop steps,
+including KB readiness before retrieval. Reader inspects sources through
+Product API only. Writing opens recent sourced briefs and exports Markdown or
+JSON through Product API. Upload, parsing, embedding, and indexing readiness
+remain visible states rather than hidden side effects.
 
 Durable memory governance modes:
 
@@ -169,7 +170,8 @@ require a RAGFlow API key.
 RAGFlow upload/parse operations use the same API key through PSKA MCP tools:
 
 ```text
-pska_kb_ingest_files -> pska_kb_document_status -> pska_agentic_question_start
+pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_readiness
+  -> pska_agentic_question_start
 ```
 
 These tools do not make PSKA-Essential a KB implementation. They call RAGFlow
