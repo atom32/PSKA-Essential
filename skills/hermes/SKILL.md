@@ -15,7 +15,7 @@ candidate memory, review, and durable export.
 - Use `pska_kb_*` tools when the user needs a document uploaded or parsed into
   an external knowledge base.
 - Treat upload, parsing, embedding, and indexing as asynchronous. Check document
-  readiness before asking over a dataset.
+  readiness and `pska_kb_ingestion_status` before asking over a dataset.
 - Do not use case-specific shortcuts or hardcoded domains.
 - Do not invent fallback answers when retrieval or backend calls fail.
 - Treat retrieved context as workflow-local until review accepts it.
@@ -63,20 +63,23 @@ For a new document:
 
 1. Call `pska_kb_ingest_files` with absolute file paths, a dataset name, and
    `parse=true`.
-2. If ingestion did not wait, call `pska_kb_document_status` until parsing is
-   complete.
-3. Call `pska_agentic_question_start` with the returned `dataset_id`.
-4. If you already know useful follow-up angles, pass them as
+2. If ingestion did not wait, call `pska_kb_document_status` and
+   `pska_kb_ingestion_status` until the selected scope is ready, failed, or
+   requires parsing.
+3. If ingestion status returns a failed scope, report the failure reason instead
+   of asking.
+4. Call `pska_agentic_question_start` with the returned `dataset_id`.
+5. If you already know useful follow-up angles, pass them as
    `retrieval_queries`; PSKA will run them inside the same explicit scope and
    record the query plan.
-5. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
+6. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
    inspect through adapters during Ask.
-6. If context is insufficient, retrieve again within the same explicit scope or
+7. If context is insufficient, retrieve again within the same explicit scope or
    report that the question cannot be answered from the selected materials.
-7. Answer from the returned context, inspected sources, artifact, and brief.
-8. If a memory patch or deletion was proposed, wait for human acceptance before
+8. Answer from the returned context, inspected sources, artifact, and brief.
+9. If a memory patch or deletion was proposed, wait for human acceptance before
    applying it.
-9. Use `pska_export_brief` only when the user asks for an explicit export.
+10. Use `pska_export_brief` only when the user asks for an explicit export.
 
 ## Good Prompt
 

@@ -147,6 +147,7 @@ Operational loop tools:
 - `pska_kb_ingest_files`
 - `pska_kb_document_status`
 - `pska_kb_readiness`
+- `pska_kb_ingestion_status`
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_retrieval_probe`
@@ -214,7 +215,9 @@ Implemented Alpha routes:
 - `POST /api/kb/datasets`
 - `POST /api/kb/ingest`
 - `POST /api/kb/readiness`
+- `POST /api/kb/ingestion-status`
 - `GET /api/kb/datasets/{dataset_id}/readiness`
+- `GET /api/kb/datasets/{dataset_id}/ingestion-status`
 - `GET /api/kb/datasets/{dataset_id}/documents`
 - `POST /api/kb/datasets/{dataset_id}/parse`
 - `GET /api/kb/datasets/{dataset_id}/documents/{document_id}/graph`
@@ -243,6 +246,9 @@ Review, Activity, and Settings. It is served by the Product API and uses only
 same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
+Readiness responses include normalized `ingestion_status` job summaries with
+phase, progress, counts, next actions, and failure reasons so frontend and agent
+flows can distinguish uploaded, processing, failed, and retrieval-ready scopes.
 Settings loads `/api/policy` as the product-level workspace governance surface,
 including durable proposal kinds, configured durable-memory action, available
 modes, and the fact that transient results skip durable governance.
@@ -302,8 +308,8 @@ refresh Activity and focus the matching action after the source operation comple
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. The `not_ready` result has a recoverable
 workflow run and audit trail rather than a disposable error response. Knowledge Bases shows dataset/document
-readiness, can start parsing for loaded unready documents, and automatically
-refreshes ingestion status after uploads. It can also open optional document
+readiness and normalized ingestion status, can start parsing for loaded unready
+documents, and automatically refreshes ingestion status after uploads. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products

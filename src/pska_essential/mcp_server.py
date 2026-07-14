@@ -189,6 +189,24 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             document_ids=document_ids or [],
         )
 
+    def pska_kb_ingestion_status(
+        dataset_ids: list[str],
+        document_ids: list[str] | None = None,
+    ):
+        readiness = evaluate_kb_readiness(
+            build_kb_gateway_from_env(),
+            dataset_ids=dataset_ids,
+            document_ids=document_ids or [],
+        )
+        return {
+            "readiness": readiness,
+            "ingestion_status": readiness.get("ingestion_status") or {},
+            "note": (
+                "Use readiness.ready before retrieval. If ingestion_status is not ready, "
+                "wait, parse listed documents, or inspect failure reasons instead of asking."
+            ),
+        }
+
     def pska_kb_parse_documents(
         dataset_id: str,
         document_ids: list[str],
@@ -305,6 +323,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_kb_ingest_files": pska_kb_ingest_files,
         "pska_kb_document_status": pska_kb_document_status,
         "pska_kb_readiness": pska_kb_readiness,
+        "pska_kb_ingestion_status": pska_kb_ingestion_status,
         "pska_kb_parse_documents": pska_kb_parse_documents,
         "pska_kb_graph_read": pska_kb_graph_read,
         "pska_agentic_question_start": pska_agentic_question_start,

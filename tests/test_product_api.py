@@ -22,6 +22,7 @@ class _FakeGateway:
         self.uploaded: list[dict[str, str]] = []
         self.parse_calls: list[dict[str, object]] = []
         self.ready = True
+        self.extra_datasets: dict[str, dict[str, object]] = {}
 
     def list_datasets(self, *, name=None, page_size=30):
         datasets = [
@@ -33,6 +34,7 @@ class _FakeGateway:
                 "chunk_count": 2 if self.ready else 0,
             }
         ]
+        datasets.extend(self.extra_datasets.values())
         if name:
             return [item for item in datasets if item["name"] == name]
         return datasets
@@ -61,13 +63,21 @@ class _FakeGateway:
         self.uploaded = [
             {"name": Path(path).name, "text": Path(path).read_text(encoding="utf-8")} for path in file_paths
         ]
+        target_dataset_id = dataset_id or "created"
+        self.extra_datasets[target_dataset_id] = {
+            "backend": "fake-kb",
+            "dataset_id": target_dataset_id,
+            "name": dataset_name or "Existing",
+            "document_count": len(file_paths),
+            "chunk_count": len(file_paths) if self.ready else 0,
+        }
         return {
             "backend": "fake-kb",
             "dataset_created": not bool(dataset_id),
-            "dataset": {"dataset_id": dataset_id or "created", "name": dataset_name or "Existing"},
+            "dataset": {"dataset_id": target_dataset_id, "name": dataset_name or "Existing"},
             "documents": [
                 {
-                    "dataset_id": dataset_id or "created",
+                    "dataset_id": target_dataset_id,
                     "document_id": "doc-1",
                     "name": self.uploaded[0]["name"],
                     "progress": 0.0,
@@ -531,16 +541,32 @@ class ProductApiTests(unittest.TestCase):
         self.assertNotIn("workflow.export", actions)
 
     def test_readiness_route_reports_scope_status(self):
-        readiness = self._post_json("/api/kb/readiness", {"dataset_ids": ["demo"]})["readiness"]
+        payload = self._post_json("/api/kb/readiness", {"dataset_ids": ["demo"]})
+        readiness = payload["readiness"]
 
         self.assertTrue(readiness["ready"])
         self.assertEqual(readiness["status"], "ready")
+        self.assertEqual(payload["ingestion_status"]["status"], "ready")
+        self.assertEqual(payload["ingestion_status"]["next_actions"], ["run_ask"])
 
     def test_dataset_readiness_route_reports_scope_status(self):
-        readiness = self._get_json("/api/kb/datasets/demo/readiness")["readiness"]
+        payload = self._get_json("/api/kb/datasets/demo/readiness")
+        readiness = payload["readiness"]
 
         self.assertTrue(readiness["ready"])
         self.assertEqual(readiness["dataset_ids"], ["demo"])
+        self.assertEqual(payload["ingestion_status"]["phase"], "indexed")
+
+    def test_ingestion_status_route_reports_normalized_job_status(self):
+        self.gateway.ready = False
+
+        payload = self._get_json("/api/kb/datasets/demo/ingestion-status")
+
+        self.assertEqual(payload["readiness"]["status"], "processing")
+        self.assertEqual(payload["ingestion_status"]["kind"], "kb_ingestion_status")
+        self.assertEqual(payload["ingestion_status"]["status"], "processing")
+        self.assertEqual(payload["ingestion_status"]["progress"], 0.1)
+        self.assertEqual(payload["ingestion_status"]["next_actions"], ["wait_for_ingestion"])
 
     def test_parse_documents_route_uses_product_api_boundary(self):
         parsed = self._post_json(
@@ -549,6 +575,7 @@ class ProductApiTests(unittest.TestCase):
         )
 
         self.assertTrue(parsed["parse"]["parse_started"])
+        self.assertEqual(parsed["ingestion_status"]["status"], "ready")
         self.assertEqual(self.gateway.parse_calls, [{"dataset_id": "demo", "document_ids": ["doc-1"], "wait": False}])
         audit = self._get_json("/api/audit?limit=5")
         self.assertEqual(audit["events"][0]["action"], "kb.parse")
@@ -695,6 +722,8 @@ class ProductApiTests(unittest.TestCase):
             payload = json.loads(response.read().decode("utf-8"))
         self.assertTrue(payload["ok"])
         self.assertEqual(self.gateway.uploaded, [{"name": "note.txt", "text": "trusted workspace notes"}])
+        self.assertEqual(payload["ingestion_status"]["status"], "ready")
+        self.assertEqual(payload["readiness"]["datasets"][0]["documents"][0]["next_action"], "available_for_retrieval")
         audit = self._get_json("/api/audit?limit=5")
         self.assertEqual(audit["events"][0]["action"], "kb.ingest")
         self.assertEqual(audit["events"][0]["metadata"]["document_names"], ["note.txt"])
@@ -806,7 +835,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('setReviewStatusFilter', script)
         self.assertIn('loadPendingReviews', script)
         self.assertIn('showToast("Knowledge base created.");\n    await loadDatasets();\n    await loadAuditEvents("kb.dataset.create");', script)
-        self.assertIn('renderIngestResult(result.ingest);\n    await loadDatasets();\n    await loadAuditEvents("kb.ingest");', script)
+        self.assertIn('renderIngestResult(result.ingest, result.readiness);\n    await loadDatasets();\n    await loadAuditEvents("kb.ingest");', script)
         self.assertIn('await loadDocuments(datasetId, { silent: true });\n  await loadAuditEvents("kb.parse");', script)
         self.assertIn('/api/runtime/diagnostics', script)
         self.assertIn('/api/policy', script)
@@ -835,6 +864,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('memory.search', script)
         self.assertIn('/parse', script)
         self.assertIn('/readiness', script)
+        self.assertIn('ingestion_status', script)
+        self.assertIn('mergeReadinessDocuments', script)
+        self.assertIn('next_action', script)
+        self.assertIn('formatPercent', script)
         self.assertIn('diagnosticCard', script)
         self.assertIn('retrievalProbeCard', script)
         self.assertIn('auditEventCard', script)

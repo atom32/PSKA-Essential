@@ -16,7 +16,7 @@ external KB, GraphRAG, or memory systems.
 - Use PSKA `kb` tools for RAGFlow-backed dataset creation, document upload,
   parsing, and readiness checks instead of calling RAGFlow directly.
 - Treat upload, parsing, embedding, and indexing as asynchronous and check
-  readiness before asking over a dataset.
+  `pska_kb_ingestion_status` readiness before asking over a dataset.
 - Do not use case-specific shortcuts, hardcoded domains, or fallback answers.
 - Use `pska_policy_get` to inspect the current workspace governance policy
   instead of inferring policy from provider capabilities.
@@ -37,7 +37,8 @@ external KB, GraphRAG, or memory systems.
 ## Steps
 
 1. If needed, upload documents with `pska_kb_ingest_files`.
-2. Confirm readiness with `pska_kb_document_status`.
+2. Confirm readiness with `pska_kb_document_status` and
+   `pska_kb_ingestion_status`.
 3. Start a scoped PSKA workflow or call `pska_agentic_question_start`.
 4. Pass explicit `retrieval_queries` when useful follow-up angles are known;
    PSKA will run them inside the selected scope and record the query plan.

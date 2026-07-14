@@ -102,6 +102,8 @@ Implemented:
   Ask, Reader, Writing, Review, and Settings.
 - PSKA-controlled agentic Ask loop with explicit loop diagnostics.
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
+- Normalized KB ingestion status for Product API, MCP, and frontend flows,
+  including phase, progress, counts, next actions, and failure reasons.
 - Frontend Ask scope picker for dataset/document selection through Product API.
 - Frontend Ask controls for loop max iterations, required context count, and
   optional graph retrieval within selected scope.
@@ -161,8 +163,8 @@ Implemented:
   queue shows cited sources with Product API Reader actions.
 - Frontend Review queue supports status filtering while Home keeps an
   independent pending-review summary.
-- Frontend ingestion tracking: upload refreshes document status/readiness until
-  terminal processing state.
+- Frontend ingestion tracking: upload refreshes document status, readiness, and
+  normalized ingestion job status until terminal processing state.
 - Frontend parse action for loaded unready documents through Product API.
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
@@ -257,7 +259,7 @@ Expected result:
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 34 PSKA MCP tools.
+- `make list-tools`: lists 35 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -284,6 +286,7 @@ New operational loop tools:
 pska_kb_ingest_files
 pska_kb_document_status
 pska_kb_readiness
+pska_kb_ingestion_status
 pska_retrieval_probe
 pska_agentic_question_start
 pska_agentic_question_resumable
@@ -360,9 +363,9 @@ does not start retrieval. If retrieved context remains below the required
 context count, Ask returns `insufficient_context`, shows any retrieved partial
 context, and does not create a proposal, review, or export. The Knowledge Bases
 view shows dataset/document
-readiness, can start parsing for loaded unready documents, can open optional
-document structure graph data through Product API, and automatically refreshes
-ingestion status.
+readiness and normalized ingestion status, can start parsing for loaded unready
+documents, can open optional document structure graph data through Product API,
+and automatically refreshes ingestion status.
 
 ## Local Toolchain Status
 

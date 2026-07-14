@@ -41,6 +41,7 @@ EXPECTED_TOOLS = {
     "pska_kb_document_status",
     "pska_kb_graph_read",
     "pska_kb_ingest_files",
+    "pska_kb_ingestion_status",
     "pska_kb_list",
     "pska_kb_parse_documents",
     "pska_kb_readiness",
@@ -298,11 +299,17 @@ class McpContractTests(unittest.TestCase):
             with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
                 created = tools["pska_kb_create"]("MCP Dataset")
                 ingested = tools["pska_kb_ingest_files"]([str(path)], dataset_name="MCP Dataset", parse=True)
+                ingestion_status = tools["pska_kb_ingestion_status"](
+                    [ingested["dataset"]["dataset_id"]],
+                    [ingested["documents"][0]["document_id"]],
+                )
                 parsed = tools["pska_kb_parse_documents"]("demo", ["doc-1"])
                 graph = tools["pska_kb_graph_read"]("demo", "doc-1")
 
         self.assertTrue(created["dataset_id"].startswith("fake_ds_"))
         self.assertEqual(ingested["documents"][0]["name"], "note.txt")
+        self.assertEqual(ingestion_status["ingestion_status"]["status"], "ready")
+        self.assertIn("readiness.ready", ingestion_status["note"])
         self.assertTrue(parsed["parse_started"])
         self.assertEqual(graph["document_id"], "doc-1")
         events = service.store.list_audit_events()

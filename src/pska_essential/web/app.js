@@ -88,7 +88,7 @@ function bindForms() {
     const result = await api("/api/kb/ingest", { method: "POST", formData: payload });
     event.currentTarget.reset();
     showToast("Upload accepted.");
-    renderIngestResult(result.ingest);
+    renderIngestResult(result.ingest, result.readiness);
     await loadDatasets();
     await loadAuditEvents("kb.ingest");
     const datasetId = ingestDatasetId(result.ingest);
@@ -344,13 +344,16 @@ async function loadDocuments(datasetId, options = {}) {
     if (documentsResult.status === "rejected") {
       throw documentsResult.reason;
     }
-    const documents = documentsResult.value.documents || [];
+    let documents = documentsResult.value.documents || [];
+    let readiness = null;
+    if (readinessResult.status === "fulfilled") {
+      readiness = readinessResult.value.readiness || null;
+      state.readinessByDataset[normalizedId] = readiness;
+      documents = mergeReadinessDocuments(documents, readiness);
+    }
     state.activeDocuments = documents;
     renderDocuments(documents);
-    if (readinessResult.status === "fulfilled") {
-      state.readinessByDataset[normalizedId] = readinessResult.value.readiness;
-    }
-    renderIngestionStatus(normalizedId, documents, state.readinessByDataset[normalizedId]);
+    renderIngestionStatus(normalizedId, documents, readiness || state.readinessByDataset[normalizedId]);
     return documents;
   } catch (error) {
     if (!options.silent) showToast(error.message);
@@ -616,14 +619,16 @@ function askDocumentCard(datasetId, document, checked) {
   ]);
 }
 
-function renderIngestResult(result) {
+function renderIngestResult(result, readiness = null) {
   const documents = result.documents || [];
   const datasetId = ingestDatasetId(result);
   state.activeDocumentDatasetId = datasetId || state.activeDocumentDatasetId;
-  state.activeDocuments = documents;
-  renderDocuments(documents);
+  const displayDocuments = mergeReadinessDocuments(documents, readiness);
+  state.activeDocuments = displayDocuments;
+  renderDocuments(displayDocuments);
   if (datasetId) {
-    renderIngestionStatus(datasetId, documents, null);
+    if (readiness) state.readinessByDataset[datasetId] = readiness;
+    renderIngestionStatus(datasetId, displayDocuments, readiness);
     const statusForm = document.querySelector('#document-status-form input[name="dataset_id"]');
     if (statusForm) statusForm.value = datasetId;
   }
@@ -740,6 +745,13 @@ function stopIngestionPolling() {
 
 function renderIngestionStatus(datasetId, documents, readiness) {
   const summary = summarizeDocuments(documents);
+  const job = readiness && readiness.ingestion_status;
+  if (job && job.kind === "kb_ingestion_status") {
+    const actions = (job.next_actions || []).map(readableName).join(", ");
+    const suffix = actions ? ` Next: ${actions}.` : "";
+    setIngestionStatus(`${shortId(datasetId)}: ${job.message || readiness.message} ${formatPercent(job.progress)}.${suffix}`, job.status);
+    return;
+  }
   const readinessStatus = readiness && readiness.status ? readiness.status : summary.status;
   const label = readiness && readiness.message ? readiness.message : `${summary.ready}/${summary.total} documents ready.`;
   setIngestionStatus(`${shortId(datasetId)}: ${label}`, readinessStatus);
@@ -765,6 +777,16 @@ function ingestDatasetId(result) {
   if (result.dataset && result.dataset.dataset_id) return result.dataset.dataset_id;
   const documents = result.documents || [];
   return documents.length ? documents[0].dataset_id || "" : "";
+}
+
+function mergeReadinessDocuments(documents, readiness) {
+  const readinessDocuments = ((readiness && readiness.datasets) || []).flatMap((dataset) => dataset.documents || []);
+  if (!readinessDocuments.length) return documents;
+  const byId = new Map(readinessDocuments.map((document) => [document.document_id, document]));
+  return documents.map((document) => {
+    const statusDocument = byId.get(document.document_id);
+    return statusDocument ? { ...document, ...statusDocument } : document;
+  });
 }
 
 function renderAskResult(result) {
@@ -918,11 +940,20 @@ function loopPanel(result) {
 function readinessPanel(readiness) {
   const blocking = readiness.blocking || [];
   const datasets = readiness.datasets || [];
+  const job = readiness.ingestion_status || {};
   return el("div", { className: "panel" }, [
     el("div", { className: "panel-header" }, [
       el("h2", {}, "Readiness"),
       el("span", { className: `tag ${statusClass(readiness.status)}` }, readiness.status || "unknown"),
     ]),
+    job.kind
+      ? el("div", { className: "meta-row" }, [
+          el("span", { className: "tag" }, job.phase || "phase"),
+          el("span", { className: "tag" }, formatPercent(job.progress)),
+          el("span", { className: "tag" }, `${job.ready_count || 0}/${job.document_count || 0} ready`),
+          ...(job.next_actions || []).map((action) => el("span", { className: "tag" }, readableName(action))),
+        ])
+      : null,
     blocking.length
       ? el("div", { className: "source-list" }, blocking.map((item) => el("p", {}, item)))
       : el("p", {}, readiness.message || "Selected knowledge scope is ready for retrieval."),
@@ -932,6 +963,7 @@ function readinessPanel(readiness) {
 
 function readinessDatasetCard(dataset) {
   const documents = dataset.documents || [];
+  const job = dataset.ingestion || {};
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -944,6 +976,8 @@ function readinessDatasetCard(dataset) {
       el("span", { className: "tag" }, `docs ${dataset.document_count || 0}`),
       el("span", { className: "tag" }, `chunks ${dataset.chunk_count || 0}`),
       el("span", { className: "tag" }, dataset.exists ? "visible" : "missing"),
+      job.phase ? el("span", { className: "tag" }, job.phase) : null,
+      job.next_action ? el("span", { className: "tag" }, readableName(job.next_action)) : null,
     ]),
     documents.length
       ? el(
@@ -1085,9 +1119,10 @@ function documentCard(document) {
   const progress = Math.max(0, Math.min(1, Number(document.progress || 0)));
   const datasetId = document.dataset_id || state.activeDocumentDatasetId || "";
   const documentId = document.document_id || "";
+  const detail = document.failure_reason || document.progress_msg || "";
   return el("article", { className: "item-card" }, [
     el("header", {}, [
-      el("div", {}, [el("h3", {}, document.name || document.document_id), el("p", {}, document.progress_msg || "")]),
+      el("div", {}, [el("h3", {}, document.name || document.document_id), el("p", {}, detail)]),
       el("div", { className: "card-actions" }, [
         el("span", { className: `tag ${stateName.className}` }, stateName.label),
         datasetId && documentId
@@ -1102,6 +1137,8 @@ function documentCard(document) {
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, `chunks ${document.chunk_count || 0}`),
       el("span", { className: "tag" }, `tokens ${document.token_count || 0}`),
+      document.phase ? el("span", { className: "tag" }, document.phase) : null,
+      document.next_action ? el("span", { className: "tag" }, readableName(document.next_action)) : null,
       el("span", { className: "tag" }, shortId(document.document_id || "")),
     ]),
   ]);
@@ -1932,6 +1969,11 @@ function readableName(value) {
   return String(value || "unknown")
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatPercent(value) {
+  const numeric = Math.max(0, Math.min(1, Number(value || 0)));
+  return `${Math.round(numeric * 100)}%`;
 }
 
 function datasetState(dataset) {

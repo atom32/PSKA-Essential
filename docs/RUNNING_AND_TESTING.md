@@ -149,7 +149,8 @@ embedding, indexing, and optional graph extraction readiness remain visible
 states rather than hidden side effects. After upload, the Knowledge Bases view
 can start parsing for loaded unready documents, open optional document
 structure graph data through Product API, and refreshes the selected dataset's
-document status and readiness until processing reaches a terminal state.
+document status, readiness, and normalized ingestion job summary until
+processing reaches a terminal state.
 Settings shows runtime provider configuration and Product API diagnostics for
 review store, KB gateway, retrieval, and memory connectivity. Product API
 health, diagnostics, and audit records include the runtime workspace/tenant
@@ -240,7 +241,8 @@ require a RAGFlow API key.
 RAGFlow upload/parse operations use the same API key through PSKA MCP tools:
 
 ```text
-pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_readiness
+pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_ingestion_status
+  -> pska_kb_readiness
   -> pska_agentic_question_start
   -> pska_agentic_question_resumable to find blocked Ask runs
   -> pska_agentic_question_resume if the first Ask was readiness-blocked
@@ -248,7 +250,7 @@ pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_readiness
 
 These tools do not make PSKA-Essential a KB implementation. They call RAGFlow
 dataset/document/chunk APIs and return normalized IDs, readiness, and optional
-structure graph data.
+ingestion status, readiness, and optional structure graph data.
 
 Treat RAGFlow ingestion as asynchronous. Uploading a document only starts the
 chain of parsing, chunking, embedding, and indexing. Frontend and agent flows
@@ -259,6 +261,10 @@ discarded one-off errors. Use `pska_agentic_question_resume` or
 the selected scope becomes ready. Use `pska_agentic_question_resumable` or
 `GET /api/workflows/resumable-asks` to list readiness-blocked Ask runs with a
 fresh readiness check.
+Use `pska_kb_ingestion_status`, `POST /api/kb/ingestion-status`, or
+`GET /api/kb/datasets/{dataset_id}/ingestion-status` when the user or agent
+needs a normalized job summary with phase, progress, next actions, and failure
+reasons before deciding whether to wait, parse, inspect a failure, or Ask.
 
 Use `pska_retrieval_probe` or `POST /api/runtime/retrieval-probe` against a
 selected ready dataset when RAGFlow is reachable but Ask still fails at

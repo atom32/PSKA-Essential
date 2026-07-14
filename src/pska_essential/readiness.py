@@ -52,6 +52,8 @@ def evaluate_kb_readiness(
         _evaluate_dataset_scope(gateway, dataset_reports, blocking)
 
     status = _overall_status([report["status"] for report in dataset_reports])
+    for report in dataset_reports:
+        _attach_dataset_ingestion(report, document_scope=bool(selected_document_ids))
     ready = status == READY
     return {
         "ready": ready,
@@ -65,6 +67,7 @@ def evaluate_kb_readiness(
         "document_ids": selected_document_ids,
         "datasets": dataset_reports,
         "blocking": blocking,
+        "ingestion_status": _ingestion_status(dataset_reports, status, blocking),
     }
 
 
@@ -241,6 +244,8 @@ def _dataset_report(dataset: dict[str, Any] | None, dataset_id: str) -> dict[str
 
 def _document_report(document: dict[str, Any], *, requested: bool) -> dict[str, Any]:
     status = _document_status(document)
+    phase = _document_phase(document, status)
+    failure_reason = _document_failure_reason(document, status)
     return {
         "dataset_id": str(document.get("dataset_id") or ""),
         "document_id": str(document.get("document_id") or ""),
@@ -248,6 +253,9 @@ def _document_report(document: dict[str, Any], *, requested: bool) -> dict[str, 
         "requested": requested,
         "ready": status == READY,
         "status": status,
+        "phase": phase,
+        "next_action": _document_next_action(status, phase),
+        "failure_reason": failure_reason,
         "chunk_count": int(document.get("chunk_count") or 0),
         "token_count": int(document.get("token_count") or 0),
         "progress": _float_value(document.get("progress")),
@@ -283,6 +291,69 @@ def _document_blocking_message(doc: dict[str, Any]) -> str:
     return f"Document '{label}' is not ready for retrieval."
 
 
+def _attach_dataset_ingestion(report: dict[str, Any], *, document_scope: bool) -> None:
+    status = str(report.get("status") or UNKNOWN)
+    documents = report.get("documents") or []
+    document_count = len(documents) if document_scope else int(report.get("document_count") or len(documents) or 0)
+    ready_count = len([document for document in documents if document.get("status") == READY])
+    failed_count = len([document for document in documents if document.get("status") == FAILED])
+    processing_count = len([document for document in documents if document.get("status") == PROCESSING])
+    if not documents and status == READY:
+        ready_count = document_count
+    pending_count = max(document_count - ready_count - failed_count - processing_count, 0)
+    ingestion = {
+        "dataset_id": str(report.get("dataset_id") or ""),
+        "status": status,
+        "phase": _dataset_phase(status),
+        "progress": _dataset_progress(report, documents),
+        "document_count": document_count,
+        "ready_count": ready_count,
+        "processing_count": processing_count,
+        "failed_count": failed_count,
+        "pending_count": pending_count,
+        "next_action": _dataset_next_action(status, documents),
+        "message": _dataset_ingestion_message(report, status),
+    }
+    report["ingestion"] = ingestion
+
+
+def _ingestion_status(
+    dataset_reports: list[dict[str, Any]],
+    status: str,
+    blocking: list[str],
+) -> dict[str, Any]:
+    dataset_jobs = [report.get("ingestion") or {} for report in dataset_reports]
+    document_count = sum(int(job.get("document_count") or 0) for job in dataset_jobs)
+    ready_count = sum(int(job.get("ready_count") or 0) for job in dataset_jobs)
+    processing_count = sum(int(job.get("processing_count") or 0) for job in dataset_jobs)
+    failed_count = sum(int(job.get("failed_count") or 0) for job in dataset_jobs)
+    pending_count = sum(int(job.get("pending_count") or 0) for job in dataset_jobs)
+    weights = [max(int(job.get("document_count") or 0), 1) for job in dataset_jobs]
+    progress_values = [_float_value(job.get("progress")) for job in dataset_jobs]
+    if progress_values:
+        progress = sum(value * weight for value, weight in zip(progress_values, weights)) / sum(weights)
+    else:
+        progress = 0.0
+    next_actions = _unique_strings(
+        str(job.get("next_action") or "") for job in dataset_jobs if job.get("next_action")
+    )
+    return {
+        "kind": "kb_ingestion_status",
+        "ready": status == READY,
+        "status": status,
+        "phase": _dataset_phase(status),
+        "progress": round(max(0.0, min(1.0, progress)), 4),
+        "dataset_count": len(dataset_reports),
+        "document_count": document_count,
+        "ready_count": ready_count,
+        "processing_count": processing_count,
+        "failed_count": failed_count,
+        "pending_count": pending_count,
+        "next_actions": next_actions,
+        "message": _ingestion_message(status, blocking, document_count, ready_count, failed_count),
+    }
+
+
 def _overall_status(statuses: list[str]) -> str:
     if not statuses:
         return UNKNOWN
@@ -290,6 +361,115 @@ def _overall_status(statuses: list[str]) -> str:
         if status in statuses:
             return status
     return READY
+
+
+def _document_phase(document: dict[str, Any], status: str) -> str:
+    if status == READY:
+        return "indexed"
+    if status == FAILED:
+        return "failed"
+    run = str(document.get("run") or "").strip().upper()
+    provider_status = str(document.get("status") or "").strip().lower()
+    progress = _float_value(document.get("progress"))
+    if run in {"", "UNSTART"} or provider_status in {"uploaded", "unstart", "pending"}:
+        return "uploaded"
+    if progress > 0 or run in {"START", "STARTED", "RUNNING", "PARSING", "QUEUED", "1"}:
+        return "processing"
+    return "unknown"
+
+
+def _document_failure_reason(document: dict[str, Any], status: str) -> str:
+    if status != FAILED:
+        return ""
+    return str(document.get("progress_msg") or document.get("run") or document.get("status") or "failed")
+
+
+def _document_next_action(status: str, phase: str) -> str:
+    if status == READY:
+        return "available_for_retrieval"
+    if status == FAILED:
+        return "inspect_failure"
+    if phase == "uploaded":
+        return "start_parse"
+    if status == PROCESSING:
+        return "wait_for_ingestion"
+    return "check_provider_status"
+
+
+def _dataset_phase(status: str) -> str:
+    if status == READY:
+        return "indexed"
+    if status == PROCESSING:
+        return "processing"
+    if status == FAILED:
+        return "failed"
+    if status == EMPTY:
+        return "awaiting_upload"
+    if status == MISSING:
+        return "scope_missing"
+    return "unknown"
+
+
+def _dataset_next_action(status: str, documents: list[dict[str, Any]]) -> str:
+    if status == READY:
+        return "run_ask"
+    if status == EMPTY:
+        return "upload_documents"
+    if status == MISSING:
+        return "check_dataset_access"
+    if status == FAILED:
+        return "inspect_failed_documents"
+    if any(document.get("next_action") == "start_parse" for document in documents):
+        return "start_parse"
+    if status == PROCESSING:
+        return "wait_for_ingestion"
+    return "check_provider_status"
+
+
+def _dataset_progress(report: dict[str, Any], documents: list[dict[str, Any]]) -> float:
+    if report.get("status") == READY:
+        return 1.0
+    if report.get("status") in {MISSING, EMPTY}:
+        return 0.0
+    if documents:
+        values = [_float_value(document.get("progress")) for document in documents]
+        return round(sum(values) / len(values), 4)
+    return 0.0
+
+
+def _dataset_ingestion_message(report: dict[str, Any], status: str) -> str:
+    label = _dataset_label(report)
+    if status == READY:
+        return f"Dataset '{label}' is ready for retrieval."
+    if status == EMPTY:
+        return f"Dataset '{label}' has no uploaded source documents."
+    if status == MISSING:
+        return f"Dataset '{label}' is missing or not visible."
+    if status == FAILED:
+        return f"Dataset '{label}' has failed ingestion documents."
+    if status == PROCESSING:
+        return f"Dataset '{label}' is still being parsed, embedded, or indexed."
+    return f"Dataset '{label}' readiness is unknown."
+
+
+def _ingestion_message(
+    status: str,
+    blocking: list[str],
+    document_count: int,
+    ready_count: int,
+    failed_count: int,
+) -> str:
+    if blocking:
+        return " ".join(str(item) for item in blocking[:3])
+    if status == READY:
+        return f"{ready_count}/{document_count} document(s) ready for retrieval."
+    if status == FAILED:
+        return f"{failed_count} document(s) failed during ingestion."
+    if status == EMPTY:
+        return "No source documents have been uploaded for the selected scope."
+    if status == MISSING:
+        return "One or more selected datasets or documents are missing."
+    return f"{ready_count}/{document_count} document(s) ready; ingestion is still running or unknown."
 
 
 def _not_ready_message(readiness: dict[str, Any]) -> str:
@@ -308,6 +488,15 @@ def _normalized_ids(values: list[str]) -> list[str]:
             continue
         seen.add(normalized)
         result.append(normalized)
+    return result
+
+
+def _unique_strings(values: Any) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        normalized = str(value or "").strip()
+        if normalized and normalized not in result:
+            result.append(normalized)
     return result
 
 

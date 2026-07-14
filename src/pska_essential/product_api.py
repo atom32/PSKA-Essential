@@ -193,23 +193,44 @@ def _handler_class(state: ProductApiState):
 
             if method == "POST" and path == "/api/kb/readiness":
                 payload = self._read_json()
-                readiness = evaluate_kb_readiness(
+                status_payload = _kb_status_payload(
                     state.kb_gateway_factory(),
                     dataset_ids=_required_list(payload, "dataset_ids"),
                     document_ids=[str(item) for item in payload.get("document_ids") or []],
                 )
-                self._send_json({"ok": True, "readiness": readiness})
+                self._send_json({"ok": True, **status_payload})
+                return
+
+            if method == "POST" and path == "/api/kb/ingestion-status":
+                payload = self._read_json()
+                status_payload = _kb_status_payload(
+                    state.kb_gateway_factory(),
+                    dataset_ids=_required_list(payload, "dataset_ids"),
+                    document_ids=[str(item) for item in payload.get("document_ids") or []],
+                )
+                self._send_json({"ok": True, **status_payload})
+                return
+
+            dataset_ingestion_status = _match(path, "/api/kb/datasets/", "/ingestion-status")
+            if method == "GET" and dataset_ingestion_status:
+                document_ids = _csv_values(query.get("document_ids") or query.get("document_id") or "")
+                status_payload = _kb_status_payload(
+                    state.kb_gateway_factory(),
+                    dataset_ids=[dataset_ingestion_status],
+                    document_ids=document_ids,
+                )
+                self._send_json({"ok": True, **status_payload})
                 return
 
             dataset_readiness = _match(path, "/api/kb/datasets/", "/readiness")
             if method == "GET" and dataset_readiness:
                 document_ids = _csv_values(query.get("document_ids") or query.get("document_id") or "")
-                readiness = evaluate_kb_readiness(
+                status_payload = _kb_status_payload(
                     state.kb_gateway_factory(),
                     dataset_ids=[dataset_readiness],
                     document_ids=document_ids,
                 )
-                self._send_json({"ok": True, "readiness": readiness})
+                self._send_json({"ok": True, **status_payload})
                 return
 
             dataset_documents = _match(path, "/api/kb/datasets/", "/documents")
@@ -233,14 +254,21 @@ def _handler_class(state: ProductApiState):
             if method == "POST" and dataset_parse:
                 payload = self._read_json()
                 gateway = state.kb_gateway_factory()
+                document_ids = _required_list(payload, "document_ids")
                 parse_result = gateway.parse_documents(
                     dataset_id=dataset_parse,
-                    document_ids=_required_list(payload, "document_ids"),
+                    document_ids=document_ids,
                     wait=bool(payload.get("wait", False)),
                     timeout_seconds=float(payload.get("timeout_seconds") or 300.0),
                 )
                 add_kb_parse_audit(state.service.store, parse_result)
-                self._send_json({"ok": True, "parse": parse_result})
+                self._send_json(
+                    {
+                        "ok": True,
+                        "parse": parse_result,
+                        **_kb_status_payload(gateway, dataset_ids=[dataset_parse], document_ids=document_ids),
+                    }
+                )
                 return
 
             document_graph = _match_document_graph(path)
@@ -430,7 +458,8 @@ def _handler_class(state: ProductApiState):
                         path = Path(temp_dir) / safe_name
                         path.write_bytes(file_item["content"])
                         paths.append(str(path))
-                    result = state.kb_gateway_factory().ingest_files(
+                    gateway = state.kb_gateway_factory()
+                    result = gateway.ingest_files(
                         file_paths=paths,
                         dataset_name=fields.get("dataset_name") or None,
                         dataset_id=fields.get("dataset_id") or None,
@@ -441,11 +470,15 @@ def _handler_class(state: ProductApiState):
                         timeout_seconds=float(fields.get("timeout_seconds") or 300.0),
                     )
                 add_kb_ingest_audit(state.service.store, result)
-                self._send_json({"ok": True, "ingest": result}, HTTPStatus.CREATED)
+                self._send_json(
+                    {"ok": True, "ingest": result, **_kb_operation_status_payload(gateway, result)},
+                    HTTPStatus.CREATED,
+                )
                 return
 
             payload = self._read_json()
-            result = state.kb_gateway_factory().ingest_files(
+            gateway = state.kb_gateway_factory()
+            result = gateway.ingest_files(
                 file_paths=_required_list(payload, "file_paths"),
                 dataset_name=payload.get("dataset_name") or None,
                 dataset_id=payload.get("dataset_id") or None,
@@ -456,7 +489,10 @@ def _handler_class(state: ProductApiState):
                 timeout_seconds=float(payload.get("timeout_seconds") or 300.0),
             )
             add_kb_ingest_audit(state.service.store, result)
-            self._send_json({"ok": True, "ingest": result}, HTTPStatus.CREATED)
+            self._send_json(
+                {"ok": True, "ingest": result, **_kb_operation_status_payload(gateway, result)},
+                HTTPStatus.CREATED,
+            )
 
         def _read_json(self) -> dict[str, Any]:
             raw = self._read_body()
@@ -594,6 +630,33 @@ def _bool_value(value: str | None, default: bool) -> bool:
 
 def _csv_values(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _kb_status_payload(
+    gateway: Any,
+    *,
+    dataset_ids: list[str],
+    document_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    readiness = evaluate_kb_readiness(
+        gateway,
+        dataset_ids=dataset_ids,
+        document_ids=document_ids or [],
+    )
+    return {"readiness": readiness, "ingestion_status": readiness.get("ingestion_status") or {}}
+
+
+def _kb_operation_status_payload(gateway: Any, result: dict[str, Any]) -> dict[str, Any]:
+    dataset = result.get("dataset") or {}
+    dataset_id = str(dataset.get("dataset_id") or "")
+    if not dataset_id:
+        return {"ingestion_status": {}, "readiness": {}}
+    document_ids = [
+        str(document.get("document_id") or "")
+        for document in result.get("documents") or []
+        if document.get("document_id")
+    ]
+    return _kb_status_payload(gateway, dataset_ids=[dataset_id], document_ids=document_ids)
 
 
 def _env_enabled(name: str) -> bool:
