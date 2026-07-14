@@ -104,7 +104,8 @@ connects independent AI systems into a coherent, auditable knowledge workspace.
 
 ## Review Rule
 
-- Long-term memory and graph writes require accepted review.
+- Long-term memory and graph writes, updates, and deletions require accepted
+  review.
 - Do not expose direct add/delete/clear backend memory tools to agents.
 - Candidate facts, memories, entities, and relations are workflow-local until
   reviewed.

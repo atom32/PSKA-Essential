@@ -113,6 +113,13 @@ class AdapterTests(unittest.TestCase):
         applied = service.memory_apply(review.review_id)
         self.assertTrue(applied.applied)
         self.assertEqual(applied.backend, "company_graphrag_stub")
+        facts = service.memory_search("replacement", {}, 10)
+        delete = service.memory_delete_review(facts[0], "adapter replacement delete")
+        service.review_decide(delete["review"]["review_id"], "accept", "ok")
+        deleted = service.memory_apply(delete["review"]["review_id"])
+        self.assertTrue(deleted.applied)
+        self.assertEqual(deleted.backend, "company_graphrag_stub")
+        self.assertEqual(service.memory_search("replacement", {}, 10), [])
 
     def test_memory_patch_requires_sources_at_adapter_boundary(self):
         adapter = CompanyGraphRagStubAdapter()

@@ -235,6 +235,41 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(memory_event["metadata"]["source_refs"][0]["adapter"], "fake")
         self.assertEqual(audit["events"][0]["metadata"]["workspace_id"], "default")
 
+        delete_review = self._post_json(
+            "/api/memory/delete-review",
+            {"memory_fact": followup["memory_facts"][0], "reason": "outdated"},
+        )
+        self.assertEqual(delete_review["proposal"]["kind"], "memory_delete")
+        self.assertEqual(delete_review["proposal"]["memory_delete"]["target_id"], applied["applied"]["target_id"])
+        self.assertEqual(delete_review["review"]["status"], "pending")
+        delete_apply_blocked = self._post_json_error(
+            f"/api/reviews/{delete_review['review']['review_id']}/apply-memory",
+            {},
+        )
+        self.assertEqual(delete_apply_blocked["status"], 400)
+        self.assertIn("accepted review", delete_apply_blocked["body"]["error"]["message"])
+
+        self._post_json(
+            f"/api/reviews/{delete_review['review']['review_id']}/decision",
+            {"decision": "accept", "reason": "delete approved"},
+        )
+        deleted = self._post_json(f"/api/reviews/{delete_review['review']['review_id']}/apply-memory", {})
+        self.assertTrue(deleted["applied"]["applied"])
+        self.assertEqual(deleted["applied"]["metadata"]["operation"], "delete")
+        after_delete = self._post_json(
+            "/api/ask",
+            {
+                "question": "Use governed memory",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+        self.assertEqual(after_delete["memory_facts"], [])
+        delete_audit = self._get_json("/api/audit?limit=10&action=memory.delete")
+        self.assertEqual(delete_audit["events"][0]["metadata"]["proposal_kind"], "memory_delete")
+        self.assertEqual(delete_audit["events"][0]["metadata"]["memory_target_id"], applied["applied"]["target_id"])
+
     def test_workflow_open_does_not_export_until_explicit_export(self):
         asked = self._post_json(
             "/api/ask",
@@ -690,7 +725,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('await loadAuditEvents("kb.graph.read");', script)
         self.assertIn('await loadAuditEvents("workflow.export");', script)
         self.assertIn('await loadAuditEvents("review.decide");', script)
-        self.assertIn('await loadAuditEvents("memory.apply");', script)
+        self.assertIn('await loadAuditEvents(action);', script)
         self.assertIn('/api/reviews?limit=50', script)
         self.assertIn('/api/reviews?status=pending&limit=50', script)
         self.assertIn('state.reviewStatus', script)
@@ -742,6 +777,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertNotIn('function loadBrief', script)
         self.assertIn('openReview', script)
         self.assertIn('/api/reviews/${encodeURIComponent(reviewId)}', script)
+        self.assertIn('/api/memory/delete-review', script)
         self.assertIn('syncReviewRecord', script)
         self.assertIn('reviewSourceRow', script)
         self.assertIn('review.source_refs || proposal.source_refs', script)
@@ -750,8 +786,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('revision.next_review_id', script)
         self.assertIn('className: "review-source-row"', script)
         self.assertIn('Apply Memory', script)
+        self.assertIn('Apply Memory Delete', script)
+        self.assertIn('Create Delete Review', script)
+        self.assertIn('createMemoryDeleteReview', script)
+        self.assertIn('memoryApplyLabel', script)
         self.assertIn('syncReviewDecision', script)
         self.assertIn('reviseReview', script)
+        self.assertIn('return `Deleted durable memory through ${metadata.backend || "memory backend"}.`;', script)
+        self.assertIn('<option value="memory.delete">memory.delete</option>', html)
         self.assertIn('return `Review revision created for ${metadata.proposal_kind || "proposal"}.`;', script)
         self.assertIn('syncMemoryApply', script)
         self.assertIn('Memory applied', script)

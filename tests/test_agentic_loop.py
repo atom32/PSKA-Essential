@@ -69,6 +69,17 @@ class AgenticLoopTests(unittest.TestCase):
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertNotIn("workflow.export", audit_actions)
 
+    def test_memory_delete_is_not_an_agentic_question_proposal_kind(self):
+        service = build_fake_service()
+
+        with self.assertRaisesRegex(ValueError, "explicit memory fact"):
+            run_agentic_question(
+                service,
+                question="Delete a memory somehow",
+                dataset_ids=["demo"],
+                proposal_kind="memory_delete",
+            )
+
     def test_no_context_returns_insufficient_context_without_proposal(self):
         service = WorkflowService(
             retrieval=_NoContextRetrieval(),

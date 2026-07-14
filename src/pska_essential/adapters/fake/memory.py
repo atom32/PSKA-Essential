@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from pska_essential.contracts import MemoryApplyResult, MemoryFact, MemoryPatch
+from pska_essential.contracts import MemoryApplyResult, MemoryDelete, MemoryFact, MemoryPatch, utc_now_iso
 
 
 class FakeMemoryAdapter:
@@ -18,7 +18,7 @@ class FakeMemoryAdapter:
         matches = [
             fact
             for fact in self.facts
-            if not words or any(word in fact.text.lower() for word in words)
+            if not fact.invalid_at and (not words or any(word in fact.text.lower() for word in words))
         ]
         return matches[:limit]
 
@@ -37,3 +37,17 @@ class FakeMemoryAdapter:
             backend=self.backend_name,
             message="Fake memory patch applied",
         )
+
+    def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
+        for fact in self.facts:
+            if fact.fact_id == reviewed_delete.target_id:
+                fact.invalid_at = utc_now_iso()
+                fact.metadata["delete_reason"] = reviewed_delete.reason
+                return MemoryApplyResult(
+                    applied=True,
+                    target_id=fact.fact_id,
+                    backend=self.backend_name,
+                    message="Fake memory fact deactivated",
+                    metadata={"operation": "delete"},
+                )
+        raise ValueError(f"memory fact not found: {reviewed_delete.target_id}")

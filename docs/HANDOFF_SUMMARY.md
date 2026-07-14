@@ -19,7 +19,7 @@ Core product narrative:
 - Keep agentic question loops first-class, but PSKA-controlled.
 - Keep retrieval and memory backends replaceable.
 - Require review before candidate knowledge enters long-term memory.
-- Keep audit trails for retrieval, proposals, review decisions, memory writes,
+- Keep audit trails for retrieval, proposals, review decisions, memory changes,
   and exports.
 - Fail explicitly instead of silently falling back to fake data or another
   backend.
@@ -133,7 +133,10 @@ Implemented:
   backed by Review API memory-apply records.
 - Existing sourced transient workflows can be turned into pending durable memory
   reviews through Product API, MCP, and the frontend Writing/Ask Memory Review
-  action without re-retrieval or direct memory writes.
+  action without re-retrieval or direct memory changes.
+- Existing durable MemoryFacts can create governed deletion reviews through
+  Product API, MCP, and frontend Writing actions; deletion applies only after
+  accepted review and writes `memory.delete` audit records.
 - Review queues can be resumed through Product API single-review reads and MCP
   `pska_review_list` / `pska_review_get`; frontend Review actions now open exact
   single-review Product API records by ID.
@@ -169,10 +172,10 @@ Implemented:
 - Frontend Knowledge Base create, upload, and parse actions refresh Activity
   after source-operation audit records are written.
 - Frontend user operations focus Activity on their matching audit action
-  (`kb.ingest`, `source.read`, `workflow.export`, `memory.apply`, and related
-  actions) after records are written.
-- Review and memory apply audit records carry proposal, run, and source trace
-  metadata for durable knowledge writes.
+  (`kb.ingest`, `source.read`, `workflow.export`, `memory.apply`,
+  `memory.delete`, and related actions) after records are written.
+- Review and memory apply/delete audit records carry proposal, run, and source
+  trace metadata for durable knowledge writes.
 - Reviews become immutable after durable memory has been applied; further
   durable changes require a new proposal/review.
 - Writing opens workflow state, work product, source manifest, and context
@@ -200,7 +203,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 73 tests pass.
+- `make test`: 75 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -217,13 +220,15 @@ Expected result:
 - Workflow/Product API/MCP tests cover source-read audit records.
 - Product API/MCP tests cover turning transient sourced workflows into durable
   memory reviews, including workspace-policy auto apply.
+- Workflow/Product API/MCP tests cover reviewed memory deletion and verify later
+  Ask runs no longer see deleted fake/stub memory facts.
 - Product API/MCP tests cover revising `needs_edit` reviews into new pending
   review candidates.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 30 PSKA MCP tools.
+- `make list-tools`: lists 31 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -258,6 +263,7 @@ pska_workflow_list
 pska_workflow_artifact
 pska_workflow_brief
 pska_memory_review_from_workflow
+pska_memory_delete_review
 pska_review_list
 pska_review_get
 pska_review_decide
@@ -294,15 +300,15 @@ and optional graph retrieval inside selected scope, opens sources through
 Product API Reader, opens workflow state, work product, source manifest, and
 context in Writing without export side effects, restores persisted loop
 governance/status details, opens related review items, and can apply accepted
-memory patches. Explicit exports produce traceable
+memory patches or reviewed memory deletions. Explicit exports produce traceable
 Markdown/JSON work products with source manifests, supporting context, and
 traceability metadata, include the workflow export audit event, and create
 workflow export audit records. Review
-decisions and memory apply actions refresh the current Ask/Writing state, and
-applied memory state is served back through Review API records. Review supports
+decisions and memory apply/delete actions refresh the current Ask/Writing state,
+and applied memory state is served back through Review API records. Review supports
 status filtering without changing the Home pending-review summary. Activity
 shows the recent audit trail with action filtering, including workflow export
-records, review/memory apply records with proposal, run, and source trace
+records, review/memory apply/delete records with proposal, run, and source trace
 metadata, and KB/source operation records for dataset creation, ingestion,
 parsing, source reads, and graph reads. Knowledge Base create, upload, parse,
 source read, and graph read actions refresh Activity and focus the matching

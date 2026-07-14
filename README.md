@@ -19,7 +19,7 @@ The product promise is workflow closure:
 - retrieve context from an external KB;
 - optionally create/populate that external KB through thin MCP glue;
 - let an agent propose digest, memory, or writing artifacts;
-- require review before long-term memory writes;
+- require review before long-term memory changes;
 - keep an audit trail;
 - replace RAGFlow/Graphiti later through adapters.
 
@@ -157,6 +157,7 @@ Operational loop tools:
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
 - `pska_memory_review_from_workflow`
+- `pska_memory_delete_review`
 - `pska_review_list`
 - `pska_review_get`
 - `pska_review_decide`
@@ -170,6 +171,7 @@ These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> PSKA scoped retrieve
   -> agent answer/proposal -> Review -> optional memory apply
+  -> optional governed memory delete review
   -> inspect artifact / transient brief -> explicit export
 ```
 
@@ -218,6 +220,7 @@ Implemented Alpha routes:
 - `POST /api/workflows/{run_id}/memory-review`
 - `GET /api/workflows/{run_id}/export`
 - `POST /api/sources/read`
+- `POST /api/memory/delete-review`
 - `GET /api/reviews`
 - `GET /api/reviews?status={status}`
 - `GET /api/reviews/{review_id}`
@@ -264,10 +267,13 @@ decisions and memory apply actions refresh the current Ask/Writing state, and
 applied memory state is served back through Review API records.
 Applied memory can be found by later Ask runs through the memory adapter and is
 shown in Writing as durable workspace context with its supporting source trace.
+Writing can create a governed deletion review from an explicit MemoryFact; the
+delete applies only after the review is accepted and produces a `memory.delete`
+audit record.
 Once durable memory has been applied, the accepted review decision is locked;
 future changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow
-export records from explicit export actions, review/memory apply records
+export records from explicit export actions, review/memory apply/delete records
 with proposal, run, and source trace metadata, and mechanical source operations
 such as dataset creation, ingestion, parsing, source reads, and graph reads.
 Knowledge Base create, upload, parse, source read, and graph read actions

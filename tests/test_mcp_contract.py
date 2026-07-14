@@ -28,6 +28,7 @@ EXPECTED_TOOLS = {
     "pska_review_revise",
     "pska_memory_search",
     "pska_memory_apply",
+    "pska_memory_delete_review",
     "pska_memory_review_from_workflow",
     "pska_export_brief",
     "pska_audit_list",
@@ -75,6 +76,14 @@ class McpContractTests(unittest.TestCase):
         tools["pska_review_decide"](review["review_id"], "accept", "test")
         applied = tools["pska_memory_apply"](review["review_id"])
         self.assertTrue(applied["applied"])
+        facts = tools["pska_memory_search"]("mcp memory", {}, 10)
+        delete_review = tools["pska_memory_delete_review"](facts[0], "remove mcp memory")
+        self.assertEqual(delete_review["proposal"]["kind"], "memory_delete")
+        tools["pska_review_decide"](delete_review["review"]["review_id"], "accept", "delete")
+        deleted = tools["pska_memory_apply"](delete_review["review"]["review_id"])
+        self.assertTrue(deleted["applied"])
+        self.assertEqual(deleted["metadata"]["operation"], "delete")
+        self.assertEqual(tools["pska_memory_search"]("mcp memory", {}, 10), [])
         exported = tools["pska_export_brief"](run["run_id"], "markdown")
         self.assertIn("PSKA-Essential Brief", exported)
         self.assertIn("workflow.export", [event.action for event in service.store.list_audit_events()])
@@ -185,7 +194,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(result["proposal"]["kind"], "memory_patch")
         self.assertEqual(result["review"]["status"], "pending")
         self.assertIn("kb.readiness", [step["name"] for step in result["loop"]["steps"]])
-        self.assertIn("Memory writes still require", result["note"])
+        self.assertIn("Memory changes still require", result["note"])
 
     def test_agentic_question_start_blocks_unready_scope(self):
         service = build_fake_service()

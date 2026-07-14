@@ -73,6 +73,36 @@ class WorkflowTests(unittest.TestCase):
         ]
         self.assertEqual(len(review_decide_events), 1)
 
+    def test_memory_delete_requires_review_and_deactivates_fact(self):
+        service = build_fake_service()
+        run = service.start("delete workflow", {"dataset_ids": ["demo"]})
+        service.context_retrieve(run.run_id, "adapter memory review", 1)
+        proposal = service.propose(run.run_id, "memory_patch", "remember deletion target")
+        review = service.review_create(proposal.proposal_id)
+        service.review_decide(review.review_id, "accept", "approved")
+        applied = service.memory_apply(review.review_id)
+        facts = service.memory_search("deletion target", {}, 10)
+        self.assertEqual(facts[0].fact_id, applied.target_id)
+
+        delete_result = service.memory_delete_review(facts[0], "outdated")
+        delete_review_id = delete_result["review"]["review_id"]
+        self.assertEqual(delete_result["proposal"]["kind"], "memory_delete")
+        self.assertEqual(delete_result["proposal"]["memory_delete"]["target_id"], applied.target_id)
+        with self.assertRaises(WorkflowError):
+            service.memory_apply(delete_review_id)
+
+        service.review_decide(delete_review_id, "accept", "delete approved")
+        deletion = service.memory_apply(delete_review_id)
+
+        self.assertTrue(deletion.applied)
+        self.assertEqual(deletion.target_id, applied.target_id)
+        self.assertEqual(deletion.metadata["operation"], "delete")
+        self.assertEqual(service.memory_search("deletion target", {}, 10), [])
+        memory_delete = next(event for event in service.store.list_audit_events() if event.action == "memory.delete")
+        self.assertEqual(memory_delete.metadata["proposal_kind"], "memory_delete")
+        self.assertEqual(memory_delete.metadata["memory_target_id"], applied.target_id)
+        self.assertEqual(memory_delete.metadata["source_count"], 1)
+
     def test_export_brief_uses_workflow_context(self):
         service = build_fake_service()
         run = service.start("brief workflow", {"dataset_ids": ["demo"]})

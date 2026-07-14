@@ -9,6 +9,7 @@ from pska_essential.audit import audit_event
 from pska_essential.contracts import (
     ContextPacket,
     MemoryApplyResult,
+    MemoryDelete,
     MemoryFact,
     MemoryPatch,
     Proposal,
@@ -102,9 +103,11 @@ class WorkflowService:
 
     def propose(self, run_id: str, kind: str, intent: str = "") -> Proposal:
         normalized = kind.strip().lower()
-        if normalized not in {"digest", "memory_patch", "writing_brief"}:
-            raise WorkflowError("proposal kind must be digest, memory_patch, or writing_brief")
+        if normalized not in {"digest", "memory_delete", "memory_patch", "writing_brief"}:
+            raise WorkflowError("proposal kind must be digest, memory_delete, memory_patch, or writing_brief")
         run = self.store.get_workflow(run_id)
+        if normalized == "memory_delete":
+            return self._propose_memory_delete(run, intent)
         if not run.context_packets:
             raise WorkflowError("cannot propose without retrieved context")
         source_refs = _unique_source_refs([packet.source_ref for packet in run.context_packets])
@@ -192,6 +195,56 @@ class WorkflowService:
             "artifact": self.workflow_artifact(run_id),
         }
 
+    def memory_delete_review(self, memory_fact: MemoryFact | dict[str, Any], reason: str = "") -> dict[str, Any]:
+        """Govern durable memory deletion from an explicit PSKA memory fact."""
+
+        fact = memory_fact if isinstance(memory_fact, MemoryFact) else MemoryFact.from_dict(memory_fact)
+        if not fact.fact_id:
+            raise WorkflowError("memory delete review requires fact_id")
+        if not fact.source_refs:
+            raise WorkflowError("memory delete review requires source refs")
+        policy = build_workspace_policy_from_env()
+        governance_action = policy.action_for("memory_delete")
+        run = self.start(
+            f"delete durable memory {fact.fact_id}",
+            {"memory_fact_id": fact.fact_id, "operation": "memory_delete"},
+        )
+        run.metadata["memory_delete_candidate"] = to_jsonable(
+            MemoryDelete(
+                target_id=fact.fact_id,
+                reason=reason,
+                text=fact.text,
+                source_refs=fact.source_refs,
+                metadata={"fact_id": fact.fact_id},
+            )
+        )
+        run.updated_at = utc_now_iso()
+        self.store.save_workflow(run)
+        proposal = self.propose(run.run_id, "memory_delete", reason)
+        review = self.review_create(proposal.proposal_id)
+        review_decision = None
+        memory_apply = None
+        if governance_action in {AUTO_ACCEPT, AUTO_APPLY}:
+            review_decision = self.review_decide(
+                review.review_id,
+                "accept",
+                f"accepted by workspace policy: {governance_action}",
+            )
+            if governance_action == AUTO_APPLY:
+                memory_apply = self.memory_apply(review.review_id)
+        return {
+            "proposal": to_jsonable(proposal),
+            "review": self.store.get_review_record(review.review_id),
+            "review_decision": to_jsonable(review_decision),
+            "memory_apply": to_jsonable(memory_apply),
+            "governance": {
+                "action": governance_action,
+                "durable_proposal": True,
+                "policy": policy.to_dict(),
+            },
+            "artifact": self.workflow_artifact(run.run_id),
+        }
+
     def review_decide(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
         if self.store.get_memory_apply(review_id):
             raise WorkflowError("cannot change review decision after durable memory has been applied")
@@ -264,30 +317,56 @@ class WorkflowService:
         if review["status"] != "accepted":
             raise WorkflowError("memory apply requires an accepted review")
         proposal = self.store.get_proposal(str(review["proposal_id"]))
-        if proposal.kind != "memory_patch" or proposal.memory_patch is None:
-            raise WorkflowError("only memory_patch proposals can be applied to memory")
-        if not proposal.memory_patch.source_refs:
-            raise WorkflowError("memory patch requires source refs before apply")
-        result = self.memory.apply(proposal.memory_patch)
-        self.store.save_memory_apply(review_id, to_jsonable(result))
-        self.store.add_audit_event(
-            audit_event(
-                "memory.apply",
-                "review",
-                review_id,
-                proposal_id=proposal.proposal_id,
-                run_id=proposal.run_id,
-                proposal_kind=proposal.kind,
-                applied=result.applied,
-                memory_target_id=result.target_id,
-                backend=result.backend,
-                layer=proposal.memory_patch.layer,
-                confidence=proposal.memory_patch.confidence,
-                source_count=len(proposal.memory_patch.source_refs),
-                source_refs=to_jsonable(proposal.memory_patch.source_refs),
+        if proposal.kind == "memory_patch":
+            if proposal.memory_patch is None:
+                raise WorkflowError("memory_patch proposal is missing memory patch payload")
+            if not proposal.memory_patch.source_refs:
+                raise WorkflowError("memory patch requires source refs before apply")
+            result = self.memory.apply(proposal.memory_patch)
+            self.store.save_memory_apply(review_id, to_jsonable(result))
+            self.store.add_audit_event(
+                audit_event(
+                    "memory.apply",
+                    "review",
+                    review_id,
+                    proposal_id=proposal.proposal_id,
+                    run_id=proposal.run_id,
+                    proposal_kind=proposal.kind,
+                    applied=result.applied,
+                    memory_target_id=result.target_id,
+                    backend=result.backend,
+                    layer=proposal.memory_patch.layer,
+                    confidence=proposal.memory_patch.confidence,
+                    source_count=len(proposal.memory_patch.source_refs),
+                    source_refs=to_jsonable(proposal.memory_patch.source_refs),
+                )
             )
-        )
-        return result
+            return result
+        if proposal.kind == "memory_delete":
+            if proposal.memory_delete is None:
+                raise WorkflowError("memory_delete proposal is missing memory delete payload")
+            if not proposal.memory_delete.source_refs:
+                raise WorkflowError("memory delete requires source refs before apply")
+            result = self.memory.delete(proposal.memory_delete)
+            self.store.save_memory_apply(review_id, to_jsonable(result))
+            self.store.add_audit_event(
+                audit_event(
+                    "memory.delete",
+                    "review",
+                    review_id,
+                    proposal_id=proposal.proposal_id,
+                    run_id=proposal.run_id,
+                    proposal_kind=proposal.kind,
+                    applied=result.applied,
+                    memory_target_id=result.target_id,
+                    backend=result.backend,
+                    reason=proposal.memory_delete.reason,
+                    source_count=len(proposal.memory_delete.source_refs),
+                    source_refs=to_jsonable(proposal.memory_delete.source_refs),
+                )
+            )
+            return result
+        raise WorkflowError("only durable memory proposals can be applied to memory")
 
     def workflow_artifact(self, run_id: str) -> dict[str, Any]:
         run = self.store.get_workflow(run_id)
@@ -463,6 +542,45 @@ class WorkflowService:
             },
         }
 
+    def _propose_memory_delete(self, run: WorkflowRun, intent: str = "") -> Proposal:
+        candidate = run.metadata.get("memory_delete_candidate") or {}
+        if not candidate:
+            raise WorkflowError("memory_delete proposal requires an explicit memory delete candidate")
+        memory_delete = MemoryDelete.from_dict(candidate)
+        if intent:
+            memory_delete.reason = intent
+        if not memory_delete.target_id:
+            raise WorkflowError("memory_delete proposal requires target_id")
+        if not memory_delete.source_refs:
+            raise WorkflowError("memory_delete proposal requires source refs")
+        proposal_id = f"prop_{uuid4().hex}"
+        body = _compose_memory_delete_body(memory_delete, intent or memory_delete.reason)
+        proposal = Proposal(
+            proposal_id=proposal_id,
+            run_id=run.run_id,
+            kind="memory_delete",
+            intent=intent or memory_delete.reason or run.intent,
+            title=_proposal_title("memory_delete", memory_delete.target_id),
+            body=body,
+            source_refs=memory_delete.source_refs,
+            memory_delete=memory_delete,
+        )
+        self.store.save_proposal(proposal)
+        run.proposal_ids.append(proposal.proposal_id)
+        run.updated_at = utc_now_iso()
+        self.store.save_workflow(run)
+        self.store.add_audit_event(
+            audit_event(
+                "proposal.create",
+                "proposal",
+                proposal.proposal_id,
+                kind=proposal.kind,
+                run_id=run.run_id,
+                memory_target_id=memory_delete.target_id,
+            )
+        )
+        return proposal
+
     def eval_run(self, suite: str = "smoke") -> dict[str, Any]:
         if suite != "smoke":
             raise WorkflowError("only smoke eval is bundled in v1")
@@ -509,8 +627,25 @@ def _compose_body(kind: str, run: WorkflowRun, intent: str) -> str:
 
 
 def _proposal_title(kind: str, intent: str) -> str:
-    label = {"digest": "Digest", "memory_patch": "Memory Patch", "writing_brief": "Writing Brief"}[kind]
+    label = {
+        "digest": "Digest",
+        "memory_delete": "Memory Delete",
+        "memory_patch": "Memory Patch",
+        "writing_brief": "Writing Brief",
+    }[kind]
     return f"{label}: {intent}".strip()
+
+
+def _compose_memory_delete_body(memory_delete: MemoryDelete, reason: str) -> str:
+    lines = [
+        f"Delete durable memory `{memory_delete.target_id}`.",
+        "",
+        "Current memory:",
+        memory_delete.text or "",
+    ]
+    if reason:
+        lines.extend(["", f"Reason: {reason}"])
+    return "\n".join(lines).strip()
 
 
 def _unique_source_refs(source_refs: list[SourceRef]) -> list[SourceRef]:

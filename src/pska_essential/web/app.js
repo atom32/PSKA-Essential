@@ -842,7 +842,7 @@ function askResultActions(result) {
     );
   }
   if (memoryApply) {
-    actions.append(el("span", { className: "tag ready" }, "Memory applied"));
+    actions.append(el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)));
   }
   return el("div", { className: "panel compact-panel" }, [
     el("h2", {}, "Next Actions"),
@@ -952,7 +952,7 @@ function renderWriting() {
       review.review_id
         ? el("div", { className: "meta-row" }, [
             el("span", { className: "tag" }, shortId(review.review_id)),
-            memoryApply ? el("span", { className: "tag ready" }, "memory applied") : null,
+            memoryApply ? el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)) : null,
           ])
         : null,
       state.currentBrief.brief
@@ -1078,6 +1078,7 @@ function contextCard(packet) {
 
 function memoryFactCard(fact) {
   const sourceRefs = fact.source_refs || [];
+  const reason = el("input", { placeholder: "Reason", value: "" });
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, fact.fact_id || "Memory"), el("p", {}, fact.text || "")]),
@@ -1086,6 +1087,18 @@ function memoryFactCard(fact) {
     sourceRefs.length
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
       : null,
+    el("div", { className: "review-actions" }, [
+      reason,
+      el(
+        "button",
+        {
+          className: "secondary-button",
+          onclick: () => createMemoryDeleteReview(fact, reason.value),
+          ...(sourceRefs.length ? {} : { disabled: true }),
+        },
+        "Create Delete Review",
+      ),
+    ]),
   ]);
 }
 
@@ -1131,7 +1144,7 @@ function reviewCard(review) {
   const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
   const locked = Boolean(memoryApply);
   if (locked) {
-    actions.append(el("span", { className: "tag ready" }, "Memory applied"));
+    actions.append(el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)));
     actions.append(el("span", { className: "tag" }, "Locked"));
   } else {
     actions.append(
@@ -1143,6 +1156,11 @@ function reviewCard(review) {
     if (review.status === "accepted" && proposal.kind === "memory_patch") {
       actions.append(
         el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
+      );
+    }
+    if (review.status === "accepted" && proposal.kind === "memory_delete") {
+      actions.append(
+        el("button", { className: "danger-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory Delete"),
       );
     }
     if (review.status === "needs_edit") {
@@ -1364,6 +1382,9 @@ function auditSummary(event) {
   }
   if (event.action === "memory.apply") {
     return `Applied durable memory through ${metadata.backend || "memory backend"}.`;
+  }
+  if (event.action === "memory.delete") {
+    return `Deleted durable memory through ${metadata.backend || "memory backend"}.`;
   }
   if (event.action === "memory.search") {
     return `Searched durable memory and found ${metadata.count || 0} fact(s).`;
@@ -1602,11 +1623,31 @@ async function reviseReview(reviewId, intent) {
 async function applyMemory(reviewId) {
   const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}/apply-memory`, { method: "POST", body: {} });
   syncMemoryApply(reviewId, payload.applied);
-  showToast("Memory applied.");
+  const action = payload.applied && payload.applied.metadata && payload.applied.metadata.operation === "delete" ? "memory.delete" : "memory.apply";
+  showToast(action === "memory.delete" ? "Memory deletion applied." : "Memory applied.");
   await loadReviews();
   await loadPendingReviews();
-  await loadAuditEvents("memory.apply");
+  await loadAuditEvents(action);
   renderCurrentResultSurfaces();
+}
+
+async function createMemoryDeleteReview(fact, reason) {
+  const payload = await api("/api/memory/delete-review", {
+    method: "POST",
+    body: { memory_fact: fact, reason },
+  });
+  syncReviewRecord(payload.review);
+  state.focusReviewId = payload.review && payload.review.review_id;
+  setReviewStatusFilter("");
+  await loadReviews();
+  await loadPendingReviews();
+  await loadAuditEvents("review.create");
+  document.querySelector('.nav-item[data-view="review"]').click();
+  showToast("Memory delete review created.");
+}
+
+function memoryApplyLabel(memoryApply) {
+  return memoryApply && memoryApply.metadata && memoryApply.metadata.operation === "delete" ? "memory deleted" : "memory applied";
 }
 
 function syncReviewDecision(decision) {

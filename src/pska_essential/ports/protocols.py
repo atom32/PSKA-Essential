@@ -5,6 +5,7 @@ from typing import Any, Protocol
 from pska_essential.contracts import (
     ContextPacket,
     MemoryApplyResult,
+    MemoryDelete,
     MemoryFact,
     MemoryPatch,
     Proposal,
@@ -52,3 +53,5 @@ class MemoryPort(Protocol):
     def search(self, query: str, scope: dict[str, Any], limit: int) -> list[MemoryFact]: ...
 
     def apply(self, reviewed_patch: MemoryPatch) -> MemoryApplyResult: ...
+
+    def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult: ...

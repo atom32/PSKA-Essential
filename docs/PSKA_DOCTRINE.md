@@ -3,7 +3,7 @@
 PSKA-Essential exists to make agent knowledge workflows finish cleanly.
 
 It is not sold as an evidence product. Evidence is a mechanism used to make
-workflow state inspectable and memory writes safe.
+workflow state inspectable and durable memory changes safe.
 
 The product is universal. Runtime behavior must not contain vertical-specific
 or demo-specific logic. Domain workflows must be expressed through user-provided
@@ -16,13 +16,13 @@ workspaces, datasets, schemas, prompts, and templates, not hardcoded branches.
 - Adapter first: RAGFlow, Graphiti, Hermes, and company GraphRAG stay outside.
 - Agentic loop first-class: questions may plan, retrieve, inspect sources,
   retrieve again, synthesize, propose, and review inside PSKA boundaries.
-- Review before memory: candidate knowledge cannot write long-term memory until
+- Review before memory: candidate knowledge cannot change long-term memory until
   a review decision accepts it, and that decision is locked after memory apply.
 - Explicit readiness: upload, parsing, embedding, indexing, and graph extraction
   are asynchronous states, not instant side effects.
 - No silent fallback: missing or failing providers must produce explicit errors.
 - Audit everything important: workflow starts, retrievals, proposals, reviews,
-  and memory writes are recorded with enough source trace to reconstruct why
+  and memory changes are recorded with enough source trace to reconstruct why
   durable knowledge changed.
 - Replace platforms, keep contracts: changing GraphRAG backend must not change
   the MCP tools.

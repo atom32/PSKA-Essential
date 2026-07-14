@@ -335,6 +335,15 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, "source": to_jsonable(source)})
                 return
 
+            if method == "POST" and path == "/api/memory/delete-review":
+                payload = self._read_json()
+                result = state.service.memory_delete_review(
+                    payload.get("memory_fact") or payload.get("fact") or payload,
+                    reason=str(payload.get("reason") or ""),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
             if method == "GET" and path == "/api/reviews":
                 status = query.get("status") or None
                 limit = _int_param(query.get("limit"), 50)

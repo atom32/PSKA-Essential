@@ -5,10 +5,12 @@ from uuid import uuid4
 from pska_essential.contracts import (
     ContextPacket,
     MemoryApplyResult,
+    MemoryDelete,
     MemoryFact,
     MemoryPatch,
     SourceContext,
     SourceRef,
+    utc_now_iso,
 )
 
 
@@ -60,7 +62,7 @@ class CompanyGraphRagStubAdapter:
         matches = [
             fact
             for fact in self.memory
-            if not words or any(word in fact.text.lower() for word in words)
+            if not fact.invalid_at and (not words or any(word in fact.text.lower() for word in words))
         ]
         return matches[:limit]
 
@@ -78,3 +80,17 @@ class CompanyGraphRagStubAdapter:
             backend=self.backend_name,
             message="Company GraphRAG stub accepted reviewed patch",
         )
+
+    def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
+        for fact in self.memory:
+            if fact.fact_id == reviewed_delete.target_id:
+                fact.invalid_at = utc_now_iso()
+                fact.metadata["delete_reason"] = reviewed_delete.reason
+                return MemoryApplyResult(
+                    applied=True,
+                    target_id=fact.fact_id,
+                    backend=self.backend_name,
+                    message="Company GraphRAG stub deactivated reviewed memory",
+                    metadata={"operation": "delete"},
+                )
+        raise ValueError(f"memory fact not found: {reviewed_delete.target_id}")

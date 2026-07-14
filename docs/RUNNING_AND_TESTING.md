@@ -119,6 +119,8 @@ traceable.
 Later Ask runs can find applied memory through the memory adapter and Writing
 shows matched durable memory alongside source context, including the memory
 fact's supporting source trace.
+Writing can create a deletion review from an explicit MemoryFact; deletion is
+applied only after review acceptance and produces a `memory.delete` audit record.
 Reader inspects sources through Product API only. Writing opens workflow state,
 work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions; exports include
@@ -269,6 +271,7 @@ Core tests:
 
 - fake adapter E2E
 - review gate
+- reviewed memory deletion lifecycle
 - MCP tool registry
 - export
 - adapter replacement with company stub

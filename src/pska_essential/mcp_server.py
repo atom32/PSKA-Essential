@@ -84,6 +84,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_memory_review_from_workflow(run_id: str, intent: str = ""):
         return service.memory_review_from_workflow(run_id, intent)
 
+    def pska_memory_delete_review(memory_fact: dict[str, Any], reason: str = ""):
+        return service.memory_delete_review(memory_fact, reason)
+
     def pska_export_brief(run_id: str, format: str = "markdown"):
         return service.export_brief(run_id, format)
 
@@ -229,7 +232,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         result["note"] = (
             "Agent should answer from returned context and brief. "
             "Transient work products do not require review by default. "
-            "Memory writes still require an accepted review before pska_memory_apply."
+            "Memory changes still require an accepted review before pska_memory_apply."
         )
         return result
 
@@ -247,7 +250,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             return result
         result["note"] = (
             "Resumed Ask created a new workflow run. "
-            "Use returned context/brief and keep durable memory writes behind review."
+            "Use returned context/brief and keep durable memory changes behind review."
         )
         return result
 
@@ -275,6 +278,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_search": pska_memory_search,
         "pska_memory_apply": pska_memory_apply,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
+        "pska_memory_delete_review": pska_memory_delete_review,
         "pska_export_brief": pska_export_brief,
         "pska_audit_list": pska_audit_list,
         "pska_retrieval_probe": pska_retrieval_probe,

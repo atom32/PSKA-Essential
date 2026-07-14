@@ -26,12 +26,15 @@ Rules:
 ```python
 search(query, scope, limit) -> list[MemoryFact]
 apply(reviewed_patch) -> MemoryApplyResult
+delete(reviewed_delete) -> MemoryApplyResult
 ```
 
 Rules:
 
 - `apply` receives only reviewed `MemoryPatch` objects.
-- Direct delete, clear, or unreviewed add operations are intentionally absent.
+- `delete` receives only reviewed `MemoryDelete` objects from PSKA review flow.
+- Direct clear, unreviewed add, or provider-native delete operations are
+  intentionally absent from public tools.
 - Graphiti `add_episode` is allowed only inside `apply`.
 
 ## Public MCP Contract
@@ -54,6 +57,7 @@ The public tool surface is:
 - `pska_memory_search`
 - `pska_memory_apply`
 - `pska_memory_review_from_workflow`
+- `pska_memory_delete_review`
 - `pska_export_brief`
 - `pska_audit_list`
 - `pska_retrieval_probe`
@@ -114,6 +118,12 @@ Memory write flow:
 
 ```text
 retrieve -> propose(memory_patch) -> review_create -> review_decide(accept) -> memory_apply
+```
+
+Memory delete flow:
+
+```text
+memory_search -> pska_memory_delete_review(MemoryFact) -> review_decide(accept) -> memory_apply
 ```
 
 `memory_apply` must fail when the review is pending, rejected, or needs edit.

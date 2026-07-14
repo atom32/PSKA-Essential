@@ -9,7 +9,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from pska_essential.contracts import MemoryApplyResult, MemoryFact, MemoryPatch
+from pska_essential.contracts import MemoryApplyResult, MemoryDelete, MemoryFact, MemoryPatch
 
 
 class GraphitiAdapterError(RuntimeError):
@@ -98,6 +98,11 @@ class GraphitiMemoryAdapter:
                 message="Reviewed memory patch queued in Graphiti HTTP service",
             )
         raise GraphitiAdapterError("Graphiti adapter requires a graphiti client or base_url")
+
+    def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
+        raise GraphitiAdapterError(
+            "Graphiti reviewed memory delete is not configured in the PSKA adapter"
+        )
 
     def _post_json(self, path: str, payload: dict[str, Any], *, accept_empty: bool = False) -> dict[str, Any]:
         req = Request(
