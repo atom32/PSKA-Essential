@@ -209,6 +209,7 @@ RAGFlow upload/parse operations use the same API key through PSKA MCP tools:
 ```text
 pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_readiness
   -> pska_agentic_question_start
+  -> pska_agentic_question_resumable to find blocked Ask runs
   -> pska_agentic_question_resume if the first Ask was readiness-blocked
 ```
 
@@ -222,7 +223,9 @@ must check readiness before assuming retrieval will work. Readiness-blocked
 Ask calls are persisted as blocked workflows with audit records rather than
 discarded one-off errors. Use `pska_agentic_question_resume` or
 `POST /api/workflows/{run_id}/resume-ask` to retry the stored Ask request after
-the selected scope becomes ready.
+the selected scope becomes ready. Use `pska_agentic_question_resumable` or
+`GET /api/workflows/resumable-asks` to list readiness-blocked Ask runs with a
+fresh readiness check.
 
 ### 5. Full Demo / Deployment
 

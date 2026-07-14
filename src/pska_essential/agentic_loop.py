@@ -507,6 +507,40 @@ def resume_agentic_question(service: WorkflowService, gateway: Any, *, run_id: s
     return result
 
 
+def list_resumable_agentic_questions(
+    service: WorkflowService,
+    gateway: Any,
+    *,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """List readiness-blocked Ask workflows with fresh readiness checks."""
+
+    records: list[dict[str, Any]] = []
+    for run in service.store.list_workflows(limit=limit):
+        if run.metadata.get("blocked_reason") != "kb_not_ready":
+            continue
+        ask_request = run.metadata.get("ask_request")
+        if not isinstance(ask_request, dict):
+            continue
+        dataset_ids = [str(item) for item in ask_request.get("dataset_ids") or []]
+        document_ids = [str(item) for item in ask_request.get("document_ids") or []]
+        readiness = evaluate_kb_readiness(gateway, dataset_ids=dataset_ids, document_ids=document_ids)
+        records.append(
+            {
+                "run": to_jsonable(run),
+                "ask_request": to_jsonable(ask_request),
+                "readiness": readiness,
+                "can_resume": bool(readiness.get("ready")),
+                "message": (
+                    "Selected knowledge scope is ready; resume can create a new Ask workflow."
+                    if readiness.get("ready")
+                    else "Selected knowledge scope is still not ready."
+                ),
+            }
+        )
+    return records
+
+
 def _loop_summary(
     *,
     status: str,

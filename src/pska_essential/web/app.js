@@ -7,6 +7,7 @@ const state = {
   lastRunId: null,
   reader: null,
   workflows: [],
+  resumableAsks: [],
   auditEvents: [],
   currentBrief: null,
   currentAskResult: null,
@@ -150,6 +151,7 @@ async function applyAskResult(result, options = {}) {
   await loadReviews();
   await loadPendingReviews();
   await loadWorkflows();
+  await loadResumableAsks();
   await loadAuditEvents(auditActionForAskResult(result));
   renderHome();
   if (options.toast) {
@@ -186,6 +188,7 @@ async function refreshAll() {
     loadReviews(),
     loadPendingReviews(),
     loadWorkflows(),
+    loadResumableAsks(),
     loadAuditEvents(),
   ]);
   renderHome();
@@ -277,6 +280,19 @@ async function loadWorkflows() {
   }
 }
 
+async function loadResumableAsks() {
+  try {
+    const payload = await api("/api/workflows/resumable-asks?limit=20");
+    state.resumableAsks = payload.resumable_asks || [];
+    renderHome();
+    renderWorkflowList();
+  } catch (error) {
+    state.resumableAsks = [];
+    renderHome();
+    showToast(error.message);
+  }
+}
+
 async function loadAuditEvents(actionOverride = undefined) {
   try {
     if (typeof actionOverride === "string") {
@@ -334,6 +350,12 @@ function renderHome() {
     pendingReviews.slice(0, 4),
     "No pending reviews.",
     reviewCard,
+  );
+  renderList(
+    document.getElementById("home-resumable-asks"),
+    state.resumableAsks.slice(0, 4),
+    "No resumable asks.",
+    resumableAskCard,
   );
 }
 
@@ -715,8 +737,17 @@ function askResultActions(result) {
       el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, "Open Writing"),
     );
     if (result.status === "not_ready") {
+      const canResume = Boolean(result.readiness && result.readiness.ready);
       actions.append(
-        el("button", { className: "primary-button", onclick: () => resumeAskRun(result.run.run_id) }, "Resume Ask"),
+        el(
+          "button",
+          {
+            className: "primary-button",
+            onclick: () => resumeAskRun(result.run.run_id),
+            ...(canResume ? {} : { disabled: true }),
+          },
+          "Resume Ask",
+        ),
       );
     }
   }
@@ -1074,6 +1105,8 @@ function reviewSourceRow(sourceRef, index) {
 
 function workflowCard(workflow) {
   const blockedByKb = workflow.metadata && workflow.metadata.blocked_reason === "kb_not_ready";
+  const resumable = resumableAskFor(workflow.run_id);
+  const canResume = !resumable || Boolean(resumable.can_resume);
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -1082,7 +1115,15 @@ function workflowCard(workflow) {
       ]),
       el("div", { className: "result-actions" }, [
         blockedByKb
-          ? el("button", { className: "primary-button", onclick: () => resumeAskRun(workflow.run_id) }, "Resume Ask")
+          ? el(
+              "button",
+              {
+                className: "primary-button",
+                onclick: () => resumeAskRun(workflow.run_id),
+                ...(canResume ? {} : { disabled: true }),
+              },
+              "Resume Ask",
+            )
           : null,
         el("button", { className: "secondary-button", onclick: () => openWorkflowRun(workflow.run_id) }, "Open"),
       ]),
@@ -1090,8 +1131,50 @@ function workflowCard(workflow) {
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, shortId(workflow.run_id || "")),
       el("span", { className: "tag" }, workflow.status || "active"),
+      resumable
+        ? el(
+            "span",
+            { className: `tag ${statusClass(resumable.readiness && resumable.readiness.status)}` },
+            resumable.can_resume ? "ready to resume" : resumable.readiness.status || "not ready",
+          )
+        : null,
     ]),
   ]);
+}
+
+function resumableAskCard(record) {
+  const run = record.run || {};
+  const askRequest = record.ask_request || {};
+  const readiness = record.readiness || {};
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, askRequest.question || run.intent || "Blocked Ask"),
+        el("p", {}, record.message || readiness.message || ""),
+      ]),
+      el("span", { className: `tag ${statusClass(readiness.status)}` }, readiness.status || "unknown"),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, shortId(run.run_id || "")),
+      el("span", { className: `tag ${record.can_resume ? "ready" : "pending"}` }, record.can_resume ? "can resume" : "waiting"),
+    ]),
+    el("div", { className: "result-actions" }, [
+      el(
+        "button",
+        {
+          className: "primary-button",
+          onclick: () => resumeAskRun(run.run_id),
+          ...(record.can_resume ? {} : { disabled: true }),
+        },
+        "Resume Ask",
+      ),
+      el("button", { className: "secondary-button", onclick: () => openWorkflowRun(run.run_id) }, "Open"),
+    ]),
+  ]);
+}
+
+function resumableAskFor(runId) {
+  return state.resumableAsks.find((record) => record.run && record.run.run_id === runId) || null;
 }
 
 function diagnosticCard(check) {

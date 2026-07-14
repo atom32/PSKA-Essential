@@ -11,6 +11,7 @@ from pska_essential.workflow import build_fake_service
 
 EXPECTED_TOOLS = {
     "pska_agentic_question_start",
+    "pska_agentic_question_resumable",
     "pska_agentic_question_resume",
     "pska_workflow_start",
     "pska_workflow_list",
@@ -166,8 +167,12 @@ class McpContractTests(unittest.TestCase):
         tools = tool_registry(service)
 
         with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            resumable = tools["pska_agentic_question_resumable"](limit=5)
             resumed = tools["pska_agentic_question_resume"](run.run_id)
 
+        self.assertEqual(resumable[0]["run"]["run_id"], run.run_id)
+        self.assertTrue(resumable[0]["can_resume"])
+        self.assertEqual(resumable[0]["ask_request"]["question"], "Resume this Ask")
         self.assertEqual(resumed["status"], "ready")
         self.assertNotEqual(resumed["run"]["run_id"], run.run_id)
         self.assertEqual(resumed["resumed_from_run_id"], run.run_id)

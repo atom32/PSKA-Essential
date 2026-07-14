@@ -14,7 +14,11 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
-from pska_essential.agentic_loop import resume_agentic_question, run_agentic_question_with_readiness
+from pska_essential.agentic_loop import (
+    list_resumable_agentic_questions,
+    resume_agentic_question,
+    run_agentic_question_with_readiness,
+)
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import build_runtime_diagnostics
@@ -260,6 +264,16 @@ def _handler_class(state: ProductApiState):
                 limit = _int_param(query.get("limit"), 50)
                 workflows = state.service.store.list_workflows(limit=limit)
                 self._send_json({"ok": True, "workflows": to_jsonable(workflows)})
+                return
+
+            if method == "GET" and path == "/api/workflows/resumable-asks":
+                limit = _int_param(query.get("limit"), 50)
+                resumable = list_resumable_agentic_questions(
+                    state.service,
+                    state.kb_gateway_factory(),
+                    limit=limit,
+                )
+                self._send_json({"ok": True, "resumable_asks": resumable})
                 return
 
             workflow_id = _match(path, "/api/workflows/", "")

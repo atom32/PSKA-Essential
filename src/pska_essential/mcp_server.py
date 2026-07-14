@@ -4,7 +4,11 @@ import json
 import sys
 from typing import Any, Callable
 
-from pska_essential.agentic_loop import resume_agentic_question, run_agentic_question_with_readiness
+from pska_essential.agentic_loop import (
+    list_resumable_agentic_questions,
+    resume_agentic_question,
+    run_agentic_question_with_readiness,
+)
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.kb_audit import (
@@ -221,6 +225,13 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         )
         return result
 
+    def pska_agentic_question_resumable(limit: int = 50):
+        return list_resumable_agentic_questions(
+            service,
+            build_kb_gateway_from_env(),
+            limit=limit,
+        )
+
     return {
         "pska_workflow_start": pska_workflow_start,
         "pska_workflow_list": pska_workflow_list,
@@ -247,6 +258,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_kb_parse_documents": pska_kb_parse_documents,
         "pska_kb_graph_read": pska_kb_graph_read,
         "pska_agentic_question_start": pska_agentic_question_start,
+        "pska_agentic_question_resumable": pska_agentic_question_resumable,
         "pska_agentic_question_resume": pska_agentic_question_resume,
     }
 

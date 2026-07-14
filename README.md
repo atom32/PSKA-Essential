@@ -145,6 +145,7 @@ Operational loop tools:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_agentic_question_start`
+- `pska_agentic_question_resumable`
 - `pska_agentic_question_resume`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
@@ -200,6 +201,7 @@ Implemented Alpha routes:
 - `GET /api/kb/datasets/{dataset_id}/documents/{document_id}/graph`
 - `POST /api/ask`
 - `GET /api/workflows`
+- `GET /api/workflows/resumable-asks`
 - `GET /api/workflows/{run_id}`
 - `POST /api/workflows/{run_id}/resume-ask`
 - `GET /api/workflows/{run_id}/export`

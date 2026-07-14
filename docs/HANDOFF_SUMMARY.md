@@ -115,6 +115,9 @@ Implemented:
 - Product API and MCP can resume a readiness-blocked Ask from the stored
   workflow request once the selected scope becomes ready, creating a new audited
   workflow linked to the blocked run.
+- Product API and MCP can list readiness-blocked Ask workflows with fresh
+  readiness checks so users or Hermes can see which saved Ask requests are ready
+  to resume.
 - Successful Ask prepares a transient sourced brief/artifact without creating
   workflow export audit records.
 - Ask persists the agentic loop summary on workflow metadata, including
@@ -183,7 +186,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 59 tests pass.
+- `make test`: 60 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, and multipart document upload.
@@ -199,7 +202,7 @@ Expected result:
 - Workflow/Product API/MCP tests cover source-read audit records.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
-- `make list-tools`: lists 26 PSKA MCP tools.
+- `make list-tools`: lists 27 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -227,6 +230,7 @@ pska_kb_ingest_files
 pska_kb_document_status
 pska_kb_readiness
 pska_agentic_question_start
+pska_agentic_question_resumable
 pska_agentic_question_resume
 pska_workflow_list
 pska_workflow_artifact
