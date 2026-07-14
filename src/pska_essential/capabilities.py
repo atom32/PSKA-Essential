@@ -4,6 +4,11 @@ from typing import Any
 
 
 MEMORY_OPERATIONS = ("search", "apply", "update", "delete")
+MEMORY_PROPOSAL_OPERATIONS = {
+    "memory_patch": "apply",
+    "memory_update": "update",
+    "memory_delete": "delete",
+}
 
 
 def memory_capabilities(adapter: Any) -> dict[str, Any]:
@@ -26,6 +31,10 @@ def memory_operation_capability(adapter: Any, operation: str) -> dict[str, Any]:
 
 def memory_operation_supported(adapter: Any, operation: str) -> bool:
     return bool(memory_operation_capability(adapter, operation).get("supported", False))
+
+
+def memory_operation_for_proposal_kind(proposal_kind: str) -> str:
+    return MEMORY_PROPOSAL_OPERATIONS.get(str(proposal_kind or ""), "")
 
 
 def _operation_capability(adapter: Any, raw: dict[str, Any], operation: str) -> dict[str, Any]:

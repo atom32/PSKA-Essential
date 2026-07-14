@@ -97,7 +97,9 @@ apply and reviewed entity-edge delete through Graphiti; reviewed update fails
 explicitly until the backend exposes a transactional fact update contract.
 Memory operation capabilities are exposed through health, diagnostics, and
 workspace status so the frontend and Hermes can avoid unsupported durable
-actions before creating review items.
+actions before creating review items. Historical accepted reviews that target
+unsupported backend operations remain visible as inspect actions instead of
+being offered as apply actions.
 
 Workspace governance policy:
 

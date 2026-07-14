@@ -459,6 +459,7 @@ function workspaceActionCard(action) {
 function workspaceActionButtonLabel(action) {
   const labels = {
     apply_accepted_memory: "Apply",
+    inspect_unsupported_memory_operation: "Inspect",
     parse_documents: "Parse",
     resume_blocked_ask: "Resume",
     review_pending_durable_knowledge: "Review",
@@ -492,6 +493,10 @@ async function openWorkspaceAction(action) {
   if (action.action === "apply_accepted_memory" && params.review_id) {
     await openReview(params.review_id);
     await applyMemory(params.review_id);
+    return;
+  }
+  if (action.action === "inspect_unsupported_memory_operation" && params.review_id) {
+    await openReview(params.review_id);
     return;
   }
   if (action.action === "review_pending_durable_knowledge" && params.review_id) {
@@ -619,6 +624,14 @@ function memoryCapability(operation) {
 function memoryOperationSupported(operation) {
   const capability = memoryCapability(operation);
   return !capability || capability.supported !== false;
+}
+
+function memoryOperationForProposalKind(kind) {
+  return {
+    memory_patch: "apply",
+    memory_update: "update",
+    memory_delete: "delete",
+  }[kind] || "";
 }
 
 function memoryCapabilityReason(operation) {
@@ -1822,6 +1835,9 @@ function reviewCard(review) {
   const sourceRefs = review.source_refs || proposal.source_refs || [];
   const revision = review.revision || {};
   const runId = proposal.run_id || (proposal.metadata && proposal.metadata.run_id) || "";
+  const memoryOperation = memoryOperationForProposalKind(proposal.kind);
+  const memoryApplySupported = memoryOperation ? memoryOperationSupported(memoryOperation) : true;
+  const memoryApplyReason = memoryOperation ? memoryCapabilityReason(memoryOperation) : "";
   const actions = el("div", { className: "review-actions" }, []);
   const reason = el("input", { placeholder: "Reason", value: "" });
   const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
@@ -1847,17 +1863,44 @@ function reviewCard(review) {
   } else if (review.status === "accepted") {
     if (proposal.kind === "memory_patch") {
       actions.append(
-        el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
+        el(
+          "button",
+          {
+            className: "primary-button",
+            onclick: () => applyMemory(review.review_id),
+            ...(memoryApplySupported ? {} : { disabled: true }),
+            title: memoryApplySupported ? "" : memoryApplyReason,
+          },
+          memoryApplySupported ? "Apply Memory" : "Memory Apply Unsupported",
+        ),
       );
     }
     if (proposal.kind === "memory_update") {
       actions.append(
-        el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory Update"),
+        el(
+          "button",
+          {
+            className: "primary-button",
+            onclick: () => applyMemory(review.review_id),
+            ...(memoryApplySupported ? {} : { disabled: true }),
+            title: memoryApplySupported ? "" : memoryApplyReason,
+          },
+          memoryApplySupported ? "Apply Memory Update" : "Update Unsupported",
+        ),
       );
     }
     if (proposal.kind === "memory_delete") {
       actions.append(
-        el("button", { className: "danger-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory Delete"),
+        el(
+          "button",
+          {
+            className: "danger-button",
+            onclick: () => applyMemory(review.review_id),
+            ...(memoryApplySupported ? {} : { disabled: true }),
+            title: memoryApplySupported ? "" : memoryApplyReason,
+          },
+          memoryApplySupported ? "Apply Memory Delete" : "Delete Unsupported",
+        ),
       );
     }
   } else if (review.status === "needs_edit") {

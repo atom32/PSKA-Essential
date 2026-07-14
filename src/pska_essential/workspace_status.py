@@ -4,7 +4,7 @@ import os
 from typing import Any
 
 from pska_essential.agentic_loop import list_resumable_agentic_questions
-from pska_essential.capabilities import memory_capabilities
+from pska_essential.capabilities import memory_capabilities, memory_operation_for_proposal_kind
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
@@ -37,6 +37,7 @@ def build_workspace_status(
     ]
     workflows = service.store.list_workflows(limit=workflow_limit)
     resumable, resumable_error = _resumable_state(service, gateway, limit=workflow_limit)
+    memory_caps = memory_capabilities(service.memory)
     next_actions = _next_actions(
         datasets=datasets,
         readiness=readiness,
@@ -44,6 +45,7 @@ def build_workspace_status(
         kb_error=kb_error,
         pending_reviews=pending_reviews,
         accepted_unapplied=accepted_unapplied,
+        memory_caps=memory_caps,
         resumable=resumable,
         resumable_error=resumable_error,
     )
@@ -63,7 +65,7 @@ def build_workspace_status(
         "workspace": build_runtime_workspace_context().to_dict(),
         "governance": build_workspace_policy_from_env().to_dict(),
         "capabilities": {
-            "memory": memory_capabilities(service.memory),
+            "memory": memory_caps,
         },
         "kb": {
             "status": "error" if kb_error else (readiness or {}).get("status", "empty"),
@@ -123,6 +125,7 @@ def _next_actions(
     kb_error: dict[str, str] | None,
     pending_reviews: list[dict[str, Any]],
     accepted_unapplied: list[dict[str, Any]],
+    memory_caps: dict[str, Any],
     resumable: list[dict[str, Any]],
     resumable_error: dict[str, str] | None,
 ) -> list[dict[str, Any]]:
@@ -224,17 +227,43 @@ def _next_actions(
             )
         )
 
-    if accepted_unapplied:
-        review_id = str(accepted_unapplied[0].get("review_id") or "")
+    supported_accepted = [
+        review for review in accepted_unapplied if _review_memory_operation_supported(review, memory_caps)
+    ]
+    unsupported_accepted = [
+        review for review in accepted_unapplied if not _review_memory_operation_supported(review, memory_caps)
+    ]
+    if supported_accepted:
+        review_id = str(supported_accepted[0].get("review_id") or "")
         actions.append(
             _action(
                 "apply_accepted_memory",
                 "Apply accepted memory",
-                f"{len(accepted_unapplied)} accepted durable review(s) have not been applied.",
+                f"{len(supported_accepted)} accepted durable review(s) can be applied.",
                 api=f"POST /api/reviews/{review_id}/apply-memory" if review_id else "POST /api/reviews/{review_id}/apply-memory",
                 tool="pska_memory_apply",
                 view="review",
                 params={"review_id": review_id} if review_id else {},
+            )
+        )
+    if unsupported_accepted:
+        review = unsupported_accepted[0]
+        review_id = str(review.get("review_id") or "")
+        operation = _review_memory_operation(review)
+        reason = _memory_capability_reason(memory_caps, operation)
+        actions.append(
+            _action(
+                "inspect_unsupported_memory_operation",
+                "Inspect unsupported memory operation",
+                (
+                    f"{len(unsupported_accepted)} accepted durable review(s) cannot be applied "
+                    f"because memory {operation or 'operation'} is unsupported."
+                    + (f" {reason}" if reason else "")
+                ),
+                api=f"GET /api/reviews/{review_id}" if review_id else "GET /api/reviews",
+                tool="pska_review_get",
+                view="review",
+                params={"review_id": review_id, "operation": operation} if review_id else {"operation": operation},
             )
         )
     if pending_reviews:
@@ -265,6 +294,24 @@ def _next_actions(
     return actions
 
 
+def _review_memory_operation(review: dict[str, Any]) -> str:
+    proposal = review.get("proposal") or {}
+    return memory_operation_for_proposal_kind(str(proposal.get("kind") or ""))
+
+
+def _review_memory_operation_supported(review: dict[str, Any], memory_caps: dict[str, Any]) -> bool:
+    operation = _review_memory_operation(review)
+    if not operation:
+        return False
+    capability = (memory_caps.get("operations") or {}).get(operation) or {}
+    return capability.get("supported") is not False
+
+
+def _memory_capability_reason(memory_caps: dict[str, Any], operation: str) -> str:
+    capability = (memory_caps.get("operations") or {}).get(operation) or {}
+    return str(capability.get("reason") or "")
+
+
 def _workspace_status(
     next_actions: list[dict[str, Any]],
     readiness: dict[str, Any] | None,
@@ -274,7 +321,12 @@ def _workspace_status(
     if kb_error or resumable_error:
         return "error"
     action_names = {action["action"] for action in next_actions}
-    if {"apply_accepted_memory", "review_pending_durable_knowledge", "resume_blocked_ask"} & action_names:
+    if {
+        "apply_accepted_memory",
+        "inspect_unsupported_memory_operation",
+        "review_pending_durable_knowledge",
+        "resume_blocked_ask",
+    } & action_names:
         return "action_required"
     if "run_agentic_question" in action_names:
         return "ready"

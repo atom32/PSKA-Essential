@@ -4,6 +4,7 @@ import unittest
 
 from pska_essential.adapters.fake import FakeRetrievalAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
+from pska_essential.contracts import MemoryUpdate, Proposal, SourceRef
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workspace_status import build_workspace_status
 from pska_essential.workflow import WorkflowService, build_fake_service
@@ -240,6 +241,44 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertFalse(operations["update"]["supported"])
         self.assertIn("transactional fact update", operations["update"]["reason"])
         self.assertTrue(operations["delete"]["supported"])
+
+    def test_workspace_status_does_not_apply_unsupported_accepted_memory_review(self):
+        service = WorkflowService(
+            retrieval=FakeRetrievalAdapter(),
+            memory=GraphitiMemoryAdapter(base_url="http://graphiti.local"),
+            store=SQLiteReviewStore(":memory:"),
+        )
+        run = service.start("historical unsupported update", {"dataset_ids": ["demo"]})
+        source_ref = SourceRef(adapter="fake", dataset_id="demo", document_id="doc-1")
+        proposal = Proposal(
+            proposal_id="prop_unsupported_update",
+            run_id=run.run_id,
+            kind="memory_update",
+            intent="update old memory",
+            title="Memory Update",
+            body="Historical accepted update",
+            source_refs=[source_ref],
+            memory_update=MemoryUpdate(
+                target_id="edge-1",
+                text="updated",
+                source_refs=[source_ref],
+                previous_text="old",
+                reason="historical",
+            ),
+        )
+        service.store.save_proposal(proposal)
+        review = service.store.create_review(proposal.proposal_id)
+        service.store.decide_review(review.review_id, "accept", "accepted before capability gate")
+
+        status = build_workspace_status(service=service, gateway=_Gateway())
+        actions = {item["action"]: item for item in status["next_actions"]}
+
+        self.assertEqual(status["status"], "action_required")
+        self.assertEqual(status["reviews"]["accepted_unapplied_count"], 1)
+        self.assertNotIn("apply_accepted_memory", actions)
+        self.assertEqual(actions["inspect_unsupported_memory_operation"]["params"]["review_id"], review.review_id)
+        self.assertEqual(actions["inspect_unsupported_memory_operation"]["params"]["operation"], "update")
+        self.assertIn("unsupported", actions["inspect_unsupported_memory_operation"]["reason"])
 
     def test_kb_error_is_explicit_next_action(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway(fail=True))

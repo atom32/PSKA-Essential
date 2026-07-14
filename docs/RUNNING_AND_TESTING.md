@@ -216,6 +216,8 @@ requires a backend with a transactional update contract and fails explicitly for
 Graphiti instead of doing hidden delete/add work. Memory operation capabilities
 are exposed through health, diagnostics, and workspace status so the frontend
 and Hermes can avoid unsupported durable actions before creating review items.
+Historical accepted reviews that target unsupported backend operations remain
+visible as inspect actions instead of being offered as apply actions.
 
 Current local component install:
 

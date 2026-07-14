@@ -194,7 +194,9 @@ Implemented:
   connectivity without frontend provider direct calls.
 - Product API health, runtime diagnostics, workspace status, and frontend
   Writing/Settings expose memory operation capabilities. Unsupported durable
-  memory operations are blocked before creating dead-end review items.
+  memory operations are blocked before creating dead-end review items, and
+  historical accepted unsupported reviews surface as inspect actions instead of
+  apply actions.
 - Product API, MCP, and frontend Home expose workspace operational status with
   next actions for ready Ask scopes, ingestion waits, resumable Ask workflows,
   pending reviews, and accepted durable memory awaiting apply. Next actions
@@ -281,7 +283,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 97 tests pass.
+- `make test`: 98 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -307,7 +309,8 @@ Expected result:
 - Graphiti adapter/gate tests cover reviewed entity-edge delete routing and
   confirm Graphiti delete is blocked until review acceptance.
 - Workspace status/Product API/frontend tests cover memory operation capability
-  reporting and unsupported Graphiti update gating.
+  reporting, unsupported Graphiti update gating, and accepted unsupported
+  review inspect actions.
 - Workflow/Product API/MCP tests cover reviewed memory update/versioning and
   verify later Ask runs see updated fake/stub memory facts.
 - Workflow/Product API/MCP tests cover durable memory lifecycle history derived
