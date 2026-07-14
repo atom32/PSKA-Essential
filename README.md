@@ -95,6 +95,9 @@ export GRAPHITI_GROUP_ID=pska-essential
 The Graphiti adapter keeps writes review-gated. It supports reviewed memory
 apply and reviewed entity-edge delete through Graphiti; reviewed update fails
 explicitly until the backend exposes a transactional fact update contract.
+Memory operation capabilities are exposed through health, diagnostics, and
+workspace status so the frontend and Hermes can avoid unsupported durable
+actions before creating review items.
 
 Workspace governance policy:
 
@@ -323,9 +326,10 @@ Writing shows the applied durable knowledge result and links to its lifecycle.
 Locked/applied Review cards can also open the durable memory lifecycle directly.
 Applied memory can be found by later Ask runs through the memory adapter and is
 shown in Writing as durable workspace context with its supporting source trace.
-Writing can create a governed update review from an explicit MemoryFact; the
-update applies only after the review is accepted and records version metadata in
-the memory apply result and `memory.update` audit record.
+Writing can create a governed update review from an explicit MemoryFact when
+the selected memory backend reports update support; the update applies only
+after the review is accepted and records version metadata in the memory apply
+result and `memory.update` audit record.
 Writing can create a governed deletion review from an explicit MemoryFact; the
 delete applies only after the review is accepted and produces a `memory.delete`
 audit record.

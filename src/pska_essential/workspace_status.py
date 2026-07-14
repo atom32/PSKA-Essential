@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 from pska_essential.agentic_loop import list_resumable_agentic_questions
+from pska_essential.capabilities import memory_capabilities
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
@@ -61,6 +62,9 @@ def build_workspace_status(
         },
         "workspace": build_runtime_workspace_context().to_dict(),
         "governance": build_workspace_policy_from_env().to_dict(),
+        "capabilities": {
+            "memory": memory_capabilities(service.memory),
+        },
         "kb": {
             "status": "error" if kb_error else (readiness or {}).get("status", "empty"),
             "dataset_count": len(datasets),

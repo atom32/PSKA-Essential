@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
 from pska_essential.audit import audit_event
+from pska_essential.capabilities import memory_capabilities, memory_operation_capability
 from pska_essential.contracts import (
     ContextPacket,
     MemoryApplyResult,
@@ -171,6 +172,7 @@ class WorkflowService:
         durable memory candidate.
         """
 
+        self._ensure_memory_operation_supported("apply")
         run = self.store.get_workflow(run_id)
         policy = build_workspace_policy_from_env()
         governance_action = policy.action_for("memory_patch")
@@ -202,6 +204,7 @@ class WorkflowService:
     def memory_delete_review(self, memory_fact: MemoryFact | dict[str, Any], reason: str = "") -> dict[str, Any]:
         """Govern durable memory deletion from an explicit PSKA memory fact."""
 
+        self._ensure_memory_operation_supported("delete")
         fact = _memory_fact_from_input(memory_fact, "delete")
         if not fact.fact_id:
             raise WorkflowError("memory delete review requires fact_id")
@@ -257,6 +260,7 @@ class WorkflowService:
     ) -> dict[str, Any]:
         """Govern durable memory update from an explicit PSKA memory fact."""
 
+        self._ensure_memory_operation_supported("update")
         fact = _memory_fact_from_input(memory_fact, "update")
         updated_text = text.strip()
         if not fact.fact_id:
@@ -385,6 +389,7 @@ class WorkflowService:
         proposal = self.store.get_proposal(str(review["proposal_id"]))
         _ensure_durable_proposal_source_trace(proposal, "memory apply")
         if proposal.kind == "memory_patch":
+            self._ensure_memory_operation_supported("apply")
             if proposal.memory_patch is None:
                 raise WorkflowError("memory_patch proposal is missing memory patch payload")
             if not proposal.memory_patch.source_refs:
@@ -410,6 +415,7 @@ class WorkflowService:
             )
             return result
         if proposal.kind == "memory_update":
+            self._ensure_memory_operation_supported("update")
             if proposal.memory_update is None:
                 raise WorkflowError("memory_update proposal is missing memory update payload")
             if not proposal.memory_update.source_refs:
@@ -435,6 +441,7 @@ class WorkflowService:
             )
             return result
         if proposal.kind == "memory_delete":
+            self._ensure_memory_operation_supported("delete")
             if proposal.memory_delete is None:
                 raise WorkflowError("memory_delete proposal is missing memory delete payload")
             if not proposal.memory_delete.source_refs:
@@ -459,6 +466,14 @@ class WorkflowService:
             )
             return result
         raise WorkflowError("only durable memory proposals can be applied to memory")
+
+    def _ensure_memory_operation_supported(self, operation: str) -> None:
+        capability = memory_operation_capability(self.memory, operation)
+        if capability.get("supported") is not False:
+            return
+        backend = memory_capabilities(self.memory)["backend"]
+        reason = str(capability.get("reason") or "operation is not supported")
+        raise WorkflowError(f"memory {operation} is not supported by {backend}: {reason}")
 
     def memory_lifecycle(self, memory_target_id: str, limit: int = 50) -> dict[str, Any]:
         target_id = str(memory_target_id or "").strip()

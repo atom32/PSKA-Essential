@@ -25,6 +25,15 @@ class GraphitiMemoryAdapter:
     """
 
     backend_name = "graphiti"
+    memory_capabilities = {
+        "search": True,
+        "apply": True,
+        "update": {
+            "supported": False,
+            "reason": "Graphiti reviewed update requires a transactional fact update endpoint.",
+        },
+        "delete": True,
+    }
 
     def __init__(
         self,

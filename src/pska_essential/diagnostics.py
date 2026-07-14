@@ -7,6 +7,7 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 from pska_essential.audit import audit_event
+from pska_essential.capabilities import memory_capabilities
 from pska_essential.contracts import to_jsonable
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.readiness import evaluate_kb_readiness
@@ -34,6 +35,9 @@ def build_runtime_diagnostics(*, service: Any, kb_gateway_factory: KbGatewayFact
         },
         "workspace": build_runtime_workspace_context().to_dict(),
         "governance": build_workspace_policy_from_env().to_dict(),
+        "capabilities": {
+            "memory": memory_capabilities(service.memory),
+        },
         "checks": checks,
     }
 

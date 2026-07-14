@@ -74,6 +74,24 @@ class GraphitiGateTests(unittest.TestCase):
         self.assertEqual(deleted.metadata["operation"], "delete")
         self.assertEqual(graphiti.deleted_edges, ["edge-1"])
 
+    def test_graphiti_update_review_fails_before_creating_dead_review(self):
+        graphiti = _GraphitiClient()
+        service = WorkflowService(
+            retrieval=FakeRetrievalAdapter(),
+            memory=GraphitiMemoryAdapter(client=graphiti, group_id="test-group"),
+            store=SQLiteReviewStore(":memory:"),
+        )
+        fact = MemoryFact(
+            fact_id="edge-1",
+            text="reviewed fact",
+            source_refs=[SourceRef(adapter="fake", dataset_id="demo", document_id="doc-1")],
+        )
+
+        with self.assertRaisesRegex(WorkflowError, "memory update is not supported by graphiti"):
+            service.memory_update_review(fact, "updated fact", "reviewed update")
+
+        self.assertEqual(service.store.list_reviews(), [])
+
 
 if __name__ == "__main__":
     unittest.main()

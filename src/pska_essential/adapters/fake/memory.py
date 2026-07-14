@@ -8,6 +8,12 @@ from pska_essential.contracts import MemoryApplyResult, MemoryDelete, MemoryFact
 
 class FakeMemoryAdapter:
     backend_name = "fake"
+    memory_capabilities = {
+        "search": True,
+        "apply": True,
+        "update": True,
+        "delete": True,
+    }
 
     def __init__(self) -> None:
         self.facts: list[MemoryFact] = []

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import unittest
 
+from pska_essential.adapters.fake import FakeRetrievalAdapter
+from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
+from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workspace_status import build_workspace_status
-from pska_essential.workflow import build_fake_service
+from pska_essential.workflow import WorkflowService, build_fake_service
 
 
 class _Gateway:
@@ -151,6 +154,7 @@ class WorkspaceStatusTests(unittest.TestCase):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway())
 
         self.assertEqual(status["status"], "ready")
+        self.assertTrue(status["capabilities"]["memory"]["operations"]["update"]["supported"])
         self.assertEqual(status["kb"]["dataset_count"], 1)
         self.assertEqual(status["kb"]["readiness"]["status"], "ready")
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
@@ -220,6 +224,22 @@ class WorkspaceStatusTests(unittest.TestCase):
         apply_action = next(item for item in accepted["next_actions"] if item["action"] == "apply_accepted_memory")
         self.assertEqual(apply_action["tool"], "pska_memory_apply")
         self.assertEqual(apply_action["params"]["review_id"], review.review_id)
+
+    def test_workspace_status_reports_graphiti_memory_capabilities(self):
+        service = WorkflowService(
+            retrieval=FakeRetrievalAdapter(),
+            memory=GraphitiMemoryAdapter(base_url="http://graphiti.local"),
+            store=SQLiteReviewStore(":memory:"),
+        )
+
+        status = build_workspace_status(service=service, gateway=_Gateway())
+        operations = status["capabilities"]["memory"]["operations"]
+
+        self.assertEqual(status["capabilities"]["memory"]["backend"], "graphiti")
+        self.assertTrue(operations["apply"]["supported"])
+        self.assertFalse(operations["update"]["supported"])
+        self.assertIn("transactional fact update", operations["update"]["reason"])
+        self.assertTrue(operations["delete"]["supported"])
 
     def test_kb_error_is_explicit_next_action(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway(fail=True))

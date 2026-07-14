@@ -42,6 +42,10 @@ Rules:
 - If a backend cannot provide a transactional reviewed update, its adapter must
   fail explicitly instead of approximating update with hidden delete/add side
   effects.
+- Memory adapters should expose PSKA memory capabilities. Product API,
+  diagnostics, workspace status, and frontend controls use those capabilities
+  to avoid creating durable review items that the selected backend cannot
+  apply.
 
 ## Public MCP Contract
 

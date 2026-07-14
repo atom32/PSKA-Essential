@@ -580,6 +580,7 @@ function renderSettings() {
   const workspace = (state.health && state.health.workspace) || {};
   const governance = state.policy || (state.health && state.health.governance) || {};
   const diagnostics = state.diagnostics || {};
+  const memoryCaps = memoryCapabilities();
   [
     ["Product API", state.health ? state.health.product_api : ""],
     ["Runtime Status", diagnostics.status || "not checked"],
@@ -590,10 +591,45 @@ function renderSettings() {
     ["Memory", providers.memory || "not configured"],
     ["Development Fake", providers.dev_fake ? "enabled" : "disabled"],
     ["Durable Memory Policy", governance.durable_memory || "manual_review"],
+    ["Memory Apply", capabilityLabel(memoryCaps, "apply")],
+    ["Memory Update", capabilityLabel(memoryCaps, "update")],
+    ["Memory Delete", capabilityLabel(memoryCaps, "delete")],
   ].forEach(([key, value]) => {
     settings.append(el("dt", {}, key), el("dd", {}, value));
   });
   renderPolicy();
+}
+
+function memoryCapabilities() {
+  const sources = [
+    state.workspaceStatus && state.workspaceStatus.capabilities,
+    state.health && state.health.capabilities,
+    state.diagnostics && state.diagnostics.capabilities,
+  ];
+  for (const source of sources) {
+    if (source && source.memory && source.memory.operations) return source.memory;
+  }
+  return { operations: {} };
+}
+
+function memoryCapability(operation) {
+  return (memoryCapabilities().operations || {})[operation] || null;
+}
+
+function memoryOperationSupported(operation) {
+  const capability = memoryCapability(operation);
+  return !capability || capability.supported !== false;
+}
+
+function memoryCapabilityReason(operation) {
+  const capability = memoryCapability(operation);
+  return (capability && capability.reason) || "";
+}
+
+function capabilityLabel(capabilities, operation) {
+  const capability = (capabilities.operations || {})[operation];
+  if (!capability) return "not reported";
+  return capability.supported === false ? `unsupported${capability.reason ? `: ${capability.reason}` : ""}` : "supported";
 }
 
 function renderPolicy() {
@@ -1663,6 +1699,10 @@ function memoryFactCard(fact) {
   const sourceRefs = fact.source_refs || [];
   const reason = el("input", { placeholder: "Reason", value: "" });
   const updatedText = el("textarea", { placeholder: "Updated memory text", value: fact.text || "" });
+  const updateSupported = memoryOperationSupported("update");
+  const deleteSupported = memoryOperationSupported("delete");
+  const updateReason = memoryCapabilityReason("update");
+  const deleteReason = memoryCapabilityReason("delete");
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, fact.fact_id || "Memory"), el("p", {}, fact.text || "")]),
@@ -1684,18 +1724,20 @@ function memoryFactCard(fact) {
         {
           className: "primary-button",
           onclick: () => createMemoryUpdateReview(fact, updatedText.value, reason.value),
-          ...(sourceRefs.length ? {} : { disabled: true }),
+          ...(sourceRefs.length && updateSupported ? {} : { disabled: true }),
+          title: updateSupported ? "" : updateReason,
         },
-        "Create Update Review",
+        updateSupported ? "Create Update Review" : "Update Unsupported",
       ),
       el(
         "button",
         {
           className: "secondary-button",
           onclick: () => createMemoryDeleteReview(fact, reason.value),
-          ...(sourceRefs.length ? {} : { disabled: true }),
+          ...(sourceRefs.length && deleteSupported ? {} : { disabled: true }),
+          title: deleteSupported ? "" : deleteReason,
         },
-        "Create Delete Review",
+        deleteSupported ? "Create Delete Review" : "Delete Unsupported",
       ),
     ]),
   ]);

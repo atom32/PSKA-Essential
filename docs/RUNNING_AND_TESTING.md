@@ -149,8 +149,9 @@ traceable.
 Later Ask runs can find applied memory through the memory adapter and Writing
 shows matched durable memory alongside source context, including the memory
 fact's supporting source trace.
-Writing can create an update review from an explicit MemoryFact; update is
-applied only after review acceptance and records version metadata.
+Writing can create an update review from an explicit MemoryFact when the memory
+backend reports update support; update is applied only after review acceptance
+and records version metadata.
 Writing can create a deletion review from an explicit MemoryFact; deletion is
 applied only after review acceptance and produces a `memory.delete` audit record.
 Writing can inspect a durable MemoryFact lifecycle from PSKA audit records,
@@ -212,7 +213,9 @@ export GRAPHITI_GROUP_ID=pska-essential
 Graphiti live memory writes remain review-gated through PSKA. The current
 adapter supports reviewed add and reviewed entity-edge delete. Reviewed update
 requires a backend with a transactional update contract and fails explicitly for
-Graphiti instead of doing hidden delete/add work.
+Graphiti instead of doing hidden delete/add work. Memory operation capabilities
+are exposed through health, diagnostics, and workspace status so the frontend
+and Hermes can avoid unsupported durable actions before creating review items.
 
 Current local component install:
 

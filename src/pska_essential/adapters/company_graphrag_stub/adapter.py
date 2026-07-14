@@ -19,6 +19,12 @@ class CompanyGraphRagStubAdapter:
     """Replacement-contract stub for a future company GraphRAG platform."""
 
     backend_name = "company_graphrag_stub"
+    memory_capabilities = {
+        "search": True,
+        "apply": True,
+        "update": True,
+        "delete": True,
+    }
 
     def __init__(self) -> None:
         self.memory: list[MemoryFact] = []
