@@ -10,6 +10,7 @@ const state = {
   activeDocuments: [],
   readinessByDataset: {},
   ingestionPoll: null,
+  askDocumentsByDataset: {},
 };
 
 const titles = {
@@ -121,12 +122,18 @@ function bindForms() {
     await loadWorkflows();
     renderHome();
   });
+
+  const askForm = document.getElementById("ask-form");
+  askForm.elements.dataset_ids.addEventListener("input", renderAskScope);
+  askForm.elements.document_ids.addEventListener("input", renderAskScope);
 }
 
 function bindRefresh() {
   document.getElementById("refresh-all").addEventListener("click", refreshAll);
   document.getElementById("reload-datasets").addEventListener("click", loadDatasets);
   document.getElementById("parse-documents").addEventListener("click", parseActiveDocuments);
+  document.getElementById("ask-add-dataset").addEventListener("click", () => addAskDataset());
+  document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("export-markdown").addEventListener("click", () => exportCurrent("markdown"));
@@ -158,6 +165,8 @@ async function loadDatasets() {
     const payload = await api("/api/kb/datasets");
     state.datasets = payload.datasets || [];
     renderDatasets();
+    renderAskDatasetPicker();
+    renderAskScope();
     renderHome();
   } catch (error) {
     renderList(document.getElementById("datasets-list"), [], "Datasets unavailable.");
@@ -266,6 +275,89 @@ function renderWorkflowList() {
   renderList(document.getElementById("workflow-list"), state.workflows, "No runs loaded.", workflowCard);
 }
 
+function renderAskDatasetPicker() {
+  const picker = document.getElementById("ask-dataset-picker");
+  if (!picker) return;
+  picker.replaceChildren();
+  if (!state.datasets.length) {
+    picker.append(el("option", { value: "" }, "No datasets"));
+    picker.disabled = true;
+    return;
+  }
+  picker.disabled = false;
+  state.datasets.forEach((dataset) => {
+    picker.append(
+      el(
+        "option",
+        { value: dataset.dataset_id || "" },
+        `${dataset.name || dataset.dataset_id} (${shortId(dataset.dataset_id || "")})`,
+      ),
+    );
+  });
+}
+
+function renderAskScope() {
+  const datasetIds = askDatasetIds();
+  const documentIds = askDocumentIds();
+  const summary = document.getElementById("ask-scope-summary");
+  if (summary) {
+    summary.classList.toggle("empty-list", !datasetIds.length && !documentIds.length);
+    summary.replaceChildren();
+    if (!datasetIds.length && !documentIds.length) {
+      summary.textContent = "No scope selected.";
+    } else {
+      datasetIds.forEach((datasetId) => {
+        summary.append(el("span", { className: "tag ready" }, `dataset ${shortId(datasetId)}`));
+      });
+      documentIds.forEach((documentId) => {
+        summary.append(el("span", { className: "tag" }, `doc ${shortId(documentId)}`));
+      });
+    }
+  }
+  renderAskDocumentPicker();
+}
+
+function renderAskDocumentPicker() {
+  const container = document.getElementById("ask-document-picker");
+  if (!container) return;
+  const datasetIds = askDatasetIds();
+  const documentIds = new Set(askDocumentIds());
+  const loaded = datasetIds.flatMap((datasetId) =>
+    (state.askDocumentsByDataset[datasetId] || []).map((document) => ({ datasetId, document })),
+  );
+  container.replaceChildren();
+  if (!loaded.length) {
+    container.classList.add("empty-list");
+    container.textContent = datasetIds.length ? "No documents loaded for selected scope." : "Select a dataset.";
+    return;
+  }
+  container.classList.remove("empty-list");
+  loaded.forEach(({ datasetId, document }) => {
+    container.append(askDocumentCard(datasetId, document, documentIds.has(document.document_id)));
+  });
+}
+
+function askDocumentCard(datasetId, document, checked) {
+  const stateName = documentState(document);
+  const input = el("input", { type: "checkbox", value: document.document_id || "" });
+  input.checked = checked;
+  input.addEventListener("change", () => toggleAskDocument(document.document_id, input.checked));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("label", { className: "check-row" }, [
+        input,
+        el("span", {}, document.name || document.document_id || "document"),
+      ]),
+      el("span", { className: `tag ${stateName.className}` }, stateName.label),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, `dataset ${shortId(datasetId)}`),
+      el("span", { className: "tag" }, shortId(document.document_id || "")),
+      el("span", { className: "tag" }, `chunks ${document.chunk_count || 0}`),
+    ]),
+  ]);
+}
+
 function renderIngestResult(result) {
   const documents = result.documents || [];
   const datasetId = ingestDatasetId(result);
@@ -310,6 +402,45 @@ async function parseActiveDocuments() {
   setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
   startIngestionPolling(datasetId);
   await loadDocuments(datasetId, { silent: true });
+}
+
+function addAskDataset(datasetId = "") {
+  const picker = document.getElementById("ask-dataset-picker");
+  const selected = String(datasetId || (picker ? picker.value : "") || "").trim();
+  if (!selected) {
+    showToast("Select a dataset.");
+    return;
+  }
+  const datasetIds = askDatasetIds();
+  if (!datasetIds.includes(selected)) {
+    datasetIds.push(selected);
+  }
+  setAskDatasetIds(datasetIds);
+  renderAskScope();
+}
+
+async function loadAskDocuments() {
+  const picker = document.getElementById("ask-dataset-picker");
+  const datasetId = String((picker && picker.value) || askDatasetIds()[0] || "").trim();
+  if (!datasetId) {
+    showToast("Select a dataset.");
+    return;
+  }
+  addAskDataset(datasetId);
+  const payload = await api(`/api/kb/datasets/${encodeURIComponent(datasetId)}/documents`);
+  state.askDocumentsByDataset[datasetId] = payload.documents || [];
+  renderAskScope();
+}
+
+function toggleAskDocument(documentId, checked) {
+  const normalized = String(documentId || "").trim();
+  if (!normalized) return;
+  const documentIds = askDocumentIds().filter((item) => item !== normalized);
+  if (checked) {
+    documentIds.push(normalized);
+  }
+  setAskDocumentIds(documentIds);
+  renderAskScope();
 }
 
 function startIngestionPolling(datasetId) {
@@ -706,7 +837,7 @@ async function applyMemory(reviewId) {
 
 function setAskDataset(datasetId) {
   document.querySelector('.nav-item[data-view="ask"]').click();
-  document.querySelector('#ask-form input[name="dataset_ids"]').value = datasetId || "";
+  addAskDataset(datasetId || "");
 }
 
 async function api(path, options = {}) {
@@ -760,6 +891,35 @@ function splitIds(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function askDatasetIds() {
+  const input = document.querySelector('#ask-form input[name="dataset_ids"]');
+  return splitIds(input ? input.value : "");
+}
+
+function askDocumentIds() {
+  const input = document.querySelector('#ask-form input[name="document_ids"]');
+  return splitIds(input ? input.value : "");
+}
+
+function setAskDatasetIds(datasetIds) {
+  const input = document.querySelector('#ask-form input[name="dataset_ids"]');
+  if (input) input.value = uniqueIds(datasetIds).join(", ");
+}
+
+function setAskDocumentIds(documentIds) {
+  const input = document.querySelector('#ask-form input[name="document_ids"]');
+  if (input) input.value = uniqueIds(documentIds).join(", ");
+}
+
+function uniqueIds(values) {
+  const result = [];
+  values.forEach((value) => {
+    const normalized = String(value || "").trim();
+    if (normalized && !result.includes(normalized)) result.push(normalized);
+  });
+  return result;
 }
 
 function shortId(value) {

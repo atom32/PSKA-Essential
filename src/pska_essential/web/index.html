@@ -144,6 +144,18 @@
         <section id="ask" class="view">
           <form id="ask-form" class="panel ask-panel">
             <h2>Scoped Question</h2>
+            <div class="scope-builder">
+              <div class="scope-controls">
+                <label>
+                  Knowledge Base
+                  <select id="ask-dataset-picker"></select>
+                </label>
+                <button id="ask-add-dataset" type="button" class="secondary-button">Add Dataset</button>
+                <button id="ask-load-documents" type="button" class="secondary-button">Load Docs</button>
+              </div>
+              <div id="ask-scope-summary" class="scope-summary empty-list">No scope selected.</div>
+              <div id="ask-document-picker" class="source-list"></div>
+            </div>
             <label>
               Dataset IDs
               <input name="dataset_ids" placeholder="dataset-a, dataset-b" autocomplete="off" required />
