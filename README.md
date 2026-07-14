@@ -259,7 +259,9 @@ navigate the workflow without inspecting provider internals. Mutating frontend
 actions refresh this status after completion so the Home guidance follows the
 current workflow state. Workspace status reports both aggregate KB readiness and
 per-dataset readiness, so a newly uploaded processing dataset does not hide
-other ready datasets from Ask.
+other ready datasets from Ask. Workspace status also translates lower-level
+ingestion job actions such as `start_parse` into stable product actions such as
+`parse_documents`.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,

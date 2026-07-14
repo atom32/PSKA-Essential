@@ -89,7 +89,9 @@ agents must use it for workflow navigation instead of inspecting provider state
 directly. Next actions may include PSKA tool/API/view hints and safe parameters,
 but must not expose provider-native schemas.
 Workspace status must keep per-dataset readiness visible, so a processing or
-failed dataset does not hide a separate ready dataset from Ask.
+failed dataset does not hide a separate ready dataset from Ask. Workspace status
+must translate ingestion-job action names into stable PSKA product actions, for
+example `start_parse` becomes `parse_documents`.
 
 ## KB Gateway
 

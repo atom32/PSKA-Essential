@@ -272,13 +272,20 @@ def _workspace_status(
     action_names = {action["action"] for action in next_actions}
     if {"apply_accepted_memory", "review_pending_durable_knowledge", "resume_blocked_ask"} & action_names:
         return "action_required"
-    if {"inspect_failure", "inspect_cancellation", "parse_documents", "inspect_resumable_ask_error"} & action_names:
-        return "action_required"
     if "run_agentic_question" in action_names:
         return "ready"
+    if {
+        "check_dataset_access",
+        "check_provider_status",
+        "inspect_failure",
+        "inspect_cancellation",
+        "parse_documents",
+        "inspect_resumable_ask_error",
+    } & action_names:
+        return "action_required"
     if {"wait_for_ingestion", "wait_for_resumable_ask"} & action_names:
         return "processing"
-    if "create_or_upload_knowledge_base" in action_names:
+    if {"create_or_upload_knowledge_base", "upload_documents"} & action_names:
         return "empty"
     return "ok"
 
@@ -286,10 +293,11 @@ def _workspace_status(
 def _readiness_actions(readiness: dict[str, Any]) -> list[dict[str, Any]]:
     job = readiness.get("ingestion_status") or {}
     reason = str(job.get("message") or readiness.get("message") or "Selected knowledge is not ready.")
-    return [
-        _readiness_action(str(action), reason, readiness)
+    actions = [
+        _product_readiness_action(str(action))
         for action in job.get("next_actions") or ["wait_for_ingestion"]
     ]
+    return [_readiness_action(action, reason, readiness) for action in _unique_actions(actions)]
 
 
 def _readiness_action(action: str, reason: str, readiness: dict[str, Any]) -> dict[str, Any]:
@@ -302,6 +310,48 @@ def _readiness_action(action: str, reason: str, readiness: dict[str, Any]) -> di
             tool="pska_kb_parse_documents",
             view="kb",
             params=_scope_params(readiness),
+        )
+    if action == "upload_documents":
+        return _action(
+            action,
+            _action_label(action),
+            reason,
+            api="POST /api/kb/ingest",
+            tool="pska_kb_ingest_files",
+            view="kb",
+            params=_scope_params(readiness),
+            requires_input=["files"],
+        )
+    if action == "check_dataset_access":
+        return _action(
+            action,
+            _action_label(action),
+            reason,
+            api="GET /api/kb/datasets",
+            tool="pska_kb_list",
+            view="settings",
+            params=_scope_params(readiness),
+        )
+    if action == "check_provider_status":
+        return _action(
+            action,
+            _action_label(action),
+            reason,
+            api="GET /api/kb/datasets/{dataset_id}/documents",
+            tool="pska_kb_document_status",
+            view="kb",
+            params=_scope_params(readiness),
+        )
+    if action == "run_agentic_question":
+        return _action(
+            action,
+            _action_label(action),
+            reason,
+            api="POST /api/ask",
+            tool="pska_agentic_question_start",
+            view="ask",
+            params=_scope_params(readiness),
+            requires_input=["question"],
         )
     if action in {"inspect_failure", "inspect_cancellation"}:
         return _action(
@@ -360,12 +410,33 @@ def _scope_params(readiness: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _product_readiness_action(action: str) -> str:
+    mapping = {
+        "inspect_cancelled_documents": "inspect_cancellation",
+        "inspect_failed_documents": "inspect_failure",
+        "run_ask": "run_agentic_question",
+        "start_parse": "parse_documents",
+    }
+    return mapping.get(action, action)
+
+
+def _unique_actions(actions: list[str]) -> list[str]:
+    result: list[str] = []
+    for action in actions:
+        if action and action not in result:
+            result.append(action)
+    return result
+
+
 def _action_label(action: str) -> str:
     labels = {
+        "check_dataset_access": "Check dataset access",
+        "check_provider_status": "Check provider status",
         "inspect_cancellation": "Inspect cancellation",
         "inspect_failure": "Inspect failure",
         "parse_documents": "Parse documents",
-        "run_ask": "Ask over ready knowledge",
+        "run_agentic_question": "Ask over ready knowledge",
+        "upload_documents": "Upload documents",
         "wait_for_ingestion": "Wait for ingestion",
     }
     return labels.get(action, action.replace("_", " ").title())

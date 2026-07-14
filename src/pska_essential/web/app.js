@@ -457,7 +457,24 @@ async function openWorkspaceAction(action) {
     await openReview(params.review_id);
     return;
   }
-  if (["wait_for_ingestion", "parse_documents", "inspect_failure", "inspect_cancellation"].includes(action.action)) {
+  if (action.action === "upload_documents") {
+    setUploadDataset(params.dataset_ids || []);
+    openView("kb");
+    return;
+  }
+  if (action.action === "check_dataset_access") {
+    openView("settings");
+    return;
+  }
+  if (
+    [
+      "wait_for_ingestion",
+      "parse_documents",
+      "inspect_failure",
+      "inspect_cancellation",
+      "check_provider_status",
+    ].includes(action.action)
+  ) {
     const datasetId = (params.dataset_ids || [])[0] || state.activeDocumentDatasetId;
     if (datasetId) {
       await loadDocuments(datasetId, { silent: true });
@@ -467,6 +484,13 @@ async function openWorkspaceAction(action) {
     return;
   }
   openView(action.view || "home");
+}
+
+function setUploadDataset(datasetIds) {
+  const datasetId = String((datasetIds || [])[0] || "").trim();
+  if (!datasetId) return;
+  const field = document.querySelector('#upload-form input[name="dataset_id"]');
+  if (field) field.value = datasetId;
 }
 
 function openView(view) {

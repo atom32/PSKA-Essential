@@ -79,6 +79,73 @@ class _MixedGateway:
         ]
 
 
+class _UploadedGateway:
+    backend_name = "test"
+
+    def list_datasets(self, *, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": "uploaded",
+                "name": "Uploaded",
+                "document_count": 1,
+                "chunk_count": 0,
+            }
+        ][:page_size]
+
+    def list_documents(self, *, dataset_id, document_id=None, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": dataset_id,
+                "document_id": "doc-uploaded",
+                "name": "uploaded.txt",
+                "chunk_count": 0,
+                "progress": 0.0,
+                "progress_msg": "uploaded",
+                "run": "UNSTART",
+                "status": "uploaded",
+            }
+        ]
+
+
+class _MixedUploadedGateway:
+    backend_name = "test"
+
+    def list_datasets(self, *, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": "ready",
+                "name": "Ready",
+                "document_count": 1,
+                "chunk_count": 1,
+            },
+            {
+                "backend": "test",
+                "dataset_id": "uploaded",
+                "name": "Uploaded",
+                "document_count": 1,
+                "chunk_count": 0,
+            },
+        ][:page_size]
+
+    def list_documents(self, *, dataset_id, document_id=None, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": dataset_id,
+                "document_id": f"doc-{dataset_id}",
+                "name": f"{dataset_id}.txt",
+                "chunk_count": 1 if dataset_id == "ready" else 0,
+                "progress": 1.0 if dataset_id == "ready" else 0.0,
+                "progress_msg": "ready" if dataset_id == "ready" else "uploaded",
+                "run": "DONE" if dataset_id == "ready" else "UNSTART",
+                "status": "ready" if dataset_id == "ready" else "uploaded",
+            }
+        ]
+
+
 class WorkspaceStatusTests(unittest.TestCase):
     def test_ready_workspace_suggests_agentic_question(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway())
@@ -111,6 +178,25 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["action"], "wait_for_ingestion")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_kb_ingestion_status")
         self.assertEqual(status["next_actions"][0]["view"], "kb")
+
+    def test_uploaded_workspace_normalizes_parse_next_action(self):
+        status = build_workspace_status(service=build_fake_service(), gateway=_UploadedGateway())
+
+        self.assertEqual(status["status"], "action_required")
+        self.assertEqual(status["kb"]["readiness"]["ingestion_status"]["next_actions"], ["start_parse"])
+        self.assertEqual(status["next_actions"][0]["action"], "parse_documents")
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_kb_parse_documents")
+        self.assertEqual(status["next_actions"][0]["api"], "POST /api/kb/datasets/{dataset_id}/parse")
+        self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["uploaded"])
+
+    def test_mixed_uploaded_workspace_keeps_ready_scope_action_visible(self):
+        status = build_workspace_status(service=build_fake_service(), gateway=_MixedUploadedGateway())
+        actions = {item["action"]: item for item in status["next_actions"]}
+
+        self.assertEqual(status["status"], "ready")
+        self.assertEqual(status["kb"]["readiness"]["status"], "processing")
+        self.assertEqual(actions["run_agentic_question"]["params"]["dataset_ids"], ["ready"])
+        self.assertEqual(actions["parse_documents"]["params"]["dataset_ids"], ["uploaded"])
 
     def test_review_and_apply_states_are_next_actions(self):
         service = build_fake_service()
