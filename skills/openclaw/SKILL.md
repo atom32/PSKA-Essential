@@ -23,6 +23,8 @@ external KB, GraphRAG, or memory systems.
   must come from workflow context.
 - Use `pska_memory_review_from_workflow` when an existing transient workflow
   should become a durable memory candidate.
+- Use `pska_memory_update_review` from an explicit `pska_memory_search` result
+  when durable memory should be changed; do not call backend update tools.
 - Use `pska_memory_delete_review` from an explicit `pska_memory_search` result
   when durable memory should be removed; do not call backend delete tools.
 - Use `pska_review_revise` for `needs_edit` reviews instead of mutating the

@@ -8,6 +8,7 @@ from pska_essential.contracts import (
     MemoryDelete,
     MemoryFact,
     MemoryPatch,
+    MemoryUpdate,
     Proposal,
     ReviewBatch,
     ReviewDecision,
@@ -55,3 +56,5 @@ class MemoryPort(Protocol):
     def apply(self, reviewed_patch: MemoryPatch) -> MemoryApplyResult: ...
 
     def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult: ...
+
+    def update(self, reviewed_update: MemoryUpdate) -> MemoryApplyResult: ...

@@ -110,8 +110,9 @@ Writing can also turn an existing sourced transient workflow into a governed
 Memory Review through Product API; this is the explicit transition from
 transient work product to durable memory candidate and follows workspace policy
 for manual review, auto accept, or auto apply.
-Review decisions and memory apply actions refresh the current Ask/Writing
-state, and applied memory state is served back through Review API records.
+Review decisions and memory apply/update/delete actions refresh the current
+Ask/Writing state, and applied memory state is served back through Review API
+records.
 Reviews marked `needs_edit` can create a revised candidate review from the same
 workflow and source trace instead of mutating the original review. Review API
 records expose revision lineage so the original and revised candidates remain
@@ -119,6 +120,8 @@ traceable.
 Later Ask runs can find applied memory through the memory adapter and Writing
 shows matched durable memory alongside source context, including the memory
 fact's supporting source trace.
+Writing can create an update review from an explicit MemoryFact; update is
+applied only after review acceptance and records version metadata.
 Writing can create a deletion review from an explicit MemoryFact; deletion is
 applied only after review acceptance and produces a `memory.delete` audit record.
 Reader inspects sources through Product API only. Writing opens workflow state,
@@ -126,8 +129,8 @@ work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions; exports include
 the work product, source manifest, durable-memory source trace, supporting
 context, and traceability metadata, and create workflow audit records. Activity shows the recent audit
-trail, including review and memory apply records with proposal, run, and source
-trace metadata. Upload, parsing,
+trail, including review and memory apply/update/delete records with proposal,
+run, and source trace metadata. Upload, parsing,
 embedding, indexing, and optional graph extraction readiness remain visible
 states rather than hidden side effects. After upload, the Knowledge Bases view
 can start parsing for loaded unready documents, open optional document
@@ -271,6 +274,7 @@ Core tests:
 
 - fake adapter E2E
 - review gate
+- reviewed memory update/version lifecycle
 - reviewed memory deletion lifecycle
 - MCP tool registry
 - export

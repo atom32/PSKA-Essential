@@ -87,6 +87,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_memory_delete_review(memory_fact: dict[str, Any], reason: str = ""):
         return service.memory_delete_review(memory_fact, reason)
 
+    def pska_memory_update_review(memory_fact: dict[str, Any], text: str, reason: str = ""):
+        return service.memory_update_review(memory_fact, text, reason)
+
     def pska_export_brief(run_id: str, format: str = "markdown"):
         return service.export_brief(run_id, format)
 
@@ -279,6 +282,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_apply": pska_memory_apply,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_memory_delete_review": pska_memory_delete_review,
+        "pska_memory_update_review": pska_memory_update_review,
         "pska_export_brief": pska_export_brief,
         "pska_audit_list": pska_audit_list,
         "pska_retrieval_probe": pska_retrieval_probe,

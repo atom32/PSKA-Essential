@@ -344,6 +344,16 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return
 
+            if method == "POST" and path == "/api/memory/update-review":
+                payload = self._read_json()
+                result = state.service.memory_update_review(
+                    payload.get("memory_fact") or payload.get("fact") or payload,
+                    text=_required_str(payload, "text"),
+                    reason=str(payload.get("reason") or ""),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
             if method == "GET" and path == "/api/reviews":
                 status = query.get("status") or None
                 limit = _int_param(query.get("limit"), 50)

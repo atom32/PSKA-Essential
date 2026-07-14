@@ -26,12 +26,14 @@ Rules:
 ```python
 search(query, scope, limit) -> list[MemoryFact]
 apply(reviewed_patch) -> MemoryApplyResult
+update(reviewed_update) -> MemoryApplyResult
 delete(reviewed_delete) -> MemoryApplyResult
 ```
 
 Rules:
 
 - `apply` receives only reviewed `MemoryPatch` objects.
+- `update` receives only reviewed `MemoryUpdate` objects from PSKA review flow.
 - `delete` receives only reviewed `MemoryDelete` objects from PSKA review flow.
 - Direct clear, unreviewed add, or provider-native delete operations are
   intentionally absent from public tools.
@@ -57,6 +59,7 @@ The public tool surface is:
 - `pska_memory_search`
 - `pska_memory_apply`
 - `pska_memory_review_from_workflow`
+- `pska_memory_update_review`
 - `pska_memory_delete_review`
 - `pska_export_brief`
 - `pska_audit_list`
@@ -124,6 +127,12 @@ Memory delete flow:
 
 ```text
 memory_search -> pska_memory_delete_review(MemoryFact) -> review_decide(accept) -> memory_apply
+```
+
+Memory update flow:
+
+```text
+memory_search -> pska_memory_update_review(MemoryFact, text) -> review_decide(accept) -> memory_apply
 ```
 
 `memory_apply` must fail when the review is pending, rejected, or needs edit.

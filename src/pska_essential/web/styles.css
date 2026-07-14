@@ -630,6 +630,13 @@ pre {
   min-width: 160px;
 }
 
+.review-actions textarea {
+  flex: 1 1 320px;
+  min-width: 220px;
+  min-height: 72px;
+  resize: vertical;
+}
+
 .settings-list {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);

@@ -1079,6 +1079,7 @@ function contextCard(packet) {
 function memoryFactCard(fact) {
   const sourceRefs = fact.source_refs || [];
   const reason = el("input", { placeholder: "Reason", value: "" });
+  const updatedText = el("textarea", { placeholder: "Updated memory text", value: fact.text || "" });
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, fact.fact_id || "Memory"), el("p", {}, fact.text || "")]),
@@ -1088,7 +1089,17 @@ function memoryFactCard(fact) {
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
       : null,
     el("div", { className: "review-actions" }, [
+      updatedText,
       reason,
+      el(
+        "button",
+        {
+          className: "primary-button",
+          onclick: () => createMemoryUpdateReview(fact, updatedText.value, reason.value),
+          ...(sourceRefs.length ? {} : { disabled: true }),
+        },
+        "Create Update Review",
+      ),
       el(
         "button",
         {
@@ -1156,6 +1167,11 @@ function reviewCard(review) {
     if (review.status === "accepted" && proposal.kind === "memory_patch") {
       actions.append(
         el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory"),
+      );
+    }
+    if (review.status === "accepted" && proposal.kind === "memory_update") {
+      actions.append(
+        el("button", { className: "primary-button", onclick: () => applyMemory(review.review_id) }, "Apply Memory Update"),
       );
     }
     if (review.status === "accepted" && proposal.kind === "memory_delete") {
@@ -1382,6 +1398,9 @@ function auditSummary(event) {
   }
   if (event.action === "memory.apply") {
     return `Applied durable memory through ${metadata.backend || "memory backend"}.`;
+  }
+  if (event.action === "memory.update") {
+    return `Updated durable memory through ${metadata.backend || "memory backend"}.`;
   }
   if (event.action === "memory.delete") {
     return `Deleted durable memory through ${metadata.backend || "memory backend"}.`;
@@ -1623,12 +1642,27 @@ async function reviseReview(reviewId, intent) {
 async function applyMemory(reviewId) {
   const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}/apply-memory`, { method: "POST", body: {} });
   syncMemoryApply(reviewId, payload.applied);
-  const action = payload.applied && payload.applied.metadata && payload.applied.metadata.operation === "delete" ? "memory.delete" : "memory.apply";
-  showToast(action === "memory.delete" ? "Memory deletion applied." : "Memory applied.");
+  const action = memoryApplyAction(payload.applied);
+  showToast(memoryApplyToast(payload.applied));
   await loadReviews();
   await loadPendingReviews();
   await loadAuditEvents(action);
   renderCurrentResultSurfaces();
+}
+
+async function createMemoryUpdateReview(fact, text, reason) {
+  const payload = await api("/api/memory/update-review", {
+    method: "POST",
+    body: { memory_fact: fact, text, reason },
+  });
+  syncReviewRecord(payload.review);
+  state.focusReviewId = payload.review && payload.review.review_id;
+  setReviewStatusFilter("");
+  await loadReviews();
+  await loadPendingReviews();
+  await loadAuditEvents("review.create");
+  document.querySelector('.nav-item[data-view="review"]').click();
+  showToast("Memory update review created.");
 }
 
 async function createMemoryDeleteReview(fact, reason) {
@@ -1647,7 +1681,24 @@ async function createMemoryDeleteReview(fact, reason) {
 }
 
 function memoryApplyLabel(memoryApply) {
-  return memoryApply && memoryApply.metadata && memoryApply.metadata.operation === "delete" ? "memory deleted" : "memory applied";
+  const action = memoryApplyAction(memoryApply);
+  if (action === "memory.delete") return "memory deleted";
+  if (action === "memory.update") return "memory updated";
+  return "memory applied";
+}
+
+function memoryApplyAction(memoryApply) {
+  const operation = memoryApply && memoryApply.metadata && memoryApply.metadata.operation;
+  if (operation === "delete") return "memory.delete";
+  if (operation === "update") return "memory.update";
+  return "memory.apply";
+}
+
+function memoryApplyToast(memoryApply) {
+  const action = memoryApplyAction(memoryApply);
+  if (action === "memory.delete") return "Memory deletion applied.";
+  if (action === "memory.update") return "Memory update applied.";
+  return "Memory applied.";
 }
 
 function syncReviewDecision(decision) {

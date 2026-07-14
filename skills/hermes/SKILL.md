@@ -24,6 +24,9 @@ candidate memory, review, and durable export.
   work products without export side effects.
 - If a user wants an existing transient workflow to become durable memory, call
   `pska_memory_review_from_workflow`; do not write memory directly.
+- If a user wants an existing durable memory changed, start from a
+  `pska_memory_search` result and call `pska_memory_update_review`; do not call
+  backend update tools directly.
 - If a user wants an existing durable memory removed, start from a
   `pska_memory_search` result and call `pska_memory_delete_review`; do not call
   backend delete tools directly.
@@ -46,7 +49,8 @@ For an existing KB:
    resume pending review work if needed.
 6. After acceptance, call `pska_review_decide`; after `needs_edit`, call
    `pska_review_revise`.
-7. For accepted memory patch or memory delete reviews, call `pska_memory_apply`.
+7. For accepted memory patch, memory update, or memory delete reviews, call
+   `pska_memory_apply`.
 8. Call `pska_workflow_artifact` or `pska_workflow_brief` to inspect the
    transient work product.
 9. Call `pska_export_brief` only for explicit Markdown or JSON handoff.

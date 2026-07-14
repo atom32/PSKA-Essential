@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-DURABLE_PROPOSAL_KINDS = {"memory_delete", "memory_patch"}
+DURABLE_PROPOSAL_KINDS = {"memory_delete", "memory_patch", "memory_update"}
 MANUAL_REVIEW = "manual_review"
 AUTO_ACCEPT = "auto_accept"
 AUTO_APPLY = "auto_apply"

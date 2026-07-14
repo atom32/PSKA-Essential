@@ -235,9 +235,46 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(memory_event["metadata"]["source_refs"][0]["adapter"], "fake")
         self.assertEqual(audit["events"][0]["metadata"]["workspace_id"], "default")
 
+        updated_text = "Updated durable memory says citrinepolicy is governed."
+        update_review = self._post_json(
+            "/api/memory/update-review",
+            {"memory_fact": followup["memory_facts"][0], "text": updated_text, "reason": "clearer wording"},
+        )
+        self.assertEqual(update_review["proposal"]["kind"], "memory_update")
+        self.assertEqual(update_review["proposal"]["memory_update"]["target_id"], applied["applied"]["target_id"])
+        update_apply_blocked = self._post_json_error(
+            f"/api/reviews/{update_review['review']['review_id']}/apply-memory",
+            {},
+        )
+        self.assertEqual(update_apply_blocked["status"], 400)
+        self.assertIn("accepted review", update_apply_blocked["body"]["error"]["message"])
+
+        self._post_json(
+            f"/api/reviews/{update_review['review']['review_id']}/decision",
+            {"decision": "accept", "reason": "update approved"},
+        )
+        updated = self._post_json(f"/api/reviews/{update_review['review']['review_id']}/apply-memory", {})
+        self.assertTrue(updated["applied"]["applied"])
+        self.assertEqual(updated["applied"]["metadata"]["operation"], "update")
+        self.assertEqual(updated["applied"]["metadata"]["version"], 2)
+        after_update = self._post_json(
+            "/api/ask",
+            {
+                "question": "What does citrinepolicy say?",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+        self.assertEqual(after_update["memory_facts"][0]["text"], updated_text)
+        self.assertEqual(after_update["memory_facts"][0]["metadata"]["version"], 2)
+        update_audit = self._get_json("/api/audit?limit=10&action=memory.update")
+        self.assertEqual(update_audit["events"][0]["metadata"]["proposal_kind"], "memory_update")
+        self.assertEqual(update_audit["events"][0]["metadata"]["memory_target_id"], applied["applied"]["target_id"])
+
         delete_review = self._post_json(
             "/api/memory/delete-review",
-            {"memory_fact": followup["memory_facts"][0], "reason": "outdated"},
+            {"memory_fact": after_update["memory_facts"][0], "reason": "outdated"},
         )
         self.assertEqual(delete_review["proposal"]["kind"], "memory_delete")
         self.assertEqual(delete_review["proposal"]["memory_delete"]["target_id"], applied["applied"]["target_id"])
@@ -259,7 +296,7 @@ class ProductApiTests(unittest.TestCase):
         after_delete = self._post_json(
             "/api/ask",
             {
-                "question": "Use governed memory",
+                "question": "What does citrinepolicy say?",
                 "dataset_ids": ["demo"],
                 "limit": 1,
                 "proposal_kind": "writing_brief",
@@ -778,6 +815,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('openReview', script)
         self.assertIn('/api/reviews/${encodeURIComponent(reviewId)}', script)
         self.assertIn('/api/memory/delete-review', script)
+        self.assertIn('/api/memory/update-review', script)
         self.assertIn('syncReviewRecord', script)
         self.assertIn('reviewSourceRow', script)
         self.assertIn('review.source_refs || proposal.source_refs', script)
@@ -786,13 +824,19 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('revision.next_review_id', script)
         self.assertIn('className: "review-source-row"', script)
         self.assertIn('Apply Memory', script)
+        self.assertIn('Apply Memory Update', script)
         self.assertIn('Apply Memory Delete', script)
+        self.assertIn('Create Update Review', script)
         self.assertIn('Create Delete Review', script)
+        self.assertIn('createMemoryUpdateReview', script)
         self.assertIn('createMemoryDeleteReview', script)
         self.assertIn('memoryApplyLabel', script)
+        self.assertIn('memoryApplyAction', script)
         self.assertIn('syncReviewDecision', script)
         self.assertIn('reviseReview', script)
+        self.assertIn('return `Updated durable memory through ${metadata.backend || "memory backend"}.`;', script)
         self.assertIn('return `Deleted durable memory through ${metadata.backend || "memory backend"}.`;', script)
+        self.assertIn('<option value="memory.update">memory.update</option>', html)
         self.assertIn('<option value="memory.delete">memory.delete</option>', html)
         self.assertIn('return `Review revision created for ${metadata.proposal_kind || "proposal"}.`;', script)
         self.assertIn('syncMemoryApply', script)

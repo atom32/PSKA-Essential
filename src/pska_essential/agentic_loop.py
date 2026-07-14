@@ -42,8 +42,8 @@ def run_agentic_question(
 
     normalized_question = question.strip()
     normalized_kind = proposal_kind.strip().lower() or "writing_brief"
-    if normalized_kind == "memory_delete":
-        raise ValueError("memory_delete proposals require pska_memory_delete_review with an explicit memory fact")
+    if normalized_kind in {"memory_delete", "memory_update"}:
+        raise ValueError(f"{normalized_kind} proposals require an explicit memory fact")
     scope = {
         "dataset_ids": [str(dataset_id) for dataset_id in dataset_ids if str(dataset_id)],
         "document_ids": [str(document_id) for document_id in (document_ids or []) if str(document_id)],
@@ -327,8 +327,8 @@ def record_not_ready_agentic_question(
 
     normalized_question = question.strip()
     normalized_kind = proposal_kind.strip().lower() or "writing_brief"
-    if normalized_kind == "memory_delete":
-        raise ValueError("memory_delete proposals require pska_memory_delete_review with an explicit memory fact")
+    if normalized_kind in {"memory_delete", "memory_update"}:
+        raise ValueError(f"{normalized_kind} proposals require an explicit memory fact")
     scope = {
         "dataset_ids": [str(dataset_id) for dataset_id in dataset_ids if str(dataset_id)],
         "document_ids": [str(document_id) for document_id in (document_ids or []) if str(document_id)],

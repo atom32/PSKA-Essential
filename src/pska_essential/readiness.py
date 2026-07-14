@@ -80,8 +80,8 @@ def build_not_ready_ask_result(
     workspace_policy: WorkspaceGovernancePolicy | None = None,
 ) -> dict[str, Any]:
     normalized_kind = proposal_kind.strip().lower() or "writing_brief"
-    if normalized_kind == "memory_delete":
-        raise ValueError("memory_delete proposals require an explicit memory fact")
+    if normalized_kind in {"memory_delete", "memory_update"}:
+        raise ValueError(f"{normalized_kind} proposals require an explicit memory fact")
     selected_dataset_ids = _normalized_ids(dataset_ids)
     selected_document_ids = _normalized_ids(document_ids or [])
     policy = workspace_policy or build_workspace_policy_from_env()

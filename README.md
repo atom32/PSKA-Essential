@@ -157,6 +157,7 @@ Operational loop tools:
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
 - `pska_memory_review_from_workflow`
+- `pska_memory_update_review`
 - `pska_memory_delete_review`
 - `pska_review_list`
 - `pska_review_get`
@@ -171,6 +172,7 @@ These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> PSKA scoped retrieve
   -> agent answer/proposal -> Review -> optional memory apply
+  -> optional governed memory update review
   -> optional governed memory delete review
   -> inspect artifact / transient brief -> explicit export
 ```
@@ -220,6 +222,7 @@ Implemented Alpha routes:
 - `POST /api/workflows/{run_id}/memory-review`
 - `GET /api/workflows/{run_id}/export`
 - `POST /api/sources/read`
+- `POST /api/memory/update-review`
 - `POST /api/memory/delete-review`
 - `GET /api/reviews`
 - `GET /api/reviews?status={status}`
@@ -263,17 +266,20 @@ open cited sources through the Product API Reader before a durable decision is
 made. Reviews marked `needs_edit` can create a revised candidate review while
 preserving the original review history; Review API records expose revision
 lineage so old and revised candidates can be traced in both directions. Review
-decisions and memory apply actions refresh the current Ask/Writing state, and
-applied memory state is served back through Review API records.
+decisions and memory apply/update/delete actions refresh the current Ask/Writing
+state, and applied memory state is served back through Review API records.
 Applied memory can be found by later Ask runs through the memory adapter and is
 shown in Writing as durable workspace context with its supporting source trace.
+Writing can create a governed update review from an explicit MemoryFact; the
+update applies only after the review is accepted and records version metadata in
+the memory apply result and `memory.update` audit record.
 Writing can create a governed deletion review from an explicit MemoryFact; the
 delete applies only after the review is accepted and produces a `memory.delete`
 audit record.
 Once durable memory has been applied, the accepted review decision is locked;
 future changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow
-export records from explicit export actions, review/memory apply/delete records
+export records from explicit export actions, review/memory apply/update/delete records
 with proposal, run, and source trace metadata, and mechanical source operations
 such as dataset creation, ingestion, parsing, source reads, and graph reads.
 Knowledge Base create, upload, parse, source read, and graph read actions

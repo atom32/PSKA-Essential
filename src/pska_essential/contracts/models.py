@@ -119,6 +119,23 @@ class MemoryDelete:
 
 
 @dataclass(slots=True)
+class MemoryUpdate:
+    target_id: str
+    text: str
+    source_refs: list[SourceRef]
+    previous_text: str = ""
+    reason: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MemoryUpdate":
+        allowed = set(cls.__dataclass_fields__)
+        payload = {key: data.get(key) for key in allowed if key in data}
+        payload["source_refs"] = [SourceRef.from_dict(item) for item in payload.get("source_refs", [])]
+        return cls(**payload)
+
+
+@dataclass(slots=True)
 class Proposal:
     proposal_id: str
     run_id: str
@@ -129,6 +146,7 @@ class Proposal:
     source_refs: list[SourceRef]
     memory_patch: MemoryPatch | None = None
     memory_delete: MemoryDelete | None = None
+    memory_update: MemoryUpdate | None = None
     status: str = "proposed"
     created_at: str = field(default_factory=utc_now_iso)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -141,6 +159,8 @@ class Proposal:
             payload["memory_patch"] = MemoryPatch.from_dict(payload["memory_patch"])
         if payload.get("memory_delete"):
             payload["memory_delete"] = MemoryDelete.from_dict(payload["memory_delete"])
+        if payload.get("memory_update"):
+            payload["memory_update"] = MemoryUpdate.from_dict(payload["memory_update"])
         return cls(**payload)
 
 

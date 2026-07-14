@@ -12,6 +12,7 @@ from pska_essential.contracts import (
     MemoryDelete,
     MemoryFact,
     MemoryPatch,
+    MemoryUpdate,
     Proposal,
     ReviewBatch,
     ReviewDecision,
@@ -103,11 +104,13 @@ class WorkflowService:
 
     def propose(self, run_id: str, kind: str, intent: str = "") -> Proposal:
         normalized = kind.strip().lower()
-        if normalized not in {"digest", "memory_delete", "memory_patch", "writing_brief"}:
-            raise WorkflowError("proposal kind must be digest, memory_delete, memory_patch, or writing_brief")
+        if normalized not in {"digest", "memory_delete", "memory_patch", "memory_update", "writing_brief"}:
+            raise WorkflowError("proposal kind must be digest, memory_delete, memory_patch, memory_update, or writing_brief")
         run = self.store.get_workflow(run_id)
         if normalized == "memory_delete":
             return self._propose_memory_delete(run, intent)
+        if normalized == "memory_update":
+            return self._propose_memory_update(run, intent)
         if not run.context_packets:
             raise WorkflowError("cannot propose without retrieved context")
         source_refs = _unique_source_refs([packet.source_ref for packet in run.context_packets])
@@ -198,7 +201,7 @@ class WorkflowService:
     def memory_delete_review(self, memory_fact: MemoryFact | dict[str, Any], reason: str = "") -> dict[str, Any]:
         """Govern durable memory deletion from an explicit PSKA memory fact."""
 
-        fact = memory_fact if isinstance(memory_fact, MemoryFact) else MemoryFact.from_dict(memory_fact)
+        fact = _memory_fact_from_input(memory_fact, "delete")
         if not fact.fact_id:
             raise WorkflowError("memory delete review requires fact_id")
         if not fact.source_refs:
@@ -221,6 +224,65 @@ class WorkflowService:
         run.updated_at = utc_now_iso()
         self.store.save_workflow(run)
         proposal = self.propose(run.run_id, "memory_delete", reason)
+        review = self.review_create(proposal.proposal_id)
+        review_decision = None
+        memory_apply = None
+        if governance_action in {AUTO_ACCEPT, AUTO_APPLY}:
+            review_decision = self.review_decide(
+                review.review_id,
+                "accept",
+                f"accepted by workspace policy: {governance_action}",
+            )
+            if governance_action == AUTO_APPLY:
+                memory_apply = self.memory_apply(review.review_id)
+        return {
+            "proposal": to_jsonable(proposal),
+            "review": self.store.get_review_record(review.review_id),
+            "review_decision": to_jsonable(review_decision),
+            "memory_apply": to_jsonable(memory_apply),
+            "governance": {
+                "action": governance_action,
+                "durable_proposal": True,
+                "policy": policy.to_dict(),
+            },
+            "artifact": self.workflow_artifact(run.run_id),
+        }
+
+    def memory_update_review(
+        self,
+        memory_fact: MemoryFact | dict[str, Any],
+        text: str,
+        reason: str = "",
+    ) -> dict[str, Any]:
+        """Govern durable memory update from an explicit PSKA memory fact."""
+
+        fact = _memory_fact_from_input(memory_fact, "update")
+        updated_text = text.strip()
+        if not fact.fact_id:
+            raise WorkflowError("memory update review requires fact_id")
+        if not updated_text:
+            raise WorkflowError("memory update review requires text")
+        if not fact.source_refs:
+            raise WorkflowError("memory update review requires source refs")
+        policy = build_workspace_policy_from_env()
+        governance_action = policy.action_for("memory_update")
+        run = self.start(
+            f"update durable memory {fact.fact_id}",
+            {"memory_fact_id": fact.fact_id, "operation": "memory_update"},
+        )
+        run.metadata["memory_update_candidate"] = to_jsonable(
+            MemoryUpdate(
+                target_id=fact.fact_id,
+                text=updated_text,
+                previous_text=fact.text,
+                reason=reason,
+                source_refs=fact.source_refs,
+                metadata={"fact_id": fact.fact_id},
+            )
+        )
+        run.updated_at = utc_now_iso()
+        self.store.save_workflow(run)
+        proposal = self.propose(run.run_id, "memory_update", reason)
         review = self.review_create(proposal.proposal_id)
         review_decision = None
         memory_apply = None
@@ -339,6 +401,31 @@ class WorkflowService:
                     confidence=proposal.memory_patch.confidence,
                     source_count=len(proposal.memory_patch.source_refs),
                     source_refs=to_jsonable(proposal.memory_patch.source_refs),
+                )
+            )
+            return result
+        if proposal.kind == "memory_update":
+            if proposal.memory_update is None:
+                raise WorkflowError("memory_update proposal is missing memory update payload")
+            if not proposal.memory_update.source_refs:
+                raise WorkflowError("memory update requires source refs before apply")
+            result = self.memory.update(proposal.memory_update)
+            self.store.save_memory_apply(review_id, to_jsonable(result))
+            self.store.add_audit_event(
+                audit_event(
+                    "memory.update",
+                    "review",
+                    review_id,
+                    proposal_id=proposal.proposal_id,
+                    run_id=proposal.run_id,
+                    proposal_kind=proposal.kind,
+                    applied=result.applied,
+                    memory_target_id=result.target_id,
+                    backend=result.backend,
+                    reason=proposal.memory_update.reason,
+                    version=result.metadata.get("version"),
+                    source_count=len(proposal.memory_update.source_refs),
+                    source_refs=to_jsonable(proposal.memory_update.source_refs),
                 )
             )
             return result
@@ -542,6 +629,47 @@ class WorkflowService:
             },
         }
 
+    def _propose_memory_update(self, run: WorkflowRun, intent: str = "") -> Proposal:
+        candidate = run.metadata.get("memory_update_candidate") or {}
+        if not candidate:
+            raise WorkflowError("memory_update proposal requires an explicit memory update candidate")
+        memory_update = MemoryUpdate.from_dict(candidate)
+        if intent:
+            memory_update.reason = intent
+        if not memory_update.target_id:
+            raise WorkflowError("memory_update proposal requires target_id")
+        if not memory_update.text.strip():
+            raise WorkflowError("memory_update proposal requires text")
+        if not memory_update.source_refs:
+            raise WorkflowError("memory_update proposal requires source refs")
+        proposal_id = f"prop_{uuid4().hex}"
+        body = _compose_memory_update_body(memory_update, intent or memory_update.reason)
+        proposal = Proposal(
+            proposal_id=proposal_id,
+            run_id=run.run_id,
+            kind="memory_update",
+            intent=intent or memory_update.reason or run.intent,
+            title=_proposal_title("memory_update", memory_update.target_id),
+            body=body,
+            source_refs=memory_update.source_refs,
+            memory_update=memory_update,
+        )
+        self.store.save_proposal(proposal)
+        run.proposal_ids.append(proposal.proposal_id)
+        run.updated_at = utc_now_iso()
+        self.store.save_workflow(run)
+        self.store.add_audit_event(
+            audit_event(
+                "proposal.create",
+                "proposal",
+                proposal.proposal_id,
+                kind=proposal.kind,
+                run_id=run.run_id,
+                memory_target_id=memory_update.target_id,
+            )
+        )
+        return proposal
+
     def _propose_memory_delete(self, run: WorkflowRun, intent: str = "") -> Proposal:
         candidate = run.metadata.get("memory_delete_candidate") or {}
         if not candidate:
@@ -612,6 +740,15 @@ def build_fake_service(db_path: str = ":memory:") -> WorkflowService:
     )
 
 
+def _memory_fact_from_input(memory_fact: MemoryFact | dict[str, Any], operation: str) -> MemoryFact:
+    if isinstance(memory_fact, MemoryFact):
+        return memory_fact
+    try:
+        return MemoryFact.from_dict(memory_fact)
+    except TypeError as exc:
+        raise WorkflowError(f"memory {operation} review requires a valid MemoryFact") from exc
+
+
 def _compose_body(kind: str, run: WorkflowRun, intent: str) -> str:
     snippets = "\n".join(f"- {packet.text[:500]}" for packet in run.context_packets)
     memory_snippets = "\n".join(
@@ -631,9 +768,25 @@ def _proposal_title(kind: str, intent: str) -> str:
         "digest": "Digest",
         "memory_delete": "Memory Delete",
         "memory_patch": "Memory Patch",
+        "memory_update": "Memory Update",
         "writing_brief": "Writing Brief",
     }[kind]
     return f"{label}: {intent}".strip()
+
+
+def _compose_memory_update_body(memory_update: MemoryUpdate, reason: str) -> str:
+    lines = [
+        f"Update durable memory `{memory_update.target_id}`.",
+        "",
+        "Previous memory:",
+        memory_update.previous_text or "",
+        "",
+        "Updated memory:",
+        memory_update.text,
+    ]
+    if reason:
+        lines.extend(["", f"Reason: {reason}"])
+    return "\n".join(lines).strip()
 
 
 def _compose_memory_delete_body(memory_delete: MemoryDelete, reason: str) -> str:

@@ -103,6 +103,41 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(memory_delete.metadata["memory_target_id"], applied.target_id)
         self.assertEqual(memory_delete.metadata["source_count"], 1)
 
+    def test_memory_update_requires_review_and_versions_fact(self):
+        service = build_fake_service()
+        run = service.start("update workflow", {"dataset_ids": ["demo"]})
+        service.context_retrieve(run.run_id, "adapter memory review", 1)
+        proposal = service.propose(run.run_id, "memory_patch", "remember obsoletephrase")
+        review = service.review_create(proposal.proposal_id)
+        service.review_decide(review.review_id, "accept", "approved")
+        applied = service.memory_apply(review.review_id)
+        facts = service.memory_search("obsoletephrase", {}, 10)
+        self.assertEqual(facts[0].fact_id, applied.target_id)
+
+        update_result = service.memory_update_review(facts[0], "Reviewed durable memory target", "better wording")
+        update_review_id = update_result["review"]["review_id"]
+        self.assertEqual(update_result["proposal"]["kind"], "memory_update")
+        self.assertEqual(update_result["proposal"]["memory_update"]["target_id"], applied.target_id)
+        with self.assertRaises(WorkflowError):
+            service.memory_apply(update_review_id)
+
+        service.review_decide(update_review_id, "accept", "update approved")
+        updated = service.memory_apply(update_review_id)
+
+        self.assertTrue(updated.applied)
+        self.assertEqual(updated.target_id, applied.target_id)
+        self.assertEqual(updated.metadata["operation"], "update")
+        self.assertEqual(updated.metadata["version"], 2)
+        self.assertEqual(service.memory_search("obsoletephrase", {}, 10), [])
+        updated_facts = service.memory_search("durable memory target", {}, 10)
+        self.assertEqual(updated_facts[0].text, "Reviewed durable memory target")
+        self.assertEqual(updated_facts[0].metadata["version"], 2)
+        self.assertEqual(updated_facts[0].metadata["versions"][0]["text"], proposal.memory_patch.text)
+        memory_update = next(event for event in service.store.list_audit_events() if event.action == "memory.update")
+        self.assertEqual(memory_update.metadata["proposal_kind"], "memory_update")
+        self.assertEqual(memory_update.metadata["memory_target_id"], applied.target_id)
+        self.assertEqual(memory_update.metadata["version"], 2)
+
     def test_export_brief_uses_workflow_context(self):
         service = build_fake_service()
         run = service.start("brief workflow", {"dataset_ids": ["demo"]})

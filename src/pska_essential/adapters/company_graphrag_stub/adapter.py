@@ -8,6 +8,7 @@ from pska_essential.contracts import (
     MemoryDelete,
     MemoryFact,
     MemoryPatch,
+    MemoryUpdate,
     SourceContext,
     SourceRef,
     utc_now_iso,
@@ -80,6 +81,32 @@ class CompanyGraphRagStubAdapter:
             backend=self.backend_name,
             message="Company GraphRAG stub accepted reviewed patch",
         )
+
+    def update(self, reviewed_update: MemoryUpdate) -> MemoryApplyResult:
+        for fact in self.memory:
+            if fact.fact_id == reviewed_update.target_id:
+                previous_text = fact.text
+                version = int(fact.metadata.get("version", 1)) + 1
+                fact.metadata.setdefault("versions", []).append(
+                    {
+                        "version": version - 1,
+                        "text": previous_text,
+                        "updated_at": utc_now_iso(),
+                        "reason": reviewed_update.reason,
+                    }
+                )
+                fact.text = reviewed_update.text
+                fact.source_refs = reviewed_update.source_refs
+                fact.metadata["update_reason"] = reviewed_update.reason
+                fact.metadata["version"] = version
+                return MemoryApplyResult(
+                    applied=True,
+                    target_id=fact.fact_id,
+                    backend=self.backend_name,
+                    message="Company GraphRAG stub updated reviewed memory",
+                    metadata={"operation": "update", "version": version, "previous_text": previous_text},
+                )
+        raise ValueError(f"memory fact not found: {reviewed_update.target_id}")
 
     def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
         for fact in self.memory:

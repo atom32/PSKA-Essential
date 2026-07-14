@@ -9,7 +9,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from pska_essential.contracts import MemoryApplyResult, MemoryDelete, MemoryFact, MemoryPatch
+from pska_essential.contracts import MemoryApplyResult, MemoryDelete, MemoryFact, MemoryPatch, MemoryUpdate
 
 
 class GraphitiAdapterError(RuntimeError):
@@ -102,6 +102,11 @@ class GraphitiMemoryAdapter:
     def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
         raise GraphitiAdapterError(
             "Graphiti reviewed memory delete is not configured in the PSKA adapter"
+        )
+
+    def update(self, reviewed_update: MemoryUpdate) -> MemoryApplyResult:
+        raise GraphitiAdapterError(
+            "Graphiti reviewed memory update is not configured in the PSKA adapter"
         )
 
     def _post_json(self, path: str, payload: dict[str, Any], *, accept_empty: bool = False) -> dict[str, Any]:
