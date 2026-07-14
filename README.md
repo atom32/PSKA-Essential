@@ -178,6 +178,7 @@ Implemented Alpha routes:
 
 - `GET /api/health`
 - `GET /api/policy`
+- `GET /api/runtime/diagnostics`
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`
 - `POST /api/kb/ingest`
@@ -206,4 +207,6 @@ document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. Knowledge Bases shows dataset/document
 readiness, can start parsing for loaded unready documents, and automatically
 refreshes ingestion status after uploads. Writing opens sourced briefs from
-recent workflow runs and exports Markdown or JSON through Product API.
+recent workflow runs and exports Markdown or JSON through Product API. Settings
+shows runtime provider configuration and Product API diagnostics for review
+store, KB gateway, retrieval, and memory connectivity.

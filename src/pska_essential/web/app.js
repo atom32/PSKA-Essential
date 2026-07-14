@@ -7,6 +7,7 @@ const state = {
   workflows: [],
   currentBrief: null,
   currentAskResult: null,
+  diagnostics: null,
   focusReviewId: null,
   memoryApplyByReview: {},
   activeDocumentDatasetId: null,
@@ -147,7 +148,7 @@ function bindRefresh() {
 }
 
 async function refreshAll() {
-  await Promise.allSettled([loadHealth(), loadDatasets(), loadReviews(), loadWorkflows()]);
+  await Promise.allSettled([loadHealth(), loadDiagnostics(), loadDatasets(), loadReviews(), loadWorkflows()]);
   renderHome();
 }
 
@@ -162,6 +163,22 @@ async function loadHealth() {
     const status = document.getElementById("api-status");
     status.textContent = "API error";
     status.className = "status-pill error";
+    showToast(error.message);
+  }
+}
+
+async function loadDiagnostics() {
+  try {
+    const payload = await api("/api/runtime/diagnostics");
+    state.diagnostics = payload.diagnostics || null;
+    renderDiagnostics();
+    renderSettings();
+  } catch (error) {
+    state.diagnostics = {
+      status: "error",
+      checks: [{ name: "runtime_diagnostics", status: "error", message: error.message, metadata: {} }],
+    };
+    renderDiagnostics();
     showToast(error.message);
   }
 }
@@ -257,8 +274,10 @@ function renderSettings() {
   settings.replaceChildren();
   const providers = (state.health && state.health.providers) || {};
   const governance = (state.health && state.health.governance) || {};
+  const diagnostics = state.diagnostics || {};
   [
     ["Product API", state.health ? state.health.product_api : ""],
+    ["Runtime Status", diagnostics.status || "not checked"],
     ["Retrieval", providers.retrieval || "not configured"],
     ["Knowledge Base", providers.kb || "not configured"],
     ["Memory", providers.memory || "not configured"],
@@ -267,6 +286,17 @@ function renderSettings() {
   ].forEach(([key, value]) => {
     settings.append(el("dt", {}, key), el("dd", {}, value));
   });
+}
+
+function renderDiagnostics() {
+  const container = document.getElementById("runtime-diagnostics");
+  const status = document.getElementById("diagnostics-status");
+  if (!container || !status) return;
+  const diagnostics = state.diagnostics || {};
+  const checks = diagnostics.checks || [];
+  status.textContent = diagnostics.status || "not checked";
+  status.className = `tag ${statusClass(diagnostics.status || "pending")}`;
+  renderList(container, checks, "No diagnostics loaded.", diagnosticCard);
 }
 
 function renderDatasets() {
@@ -807,6 +837,30 @@ function workflowCard(workflow) {
   ]);
 }
 
+function diagnosticCard(check) {
+  const metadata = check.metadata || {};
+  const tags = [];
+  if (metadata.provider) {
+    tags.push(el("span", { className: "tag" }, metadata.provider));
+  }
+  if (metadata.health_checked) {
+    tags.push(el("span", { className: "tag ready" }, "health checked"));
+  }
+  if (metadata.dataset_sample_count !== undefined) {
+    tags.push(el("span", { className: "tag" }, `datasets sampled: ${metadata.dataset_sample_count}`));
+  }
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, readableName(check.name)),
+        el("p", {}, check.message || ""),
+      ]),
+      el("span", { className: `tag ${statusClass(check.status)}` }, check.status || "unknown"),
+    ]),
+    tags.length ? el("div", { className: "meta-row" }, tags) : null,
+  ]);
+}
+
 async function loadBrief(runId) {
   const payload = await api(`/api/workflows/${encodeURIComponent(runId)}/export?format=markdown`);
   const workflow = state.workflows.find((item) => item.run_id === runId) || { run_id: runId };
@@ -1052,6 +1106,12 @@ function shortId(value) {
   return `${text.slice(0, 6)}...${text.slice(-4)}`;
 }
 
+function readableName(value) {
+  return String(value || "unknown")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function datasetState(dataset) {
   const documents = Number(dataset.document_count || 0);
   const chunks = Number(dataset.chunk_count || 0);
@@ -1097,8 +1157,8 @@ function summarizeDocuments(documents) {
 
 function statusClass(status) {
   const value = String(status || "").toLowerCase();
-  if (["ready", "complete", "accepted"].includes(value)) return "ready";
-  if (["failed", "fail", "missing", "blocked", "rejected", "empty"].includes(value)) return "failed";
+  if (["ready", "complete", "accepted", "ok"].includes(value)) return "ready";
+  if (["failed", "fail", "missing", "blocked", "rejected", "empty", "error"].includes(value)) return "failed";
   return "pending";
 }
 

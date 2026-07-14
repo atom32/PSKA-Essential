@@ -18,6 +18,7 @@ from pska_essential.agentic_loop import run_agentic_question
 from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
+from pska_essential.diagnostics import build_runtime_diagnostics
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
@@ -122,6 +123,14 @@ def _handler_class(state: ProductApiState):
 
             if method == "GET" and path == "/api/policy":
                 self._send_json({"ok": True, "governance": build_workspace_policy_from_env().to_dict()})
+                return
+
+            if method == "GET" and path == "/api/runtime/diagnostics":
+                diagnostics = build_runtime_diagnostics(
+                    service=state.service,
+                    kb_gateway_factory=state.kb_gateway_factory,
+                )
+                self._send_json({"ok": True, "diagnostics": diagnostics})
                 return
 
             if method == "GET" and path == "/api/kb/datasets":

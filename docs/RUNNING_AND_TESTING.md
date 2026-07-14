@@ -94,7 +94,9 @@ briefs and exports Markdown or JSON through Product API. Upload, parsing,
 embedding, and indexing readiness remain visible states rather than hidden side
 effects. After upload, the Knowledge Bases view can start parsing for loaded
 unready documents and refreshes the selected dataset's document status and
-readiness until processing reaches a terminal state.
+readiness until processing reaches a terminal state. Settings shows runtime
+provider configuration and Product API diagnostics for review store, KB gateway,
+retrieval, and memory connectivity.
 
 Durable memory governance modes:
 

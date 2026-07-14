@@ -107,6 +107,8 @@ Implemented:
 - Frontend ingestion tracking: upload refreshes document status/readiness until
   terminal processing state.
 - Frontend parse action for loaded unready documents through Product API.
+- Product API runtime diagnostics and Settings diagnostics view for provider
+  connectivity without frontend provider direct calls.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Operational upload-to-agentic-question MCP loop.
@@ -125,7 +127,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 40 tests pass.
+- `make test`: 41 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply, KB readiness blocking, and multipart document upload.
 - `make list-tools`: lists 19 PSKA MCP tools.
@@ -185,7 +187,9 @@ steps including KB readiness, lets users pick dataset/document scope through
 Product API, opens sources through Product API Reader, opens sourced briefs in
 Writing, opens related review items, and can apply accepted memory patches.
 Review decisions and memory apply actions refresh the current Ask/Writing
-state, and applied memory state is served back through Review API records. If
+state, and applied memory state is served back through Review API records.
+Settings shows runtime provider configuration and Product API diagnostics for
+review store, KB gateway, retrieval, and memory connectivity. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
 does not start retrieval. The Knowledge Bases view shows dataset/document
 readiness and can start parsing for loaded unready documents before

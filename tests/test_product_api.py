@@ -191,6 +191,20 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(parsed["parse"]["parse_started"])
         self.assertEqual(self.gateway.parse_calls, [{"dataset_id": "demo", "document_ids": ["doc-1"], "wait": False}])
 
+    def test_runtime_diagnostics_route_reports_product_checks(self):
+        payload = self._get_json("/api/runtime/diagnostics")
+
+        self.assertTrue(payload["ok"])
+        diagnostics = payload["diagnostics"]
+        self.assertEqual(diagnostics["status"], "warning")
+        checks = {item["name"]: item for item in diagnostics["checks"]}
+        self.assertEqual(checks["product_api"]["status"], "ok")
+        self.assertEqual(checks["review_store"]["status"], "ok")
+        self.assertEqual(checks["kb_gateway"]["status"], "ok")
+        self.assertEqual(checks["kb_gateway"]["metadata"]["dataset_sample_count"], 1)
+        self.assertEqual(checks["retrieval_provider"]["metadata"]["provider"], "fake")
+        self.assertEqual(checks["memory_provider"]["metadata"]["provider"], "fake")
+
     def test_ask_blocks_dataset_that_is_not_ready(self):
         self.gateway.ready = False
         asked = self._post_json(
@@ -247,10 +261,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
         self.assertIn("Brief Workspace", html)
+        self.assertIn("runtime-diagnostics", html)
         self.assertIn('/api/sources/read', script)
+        self.assertIn('/api/runtime/diagnostics', script)
         self.assertIn('/api/workflows?limit=20', script)
         self.assertIn('/parse', script)
         self.assertIn('/readiness', script)
+        self.assertIn('diagnosticCard', script)
         self.assertIn('addAskDataset', script)
         self.assertIn('loadAskDocuments', script)
         self.assertIn('askDocumentCard', script)
