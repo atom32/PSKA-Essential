@@ -487,10 +487,35 @@ async function openWorkspaceAction(action) {
 }
 
 function setUploadDataset(datasetIds) {
-  const datasetId = String((datasetIds || [])[0] || "").trim();
-  if (!datasetId) return;
+  const values = Array.isArray(datasetIds) ? datasetIds : [datasetIds];
+  const datasetId = String((values || [])[0] || "").trim();
+  if (!datasetId) return false;
   const field = document.querySelector('#upload-form input[name="dataset_id"]');
   if (field) field.value = datasetId;
+  const nameField = document.querySelector('#upload-form input[name="dataset_name"]');
+  if (nameField) nameField.value = "";
+  return true;
+}
+
+function openDatasetUpload(datasetId) {
+  if (!setUploadDataset(datasetId)) {
+    showToast("Dataset ID is required.");
+    return;
+  }
+  openView("kb");
+  showToast("Upload target selected.");
+}
+
+async function openDatasetStatus(datasetId) {
+  const normalized = String(datasetId || "").trim();
+  if (!normalized) {
+    showToast("Dataset ID is required.");
+    return;
+  }
+  const field = document.querySelector('#document-status-form input[name="dataset_id"]');
+  if (field) field.value = normalized;
+  openView("kb");
+  await loadDocuments(normalized);
 }
 
 function openView(view) {
@@ -1282,7 +1307,9 @@ function datasetCard(dataset) {
       ]),
       el("div", { className: "card-actions" }, [
         el("span", { className: `tag ${stateName.className}` }, stateName.label),
-        el("button", { className: "secondary-button", onclick: () => setAskDataset(dataset.dataset_id) }, "Use"),
+        el("button", { className: "secondary-button", onclick: () => setAskDataset(dataset.dataset_id) }, "Ask"),
+        el("button", { className: "secondary-button", onclick: () => openDatasetUpload(dataset.dataset_id) }, "Upload"),
+        el("button", { className: "secondary-button", onclick: () => openDatasetStatus(dataset.dataset_id) }, "Status"),
       ]),
     ]),
     el("div", { className: "meta-row" }, [

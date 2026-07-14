@@ -194,6 +194,8 @@ Implemented:
 - Knowledge Bases polling now preselects a ready dataset in the Ask scope when
   ingestion completes, without automatically running Ask or writing durable
   knowledge.
+- Dataset cards expose Ask, Upload, and Status actions, so frontend users do
+  not need to copy dataset IDs between workflow forms.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.

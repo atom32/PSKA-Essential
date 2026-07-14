@@ -277,7 +277,9 @@ reasons before deciding whether to wait, parse, inspect a failure, or Ask.
 The frontend Knowledge Bases view renders those next actions as explicit status
 buttons when possible. When ingestion polling observes a ready dataset, the
 frontend preselects that dataset in Ask scope but still waits for the user or
-agent to provide the question.
+agent to provide the question. Dataset cards expose Ask, Upload, and Status
+actions so users can continue the workflow without copying dataset IDs between
+forms.
 Use `pska_workspace_status` or `GET /api/workspace/status` for the same
 product-level next-action summary from Hermes or the frontend without exposing
 provider APIs. Each returned action includes stable PSKA tool/API/view hints

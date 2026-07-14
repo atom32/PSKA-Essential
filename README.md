@@ -331,7 +331,9 @@ workflow run and audit trail rather than a disposable error response. Knowledge 
 readiness and normalized ingestion status, can start parsing for loaded unready
 documents, offers status actions such as parse, track, and ask when the scope is
 ready, automatically refreshes ingestion status after uploads, and preselects a
-ready dataset in Ask scope when ingestion completes. It can also open optional document
+ready dataset in Ask scope when ingestion completes. Dataset cards can open Ask,
+set an existing upload target, or load document status without copying dataset
+IDs. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
