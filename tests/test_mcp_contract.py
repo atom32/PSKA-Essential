@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from pska_essential.kb_gateway import reset_fake_kb_gateway
 from pska_essential.mcp_server import tool_registry
 from pska_essential.workflow import build_fake_service
 
@@ -185,6 +186,7 @@ class McpContractTests(unittest.TestCase):
         tools = tool_registry(build_fake_service())
 
         with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            reset_fake_kb_gateway()
             status = tools["pska_workspace_status"]()
 
         self.assertEqual(status["kind"], "workspace_status")

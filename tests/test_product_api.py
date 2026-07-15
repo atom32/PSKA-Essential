@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from pska_essential.config import build_service_from_env
-from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.kb_gateway import build_kb_gateway_from_env, reset_fake_kb_gateway
 from pska_essential.product_api import build_server
 from pska_essential.workflow import build_fake_service
 
@@ -1140,6 +1140,7 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
             clear=True,
         )
         self.env_patch.start()
+        reset_fake_kb_gateway()
         self.static_dir = tempfile.TemporaryDirectory()
         Path(self.static_dir.name, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
         self.server = build_server(
@@ -1200,8 +1201,49 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         ingest_audit = self._get_json("/api/audit?limit=10&action=kb.ingest")
         self.assertEqual(ingest_audit["events"][0]["metadata"]["document_names"], ["loop-note.txt"])
 
-    def _post_multipart_ingest(self, fields: dict[str, str], filename: str, text: str) -> dict:
+    def test_product_api_fake_pdf_upload_reports_ingestion_failure_before_ask(self):
+        dataset_name = f"Unsupported Fake PDF {uuid4().hex}"
+        ingested = self._post_multipart_ingest(
+            {
+                "dataset_name": dataset_name,
+                "parse": "true",
+                "wait": "false",
+            },
+            "annual-report.pdf",
+            b"%PDF-1.5\n%\xe2\xe3\xcf\xd3\nbinary fake pdf",
+            content_type="application/pdf",
+        )
+        dataset_id = ingested["ingest"]["dataset"]["dataset_id"]
+
+        self.assertEqual(ingested["ingestion_status"]["status"], "failed")
+        self.assertEqual(ingested["ingestion_status"]["next_actions"], ["inspect_failed_documents"])
+        self.assertIn("Fake KB can only parse UTF-8 text files", ingested["readiness"]["blocking"][0])
+
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "What is in the unsupported PDF?",
+                "dataset_ids": [dataset_id],
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+            },
+        )
+
+        self.assertEqual(asked["status"], "not_ready")
+        self.assertEqual(asked["readiness"]["status"], "failed")
+        self.assertEqual(asked["context_packets"], [])
+        self.assertIsNone(asked["proposal"])
+
+    def _post_multipart_ingest(
+        self,
+        fields: dict[str, str],
+        filename: str,
+        content: str | bytes,
+        *,
+        content_type: str = "text/plain",
+    ) -> dict:
         boundary = f"pska-test-{uuid4().hex}"
+        file_content = content.encode("utf-8") if isinstance(content, str) else content
         parts: list[bytes] = []
         for name, value in fields.items():
             parts.extend(
@@ -1216,8 +1258,8 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
             [
                 f"--{boundary}\r\n".encode("utf-8"),
                 f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode("utf-8"),
-                b"Content-Type: text/plain\r\n\r\n",
-                text.encode("utf-8"),
+                f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
+                file_content,
                 b"\r\n",
                 f"--{boundary}--\r\n".encode("utf-8"),
             ]

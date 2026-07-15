@@ -304,6 +304,7 @@ class FakeKnowledgeGateway:
                 "proposes candidate knowledge, requires review, and only then applies memory."
             )
         }
+        self.document_parse_errors: dict[str, str] = {}
 
     def list_datasets(self, *, name: str | None = None, page_size: int = 30) -> list[dict[str, Any]]:
         datasets = list(self.datasets.values())
@@ -370,6 +371,7 @@ class FakeKnowledgeGateway:
         for file_path in file_paths:
             path = _checked_file(file_path)
             document_id = f"fake_doc_{uuid4().hex[:12]}"
+            text, parse_error = _read_fake_document_text(path)
             doc = {
                 "backend": self.backend_name,
                 "dataset_id": dataset_id,
@@ -383,7 +385,9 @@ class FakeKnowledgeGateway:
                 "run": "UNSTART",
                 "status": "uploaded",
             }
-            self.document_text[document_id] = _read_fake_document_text(path)
+            self.document_text[document_id] = text
+            if parse_error:
+                self.document_parse_errors[document_id] = parse_error
             docs.append(doc)
             self.documents.setdefault(dataset_id, []).append(doc)
         self.datasets[dataset_id]["document_count"] = len(self.documents.get(dataset_id, []))
@@ -400,12 +404,22 @@ class FakeKnowledgeGateway:
         docs = self.documents.get(dataset_id, [])
         for doc in docs:
             if doc.get("document_id") in document_ids:
-                doc["chunk_count"] = max(int(doc.get("chunk_count") or 0), 1)
-                doc["token_count"] = max(int(doc.get("token_count") or 0), 8)
-                doc["progress"] = 1.0
-                doc["progress_msg"] = "ready"
-                doc["run"] = "DONE"
-                doc["status"] = "ready"
+                document_id = str(doc.get("document_id") or "")
+                parse_error = self.document_parse_errors.get(document_id, "")
+                if parse_error:
+                    doc["chunk_count"] = 0
+                    doc["token_count"] = 0
+                    doc["progress"] = 1.0
+                    doc["progress_msg"] = parse_error
+                    doc["run"] = "FAIL"
+                    doc["status"] = "failed"
+                else:
+                    doc["chunk_count"] = max(int(doc.get("chunk_count") or 0), 1)
+                    doc["token_count"] = max(int(doc.get("token_count") or 0), 8)
+                    doc["progress"] = 1.0
+                    doc["progress_msg"] = "ready"
+                    doc["run"] = "DONE"
+                    doc["status"] = "ready"
         self.datasets[dataset_id]["chunk_count"] = sum(int(doc.get("chunk_count") or 0) for doc in docs)
         result: dict[str, Any] = {
             "backend": self.backend_name,
@@ -495,6 +509,14 @@ class FakeKnowledgeGateway:
 _FAKE_KB_GATEWAY = FakeKnowledgeGateway()
 
 
+def reset_fake_kb_gateway() -> FakeKnowledgeGateway:
+    """Reset the explicit development/test fake KB gateway."""
+
+    global _FAKE_KB_GATEWAY
+    _FAKE_KB_GATEWAY = FakeKnowledgeGateway()
+    return _FAKE_KB_GATEWAY
+
+
 def build_kb_gateway_from_env() -> RagflowKnowledgeGateway | FakeKnowledgeGateway:
     provider = os.getenv("PSKA_KB_PROVIDER", "").strip().lower()
     if not provider:
@@ -568,13 +590,24 @@ def _checked_file(path: str) -> Path:
     return file_path
 
 
-def _read_fake_document_text(path: Path) -> str:
+def _read_fake_document_text(path: Path) -> tuple[str, str]:
     raw = path.read_bytes()
+    if path.suffix.lower() == ".pdf" or raw.startswith(b"%PDF"):
+        return "", _fake_unsupported_document_message(path)
+    if b"\x00" in raw[:4096]:
+        return "", _fake_unsupported_document_message(path)
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        text = raw.decode("utf-8", errors="replace")
-    return text[:20000]
+        return "", _fake_unsupported_document_message(path)
+    return text[:20000], ""
+
+
+def _fake_unsupported_document_message(path: Path) -> str:
+    return (
+        f"Fake KB can only parse UTF-8 text files; '{path.name}' needs a real KB "
+        "provider such as RAGFlow for parsing, OCR, embedding, and indexing."
+    )
 
 
 def _multipart_files(paths: list[Path]) -> tuple[bytes, str]:

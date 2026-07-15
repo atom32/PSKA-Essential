@@ -216,6 +216,15 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(result["datasets"][0]["documents"][0]["next_action"], "inspect_failure")
         self.assertEqual(result["datasets"][0]["documents"][0]["failure_reason"], "embedding failed")
 
+    def test_dataset_scope_failed_document_surfaces_failure_reason(self):
+        result = evaluate_kb_readiness(_Gateway(), dataset_ids=["failed"])
+
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("embedding failed", result["blocking"][0])
+        self.assertEqual(result["ingestion_status"]["status"], "failed")
+        self.assertEqual(result["ingestion_status"]["next_actions"], ["inspect_failed_documents"])
+
     def test_cancelled_document_is_explicit(self):
         result = evaluate_kb_readiness(_Gateway(), dataset_ids=["cancelled"], document_ids=["doc-cancelled"])
 

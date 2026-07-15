@@ -88,7 +88,10 @@ Implemented:
 - Ports.
 - Fake retrieval and fake memory adapters.
 - Explicit fake KB mode stores uploaded text documents and fake retrieval can
-  retrieve them, so local upload-to-Ask checks do not require RAGFlow.
+  retrieve them, so local upload-to-Ask checks do not require RAGFlow. Fake KB
+  is intentionally text-only; PDF-like or binary uploads are marked as failed
+  ingestion with an explicit RAGFlow/real-KB guidance message instead of being
+  treated as ready context.
 - RAGFlow KB gateway glue for dataset creation, document upload, parsing,
   status polling, and optional structure graph read.
 - RAGFlow retrieval adapter.
@@ -302,11 +305,11 @@ make smoke
 
 Expected result:
 
-- `make test`: 108 tests pass.
+- `make test`: 111 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
-  fake upload-to-Ask source reads.
+  fake upload-to-Ask source reads, and fake PDF-like upload failure before Ask.
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, review source trace display, and retrieval probe UI.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
@@ -757,7 +760,8 @@ make list-tools
 
    In explicit fake mode this can be tested with text files only: fake KB stores
    uploaded text, fake retrieval returns it as context, and PSKA still owns the
-   workflow/review/export gates.
+   workflow/review/export gates. PDF annual reports should use RAGFlow-backed
+   KB mode; fake KB now reports PDF-like uploads as failed ingestion.
 
 7. Validate that Graphiti writes are still review-gated and that Hermes cannot
    bypass PSKA by calling Graphiti directly.

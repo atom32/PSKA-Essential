@@ -175,10 +175,18 @@ def _evaluate_dataset_scope(gateway: Any, dataset_reports: list[dict[str, Any]],
         doc_statuses = [doc["status"] for doc in doc_reports]
         report["ready"] = False
         report["status"] = _overall_status(doc_statuses) if doc_statuses else PROCESSING
-        blocking.append(
-            f"Dataset '{_dataset_label(report)}' is not ready for retrieval: "
-            f"{document_count} documents, {chunk_count} chunks."
-        )
+        document_failures = [
+            _document_blocking_message(doc)
+            for doc in doc_reports
+            if doc["status"] in {FAILED, CANCELLED}
+        ]
+        if document_failures:
+            blocking.extend(document_failures[:3])
+        else:
+            blocking.append(
+                f"Dataset '{_dataset_label(report)}' is not ready for retrieval: "
+                f"{document_count} documents, {chunk_count} chunks."
+            )
 
 
 def _evaluate_document_scope(

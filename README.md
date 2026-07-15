@@ -33,7 +33,10 @@ must be visible to users and agents.
 The code is intentionally stdlib-first so the fake workflow can run before any
 external service is installed. In explicit fake mode, uploaded text documents
 are stored by the fake KB gateway and are retrievable by the fake retrieval
-adapter, so the local upload-to-Ask loop can run without RAGFlow.
+adapter, so the local upload-to-Ask loop can run without RAGFlow. Fake mode is
+text-only: PDF, OCR, binary parsing, embedding, and indexing should use a real
+KB provider such as RAGFlow. If a PDF-like file is uploaded to fake KB, PSKA
+marks ingestion failed explicitly instead of pretending the scope is ready.
 
 ```bash
 cd /Users/xudawei/PSKA-Essential
@@ -146,7 +149,8 @@ export PSKA_MEMORY_PROVIDER=fake
 ```
 
 With `PSKA_KB_PROVIDER=fake`, uploaded text documents are queryable by later
-Ask runs in the same Product API process.
+Ask runs in the same Product API process. PDF annual reports and other binary
+documents should be tested through RAGFlow-backed KB mode.
 
 ## MCP
 

@@ -23,7 +23,10 @@ This mode uses fake adapters only through explicit test helpers or
 `PSKA_DEV_FAKE=1`; fake adapters are not runtime fallbacks. Core development
 should always stay fast. In explicit fake KB mode, uploaded text documents are
 kept in the fake KB gateway and are retrievable by fake retrieval, so local
-upload-to-Ask checks do not need RAGFlow.
+upload-to-Ask checks do not need RAGFlow. Fake KB is intentionally text-only:
+PDF/OCR/binary parsing, embedding, and indexing should use RAGFlow or another
+real KB provider. PDF-like files uploaded to fake KB are marked as failed
+ingestion, not fake-ready context.
 
 ### 2. Hermes MCP Development
 
@@ -71,7 +74,9 @@ open http://127.0.0.1:8765
 
 In this mode, create or select a fake dataset, upload a text document, keep
 `Parse after upload` enabled, and then Ask against that dataset ID. The returned
-context should cite the uploaded fake document.
+context should cite the uploaded fake document. For PDFs such as annual
+reports, switch to RAGFlow-backed KB mode so parsing and embedding are handled
+by the external KB.
 
 Live RAGFlow/Graphiti mode uses the same Product API command after setting
 providers explicitly:

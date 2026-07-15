@@ -7,7 +7,13 @@ from unittest.mock import patch
 
 from pska_essential.agentic_loop import run_agentic_question_with_readiness
 from pska_essential.config import build_service_from_env
-from pska_essential.kb_gateway import KbGatewayError, RagflowKnowledgeGateway, build_kb_gateway_from_env
+from pska_essential.kb_gateway import (
+    KbGatewayError,
+    RagflowKnowledgeGateway,
+    build_kb_gateway_from_env,
+    reset_fake_kb_gateway,
+)
+from pska_essential.readiness import evaluate_kb_readiness
 
 
 class _Gateway(RagflowKnowledgeGateway):
@@ -108,6 +114,7 @@ class KbGatewayTests(unittest.TestCase):
             "PSKA_REVIEW_DB": ":memory:",
         }
         with tempfile.TemporaryDirectory() as tmp, patch.dict("os.environ", env, clear=True):
+            reset_fake_kb_gateway()
             path = Path(tmp) / "orchid-policy.txt"
             path.write_text(
                 "The uploaded orchid policy says PSKA should cite source packets before durable knowledge.",
@@ -132,6 +139,31 @@ class KbGatewayTests(unittest.TestCase):
         self.assertEqual(result["context_packets"][0]["source_ref"]["document_id"], document_id)
         self.assertIn("uploaded orchid policy", result["context_packets"][0]["text"])
         self.assertIn("orchid-policy.txt", result["artifact"]["source_manifest"][0]["title"])
+
+    def test_fake_kb_marks_pdf_like_uploads_as_failed_instead_of_ready(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch.dict("os.environ", env, clear=True):
+            reset_fake_kb_gateway()
+            path = Path(tmp) / "annual-report.pdf"
+            path.write_bytes(b"%PDF-1.5\n%\xe2\xe3\xcf\xd3\nbinary fake pdf")
+            gateway = build_kb_gateway_from_env()
+            ingested = gateway.ingest_files(file_paths=[str(path)], dataset_name=f"Fake PDF {path.stem}", parse=True)
+            dataset_id = ingested["dataset"]["dataset_id"]
+            document = ingested["documents"][0]
+            readiness = evaluate_kb_readiness(gateway, dataset_ids=[dataset_id])
+
+        self.assertEqual(document["status"], "failed")
+        self.assertEqual(document["run"], "FAIL")
+        self.assertIn("Fake KB can only parse UTF-8 text files", document["progress_msg"])
+        self.assertFalse(readiness["ready"])
+        self.assertEqual(readiness["status"], "failed")
+        self.assertEqual(readiness["ingestion_status"]["next_actions"], ["inspect_failed_documents"])
 
 
 if __name__ == "__main__":
