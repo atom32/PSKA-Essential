@@ -195,6 +195,9 @@ Implemented:
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
   connectivity without frontend provider direct calls.
+- Frontend Settings exposes retrieval, memory, and live closed-loop probes
+  through Product API routes; probe audit records remain scoped to PSKA
+  workspace/tenant context.
 - Product API `/api/capabilities`, MCP `pska_capabilities_get`, health, runtime
   diagnostics, workspace status, and frontend Writing/Settings expose memory
   operation capabilities. Unsupported durable memory operations are blocked
@@ -235,10 +238,10 @@ Implemented:
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
-- Product API and MCP expose an explicit memory probe that verifies configured
-  memory search through the PSKA adapter contract, rejects fake memory by
-  default for live component verification, writes `memory.probe` audit records,
-  and reports provider errors without fallback.
+- Product API, MCP, and frontend Settings expose an explicit memory probe that
+  verifies configured memory search through the PSKA adapter contract, rejects
+  fake memory by default for live component verification, writes `memory.probe`
+  audit records, and reports provider errors without fallback.
 - Product API and MCP expose a live closed-loop probe that rejects fake KB and
   fake retrieval providers, then runs readiness, retrieval, agentic Ask, source
   inspection, and explicit export for a transient work product against the
@@ -361,9 +364,9 @@ Expected result:
   review candidates.
 - Product API/MCP/frontend tests cover workspace policy visibility.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
-- Product API/MCP/diagnostics tests cover explicit memory probes and their
-  audit records, including fake-memory rejection for live verification and
-  actionable Graphiti provider errors.
+- Product API/MCP/frontend/diagnostics tests cover explicit memory probes and
+  their audit records, including fake-memory rejection for live verification
+  and actionable Graphiti provider errors.
 - Product API/MCP/diagnostics tests cover live closed-loop probes, including
   explicit fake-provider rejection and non-fake sourced Ask/export success.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.

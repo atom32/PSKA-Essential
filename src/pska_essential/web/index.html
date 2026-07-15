@@ -313,6 +313,7 @@
                     <option value="kb.parse">kb.parse</option>
                     <option value="kb.graph.read">kb.graph.read</option>
                     <option value="retrieval.probe">retrieval.probe</option>
+                    <option value="memory.probe">memory.probe</option>
                     <option value="source.read">source.read</option>
                     <option value="agentic_loop.complete">agentic_loop.complete</option>
                     <option value="agentic_loop.insufficient_context">agentic_loop.insufficient_context</option>
@@ -370,6 +371,17 @@
             </div>
             <div id="retrieval-probe-result" class="list empty-list">No retrieval probe run.</div>
             <div id="closed-loop-probe-result" class="list empty-list">No live closed-loop probe run.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Memory Probe</h2>
+              <button id="run-memory-probe" class="secondary-button" type="button">Run Memory</button>
+            </div>
+            <label>
+              Query
+              <input id="memory-probe-query" autocomplete="off" value="PSKA memory probe" />
+            </label>
+            <div id="memory-probe-result" class="list empty-list">No memory probe run.</div>
           </div>
           <div class="panel">
             <h2>Product Boundary</h2>

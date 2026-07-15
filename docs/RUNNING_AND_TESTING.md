@@ -183,11 +183,13 @@ Settings shows runtime provider configuration and Product API diagnostics for
 review store, KB gateway, retrieval, and memory connectivity. It also loads
 `/api/capabilities` as the explicit product capability contract; Review and
 Writing durable-memory controls stay disabled until the selected operation is
-reported as supported. Product API health, diagnostics, and audit records
-include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and
-`PSKA_TENANT_ID`, including the derived PSKA `memory_namespace` shown in
-Settings. Workflow, review, memory-apply, and audit reads are scoped by the
-same workspace/tenant context in the review store. Durable memory search and
+reported as supported. Settings exposes retrieval, memory, and live closed-loop
+probes through Product API routes so component checks stay inside PSKA
+boundaries. Product API health, diagnostics, and audit records include the
+runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`,
+including the derived PSKA `memory_namespace` shown in Settings. Workflow,
+review, memory-apply, and audit reads are scoped by the same workspace/tenant
+context in the review store. Durable memory search and
 reviewed writes receive the same context as a PSKA `memory_namespace`; fake,
 company-stub, and Graphiti adapters use it to keep backend memory scoped to the
 same workspace boundary.

@@ -17,6 +17,7 @@ const state = {
   diagnostics: null,
   workspaceStatus: null,
   retrievalProbe: null,
+  memoryProbe: null,
   closedLoopProbe: null,
   askReadiness: null,
   askReadinessScopeKey: "",
@@ -201,6 +202,7 @@ function bindRefresh() {
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("reload-audit").addEventListener("click", () => loadAuditEvents());
   document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
+  document.getElementById("run-memory-probe").addEventListener("click", runMemoryProbe);
   document.getElementById("run-closed-loop-probe").addEventListener("click", runClosedLoopProbe);
   document.getElementById("audit-action-filter").addEventListener("change", (event) => {
     state.auditAction = event.currentTarget.value || "";
@@ -632,6 +634,7 @@ function renderSettings() {
   });
   renderPolicy();
   renderRetrievalProbe();
+  renderMemoryProbe();
   renderClosedLoopProbe();
 }
 
@@ -785,6 +788,22 @@ async function runRetrievalProbe() {
   showToast("Retrieval probe recorded.");
 }
 
+async function runMemoryProbe() {
+  const query = document.getElementById("memory-probe-query");
+  const payload = await api("/api/runtime/memory-probe", {
+    method: "POST",
+    body: {
+      query: query && query.value ? query.value : "PSKA memory probe",
+      limit: 1,
+      require_live: true,
+    },
+  });
+  state.memoryProbe = payload.probe || null;
+  renderMemoryProbe();
+  await loadAuditEvents("memory.probe");
+  showToast("Memory probe recorded.");
+}
+
 async function runClosedLoopProbe() {
   const picker = document.getElementById("probe-dataset-picker");
   const question = document.getElementById("probe-question");
@@ -820,6 +839,19 @@ function renderRetrievalProbe() {
   }
   container.classList.remove("empty-list");
   container.append(retrievalProbeCard(state.retrievalProbe));
+}
+
+function renderMemoryProbe() {
+  const container = document.getElementById("memory-probe-result");
+  if (!container) return;
+  container.replaceChildren();
+  if (!state.memoryProbe) {
+    container.classList.add("empty-list");
+    container.textContent = "No memory probe run.";
+    return;
+  }
+  container.classList.remove("empty-list");
+  container.append(memoryProbeCard(state.memoryProbe));
 }
 
 function renderClosedLoopProbe() {
@@ -2129,6 +2161,22 @@ function retrievalProbeCard(probe) {
   ]);
 }
 
+function memoryProbeCard(probe) {
+  const error = probe.error || {};
+  const tags = [
+    el("span", { className: "tag" }, probe.provider || "provider"),
+    el("span", { className: "tag" }, `facts ${probe.memory_count || 0}`),
+  ];
+  if (error.type) tags.push(el("span", { className: "tag error" }, error.type));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, "Memory Probe"), el("p", {}, probe.message || "")]),
+      el("span", { className: `tag ${statusClass(probe.status)}` }, probe.status || "unknown"),
+    ]),
+    el("div", { className: "meta-row" }, tags),
+  ]);
+}
+
 function closedLoopProbeCard(probe) {
   const providers = probe.providers || {};
   const ask = probe.ask || {};
@@ -2216,6 +2264,9 @@ function auditSummary(event) {
   }
   if (event.action === "retrieval.probe") {
     return `Retrieval probe ${metadata.status || "recorded"} with ${metadata.context_count || 0} context packet(s).`;
+  }
+  if (event.action === "memory.probe") {
+    return `Memory probe ${metadata.status || "recorded"} with ${metadata.memory_count || 0} fact(s).`;
   }
   if (event.action === "workflow.export") {
     return `Exported ${metadata.format || "work product"} with ${metadata.source_count || 0} source(s).`;
