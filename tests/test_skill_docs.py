@@ -16,6 +16,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_component_check", text)
         self.assertIn("pska_ingest_loop", text)
         self.assertIn("pska_ingest_loop_resume", text)
+        self.assertIn("wait_for_resumable_ask", text)
+        self.assertIn("wait_ready=false", text)
         self.assertIn("pska_capabilities_get", text)
         self.assertIn("workspace.memory_namespace", text)
         self.assertIn("provider-native", text)
@@ -40,6 +42,14 @@ class SkillDocsTests(unittest.TestCase):
             "pska_live_closed_loop_probe",
         ]:
             self.assertIn(f"- {tool_name}", text)
+
+    def test_openclaw_skill_prefers_pska_ingest_loop_boundary(self):
+        text = Path("skills/openclaw/SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("pska_ingest_loop", text)
+        self.assertIn("pska_ingest_loop_resume", text)
+        self.assertIn("wait_ready=false", text)
+        self.assertIn("do not answer from missing context", text)
 
 
 if __name__ == "__main__":

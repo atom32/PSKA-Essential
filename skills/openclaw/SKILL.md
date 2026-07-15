@@ -13,8 +13,10 @@ external KB, GraphRAG, or memory systems.
 - PSKA-Essential is the only safe tool surface.
 - Backend MCP servers such as Graphiti must not be exposed directly for this
   workflow.
-- Use PSKA `kb` tools for RAGFlow-backed dataset creation, document upload,
-  parsing, and readiness checks instead of calling RAGFlow directly.
+- Use `pska_ingest_loop` for the normal file -> Ask -> export path, and use
+  PSKA `kb` tools only when the user wants lower-level dataset control.
+- Use `pska_ingest_loop_resume` for processing-blocked upload loops once the
+  selected scope becomes ready.
 - Treat upload, parsing, embedding, and indexing as asynchronous and check
   `pska_kb_ingestion_status` readiness before asking over a dataset.
 - Do not use case-specific shortcuts, hardcoded domains, or fallback answers.
@@ -36,22 +38,26 @@ external KB, GraphRAG, or memory systems.
 
 ## Steps
 
-1. If needed, upload documents with `pska_kb_ingest_files` and inspect the
-   returned `readiness` / `ingestion_status`.
-2. Confirm readiness with `pska_kb_document_status` and
-   `pska_kb_ingestion_status` before asking.
-3. Start a scoped PSKA workflow or call `pska_agentic_question_start`.
-4. Pass explicit `retrieval_queries` when useful follow-up angles are known;
+1. If needed, prefer `pska_ingest_loop` with absolute file paths, dataset name,
+   question, and explicit loop controls. Use `wait_ready=false` for long
+   parsing or embedding jobs.
+2. If the ingest loop returns `not_ready`, inspect readiness/status and resume
+   later with `pska_ingest_loop_resume`; do not answer from missing context.
+3. Use `pska_kb_ingest_files`, `pska_kb_document_status`, and
+   `pska_kb_ingestion_status` only for lower-level control.
+4. Start a scoped PSKA workflow or call `pska_agentic_question_start` for an
+   already-ready KB scope.
+5. Pass explicit `retrieval_queries` when useful follow-up angles are known;
    PSKA will run them inside the selected scope and record the query plan.
-5. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
+6. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
    inspect through adapters during Ask.
-6. Retrieve context and answer only from returned context and inspected sources.
-7. Propose digest, writing brief, or memory patch.
-8. Create a review, or use `pska_memory_review_from_workflow` for an existing
+7. Retrieve context and answer only from returned context and inspected sources.
+8. Propose digest, writing brief, or memory patch.
+9. Create a review, or use `pska_memory_review_from_workflow` for an existing
    transient sourced workflow.
-9. Wait for review acceptance; use review list/get tools to resume pending
+10. Wait for review acceptance; use review list/get tools to resume pending
    review work.
-10. If review asks for edits, create a revised review; apply memory changes only
+11. If review asks for edits, create a revised review; apply memory changes only
    after acceptance.
-11. Inspect `pska_workflow_artifact` or `pska_workflow_brief`.
-12. Export a Markdown or JSON brief only for explicit handoff.
+12. Inspect `pska_workflow_artifact` or `pska_workflow_brief`.
+13. Export a Markdown or JSON brief only for explicit handoff.

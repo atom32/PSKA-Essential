@@ -354,7 +354,10 @@ Implemented:
   and follows PSKA `next_actions` instead of inferring workflow steps from
   provider state. It also exposes `pska_runtime_diagnostics` and
   `pska_capabilities_get`, and treats `workspace.memory_namespace` as PSKA
-  runtime context instead of passing provider-native memory group IDs.
+  runtime context instead of passing provider-native memory group IDs. Hermes
+  and OpenClaw skill docs now prefer `pska_ingest_loop` /
+  `pska_ingest_loop_resume` for file-first workflows, with lower-level KB tools
+  reserved for manual dataset control.
 - Docs and runbook.
 
 Validated commands:
@@ -368,7 +371,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 157 tests pass.
+- `make test`: 158 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   controls, governance payloads, and resumable processing uploads, scoped Ask,
   Review, memory apply/update/delete, audit records, KB readiness blocking,

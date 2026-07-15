@@ -64,22 +64,26 @@ MCP tool sequence:
 ```text
 pska_workspace_status()
 
-pska_kb_ingest_files(
+pska_ingest_loop(
   file_paths=["/absolute/path/to/document.pdf"],
   dataset_name="pska-demo",
-  parse=true,
-  wait=true
-)
-
-pska_workspace_status()
-
-pska_agentic_question_start(
   question="What should we remember from this document?",
-  dataset_ids=["<dataset_id from ingest>"],
   proposal_kind="memory_patch",
-  use_kg=false
+  parse=true,
+  wait_ready=false,
+  export_format="markdown"
 )
+```
 
+If the result is `status=not_ready`, wait for parsing/chunking/embedding to
+finish and resume the same upload -> Ask -> export intent:
+
+```text
+pska_agentic_question_resumable(limit=5)
+pska_ingest_loop_resume("<blocked_run_id>")
+```
+
+```text
 pska_review_list("pending")
 pska_review_get("<review_id>")
 pska_review_decide("<review_id>", "accept", "approved for demo")
@@ -92,6 +96,10 @@ pska_workflow_brief("<run_id>", "markdown")
 pska_export_brief("<run_id>", "markdown")
 pska_audit_list(limit=20)
 ```
+
+Use the lower-level `pska_kb_ingest_files -> pska_kb_ingestion_status ->
+pska_agentic_question_start` sequence only when the demo needs manual dataset
+control or separate ingestion/status inspection.
 
 If RAGFlow structure compilation was configured before parsing, inspect the
 optional graph layer:

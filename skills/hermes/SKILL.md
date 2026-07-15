@@ -88,6 +88,8 @@ Common next actions:
   `pska_agentic_question_start` with the provided scope params.
 - `resume_blocked_ask`: call `pska_agentic_question_resume` with the provided
   `run_id`, unless the action tool is `pska_ingest_loop_resume`.
+- `wait_for_resumable_ask`: call `pska_agentic_question_resumable` or wait,
+  then resume with the returned PSKA tool once `can_resume=true`.
 - `review_pending_durable_knowledge`: open the provided review with
   `pska_review_get`.
 - `apply_accepted_memory`: call `pska_memory_apply` only if the review is
@@ -119,6 +121,8 @@ For a new document:
 
 1. Prefer `pska_ingest_loop` with absolute file paths, a dataset name, and the
    user's question when the user wants the normal upload -> Ask -> export loop.
+   For long PDFs or slow embedding, set `wait_ready=false` so PSKA records a
+   resumable blocked workflow instead of holding the agent call open.
 2. If `pska_ingest_loop` returns `status=ok`, answer from its exported sourced
    work product and artifact. If it returns `status=not_ready`, report the
    readiness or ingestion failure and stop before answering; after the selected
