@@ -16,6 +16,7 @@ const state = {
   currentAskResult: null,
   diagnostics: null,
   workspaceStatus: null,
+  componentCheck: null,
   retrievalProbe: null,
   memoryProbe: null,
   closedLoopProbe: null,
@@ -201,6 +202,7 @@ function bindRefresh() {
   });
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("reload-audit").addEventListener("click", () => loadAuditEvents());
+  document.getElementById("run-component-check").addEventListener("click", runComponentCheck);
   document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
   document.getElementById("run-memory-probe").addEventListener("click", runMemoryProbe);
   document.getElementById("run-closed-loop-probe").addEventListener("click", runClosedLoopProbe);
@@ -633,6 +635,7 @@ function renderSettings() {
     settings.append(el("dt", {}, key), el("dd", {}, value));
   });
   renderPolicy();
+  renderComponentCheck();
   renderRetrievalProbe();
   renderMemoryProbe();
   renderClosedLoopProbe();
@@ -788,6 +791,37 @@ async function runRetrievalProbe() {
   showToast("Retrieval probe recorded.");
 }
 
+async function runComponentCheck() {
+  const picker = document.getElementById("probe-dataset-picker");
+  const question = document.getElementById("probe-question");
+  const datasetId = String((picker && picker.value) || "").trim();
+  const payload = await api("/api/runtime/component-check", {
+    method: "POST",
+    body: {
+      question: question && question.value ? question.value : "PSKA component check",
+      dataset_ids: datasetId ? [datasetId] : [],
+      limit: 3,
+      retrieval_limit: 1,
+      source_inspection_limit: 1,
+      export_format: "json",
+      require_memory: true,
+      run_closed_loop: true,
+    },
+  });
+  state.componentCheck = payload.component_check || null;
+  if (state.componentCheck) {
+    state.retrievalProbe = state.componentCheck.retrieval_probe || state.retrievalProbe;
+    state.memoryProbe = state.componentCheck.memory_probe || state.memoryProbe;
+    state.closedLoopProbe = state.componentCheck.closed_loop_probe || state.closedLoopProbe;
+  }
+  renderComponentCheck();
+  renderRetrievalProbe();
+  renderMemoryProbe();
+  renderClosedLoopProbe();
+  await loadAuditEvents(auditActionForComponentCheck(state.componentCheck));
+  showToast("Component check recorded.");
+}
+
 async function runMemoryProbe() {
   const query = document.getElementById("memory-probe-query");
   const payload = await api("/api/runtime/memory-probe", {
@@ -826,6 +860,19 @@ async function runClosedLoopProbe() {
   renderClosedLoopProbe();
   await loadAuditEvents("closed_loop.probe");
   showToast("Live closed-loop probe recorded.");
+}
+
+function renderComponentCheck() {
+  const container = document.getElementById("component-check-result");
+  if (!container) return;
+  container.replaceChildren();
+  if (!state.componentCheck) {
+    container.classList.add("empty-list");
+    container.textContent = "No component check run.";
+    return;
+  }
+  container.classList.remove("empty-list");
+  container.append(componentCheckCard(state.componentCheck));
 }
 
 function renderRetrievalProbe() {
@@ -898,6 +945,14 @@ function auditActionForAskResult(result) {
   if (result.status === "not_ready") return "kb.readiness.blocked";
   if (result.status === "insufficient_context") return "agentic_loop.insufficient_context";
   if (result.status === "ready") return "agentic_loop.complete";
+  return "";
+}
+
+function auditActionForComponentCheck(result) {
+  if (!result) return "";
+  if (result.closed_loop_probe) return "closed_loop.probe";
+  if (result.retrieval_probe) return "retrieval.probe";
+  if (result.memory_probe) return "memory.probe";
   return "";
 }
 
@@ -2157,6 +2212,37 @@ function retrievalProbeCard(probe) {
     el("div", { className: "meta-row" }, tags),
     sourceRefs.length
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
+      : null,
+  ]);
+}
+
+function componentCheckCard(result) {
+  const providers = result.providers || {};
+  const scope = result.scope || {};
+  const tags = [
+    el("span", { className: "tag" }, `kb ${providers.kb || "unknown"}`),
+    el("span", { className: "tag" }, `retrieval ${providers.retrieval || "unknown"}`),
+    el("span", { className: "tag" }, `memory ${providers.memory || "unknown"}`),
+  ];
+  const datasetIds = scope.dataset_ids || [];
+  if (datasetIds.length) tags.push(el("span", { className: "tag" }, `datasets ${datasetIds.length}`));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, "Component Check"), el("p", {}, result.message || "")]),
+      el("span", { className: `tag ${statusClass(result.status)}` }, result.status || "unknown"),
+    ]),
+    el("div", { className: "meta-row" }, tags),
+    result.steps && result.steps.length
+      ? el(
+          "ol",
+          { className: "compact-list" },
+          result.steps.map((step) =>
+            el("li", {}, [
+              el("span", { className: `tag ${statusClass(step.status)}` }, step.status || "unknown"),
+              ` ${readableName(step.name)}${step.required === false ? " (optional)" : ""}: ${step.message || ""}`,
+            ]),
+          ),
+        )
       : null,
   ]);
 }

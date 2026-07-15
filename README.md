@@ -447,12 +447,13 @@ Exported work products include the
 workflow export audit event, inspected source snippets, and durable-memory
 source trace in their traceability metadata. Settings shows runtime provider
 configuration, Product API diagnostics for review store, KB gateway, retrieval,
-and memory connectivity, the explicit capability contract, and an explicit
-retrieval probe for the selected dataset before running Ask. Settings also
-exposes a memory probe for verifying the configured memory backend search path
-through PSKA instead of provider-native tools. Runtime diagnostics include a
-read-only memory search contract check so a shallow Graphiti health check cannot
-be mistaken for a working memory backend. Settings and Product API runtime
+and memory connectivity, the explicit capability contract, and a component
+check that aggregates runtime diagnostics, memory probe, retrieval probe, and
+closed-loop probe. Settings also exposes focused retrieval and memory probes
+for verifying individual backend paths through PSKA instead of provider-native
+tools. Runtime diagnostics include a read-only memory search contract check so
+a shallow Graphiti health check cannot be mistaken for a working memory
+backend. Settings and Product API runtime
 context expose the derived memory namespace. Product API health, diagnostics,
 explicit probe audit records, and other audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`; the

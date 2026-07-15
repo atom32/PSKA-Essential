@@ -200,9 +200,9 @@ Implemented:
   configuration.
 - MCP exposes `pska_runtime_diagnostics`, so Hermes can inspect the same
   read-only Product API diagnostics without direct provider calls.
-- Frontend Settings exposes retrieval, memory, and live closed-loop probes
-  through Product API routes; probe audit records remain scoped to PSKA
-  workspace/tenant context.
+- Frontend Settings exposes component check plus retrieval, memory, and live
+  closed-loop probes through Product API routes; probe audit records remain
+  scoped to PSKA workspace/tenant context.
 - Product API `/api/capabilities`, MCP `pska_capabilities_get`, health, runtime
   diagnostics, workspace status, and frontend Writing/Settings expose memory
   operation capabilities. Unsupported durable memory operations are blocked
@@ -348,7 +348,8 @@ Expected result:
   fake upload-to-Ask source reads, fake PDF-like upload failure before Ask, and
   export refusal for unsourced/empty workflows.
 - Product API/static frontend tests cover Review status filtering, pending
-  review summaries, review source trace display, and retrieval probe UI.
+  review summaries, review source trace display, component check UI, and
+  focused probe UI.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Agentic loop/Product API/MCP tests cover explicit retrieval query plans and
   source-coordinate de-duplication across query rounds.
