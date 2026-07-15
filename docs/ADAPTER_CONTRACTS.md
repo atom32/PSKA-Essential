@@ -129,7 +129,9 @@ local file ingest, readiness polling, agentic Ask, and sourced export. It
 returns `not_ready` and stops before Ask/export when ingestion is still
 processing or has failed. `pska_ingest_loop_resume` resumes a processing-blocked
 upload loop after the selected scope becomes ready, preserving the original Ask
-and export intent.
+and export intent. Not-ready upload-loop results expose PSKA-level
+`next_actions`; resumable processing states also expose a `resume` contract for
+the PSKA resume tool/API instead of requiring provider-specific inspection.
 `pska_memory_probe` is an explicit diagnostic operation for the configured
 memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes

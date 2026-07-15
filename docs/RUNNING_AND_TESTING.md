@@ -452,7 +452,9 @@ transient work product. It writes normal `kb.ingest`, `agentic_loop.complete`,
 and `workflow.export` audit records when the scope is ready. If parsing, OCR,
 embedding, or indexing is still processing, the loop records a resumable blocked
 Ask and returns `status=not_ready` without retrieval/export. Failed or cancelled
-ingestion returns `status=not_ready` without creating a resumable Ask. Resume a
+ingestion returns `status=not_ready` without creating a resumable Ask. Not-ready
+upload-loop results include stable `next_actions`; processing-blocked results
+also include a `resume` contract pointing to the PSKA resume tool/API. Resume a
 processing-blocked upload loop with `pska_ingest_loop_resume`,
 `POST /api/workflows/{run_id}/resume-ingest-loop`,
 `pska-essential-ingest-loop-resume <run_id>`, or

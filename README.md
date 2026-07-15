@@ -276,9 +276,12 @@ files through the configured KB adapter, waits for PSKA readiness, runs the
 agentic Ask loop, and exports a sourced transient work product. If ingestion is
 still processing, it records a resumable blocked Ask before stopping short of
 retrieval/export; failed or cancelled ingestion stops without creating a
-resumable Ask. `pska_ingest_loop_resume` resumes those blocked upload loops
-after parsing, embedding, and indexing finish, preserving the original Ask and
-export intent. The same resume path is available from the CLI as
+resumable Ask. Not-ready results return stable `next_actions` and a `resume`
+contract when the upload loop can be resumed, so agents and frontends do not
+need to infer the recovery path from provider state. `pska_ingest_loop_resume`
+resumes those blocked upload loops after parsing, embedding, and indexing
+finish, preserving the original Ask and export intent. The same resume path is
+available from the CLI as
 `pska-essential-ingest-loop-resume <run_id>` or
 `PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume`.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
@@ -505,7 +508,8 @@ Knowledge Base create, upload, parse, source read, and graph read actions
 refresh Activity and focus the matching action after the source operation completes. If the selected dataset or
 document scope is not ready for retrieval, Ask returns a structured `not_ready`
 result instead of starting retrieval. The `not_ready` result has a recoverable
-workflow run and audit trail rather than a disposable error response. Knowledge Bases shows dataset/document
+workflow run, `next_actions`, optional `resume` contract, and audit trail rather
+than a disposable error response. Knowledge Bases shows dataset/document
 readiness and normalized ingestion status, can start parsing for loaded unready
 documents, offers status actions such as parse, track, and ask when the scope is
 ready, automatically refreshes ingestion status after uploads, and preselects a

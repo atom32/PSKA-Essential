@@ -372,6 +372,14 @@ def _loop_result(
     export_format: str,
 ) -> dict[str, Any]:
     run = (ask_result or {}).get("run") or {}
+    run_id = str(run.get("run_id") or "")
+    next_actions = _loop_next_actions(
+        status=status,
+        run_id=run_id,
+        ingest=ingest,
+        readiness=readiness,
+        export_format=export_format,
+    )
     return {
         "kind": kind,
         "status": status,
@@ -382,7 +390,9 @@ def _loop_result(
         "readiness": readiness,
         "ask_status": (ask_result or {}).get("status"),
         "run": run or None,
-        "run_id": run.get("run_id") or "",
+        "run_id": run_id,
+        "resume": _resume_contract(run_id, readiness, export_format) if status == "not_ready" else None,
+        "next_actions": next_actions,
         "context_packets": (ask_result or {}).get("context_packets") or [],
         "proposal": (ask_result or {}).get("proposal"),
         "review": (ask_result or {}).get("review"),
@@ -395,6 +405,78 @@ def _loop_result(
         "export_format": export_format,
         "export": export,
     }
+
+
+def _loop_next_actions(
+    *,
+    status: str,
+    run_id: str,
+    ingest: dict[str, Any],
+    readiness: dict[str, Any],
+    export_format: str,
+) -> list[dict[str, Any]]:
+    if status != "not_ready":
+        return []
+    actions: list[dict[str, Any]] = []
+    dataset = ingest.get("dataset") or {}
+    dataset_id = str(dataset.get("dataset_id") or "").strip()
+    document_ids = [
+        str(document.get("document_id") or "").strip()
+        for document in ingest.get("documents") or []
+        if str(document.get("document_id") or "").strip()
+    ]
+    if dataset_id:
+        actions.append(
+            {
+                "action": "track_ingestion_status",
+                "label": "Track Status",
+                "reason": _track_reason(readiness, bool(run_id)),
+                "api": f"GET /api/kb/datasets/{dataset_id}/ingestion-status",
+                "tool": "pska_kb_ingestion_status",
+                "view": "kb",
+                "params": {"dataset_id": dataset_id, "document_ids": document_ids},
+            }
+        )
+    if run_id:
+        actions.append(
+            {
+                "action": "resume_ingest_loop",
+                "label": "Resume Loop",
+                "reason": (
+                    "Selected knowledge scope is ready; resume the preserved upload -> Ask -> export intent."
+                    if readiness.get("ready")
+                    else "Resume the preserved upload -> Ask -> export intent after the selected knowledge scope is ready."
+                ),
+                "api": f"POST /api/workflows/{run_id}/resume-ingest-loop",
+                "tool": "pska_ingest_loop_resume",
+                "view": "ask",
+                "params": {"run_id": run_id, "export_format": export_format},
+                "can_resume": bool(readiness.get("ready")),
+                "requires_ready": True,
+            }
+        )
+    return actions
+
+
+def _resume_contract(run_id: str, readiness: dict[str, Any], export_format: str) -> dict[str, Any] | None:
+    if not run_id:
+        return None
+    return {
+        "run_id": run_id,
+        "can_resume": bool(readiness.get("ready")),
+        "api": f"POST /api/workflows/{run_id}/resume-ingest-loop",
+        "tool": "pska_ingest_loop_resume",
+        "params": {"run_id": run_id, "export_format": export_format},
+    }
+
+
+def _track_reason(readiness: dict[str, Any], resumable: bool) -> str:
+    status = str(readiness.get("status") or "").strip().lower()
+    if status in {"failed", "cancelled"}:
+        return "Inspect ingestion status before retrying the upload loop; no Ask/export was created."
+    if resumable:
+        return "Track parsing, chunking, embedding, and indexing until the preserved loop can resume."
+    return "Track parsing, chunking, embedding, and indexing for the uploaded source material."
 
 
 def _normalized_ids(values: list[str] | list[Any]) -> list[str]:

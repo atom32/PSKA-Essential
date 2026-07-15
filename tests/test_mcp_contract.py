@@ -189,10 +189,16 @@ class McpContractTests(unittest.TestCase):
 
         self.assertEqual(blocked["status"], "not_ready")
         self.assertEqual(blocked["run"]["metadata"]["ingest_loop"]["export_format"], "json")
+        self.assertEqual(blocked["resume"]["tool"], "pska_ingest_loop_resume")
+        self.assertEqual(blocked["resume"]["params"]["run_id"], blocked["run_id"])
+        self.assertFalse(blocked["resume"]["can_resume"])
+        self.assertEqual(blocked["next_actions"][0]["action"], "track_ingestion_status")
+        self.assertEqual(blocked["next_actions"][1]["action"], "resume_ingest_loop")
         self.assertEqual(resumed["kind"], "ingest_loop_resume")
         self.assertEqual(resumed["status"], "ok")
         self.assertEqual(resumed["ask_status"], "ready")
         self.assertEqual(resumed["export_format"], "json")
+        self.assertIsNone(resumed["resume"])
         self.assertEqual(resumed["export"]["traceability"]["source_count"], 1)
         actions = {event.action for event in service.store.list_audit_events(limit=80)}
         self.assertIn("agentic_loop.resume", actions)
