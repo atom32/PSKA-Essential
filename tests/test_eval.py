@@ -33,6 +33,7 @@ class EvalTests(unittest.TestCase):
             service = build_service_from_env()
 
             result = run_eval("product_acceptance", service, gateway_factory=build_kb_gateway_from_env)
+            eval_audit = service.store.list_audit_events(action="eval.run", limit=1)
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["kind"], "eval")
@@ -54,6 +55,9 @@ class EvalTests(unittest.TestCase):
         self.assertTrue(result["artifacts"]["ready_run_id"])
         self.assertTrue(result["artifacts"]["blocked_run_id"])
         self.assertTrue(result["artifacts"]["resumed_run_id"])
+        self.assertEqual(eval_audit[0].metadata["suite"], "product_acceptance")
+        self.assertEqual(eval_audit[0].metadata["status"], "ok")
+        self.assertEqual(eval_audit[0].metadata["step_count"], 6)
 
     def test_eval_cli_runs_product_acceptance_from_explicit_env(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):

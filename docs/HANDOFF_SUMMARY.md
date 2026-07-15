@@ -311,7 +311,8 @@ Implemented:
   product_acceptance`, `POST /api/runtime/eval`, frontend Settings Product
   Acceptance, and `make eval` now run a local product acceptance suite through
   PSKA contracts: file ingest, ready Ask/export, processing-blocked resume,
-  governed durable memory transition, and audit traceability.
+  governed durable memory transition, audit traceability, and an `eval.run`
+  audit event.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page

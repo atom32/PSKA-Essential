@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from pska_essential.agentic_loop import list_resumable_agentic_questions
+from pska_essential.audit import audit_event
 from pska_essential.cli_errors import startup_error_payload
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
@@ -30,11 +31,14 @@ def run_eval(
     if selected == "smoke":
         result = dict(run_smoke_eval(service))
         result.setdefault("kind", "eval")
+        add_eval_run_audit(service.store, result)
         return result
     if selected in {"product_acceptance", "file_to_work_product"}:
         if gateway_factory is None:
             raise ValueError("product_acceptance eval requires a KB gateway factory")
-        return run_product_acceptance_eval(service, gateway_factory())
+        result = run_product_acceptance_eval(service, gateway_factory())
+        add_eval_run_audit(service.store, result)
+        return result
     raise ValueError(f"unsupported eval suite: {suite}")
 
 
@@ -234,6 +238,31 @@ def run_product_acceptance_eval(service: WorkflowService, gateway: Any) -> dict[
         "steps": steps,
         "artifacts": artifacts,
     }
+
+
+def add_eval_run_audit(store: Any, result: dict[str, Any]) -> None:
+    artifacts = result.get("artifacts") or {}
+    steps = result.get("steps") or []
+    store.add_audit_event(
+        audit_event(
+            "eval.run",
+            "eval",
+            str(result.get("suite") or "eval"),
+            suite=str(result.get("suite") or ""),
+            status=str(result.get("status") or ("ok" if result.get("ok") else "error")),
+            ok=bool(result.get("ok")),
+            step_count=len(steps),
+            failed_steps=[
+                str(step.get("name") or "")
+                for step in steps
+                if str(step.get("status") or "") not in {"ok", "skipped"}
+            ],
+            ready_run_id=str(artifacts.get("ready_run_id") or ""),
+            blocked_run_id=str(artifacts.get("blocked_run_id") or ""),
+            resumed_run_id=str(artifacts.get("resumed_run_id") or ""),
+            providers=result.get("providers") or {},
+        )
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

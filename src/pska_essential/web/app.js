@@ -1149,7 +1149,7 @@ function auditActionForComponentCheck(result) {
 
 function auditActionForEval(result) {
   if (!result || !result.ok) return "";
-  return "workflow.export";
+  return "eval.run";
 }
 
 function setAuditActionFilter(action) {
@@ -2681,6 +2681,9 @@ function auditSummary(event) {
   }
   if (event.action === "memory.probe") {
     return `Memory probe ${metadata.status || "recorded"} with ${metadata.memory_count || 0} fact(s).`;
+  }
+  if (event.action === "eval.run") {
+    return `Eval ${metadata.suite || event.target_id || "suite"} ${metadata.status || "recorded"} with ${metadata.step_count || 0} step(s).`;
   }
   if (event.action === "workflow.export") {
     return `Exported ${metadata.format || "work product"} with ${metadata.source_count || 0} source(s).`;

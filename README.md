@@ -64,7 +64,8 @@ PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake \
 
 This verifies the PSKA upload -> readiness -> Ask/export loop, resumable
 not-ready upload flow, governed durable memory transition, and audit trail
-without using fake as a live-provider fallback.
+without using fake as a live-provider fallback. Successful and failed eval runs
+record `eval.run` audit events.
 
 Run the Product API and frontend in explicit local development mode:
 
