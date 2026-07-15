@@ -218,11 +218,15 @@ The MCP server uses the optional `mcp` package:
 
 ```bash
 uv sync --extra mcp
-uv run pska-essential-mcp
+cp .env.example .env.pska
+# Fill in real RAGFlow/Graphiti keys, then:
+uv run pska-essential-mcp --env-file .env.pska
 ```
 
 Hermes should connect only to PSKA-Essential MCP. Do not expose RAGFlow or
 Graphiti MCP servers directly to the agent; that would bypass the review gate.
+For local fake development, create a separate explicit fake env file with
+`PSKA_DEV_FAKE=1` instead of editing Hermes to call provider tools directly.
 
 Operational loop tools:
 

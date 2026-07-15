@@ -41,15 +41,20 @@ Example server env:
 ```yaml
 mcp_servers:
   pska-essential:
-    command: "/Users/xudawei/PSKA-Essential/.venv/bin/python"
-    args: ["-m", "pska_essential"]
+    command: "python3"
+    args:
+      - "-m"
+      - "pska_essential"
+      - "--env-file"
+      - "/Users/xudawei/PSKA-Essential/.env.pska"
     env:
       PYTHONPATH: "/Users/xudawei/PSKA-Essential/src"
-      PSKA_DEV_FAKE: "1"
-      PSKA_REVIEW_DB: "/Users/xudawei/PSKA-Essential/.pska-essential/review.sqlite3"
-      PSKA_RETRIEVAL_PROVIDER: "fake"
-      PSKA_MEMORY_PROVIDER: "fake"
 ```
+
+Use `.env.pska` for explicit runtime configuration. For local fake development,
+put `PSKA_DEV_FAKE=1` and fake providers in that env file; for live validation,
+use RAGFlow/Graphiti values. Do not add RAGFlow or Graphiti MCP servers to the
+Hermes workflow.
 
 Hermes test:
 

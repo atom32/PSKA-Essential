@@ -371,7 +371,9 @@ Implemented:
   runtime context instead of passing provider-native memory group IDs. Hermes
   and OpenClaw skill docs now prefer `pska_ingest_loop` /
   `pska_ingest_loop_resume` for file-first workflows, with lower-level KB tools
-  reserved for manual dataset control.
+  reserved for manual dataset control. The Hermes config example starts
+  PSKA-Essential MCP with `--env-file .env.pska` and no longer embeds fake
+  provider env directly.
 - Docs and runbook.
 
 Validated commands:
@@ -815,14 +817,22 @@ PSKA MCP command shape:
 ```bash
 cd /Users/xudawei/PSKA-Essential
 uv sync --extra mcp
-uv run pska-essential-mcp
+cp .env.example .env.pska
+# Fill in real RAGFlow/Graphiti keys for live use, then:
+uv run pska-essential-mcp --env-file .env.pska
 ```
 
 If using explicit local fake mode:
 
 ```bash
-PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
-  PSKA_REVIEW_DB=:memory: PYTHONPATH=src python3 -m pska_essential --list-tools
+cat > .env.fake.pska <<'EOF'
+PSKA_DEV_FAKE=1
+PSKA_RETRIEVAL_PROVIDER=fake
+PSKA_KB_PROVIDER=fake
+PSKA_MEMORY_PROVIDER=fake
+PSKA_REVIEW_DB=:memory:
+EOF
+uv run pska-essential-mcp --env-file .env.fake.pska --list-tools
 ```
 
 ## Current Verification Snapshot
@@ -842,6 +852,7 @@ curl -I http://127.0.0.1:9222/
 cd /Users/xudawei/PSKA-Essential
 make test
 make list-tools
+make smoke
 ```
 
 ## Next Recommended Steps

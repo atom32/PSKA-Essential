@@ -27,6 +27,12 @@ class SkillDocsTests(unittest.TestCase):
     def test_hermes_config_exposes_operational_loop_tools(self):
         text = Path("skills/hermes/config.example.yaml").read_text(encoding="utf-8")
 
+        self.assertIn("--env-file", text)
+        self.assertIn("/Users/xudawei/PSKA-Essential/.env.pska", text)
+        self.assertNotIn("PSKA_DEV_FAKE", text)
+        self.assertNotIn("PSKA_RETRIEVAL_PROVIDER: \"fake\"", text)
+        self.assertNotIn("PSKA_MEMORY_PROVIDER: \"fake\"", text)
+
         for tool_name in [
             "pska_workspace_status",
             "pska_runtime_diagnostics",

@@ -4,11 +4,10 @@ mcp_servers:
     args:
       - "-m"
       - "pska_essential"
+      - "--env-file"
+      - "/Users/xudawei/PSKA-Essential/.env.pska"
     env:
       PYTHONPATH: "/Users/xudawei/PSKA-Essential/src"
-      PSKA_DEV_FAKE: "1"
-      PSKA_RETRIEVAL_PROVIDER: "fake"
-      PSKA_MEMORY_PROVIDER: "fake"
     tools:
       include:
         - pska_workflow_start
