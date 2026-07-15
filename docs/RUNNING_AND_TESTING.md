@@ -376,16 +376,22 @@ Graphiti health check can pass while LLM or embedding provider configuration
 is still missing; diagnostics and the probe report that condition as a provider
 error instead of using fallback data.
 
+Use `make live-component-check` when the question is whether the configured
+components can support the product loop. The component check runs runtime
+diagnostics, explicit memory probe, retrieval probe, and live closed-loop probe
+in one structured result. It exits successfully only when the requested checks
+pass; missing dataset scope, fake live providers, memory search failures, and
+retrieval/Ask/export failures are surfaced as explicit step failures.
+
 Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
-`make live-closed-loop` when the question is whether the real configured
-components can complete the product loop. The live probe rejects fake KB and
-fake retrieval providers, then runs readiness, retrieval, agentic Ask, bounded
-source inspection, and explicit export for a transient work product. It does
-not write durable memory or graph state; use the normal Ask/review/apply
-workflow for that. It writes a `closed_loop.probe` audit record and reports the
-exact stage that failed, such as `not_ready`, `retrieval_error`,
-`agentic_error`, or `export_error`. Successful probes include context, source,
-and source-inspection counts.
+`make live-closed-loop` when you only want the sourced Ask/export portion. The
+live probe rejects fake KB and fake retrieval providers, then runs readiness,
+retrieval, agentic Ask, bounded source inspection, and explicit export for a
+transient work product. It does not write durable memory or graph state; use the
+normal Ask/review/apply workflow for that. It writes a `closed_loop.probe` audit
+record and reports the exact stage that failed, such as `not_ready`,
+`retrieval_error`, `agentic_error`, or `export_error`. Successful probes include
+context, source, and source-inspection counts.
 
 When RAGFlow reports an embedding model binding failure such as a missing
 provider for the selected dataset embedding model, PSKA normalizes the KB
@@ -405,13 +411,21 @@ and re-ingest. Do not rely on fake adapters or silent provider fallback.
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow
 export PSKA_KB_PROVIDER=ragflow
-export PSKA_MEMORY_PROVIDER=fake
+export PSKA_MEMORY_PROVIDER=graphiti
 export RAGFLOW_BASE_URL=http://127.0.0.1:9380
 export RAGFLOW_API_KEY=...
+export GRAPHITI_BASE_URL=http://127.0.0.1:8000
+export GRAPHITI_GROUP_ID=pska-essential
 export PSKA_LIVE_DATASET_IDS=...
 export PSKA_LIVE_QUESTION="Summarize the selected documents with sources."
+make live-component-check
 make live-closed-loop
 ```
+
+If you are intentionally validating only the RAGFlow retrieval/Ask/export path
+before Graphiti is configured, run `PSKA_COMPONENT_SKIP_MEMORY=1 make
+live-component-check` or use `make live-closed-loop`. Do not treat a skipped or
+fake memory check as proof that durable memory is wired.
 
 ### 5. Full Demo / Deployment
 

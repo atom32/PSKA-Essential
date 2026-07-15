@@ -257,6 +257,11 @@ Implemented:
   reports the exact failing stage without fallback; successful probes now
   surface top-level source and source-inspection counts. Durable memory/graph
   writes still use the normal review/apply workflow.
+- `make live-component-check` / `pska-essential-component-check` aggregates
+  runtime diagnostics, explicit memory probe, retrieval probe, and live
+  closed-loop probe into one structured component acceptance result. It exits
+  nonzero for missing dataset scope, fake live proofs, memory search failures,
+  or retrieval/Ask/export failures.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
@@ -335,7 +340,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 124 tests pass.
+- `make test`: 135 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -378,6 +383,8 @@ Expected result:
   errors.
 - Product API/MCP/diagnostics tests cover live closed-loop probes, including
   explicit fake-provider rejection and non-fake sourced Ask/export success.
+- Component-check tests cover the combined diagnostics/probe/closed-loop
+  acceptance path and the missing-dataset-scope failure.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace, derived
   memory namespace, and audit workspace/tenant metadata.

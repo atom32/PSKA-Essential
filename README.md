@@ -87,18 +87,21 @@ export RAGFLOW_BASE_URL=http://localhost:9380
 export RAGFLOW_API_KEY=...
 ```
 
-After a RAGFlow dataset is uploaded and ready, run a live closed-loop probe:
+After a RAGFlow dataset is uploaded and ready, run a live component check:
 
 ```bash
-export PSKA_LIVE_DATASET_IDS=...
-export PSKA_LIVE_QUESTION="Summarize the selected documents with sources."
-make live-closed-loop
+export PSKA_COMPONENT_DATASET_IDS=...
+export PSKA_COMPONENT_QUESTION="Summarize the selected documents with sources."
+make live-component-check
 ```
 
-This command does not allow fake KB or fake retrieval providers. A successful
-result means the configured live providers completed readiness, retrieval,
-agentic Ask, source inspection, and explicit export; the probe reports context,
-source, and source-inspection counts.
+This command runs runtime diagnostics, memory search verification, retrieval
+probe, and the live closed-loop probe in one structured result. It does not use
+fake providers as proof. A successful result means the configured live
+providers completed readiness, retrieval, agentic Ask, source inspection, and
+explicit export; the result reports the exact failing step when a component is
+not wired.
+Use `make live-closed-loop` when you only want the sourced Ask/export portion.
 If the result reports `configure_embedding_provider`, configure the selected
 dataset embedding model/provider in RAGFlow and re-parse/re-index the affected
 documents before running Ask.
