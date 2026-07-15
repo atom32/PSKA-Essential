@@ -693,6 +693,19 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(probe["readiness"]["status"], "processing")
         self.assertIn("not ready", probe["message"])
 
+    def test_closed_loop_probe_rejects_fake_retrieval_as_product_proof(self):
+        probe = self._post_json(
+            "/api/runtime/closed-loop-probe",
+            {"question": "Can this prove the live loop?", "dataset_ids": ["demo"], "limit": 1},
+        )["probe"]
+
+        self.assertEqual(probe["status"], "invalid_configuration")
+        self.assertEqual(probe["providers"]["retrieval"], "fake")
+        self.assertEqual(probe["context_count"], 0)
+        audit = self._get_json("/api/audit?limit=5&action=closed_loop.probe")
+        self.assertEqual(audit["events"][0]["metadata"]["status"], "invalid_configuration")
+        self.assertFalse(audit["events"][0]["metadata"]["exported"])
+
     def test_ask_blocks_dataset_that_is_not_ready(self):
         self.gateway.ready = False
         asked = self._post_json(
@@ -857,6 +870,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("policy-settings", html)
         self.assertIn("retrieval-probe-result", html)
         self.assertIn("run-retrieval-probe", html)
+        self.assertIn("closed-loop-probe-result", html)
+        self.assertIn("run-closed-loop-probe", html)
         self.assertIn("probe-dataset-picker", html)
         self.assertIn("upload-dataset-picker", html)
         self.assertIn("upload-use-dataset", html)
@@ -962,6 +977,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('renderPolicy', script)
         self.assertIn('policy.actions', script)
         self.assertIn('/api/runtime/retrieval-probe', script)
+        self.assertIn('/api/runtime/closed-loop-probe', script)
         self.assertIn('/memory-review', script)
         self.assertIn('setReviewStatusFilter("");\n  syncReviewRecord(payload.review);', script)
         self.assertIn('await loadAuditEvents(payload.memory_apply ? memoryApplyAction(payload.memory_apply) : "review.create");', script)
@@ -1022,6 +1038,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('formatPercent', script)
         self.assertIn('diagnosticCard', script)
         self.assertIn('retrievalProbeCard', script)
+        self.assertIn('closedLoopProbeCard', script)
         self.assertIn('auditEventCard', script)
         self.assertIn('source_count', script)
         self.assertIn('memory_target_id', script)

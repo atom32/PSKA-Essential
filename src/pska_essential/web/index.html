@@ -345,7 +345,10 @@
           <div class="panel">
             <div class="panel-header">
               <h2>Retrieval Probe</h2>
-              <button id="run-retrieval-probe" class="secondary-button" type="button">Run Probe</button>
+              <div class="button-row">
+                <button id="run-retrieval-probe" class="secondary-button" type="button">Run Retrieval</button>
+                <button id="run-closed-loop-probe" class="primary-button" type="button">Run Live Loop</button>
+              </div>
             </div>
             <div class="form-row">
               <label>
@@ -358,6 +361,7 @@
               </label>
             </div>
             <div id="retrieval-probe-result" class="list empty-list">No retrieval probe run.</div>
+            <div id="closed-loop-probe-result" class="list empty-list">No live closed-loop probe run.</div>
           </div>
           <div class="panel">
             <h2>Product Boundary</h2>

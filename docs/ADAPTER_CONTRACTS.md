@@ -80,6 +80,7 @@ The public tool surface is:
 - `pska_export_brief`
 - `pska_audit_list`
 - `pska_retrieval_probe`
+- `pska_live_closed_loop_probe`
 - `pska_eval_run`
 - `pska_kb_list`
 - `pska_kb_create`

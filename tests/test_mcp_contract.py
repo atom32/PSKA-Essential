@@ -39,6 +39,7 @@ EXPECTED_TOOLS = {
     "pska_export_brief",
     "pska_audit_list",
     "pska_retrieval_probe",
+    "pska_live_closed_loop_probe",
     "pska_eval_run",
     "pska_kb_create",
     "pska_kb_document_status",
@@ -188,6 +189,22 @@ class McpContractTests(unittest.TestCase):
         event = service.store.list_audit_events(action="retrieval.probe", limit=1)[0]
         self.assertEqual(event.metadata["status"], "ok")
         self.assertEqual(event.metadata["context_count"], 1)
+
+    def test_live_closed_loop_probe_rejects_fake_as_product_proof(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            probe = tools["pska_live_closed_loop_probe"](
+                question="Can fake prove the product loop?",
+                dataset_ids=["demo"],
+            )
+
+        self.assertEqual(probe["status"], "invalid_configuration")
+        self.assertEqual(probe["providers"]["kb"], "fake")
+        self.assertEqual(probe["providers"]["retrieval"], "fake")
+        event = service.store.list_audit_events(action="closed_loop.probe", limit=1)[0]
+        self.assertEqual(event.metadata["status"], "invalid_configuration")
 
     def test_workspace_status_reports_operational_next_actions(self):
         tools = tool_registry(build_fake_service())

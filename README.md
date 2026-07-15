@@ -87,6 +87,18 @@ export RAGFLOW_BASE_URL=http://localhost:9380
 export RAGFLOW_API_KEY=...
 ```
 
+After a RAGFlow dataset is uploaded and ready, run a live closed-loop probe:
+
+```bash
+export PSKA_LIVE_DATASET_IDS=...
+export PSKA_LIVE_QUESTION="Summarize the selected documents with sources."
+make live-closed-loop
+```
+
+This command does not allow fake KB or fake retrieval providers. A successful
+result means the configured live providers completed readiness, retrieval,
+agentic Ask, source inspection, and explicit export.
+
 Graphiti memory:
 
 ```bash
@@ -175,6 +187,7 @@ Operational loop tools:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_retrieval_probe`
+- `pska_live_closed_loop_probe`
 - `pska_agentic_question_start`
 - `pska_agentic_question_resumable`
 - `pska_agentic_question_resume`
@@ -200,6 +213,12 @@ These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 KB ingest and parse tools return normalized `readiness` and
 `ingestion_status` along with their operation result, so agents can decide
 whether to wait, parse, inspect a failure, or Ask without calling provider APIs.
+`pska_retrieval_probe` checks whether a ready scope can retrieve context.
+`pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
+providers and then runs readiness, retrieval, agentic Ask, source inspection,
+and explicit export for a transient work product against the configured live
+providers. Durable memory or graph changes still use the normal review/apply
+workflow.
 
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> inspect workspace policy
@@ -242,6 +261,7 @@ Implemented Alpha routes:
 - `GET /api/runtime/diagnostics`
 - `GET /api/workspace/status`
 - `POST /api/runtime/retrieval-probe`
+- `POST /api/runtime/closed-loop-probe`
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`
 - `POST /api/kb/ingest`

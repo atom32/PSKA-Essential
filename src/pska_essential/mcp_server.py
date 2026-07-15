@@ -12,7 +12,12 @@ from pska_essential.agentic_loop import (
 from pska_essential.capabilities import product_capabilities
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
-from pska_essential.diagnostics import add_retrieval_probe_audit, run_retrieval_probe
+from pska_essential.diagnostics import (
+    add_live_closed_loop_probe_audit,
+    add_retrieval_probe_audit,
+    run_live_closed_loop_probe,
+    run_retrieval_probe,
+)
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
@@ -146,6 +151,33 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             use_kg=use_kg,
         )
         add_retrieval_probe_audit(service.store, probe)
+        return probe
+
+    def pska_live_closed_loop_probe(
+        question: str,
+        dataset_ids: list[str],
+        document_ids: list[str] | None = None,
+        limit: int = 3,
+        proposal_kind: str = "writing_brief",
+        use_kg: bool = False,
+        export_format: str = "json",
+        source_inspection_limit: int = 1,
+    ):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_document_ids = _optional_strings(document_ids)
+        probe = run_live_closed_loop_probe(
+            service,
+            build_kb_gateway_from_env(),
+            question=question,
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
+            limit=limit,
+            proposal_kind=proposal_kind,
+            use_kg=use_kg,
+            export_format=export_format,
+            source_inspection_limit=source_inspection_limit,
+        )
+        add_live_closed_loop_probe_audit(service.store, probe)
         return probe
 
     def pska_eval_run(suite: str = "smoke"):
@@ -362,6 +394,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_export_brief": pska_export_brief,
         "pska_audit_list": pska_audit_list,
         "pska_retrieval_probe": pska_retrieval_probe,
+        "pska_live_closed_loop_probe": pska_live_closed_loop_probe,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,
         "pska_kb_create": pska_kb_create,

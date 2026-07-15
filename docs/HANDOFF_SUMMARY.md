@@ -235,6 +235,12 @@ Implemented:
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
+- Product API and MCP expose a live closed-loop probe that rejects fake KB and
+  fake retrieval providers, then runs readiness, retrieval, agentic Ask, source
+  inspection, and explicit export for a transient work product against the
+  configured live providers. It writes `closed_loop.probe` audit records and
+  reports the exact failing stage without fallback; durable memory/graph writes
+  still use the normal review/apply workflow.
 - Runtime workspace/tenant context, including derived PSKA `memory_namespace`,
   surfaced in health, diagnostics, Settings, and audit metadata.
 - The SQLite review store indexes workflows, proposals, reviews, memory apply
@@ -306,7 +312,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 114 tests pass.
+- `make test`: 119 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -343,6 +349,8 @@ Expected result:
   review candidates.
 - Product API/MCP/frontend tests cover workspace policy visibility.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
+- Product API/MCP/diagnostics tests cover live closed-loop probes, including
+  explicit fake-provider rejection and non-fake sourced Ask/export success.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace, derived
   memory namespace, and audit workspace/tenant metadata.
@@ -351,7 +359,7 @@ Expected result:
 - Governance/adapter tests cover durable memory backend scoping through the
   PSKA `memory_namespace`, including fake memory search and Graphiti group ID
   mapping.
-- `make list-tools`: lists 37 PSKA MCP tools.
+- `make list-tools`: lists 38 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -380,6 +388,7 @@ pska_kb_document_status
 pska_kb_readiness
 pska_kb_ingestion_status
 pska_retrieval_probe
+pska_live_closed_loop_probe
 pska_agentic_question_start
 pska_agentic_question_resumable
 pska_agentic_question_resume

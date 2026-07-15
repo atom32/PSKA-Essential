@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke serve-api serve-dev clean
+.PHONY: test list-tools smoke live-closed-loop serve-api serve-dev clean
 
 PYTHON ?= python3
 
@@ -10,6 +10,9 @@ list-tools:
 
 smoke:
 	PYTHONPATH=src $(PYTHON) -c 'from pska_essential.workflow import build_fake_service; print(build_fake_service().eval_run("smoke"))'
+
+live-closed-loop:
+	PYTHONPATH=src $(PYTHON) -m pska_essential.live_closed_loop
 
 serve-api:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.product_api

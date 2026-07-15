@@ -354,6 +354,27 @@ retrieval through the configured retrieval adapter, records a `retrieval.probe`
 audit event, and surfaces provider errors such as missing embedding model
 providers explicitly.
 
+Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
+`make live-closed-loop` when the question is whether the real configured
+components can complete the product loop. The live probe rejects fake KB and
+fake retrieval providers, then runs readiness, retrieval, agentic Ask, bounded
+source inspection, and explicit export for a transient work product. It does
+not write durable memory or graph state; use the normal Ask/review/apply
+workflow for that. It writes a `closed_loop.probe` audit record and reports the
+exact stage that failed, such as `not_ready`, `retrieval_error`,
+`agentic_error`, or `export_error`.
+
+```bash
+export PSKA_RETRIEVAL_PROVIDER=ragflow
+export PSKA_KB_PROVIDER=ragflow
+export PSKA_MEMORY_PROVIDER=fake
+export RAGFLOW_BASE_URL=http://127.0.0.1:9380
+export RAGFLOW_API_KEY=...
+export PSKA_LIVE_DATASET_IDS=...
+export PSKA_LIVE_QUESTION="Summarize the selected documents with sources."
+make live-closed-loop
+```
+
 ### 5. Full Demo / Deployment
 
 Use Docker Compose or another yaml-based orchestrator only for full-stack demo,
@@ -384,6 +405,7 @@ Core tests:
 - Product API and frontend boundary smoke tests
 - agentic Ask loop diagnostics and durable-governance defaults
 - explicit retrieval probe diagnostics for selected ready scopes
+- live closed-loop probe diagnostics that reject fake KB/retrieval providers
 
 Integration tests:
 

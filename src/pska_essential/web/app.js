@@ -17,6 +17,7 @@ const state = {
   diagnostics: null,
   workspaceStatus: null,
   retrievalProbe: null,
+  closedLoopProbe: null,
   askReadiness: null,
   askReadinessScopeKey: "",
   focusReviewId: null,
@@ -198,6 +199,7 @@ function bindRefresh() {
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("reload-audit").addEventListener("click", () => loadAuditEvents());
   document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
+  document.getElementById("run-closed-loop-probe").addEventListener("click", runClosedLoopProbe);
   document.getElementById("audit-action-filter").addEventListener("change", (event) => {
     state.auditAction = event.currentTarget.value || "";
     loadAuditEvents();
@@ -627,6 +629,8 @@ function renderSettings() {
     settings.append(el("dt", {}, key), el("dd", {}, value));
   });
   renderPolicy();
+  renderRetrievalProbe();
+  renderClosedLoopProbe();
 }
 
 function memoryCapabilities() {
@@ -779,6 +783,30 @@ async function runRetrievalProbe() {
   showToast("Retrieval probe recorded.");
 }
 
+async function runClosedLoopProbe() {
+  const picker = document.getElementById("probe-dataset-picker");
+  const question = document.getElementById("probe-question");
+  const datasetId = String((picker && picker.value) || "").trim();
+  if (!datasetId) {
+    showToast("Select a dataset.");
+    return;
+  }
+  const payload = await api("/api/runtime/closed-loop-probe", {
+    method: "POST",
+    body: {
+      question: question && question.value ? question.value : "PSKA live closed-loop probe",
+      dataset_ids: [datasetId],
+      limit: 3,
+      source_inspection_limit: 1,
+      export_format: "json",
+    },
+  });
+  state.closedLoopProbe = payload.probe || null;
+  renderClosedLoopProbe();
+  await loadAuditEvents("closed_loop.probe");
+  showToast("Live closed-loop probe recorded.");
+}
+
 function renderRetrievalProbe() {
   const container = document.getElementById("retrieval-probe-result");
   if (!container) return;
@@ -790,6 +818,19 @@ function renderRetrievalProbe() {
   }
   container.classList.remove("empty-list");
   container.append(retrievalProbeCard(state.retrievalProbe));
+}
+
+function renderClosedLoopProbe() {
+  const container = document.getElementById("closed-loop-probe-result");
+  if (!container) return;
+  container.replaceChildren();
+  if (!state.closedLoopProbe) {
+    container.classList.add("empty-list");
+    container.textContent = "No live closed-loop probe run.";
+    return;
+  }
+  container.classList.remove("empty-list");
+  container.append(closedLoopProbeCard(state.closedLoopProbe));
 }
 
 function renderDatasets() {
@@ -2084,6 +2125,39 @@ function retrievalProbeCard(probe) {
   ]);
 }
 
+function closedLoopProbeCard(probe) {
+  const providers = probe.providers || {};
+  const ask = probe.ask || {};
+  const exported = probe.export || {};
+  const tags = [
+    el("span", { className: "tag" }, `kb ${providers.kb || "unknown"}`),
+    el("span", { className: "tag" }, `retrieval ${providers.retrieval || "unknown"}`),
+    el("span", { className: "tag" }, `context ${probe.context_count || 0}`),
+  ];
+  if (probe.run_id) tags.push(el("span", { className: "tag" }, shortId(probe.run_id)));
+  if (ask.proposal_kind) tags.push(el("span", { className: "tag" }, ask.proposal_kind));
+  if (exported.exported) tags.push(el("span", { className: "tag ready" }, "exported"));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, "Live Closed Loop"), el("p", {}, probe.message || "")]),
+      el("span", { className: `tag ${statusClass(probe.status)}` }, probe.status || "unknown"),
+    ]),
+    el("div", { className: "meta-row" }, tags),
+    probe.steps && probe.steps.length
+      ? el(
+          "ol",
+          { className: "compact-list" },
+          probe.steps.map((step) =>
+            el("li", {}, [
+              el("span", { className: `tag ${statusClass(step.status)}` }, step.status || "unknown"),
+              ` ${readableName(step.name)}: ${step.message || ""}`,
+            ]),
+          ),
+        )
+      : null,
+  ]);
+}
+
 function auditEventCard(event) {
   const metadata = event.metadata || {};
   const tags = [
@@ -2808,7 +2882,19 @@ function statusClass(status) {
   const value = String(status || "").toLowerCase();
   if (["ready", "complete", "accepted", "ok"].includes(value)) return "ready";
   if (
-    ["failed", "fail", "missing", "blocked", "rejected", "empty", "error", "cancel", "canceled", "cancelled"].includes(value)
+    [
+      "failed",
+      "fail",
+      "missing",
+      "blocked",
+      "rejected",
+      "empty",
+      "error",
+      "invalid_configuration",
+      "cancel",
+      "canceled",
+      "cancelled",
+    ].includes(value)
   ) {
     return "failed";
   }
