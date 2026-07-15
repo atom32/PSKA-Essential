@@ -15,8 +15,14 @@ candidate memory, review, and durable export.
 - Start by calling `pska_workspace_status` unless the user explicitly asks for
   a specific low-level tool. Follow its `next_actions` tool/API/view hints and
   safe parameters instead of inspecting provider state directly.
+- Use `pska_capabilities_get` as the stable PSKA operation capability contract
+  before durable memory apply, update, or delete work. If an operation is not
+  supported, report that PSKA cannot perform it with the current memory adapter.
 - Refresh `pska_workspace_status` after KB, Ask, review, or memory actions that
   change workspace state.
+- Treat `workspace.memory_namespace` from `pska_workspace_status` as PSKA
+  runtime context for diagnostics and audit only. Do not pass provider-native
+  memory group IDs, Graphiti group IDs, or backend namespace parameters.
 - Use `pska_kb_*` tools when the user needs a document uploaded or parsed into
   an external knowledge base.
 - Treat upload, parsing, embedding, and indexing as asynchronous. Check document
@@ -53,7 +59,9 @@ Default loop:
 3. Use its PSKA `tool` and `params` fields when they are present.
 4. If `requires_input` is present, ask the user for that input before calling
    the tool.
-5. After any KB, Ask, review, or memory mutation, call `pska_workspace_status`
+5. For durable memory operations, call `pska_capabilities_get` before deciding
+   whether PSKA can apply, update, or delete memory with the configured adapter.
+6. After any KB, Ask, review, or memory mutation, call `pska_workspace_status`
    again before choosing the next step.
 
 Common next actions:
@@ -69,6 +77,8 @@ Common next actions:
   `pska_review_get`.
 - `apply_accepted_memory`: call `pska_memory_apply` only if the review is
   already accepted.
+- `inspect_unsupported_memory_operation`: open the provided review and report
+  the unsupported PSKA capability; do not call provider-native memory tools.
 
 For an existing KB:
 

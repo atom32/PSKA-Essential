@@ -283,7 +283,9 @@ Implemented:
 - Smoke eval.
 - Hermes skill/config examples. Hermes now starts from `pska_workspace_status`
   and follows PSKA `next_actions` instead of inferring workflow steps from
-  provider state.
+  provider state. It also exposes `pska_capabilities_get` and treats
+  `workspace.memory_namespace` as PSKA runtime context instead of passing
+  provider-native memory group IDs.
 - Docs and runbook.
 
 Validated commands:
@@ -297,7 +299,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 104 tests pass.
+- `make test`: 105 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and

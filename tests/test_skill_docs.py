@@ -12,6 +12,10 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("next_actions", text)
         self.assertIn("Refresh `pska_workspace_status` after KB, Ask, review, or memory actions", text)
         self.assertIn("pska_agentic_question_resume", text)
+        self.assertIn("pska_capabilities_get", text)
+        self.assertIn("workspace.memory_namespace", text)
+        self.assertIn("provider-native", text)
+        self.assertIn("memory group IDs", text)
         self.assertIn("Do not call RAGFlow or Graphiti MCP servers directly.", text)
 
     def test_hermes_config_exposes_operational_loop_tools(self):
@@ -19,6 +23,7 @@ class SkillDocsTests(unittest.TestCase):
 
         for tool_name in [
             "pska_workspace_status",
+            "pska_capabilities_get",
             "pska_workflow_list",
             "pska_agentic_question_resumable",
             "pska_agentic_question_resume",

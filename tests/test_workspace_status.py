@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from pska_essential.adapters.fake import FakeRetrievalAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
@@ -164,6 +165,18 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["view"], "ask")
         self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["demo"])
         self.assertEqual(status["next_actions"][0]["requires_input"], ["question"])
+
+    def test_workspace_status_exposes_runtime_memory_namespace(self):
+        with patch.dict(
+            "os.environ",
+            {"PSKA_WORKSPACE_ID": "workspace-a", "PSKA_TENANT_ID": "tenant-a"},
+            clear=False,
+        ):
+            status = build_workspace_status(service=build_fake_service(), gateway=_Gateway())
+
+        self.assertEqual(status["workspace"]["workspace_id"], "workspace-a")
+        self.assertEqual(status["workspace"]["tenant_id"], "tenant-a")
+        self.assertEqual(status["workspace"]["memory_namespace"], "workspace:workspace-a:tenant:tenant-a")
 
     def test_mixed_workspace_keeps_ready_scope_action_visible(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_MixedGateway())

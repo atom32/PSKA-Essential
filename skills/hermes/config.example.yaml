@@ -20,6 +20,7 @@ mcp_servers:
         - pska_source_read
         - pska_policy_get
         - pska_workspace_status
+        - pska_capabilities_get
         - pska_propose
         - pska_review_create
         - pska_review_list
