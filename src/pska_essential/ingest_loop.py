@@ -6,7 +6,8 @@ import os
 import time
 from typing import Any
 
-from pska_essential.agentic_loop import run_agentic_question_with_readiness
+from pska_essential.agentic_loop import record_not_ready_agentic_question, run_agentic_question_with_readiness
+from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
 from pska_essential.kb_audit import add_kb_ingest_audit
@@ -73,12 +74,43 @@ def run_ingest_loop(
         poll_interval_seconds=poll_interval_seconds,
     )
     if not readiness.get("ready"):
+        ask_result = None
+        if _should_record_resumable_ask(readiness):
+            ask_result = record_not_ready_agentic_question(
+                service,
+                question=question,
+                dataset_ids=[resolved_dataset_id],
+                document_ids=document_ids,
+                readiness=readiness,
+                proposal_kind=proposal_kind,
+                create_review=create_review,
+                use_kg=use_kg,
+                limit=limit,
+                max_iterations=max_iterations,
+                min_context_packets=min_context_packets,
+                retrieval_queries=retrieval_queries or [],
+                source_inspection_limit=source_inspection_limit,
+            )
+            service.store.add_audit_event(
+                audit_event(
+                    "kb.readiness.blocked",
+                    "workflow",
+                    ask_result["run"]["run_id"],
+                    question=question,
+                    dataset_ids=[resolved_dataset_id],
+                    document_ids=document_ids,
+                    readiness=readiness,
+                    retrieval_queries=retrieval_queries or [],
+                    upload_loop=True,
+                )
+            )
+            ask_result["readiness"] = readiness
         return _loop_result(
             status="not_ready",
             message="Documents were ingested, but the selected scope is not ready for Ask.",
             ingest=ingest,
             readiness=readiness,
-            ask_result=None,
+            ask_result=ask_result,
             export=None,
             export_format=export_format,
         )
@@ -203,6 +235,15 @@ def _wait_for_readiness(
             readiness["message"] = "Timed out waiting for the selected knowledge scope to become ready."
             return readiness
         time.sleep(max(0.05, poll_interval_seconds))
+
+
+def _should_record_resumable_ask(readiness: dict[str, Any]) -> bool:
+    if readiness.get("ready"):
+        return False
+    status = str(readiness.get("status") or "").strip().lower()
+    if status in {"failed", "cancelled", "missing", "empty"}:
+        return False
+    return bool(readiness.get("dataset_ids"))
 
 
 def _loop_result(

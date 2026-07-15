@@ -821,6 +821,14 @@ async function runIngestLoopFromUploadForm() {
     renderIngestResult(result.ingest || { dataset: result.dataset, documents: result.documents || documents }, result.readiness);
   }
   await loadDatasets();
+  if (result.status === "not_ready" && result.run && result.run.run_id) {
+    if (datasetId && result.readiness && result.readiness.status === "processing") {
+      startIngestionPolling(datasetId);
+    }
+    await applyAskResult(result, { toast: result.message || "Ingest loop is waiting on readiness." });
+    document.querySelector('.nav-item[data-view="ask"]').click();
+    return;
+  }
   await loadWorkflows();
   if (result.review) {
     syncReviewRecord(result.review);

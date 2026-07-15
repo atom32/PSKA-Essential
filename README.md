@@ -255,7 +255,9 @@ whether to wait, parse, inspect a failure, or Ask without calling provider APIs.
 `pska_ingest_loop` is the file-first macro tool for Hermes: it ingests local
 files through the configured KB adapter, waits for PSKA readiness, runs the
 agentic Ask loop, and exports a sourced transient work product. If ingestion is
-not ready, it stops before Ask/export.
+still processing, it records a resumable blocked Ask before stopping short of
+retrieval/export; failed or cancelled ingestion stops without creating a
+resumable Ask.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
@@ -365,7 +367,10 @@ inspection, proposal kind, optional review, and graph-aware retrieval; these are
 Product API fields, not provider-native calls. When the loop creates a durable
 knowledge candidate, the response includes the proposal, review decision, and
 memory-apply state so the frontend can continue the Review workflow without
-inspecting workflow internals.
+inspecting workflow internals. When the uploaded scope is still processing, the
+frontend opens the blocked Ask result with Track & Resume actions; failed or
+cancelled ingestion stays a cleanup/status issue instead of becoming a fake
+answer.
 Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Each next action includes stable

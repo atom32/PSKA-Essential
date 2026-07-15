@@ -118,7 +118,10 @@ controls as Ask for limit, max iterations, minimum context, additional retrieval
 queries, source inspection, proposal kind, optional review, and graph-aware
 retrieval. Its Product API result exposes proposal, review, review-decision,
 memory-apply, loop, and export fields, so the frontend can continue the Review
-workflow directly after a file-first run. Ask displays explicit PSKA-controlled loop steps,
+workflow directly after a file-first run. If the uploaded scope is still
+processing, the frontend opens a resumable blocked Ask with Track & Resume
+actions; failed or cancelled ingestion remains an explicit status/cleanup
+condition. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, explicit additional retrieval queries, and optional
@@ -419,8 +422,9 @@ configured KB gateway to create or select a dataset, upload files, start
 parsing, poll PSKA readiness, run the agentic Ask loop, and export a sourced
 transient work product. It writes normal `kb.ingest`, `agentic_loop.complete`,
 and `workflow.export` audit records when the scope is ready. If parsing, OCR,
-embedding, or indexing is still processing or failed, the loop returns
-`status=not_ready` and does not run Ask or export.
+embedding, or indexing is still processing, the loop records a resumable blocked
+Ask and returns `status=not_ready` without retrieval/export. Failed or cancelled
+ingestion returns `status=not_ready` without creating a resumable Ask.
 
 When RAGFlow reports an embedding model binding failure such as a missing
 provider for the selected dataset embedding model, PSKA normalizes the KB

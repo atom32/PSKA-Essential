@@ -1094,6 +1094,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("auditActionForIngestLoop", script)
         self.assertIn("syncReviewRecord(result.review);", script)
         self.assertIn('await loadAuditEvents(auditActionForIngestLoop(result));', script)
+        self.assertIn('result.status === "not_ready" && result.run && result.run.run_id', script)
+        self.assertIn('await applyAskResult(result, { toast: result.message || "Ingest loop is waiting on readiness." });', script)
         self.assertIn('payload.append("retrieval_queries", form.get("loop_retrieval_queries") || "");', script)
         self.assertIn('payload.append("use_kg", form.get("loop_use_kg") ? "true" : "false");', script)
         self.assertIn('payload.append("create_review", "true");', script)
@@ -1479,6 +1481,44 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         memory_audit = self._get_json("/api/audit?limit=10&action=memory.apply")
         self.assertEqual(memory_audit["events"], [])
 
+    def test_product_api_ingest_loop_records_resumable_ask_when_upload_is_processing(self):
+        dataset_name = f"Ingest Loop Processing API {uuid4().hex}"
+        question = "What should happen after this uploaded file finishes parsing?"
+        payload = self._post_multipart_ingest(
+            {
+                "dataset_name": dataset_name,
+                "question": question,
+                "parse": "false",
+                "wait_ready": "false",
+                "poll_interval_seconds": "0.05",
+            },
+            "slow-note.txt",
+            "This uploaded source is intentionally left unparsed so the Ask can resume later.",
+            route="/api/ingest-loop",
+        )
+        result = payload["ingest_loop"]
+
+        self.assertEqual(result["status"], "not_ready")
+        self.assertEqual(result["ask_status"], "not_ready")
+        self.assertIsNotNone(result["run"])
+        self.assertEqual(result["run"]["status"], "blocked")
+        self.assertEqual(result["run"]["metadata"]["blocked_reason"], "kb_not_ready")
+        self.assertEqual(result["run"]["metadata"]["ask_request"]["question"], question)
+        self.assertEqual(result["loop"]["status"], "not_ready")
+        self.assertIsNone(result["proposal"])
+        self.assertIsNone(result["review"])
+        self.assertIsNone(result["export"])
+        waiting = self._get_json("/api/workflows/resumable-asks?limit=5")
+        self.assertEqual(waiting["resumable_asks"][0]["run"]["run_id"], result["run_id"])
+        self.assertFalse(waiting["resumable_asks"][0]["can_resume"])
+        self.assertEqual(waiting["resumable_asks"][0]["ask_request"]["question"], question)
+        audit = self._get_json("/api/audit?limit=20")
+        actions = [event["action"] for event in audit["events"]]
+        self.assertIn("kb.ingest", actions)
+        self.assertIn("agentic_loop.not_ready", actions)
+        self.assertIn("kb.readiness.blocked", actions)
+        self.assertNotIn("workflow.export", actions)
+
     def test_product_api_fake_pdf_upload_reports_ingestion_failure_before_ask(self):
         dataset_name = f"Unsupported Fake PDF {uuid4().hex}"
         ingested = self._post_multipart_ingest(
@@ -1530,9 +1570,12 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_ready")
         self.assertEqual(result["readiness"]["status"], "failed")
         self.assertIsNone(result["ask_status"])
+        self.assertIsNone(result["run"])
         self.assertIsNone(result["export"])
         actions = [event["action"] for event in self._get_json("/api/audit?limit=20")["events"]]
         self.assertIn("kb.ingest", actions)
+        self.assertNotIn("agentic_loop.not_ready", actions)
+        self.assertNotIn("kb.readiness.blocked", actions)
         self.assertNotIn("workflow.export", actions)
         self.assertNotIn("agentic_loop.complete", actions)
 

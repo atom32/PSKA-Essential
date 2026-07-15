@@ -267,13 +267,18 @@ Implemented:
   and `pska-essential-ingest-loop` run the file-first operational loop through
   configured PSKA adapters: ingest local files, poll KB readiness, run the
   PSKA-controlled agentic Ask loop, and export a sourced transient work
-  product. Not-ready or failed ingestion stops before Ask/export.
+  product. Processing ingestion records a resumable blocked Ask before stopping
+  short of retrieval/export; failed or cancelled ingestion stops without
+  creating a resumable Ask.
 - Frontend Knowledge Bases upload can call the same Product API ingest loop, so
   users can go from selected files to sourced Writing output without the
   frontend calling RAGFlow, Graphiti, embedding services, or fake providers
   directly. The upload loop exposes PSKA loop controls for limit, iterations,
   minimum context, additional retrieval queries, source inspection, proposal
   kind, optional review, and graph-aware retrieval.
+- Frontend Run Loop opens the blocked Ask result with Track & Resume actions
+  when uploaded documents are still processing, while failed/cancelled ingestion
+  remains a KB status/cleanup path.
 - The file-first ingest loop returns proposal, review, review-decision,
   memory-apply, memory context, loop, and export payloads as a single PSKA
   contract. Frontend Run Loop syncs Review and Activity from that contract, so
@@ -356,19 +361,19 @@ make smoke
 
 Expected result:
 
-- `make test`: 151 tests pass.
+- `make test`: 153 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
-  controls and governance payloads, scoped Ask, Review, memory
-  apply/update/delete, audit records, KB readiness blocking, diagnostics,
-  document graph read, dataset creation, parsing audit, multipart document
-  upload, fake upload-to-Ask source reads, fake PDF-like upload failure before
-  Ask, and export refusal for unsourced/empty workflows.
+  controls, governance payloads, and resumable processing uploads, scoped Ask,
+  Review, memory apply/update/delete, audit records, KB readiness blocking,
+  diagnostics, document graph read, dataset creation, parsing audit, multipart
+  document upload, fake upload-to-Ask source reads, fake PDF-like upload failure
+  before Ask, and export refusal for unsourced/empty workflows.
 - Config/KB gateway tests cover explicit provider selection, fake dev gating,
   and live RAGFlow/Graphiti startup failure when required connection env is
   missing.
 - Ingest-loop tests cover CLI/MCP/Product API file upload -> readiness -> Ask
-  -> governance payload -> export and the not-ready stop condition before
-  Ask/export.
+  -> governance payload -> export, resumable blocked Ask creation for
+  processing uploads, and the failed-ingestion stop condition before Ask/export.
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, review source trace display, component check UI, and
   focused probe UI.

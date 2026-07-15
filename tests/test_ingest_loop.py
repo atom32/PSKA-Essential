@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.config import build_service_from_env
 from pska_essential.ingest_loop import run_ingest_loop
 from pska_essential.kb_gateway import build_kb_gateway_from_env, reset_fake_kb_gateway
@@ -102,6 +103,56 @@ class IngestLoopTests(unittest.TestCase):
         self.assertIn("review.create", actions)
         self.assertNotIn("memory.apply", actions)
 
+    def test_ingest_loop_records_resumable_ask_when_uploaded_scope_is_processing(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, env, clear=True):
+            reset_fake_kb_gateway()
+            path = Path(tmp) / "slow.txt"
+            path.write_text(
+                "This uploaded source will become queryable only after parsing completes.",
+                encoding="utf-8",
+            )
+            service = build_service_from_env()
+            gateway = build_kb_gateway_from_env()
+
+            result = run_ingest_loop(
+                service,
+                gateway,
+                file_paths=[str(path)],
+                dataset_name="loop-processing-test",
+                question="What should happen after parsing completes?",
+                parse=False,
+                wait_ready=False,
+                poll_interval_seconds=0.05,
+            )
+
+            resumable = list_resumable_agentic_questions(service, gateway, limit=5)
+
+        self.assertEqual(result["status"], "not_ready")
+        self.assertEqual(result["ask_status"], "not_ready")
+        self.assertIsNotNone(result["run"])
+        self.assertEqual(result["run"]["status"], "blocked")
+        self.assertEqual(result["run"]["metadata"]["blocked_reason"], "kb_not_ready")
+        self.assertEqual(result["run"]["metadata"]["ask_request"]["question"], "What should happen after parsing completes?")
+        self.assertEqual(result["loop"]["status"], "not_ready")
+        self.assertIsNone(result["proposal"])
+        self.assertIsNone(result["review"])
+        self.assertIsNone(result["export"])
+        self.assertEqual(resumable[0]["run"]["run_id"], result["run_id"])
+        self.assertFalse(resumable[0]["can_resume"])
+        actions = {event.action for event in service.store.list_audit_events(limit=50)}
+        self.assertIn("kb.ingest", actions)
+        self.assertIn("agentic_loop.not_ready", actions)
+        self.assertIn("kb.readiness.blocked", actions)
+        self.assertNotIn("workflow.export", actions)
+        self.assertNotIn("agentic_loop.complete", actions)
+
     def test_ingest_loop_stops_when_ingested_scope_is_not_ready(self):
         env = {
             "PSKA_DEV_FAKE": "1",
@@ -135,6 +186,8 @@ class IngestLoopTests(unittest.TestCase):
         self.assertEqual(result["readiness"]["status"], "failed")
         actions = {event.action for event in service.store.list_audit_events(limit=50)}
         self.assertIn("kb.ingest", actions)
+        self.assertNotIn("agentic_loop.not_ready", actions)
+        self.assertNotIn("kb.readiness.blocked", actions)
         self.assertNotIn("workflow.export", actions)
         self.assertNotIn("agentic_loop.complete", actions)
 
