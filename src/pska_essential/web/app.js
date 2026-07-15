@@ -1,3 +1,165 @@
+const LOCALE = "zh-CN";
+
+const messages = {
+  "view.home": "首页",
+  "view.kb": "知识库",
+  "view.ask": "提问",
+  "view.reader": "来源",
+  "view.writing": "写作",
+  "view.review": "审核",
+  "view.activity": "活动",
+  "view.settings": "设置",
+  "status.none": "无",
+  "status.apiOnline": "API 已连接",
+  "status.apiError": "API 错误",
+  "toast.kbCreatedSelected": "知识库已创建，并选为上传目标。",
+  "toast.kbCreated": "知识库已创建。",
+  "toast.selectFiles": "请选择文件。",
+  "toast.uploadAcceptedSelected": "上传已接受，目标知识库已保留。",
+  "toast.uploadAccepted": "上传已接受。",
+  "toast.datasetRequired": "需要知识库 ID。",
+  "toast.uploadTargetSelected": "已选择上传目标。",
+  "toast.prepareLoop": "请选择来源文件、填写知识库名称，然后运行闭环。",
+  "toast.selectKnowledgeBase": "请选择知识库。",
+  "toast.selectDataset": "请选择数据集。",
+  "toast.selectAtLeastOneDataset": "请至少选择一个知识库。",
+  "toast.retrievalProbeRecorded": "检索探针已记录。",
+  "toast.ingestLoopWaiting": "闭环正在等待知识库就绪。",
+  "toast.ingestLoopCompleted": "闭环已完成。",
+  "toast.ingestLoopIncomplete": "闭环尚未完成。",
+  "toast.componentCheckRecorded": "组件检查已记录。",
+  "toast.productEvalCompleted": "产品验收已完成。",
+  "toast.memoryProbeRecorded": "记忆探针已记录。",
+  "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
+  "toast.askScopeReady": "提问范围已就绪。",
+  "toast.askScopeNotReady": "提问范围尚未就绪。",
+  "toast.loadDatasetBeforeParse": "请先加载知识库，再解析文档。",
+  "toast.noUnreadyDocuments": "没有需要解析的文档。",
+  "toast.parseStarted": "解析已开始。",
+  "toast.kbReadyAskUpdated": "知识库已就绪，提问范围已更新。",
+  "empty.datasetsUnavailable": "知识库不可用。",
+  "empty.datasets": "尚未加载知识库。",
+  "empty.documents": "尚未加载文档。",
+  "empty.reviewsUnavailable": "审核项不可用。",
+  "empty.reviews": "尚未加载审核项。",
+  "empty.runsUnavailable": "运行记录不可用。",
+  "empty.runs": "尚未加载运行记录。",
+  "empty.auditUnavailable": "审计记录不可用。",
+  "empty.audit": "尚未加载审计记录。",
+  "empty.noNextActions": "尚未加载下一步操作。",
+  "empty.noReviews": "没有待审核项。",
+  "empty.noResumableAsks": "没有可恢复提问。",
+  "empty.noScope": "尚未选择范围。",
+  "empty.noAskScopeChecked": "尚未检查提问范围。",
+  "empty.noDatasetsOption": "没有知识库",
+  "empty.noDiagnostics": "尚未加载诊断。",
+  "empty.noComponentCheck": "尚未运行组件检查。",
+  "empty.noProductEval": "尚未运行产品验收。",
+  "empty.noRetrievalProbe": "尚未运行检索探针。",
+  "empty.noMemoryProbe": "尚未运行记忆探针。",
+  "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
+  "empty.noAskDocuments": "所选范围尚未加载文档。",
+  "empty.selectDataset": "请选择知识库。",
+  "empty.noContext": "所选范围没有检索到上下文。",
+  "empty.noFollowup": "这个结果没有可用的后续操作。",
+  "empty.writing": "运行提问后会生成带来源的 brief。",
+  "empty.exportPrompt": "运行已加载。请使用 Markdown 或 JSON 创建导出。",
+  "button.apply": "应用",
+  "button.inspect": "查看",
+  "button.parse": "解析",
+  "button.parseScope": "解析范围",
+  "button.parseListed": "解析列表",
+  "button.resume": "恢复",
+  "button.resumeLoop": "恢复闭环",
+  "button.resumeAsk": "恢复提问",
+  "button.review": "审核",
+  "button.start": "开始",
+  "button.ask": "提问",
+  "button.askThisKb": "提问此知识库",
+  "button.track": "跟踪",
+  "button.trackStatus": "跟踪状态",
+  "button.trackResume": "跟踪并恢复",
+  "button.tracking": "跟踪中...",
+  "button.openStatus": "打开状态",
+  "button.reloadStatus": "刷新状态",
+  "button.checkReadiness": "检查就绪",
+  "button.upload": "上传",
+  "button.open": "打开",
+  "button.runAsk": "运行提问",
+  "button.openWriting": "打开写作",
+  "button.openAsk": "打开提问",
+  "button.openReview": "打开审核",
+  "button.memoryReview": "创建记忆审核",
+  "button.applyMemory": "应用记忆",
+  "button.applyMemoryUpdate": "应用记忆更新",
+  "button.applyMemoryDelete": "应用记忆删除",
+  "button.createUpdateReview": "创建更新审核",
+  "button.createDeleteReview": "创建删除审核",
+  "button.accept": "接受",
+  "button.edit": "需修改",
+  "button.reject": "拒绝",
+  "button.revise": "提交修改",
+  "button.history": "历史",
+  "button.source": "来源",
+  "button.delete": "删除",
+  "button.unsupportedMemoryApply": "不支持应用记忆",
+  "button.unsupportedUpdate": "不支持更新",
+  "button.unsupportedDelete": "不支持删除",
+  "label.productApi": "Product API",
+  "label.capabilityContract": "能力契约",
+  "label.runtimeStatus": "运行状态",
+  "label.workspace": "工作区",
+  "label.tenant": "租户",
+  "label.memoryNamespace": "记忆命名空间",
+  "label.retrieval": "检索",
+  "label.knowledgeBase": "知识库",
+  "label.memory": "记忆",
+  "label.developmentFake": "开发 Fake",
+  "label.durableMemoryPolicy": "长期记忆策略",
+  "label.memoryApply": "记忆应用",
+  "label.memoryUpdate": "记忆更新",
+  "label.memoryDelete": "记忆删除",
+  "label.durableMemory": "长期记忆",
+  "label.durableProposalKinds": "长期提案类型",
+  "label.availableModes": "可用模式",
+  "label.transientResults": "临时结果",
+  "label.memoryPatchAction": "记忆补丁动作",
+  "label.memoryUpdateAction": "记忆更新动作",
+  "label.memoryDeleteAction": "记忆删除动作",
+  "label.notChecked": "未检查",
+  "label.notConfigured": "未配置",
+  "label.default": "默认",
+  "label.loaded": "已加载",
+  "label.enabled": "启用",
+  "label.disabled": "禁用",
+  "label.notReported": "未报告",
+  "label.supported": "支持",
+  "label.unsupported": "不支持",
+  "label.reason": "原因",
+  "label.locked": "已锁定",
+  "label.rejected": "已拒绝",
+  "label.reviewReason": "原因",
+  "label.sources": "来源",
+  "heading.insufficientContext": "上下文不足",
+  "heading.retrievedContext": "已检索上下文",
+  "heading.scopeNotReady": "知识范围尚未就绪",
+  "heading.sourcedBrief": "带来源 Brief",
+  "heading.context": "上下文",
+  "heading.nextActions": "下一步",
+  "heading.appliedKnowledge": "已应用长期知识",
+  "heading.durableMemory": "长期记忆",
+  "heading.inspectedSources": "已检查来源",
+  "heading.sourceManifest": "来源清单",
+  "heading.componentCheck": "组件检查",
+  "heading.productAcceptance": "产品验收",
+  "heading.memoryProbe": "记忆探针",
+  "heading.liveClosedLoop": "实时闭环",
+};
+
+function t(key, fallback = "") {
+  return messages[key] || fallback || key;
+}
+
 const state = {
   datasets: [],
   reviews: [],
@@ -36,14 +198,14 @@ const state = {
 };
 
 const titles = {
-  home: "Home",
-  kb: "Knowledge Bases",
-  ask: "Ask",
-  reader: "Reader",
-  writing: "Writing",
-  review: "Review",
-  activity: "Activity",
-  settings: "Settings",
+  home: t("view.home"),
+  kb: t("view.kb"),
+  ask: t("view.ask"),
+  reader: t("view.reader"),
+  writing: t("view.writing"),
+  review: t("view.review"),
+  activity: t("view.activity"),
+  settings: t("view.settings"),
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -82,9 +244,9 @@ function bindForms() {
     event.currentTarget.reset();
     if (payload.dataset && payload.dataset.dataset_id) {
       setUploadDataset(payload.dataset.dataset_id);
-      showToast("Knowledge base created and selected for upload.");
+      showToast(t("toast.kbCreatedSelected"));
     } else {
-      showToast("Knowledge base created.");
+      showToast(t("toast.kbCreated"));
     }
     await loadDatasets();
     await loadWorkspaceStatus();
@@ -97,7 +259,7 @@ function bindForms() {
     const payload = new FormData();
     const fileCount = appendUploadFiles(form, payload);
     if (!fileCount) {
-      showToast("Select files.");
+      showToast(t("toast.selectFiles"));
       return;
     }
     payload.append("dataset_id", form.get("dataset_id") || "");
@@ -110,9 +272,9 @@ function bindForms() {
     event.currentTarget.reset();
     if (datasetId) {
       setUploadDataset(datasetId);
-      showToast("Upload accepted. Target kept for more files.");
+      showToast(t("toast.uploadAcceptedSelected"));
     } else {
-      showToast("Upload accepted.");
+      showToast(t("toast.uploadAccepted"));
     }
     renderIngestResult(result.ingest, result.readiness);
     await loadDatasets();
@@ -242,12 +404,12 @@ async function loadHealth() {
   try {
     state.health = await api("/api/health");
     const status = document.getElementById("api-status");
-    status.textContent = "API online";
+    status.textContent = t("status.apiOnline");
     status.className = "status-pill ok";
     renderSettings();
   } catch (error) {
     const status = document.getElementById("api-status");
-    status.textContent = "API error";
+    status.textContent = t("status.apiError");
     status.className = "status-pill error";
     showToast(error.message);
   }
@@ -329,7 +491,7 @@ async function loadDatasets() {
     renderDatasetPickers();
     renderHome();
   } catch (error) {
-    renderList(document.getElementById("datasets-list"), [], "Datasets unavailable.");
+    renderList(document.getElementById("datasets-list"), [], t("empty.datasetsUnavailable"));
     showToast(error.message);
   }
 }
@@ -346,7 +508,7 @@ async function loadReviews() {
     renderReviews();
     renderHome();
   } catch (error) {
-    renderList(document.getElementById("reviews-list"), [], "Reviews unavailable.");
+    renderList(document.getElementById("reviews-list"), [], t("empty.reviewsUnavailable"));
     showToast(error.message);
   }
 }
@@ -370,7 +532,7 @@ async function loadWorkflows() {
     state.workflows = payload.workflows || [];
     renderWorkflowList();
   } catch (error) {
-    renderList(document.getElementById("workflow-list"), [], "Runs unavailable.");
+    renderList(document.getElementById("workflow-list"), [], t("empty.runsUnavailable"));
     showToast(error.message);
   }
 }
@@ -401,7 +563,7 @@ async function loadAuditEvents(actionOverride = undefined) {
     state.auditEvents = payload.events || [];
     renderAuditEvents();
   } catch (error) {
-    renderList(document.getElementById("audit-list"), [], "Audit events unavailable.");
+    renderList(document.getElementById("audit-list"), [], t("empty.auditUnavailable"));
     showToast(error.message);
   }
 }
@@ -409,7 +571,7 @@ async function loadAuditEvents(actionOverride = undefined) {
 async function loadDocuments(datasetId, options = {}) {
   const normalizedId = String(datasetId || "").trim();
   if (!normalizedId) {
-    showToast("Dataset ID is required.");
+    showToast(t("toast.datasetRequired"));
     return [];
   }
   state.activeDocumentDatasetId = normalizedId;
@@ -444,24 +606,24 @@ function renderHome() {
     : state.reviews.filter((item) => item.status === "pending");
   document.getElementById("metric-datasets").textContent = String(state.datasets.length);
   document.getElementById("metric-reviews").textContent = String(pendingReviews.length);
-  document.getElementById("metric-run").textContent = state.lastRunId ? shortId(state.lastRunId) : "None";
+  document.getElementById("metric-run").textContent = state.lastRunId ? shortId(state.lastRunId) : t("status.none");
   renderList(
     document.getElementById("home-next-actions"),
     ((state.workspaceStatus && state.workspaceStatus.next_actions) || []).slice(0, 5),
-    "No next actions loaded.",
+    t("empty.noNextActions"),
     workspaceActionCard,
   );
-  renderList(document.getElementById("home-datasets"), state.datasets.slice(0, 4), "No datasets loaded.", datasetCard);
+  renderList(document.getElementById("home-datasets"), state.datasets.slice(0, 4), t("empty.datasets"), datasetCard);
   renderList(
     document.getElementById("home-reviews"),
     pendingReviews.slice(0, 4),
-    "No pending reviews.",
+    t("empty.noReviews"),
     reviewCard,
   );
   renderList(
     document.getElementById("home-resumable-asks"),
     state.resumableAsks.slice(0, 4),
-    "No resumable asks.",
+    t("empty.noResumableAsks"),
     resumableAskCard,
   );
 }
@@ -490,21 +652,21 @@ function workspaceActionCard(action) {
 
 function workspaceActionButtonLabel(action) {
   const labels = {
-    apply_accepted_memory: "Apply",
-    inspect_unsupported_memory_operation: "Inspect",
-    parse_documents: "Parse",
-    resume_blocked_ask: "Resume",
-    resume_ingest_loop: "Resume Loop",
-    review_pending_durable_knowledge: "Review",
-    run_file_to_work_product_loop: "Start",
-    run_agentic_question: "Ask",
-    track_ingestion_status: "Track",
-    create_or_upload_knowledge_base: "Upload",
-    upload_documents: "Upload",
-    wait_for_ingestion: "Track",
-    wait_for_resumable_ask: "Track",
+    apply_accepted_memory: t("button.apply"),
+    inspect_unsupported_memory_operation: t("button.inspect"),
+    parse_documents: t("button.parse"),
+    resume_blocked_ask: t("button.resume"),
+    resume_ingest_loop: t("button.resumeLoop"),
+    review_pending_durable_knowledge: t("button.review"),
+    run_file_to_work_product_loop: t("button.start"),
+    run_agentic_question: t("button.ask"),
+    track_ingestion_status: t("button.track"),
+    create_or_upload_knowledge_base: t("button.upload"),
+    upload_documents: t("button.upload"),
+    wait_for_ingestion: t("button.track"),
+    wait_for_resumable_ask: t("button.track"),
   };
-  return labels[action.action] || "Open";
+  return labels[action.action] || t("button.open");
 }
 
 function workspaceActionButtonClass(action) {
@@ -524,7 +686,7 @@ async function openWorkspaceAction(action) {
   if (action.action === "run_file_to_work_product_loop") {
     prepareIngestLoopForm(params);
     openView("kb");
-    showToast("Select source files, name the dataset, then run the loop.");
+    showToast(t("toast.prepareLoop"));
     return;
   }
   if (action.action === "run_agentic_question") {
@@ -634,17 +796,17 @@ function setUploadDataset(datasetIds) {
 
 function openDatasetUpload(datasetId) {
   if (!setUploadDataset(datasetId)) {
-    showToast("Dataset ID is required.");
+    showToast(t("toast.datasetRequired"));
     return;
   }
   openView("kb");
-  showToast("Upload target selected.");
+  showToast(t("toast.uploadTargetSelected"));
 }
 
 async function openDatasetStatus(datasetId) {
   const normalized = String(datasetId || "").trim();
   if (!normalized) {
-    showToast("Dataset ID is required.");
+    showToast(t("toast.datasetRequired"));
     return;
   }
   const field = document.querySelector('#document-status-form input[name="dataset_id"]');
@@ -666,22 +828,26 @@ function renderSettings() {
   const governance = state.policy || (state.health && state.health.governance) || {};
   const diagnostics = state.diagnostics || {};
   const memoryCaps = memoryCapabilities();
-  const capabilityStatus = state.capabilities ? "loaded" : state.capabilitiesError ? `error: ${state.capabilitiesError}` : "not checked";
+  const capabilityStatus = state.capabilities
+    ? t("label.loaded")
+    : state.capabilitiesError
+      ? `error: ${state.capabilitiesError}`
+      : t("label.notChecked");
   [
-    ["Product API", state.health ? state.health.product_api : ""],
-    ["Capability Contract", capabilityStatus],
-    ["Runtime Status", diagnostics.status || "not checked"],
-    ["Workspace", workspace.workspace_id || "default"],
-    ["Tenant", workspace.tenant_id || "not configured"],
-    ["Memory Namespace", workspace.memory_namespace || "default"],
-    ["Retrieval", providers.retrieval || "not configured"],
-    ["Knowledge Base", providers.kb || "not configured"],
-    ["Memory", providers.memory || "not configured"],
-    ["Development Fake", providers.dev_fake ? "enabled" : "disabled"],
-    ["Durable Memory Policy", governance.durable_memory || "manual_review"],
-    ["Memory Apply", capabilityLabel(memoryCaps, "apply")],
-    ["Memory Update", capabilityLabel(memoryCaps, "update")],
-    ["Memory Delete", capabilityLabel(memoryCaps, "delete")],
+    [t("label.productApi"), state.health ? state.health.product_api : ""],
+    [t("label.capabilityContract"), capabilityStatus],
+    [t("label.runtimeStatus"), diagnostics.status || t("label.notChecked")],
+    [t("label.workspace"), workspace.workspace_id || t("label.default")],
+    [t("label.tenant"), workspace.tenant_id || t("label.notConfigured")],
+    [t("label.memoryNamespace"), workspace.memory_namespace || t("label.default")],
+    [t("label.retrieval"), providers.retrieval || t("label.notConfigured")],
+    [t("label.knowledgeBase"), providers.kb || t("label.notConfigured")],
+    [t("label.memory"), providers.memory || t("label.notConfigured")],
+    [t("label.developmentFake"), providers.dev_fake ? t("label.enabled") : t("label.disabled")],
+    [t("label.durableMemoryPolicy"), governance.durable_memory || "manual_review"],
+    [t("label.memoryApply"), capabilityLabel(memoryCaps, "apply")],
+    [t("label.memoryUpdate"), capabilityLabel(memoryCaps, "update")],
+    [t("label.memoryDelete"), capabilityLabel(memoryCaps, "delete")],
   ].forEach(([key, value]) => {
     settings.append(el("dt", {}, key), el("dd", {}, value));
   });
@@ -719,14 +885,16 @@ function memoryCapabilityReason(operation) {
   const capability = memoryCapability(operation);
   if (capability && capability.reason) return capability.reason;
   if (!state.capabilities && state.capabilitiesError) return state.capabilitiesError;
-  if (!state.capabilities) return "Capability contract is not loaded.";
+  if (!state.capabilities) return "能力契约尚未加载。";
   return `${readableName(operation)} capability is not reported.`;
 }
 
 function capabilityLabel(capabilities, operation) {
   const capability = (capabilities.operations || {})[operation];
-  if (!capability) return "not reported";
-  return capability.supported === false ? `unsupported${capability.reason ? `: ${capability.reason}` : ""}` : "supported";
+  if (!capability) return t("label.notReported");
+  return capability.supported === false
+    ? `${t("label.unsupported")}${capability.reason ? `: ${capability.reason}` : ""}`
+    : t("label.supported");
 }
 
 function renderPolicy() {
@@ -736,15 +904,15 @@ function renderPolicy() {
   const policy = state.policy || (state.health && state.health.governance) || {};
   const actions = policy.actions || {};
   [
-    ["Durable Memory", policy.durable_memory || "manual_review"],
-    ["Durable Proposal Kinds", (policy.durable_proposal_kinds || []).join(", ")],
-    ["Available Modes", (policy.durable_modes || []).join(", ")],
-    ["Transient Results", policy.transient_results || "skip"],
-    ["Memory Patch Action", actions.memory_patch || policy.durable_memory || "manual_review"],
-    ["Memory Update Action", actions.memory_update || policy.durable_memory || "manual_review"],
-    ["Memory Delete Action", actions.memory_delete || policy.durable_memory || "manual_review"],
+    [t("label.durableMemory"), policy.durable_memory || "manual_review"],
+    [t("label.durableProposalKinds"), (policy.durable_proposal_kinds || []).join(", ")],
+    [t("label.availableModes"), (policy.durable_modes || []).join(", ")],
+    [t("label.transientResults"), policy.transient_results || "skip"],
+    [t("label.memoryPatchAction"), actions.memory_patch || policy.durable_memory || "manual_review"],
+    [t("label.memoryUpdateAction"), actions.memory_update || policy.durable_memory || "manual_review"],
+    [t("label.memoryDeleteAction"), actions.memory_delete || policy.durable_memory || "manual_review"],
   ].forEach(([key, value]) => {
-    settings.append(el("dt", {}, key), el("dd", {}, value || "not configured"));
+    settings.append(el("dt", {}, key), el("dd", {}, value || t("label.notConfigured")));
   });
 }
 
@@ -754,9 +922,9 @@ function renderDiagnostics() {
   if (!container || !status) return;
   const diagnostics = state.diagnostics || {};
   const checks = diagnostics.checks || [];
-  status.textContent = diagnostics.status || "not checked";
+  status.textContent = diagnostics.status || t("label.notChecked");
   status.className = `tag ${statusClass(diagnostics.status || "pending")}`;
-  renderList(container, checks, "No diagnostics loaded.", diagnosticCard);
+  renderList(container, checks, t("empty.noDiagnostics"), diagnosticCard);
 }
 
 function renderProbeDatasetPicker() {
@@ -765,7 +933,7 @@ function renderProbeDatasetPicker() {
   const current = picker.value;
   picker.replaceChildren();
   if (!state.datasets.length) {
-    picker.append(el("option", { value: "" }, "No datasets"));
+    picker.append(el("option", { value: "" }, t("empty.noDatasetsOption")));
     picker.disabled = true;
     return;
   }
@@ -791,7 +959,7 @@ function renderUploadDatasetPicker() {
   const current = (field && field.value) || picker.value || "";
   picker.replaceChildren();
   if (!state.datasets.length) {
-    picker.append(el("option", { value: "" }, "No datasets"));
+    picker.append(el("option", { value: "" }, t("empty.noDatasetsOption")));
     picker.disabled = true;
     return;
   }
@@ -821,11 +989,11 @@ function setUploadDatasetFromPicker() {
   const picker = document.getElementById("upload-dataset-picker");
   const datasetId = String((picker && picker.value) || "").trim();
   if (!datasetId) {
-    showToast("Select a knowledge base.");
+    showToast(t("toast.selectKnowledgeBase"));
     return;
   }
   setUploadDataset(datasetId);
-  showToast("Upload target selected.");
+  showToast(t("toast.uploadTargetSelected"));
 }
 
 async function runRetrievalProbe() {
@@ -833,7 +1001,7 @@ async function runRetrievalProbe() {
   const question = document.getElementById("probe-question");
   const datasetId = String((picker && picker.value) || "").trim();
   if (!datasetId) {
-    showToast("Select a dataset.");
+    showToast(t("toast.selectDataset"));
     return;
   }
   const payload = await api("/api/runtime/retrieval-probe", {
@@ -847,7 +1015,7 @@ async function runRetrievalProbe() {
   state.retrievalProbe = payload.probe || null;
   renderRetrievalProbe();
   await loadAuditEvents("retrieval.probe");
-  showToast("Retrieval probe recorded.");
+  showToast(t("toast.retrievalProbeRecorded"));
 }
 
 async function runIngestLoopFromUploadForm() {
@@ -856,7 +1024,7 @@ async function runIngestLoopFromUploadForm() {
   const payload = new FormData();
   const fileCount = appendUploadFiles(form, payload);
   if (!fileCount) {
-    showToast("Select files.");
+    showToast(t("toast.selectFiles"));
     return;
   }
   payload.append("dataset_id", form.get("dataset_id") || "");
@@ -881,7 +1049,7 @@ async function runIngestLoopFromUploadForm() {
     if (datasetId && result.readiness && result.readiness.status === "processing") {
       startIngestionPolling(datasetId);
     }
-    await applyAskResult(result, { toast: result.message || "Ingest loop is waiting on readiness." });
+    await applyAskResult(result, { toast: result.message || t("toast.ingestLoopWaiting") });
     document.querySelector('.nav-item[data-view="ask"]').click();
     return;
   }
@@ -898,13 +1066,13 @@ async function runIngestLoopFromUploadForm() {
   await loadAuditEvents(auditActionForIngestLoop(result));
   if (result.status === "ok" && result.run_id) {
     openLoopWorkProduct(result);
-    showToast("Ingest loop completed.");
+    showToast(t("toast.ingestLoopCompleted"));
     return;
   }
   if (datasetId && result.readiness && result.readiness.status === "processing") {
     startIngestionPolling(datasetId);
   }
-  showToast(result.message || "Ingest loop did not complete.");
+  showToast(result.message || t("toast.ingestLoopIncomplete"));
 }
 
 function appendUploadFiles(form, payload) {
@@ -986,7 +1154,7 @@ async function runComponentCheck() {
   renderMemoryProbe();
   renderClosedLoopProbe();
   await loadAuditEvents(auditActionForComponentCheck(state.componentCheck));
-  showToast("Component check recorded.");
+  showToast(t("toast.componentCheckRecorded"));
 }
 
 async function runProductEval() {
@@ -997,7 +1165,7 @@ async function runProductEval() {
   state.productEval = payload.eval || null;
   renderProductEval();
   await loadAuditEvents(auditActionForEval(state.productEval));
-  showToast("Product acceptance eval completed.");
+  showToast(t("toast.productEvalCompleted"));
 }
 
 async function runMemoryProbe() {
@@ -1013,7 +1181,7 @@ async function runMemoryProbe() {
   state.memoryProbe = payload.probe || null;
   renderMemoryProbe();
   await loadAuditEvents("memory.probe");
-  showToast("Memory probe recorded.");
+  showToast(t("toast.memoryProbeRecorded"));
 }
 
 async function runClosedLoopProbe() {
@@ -1021,7 +1189,7 @@ async function runClosedLoopProbe() {
   const question = document.getElementById("probe-question");
   const datasetId = String((picker && picker.value) || "").trim();
   if (!datasetId) {
-    showToast("Select a dataset.");
+    showToast(t("toast.selectDataset"));
     return;
   }
   const payload = await api("/api/runtime/closed-loop-probe", {
@@ -1037,7 +1205,7 @@ async function runClosedLoopProbe() {
   state.closedLoopProbe = payload.probe || null;
   renderClosedLoopProbe();
   await loadAuditEvents("closed_loop.probe");
-  showToast("Live closed-loop probe recorded.");
+  showToast(t("toast.closedLoopProbeRecorded"));
 }
 
 function renderComponentCheck() {
@@ -1046,7 +1214,7 @@ function renderComponentCheck() {
   container.replaceChildren();
   if (!state.componentCheck) {
     container.classList.add("empty-list");
-    container.textContent = "No component check run.";
+    container.textContent = t("empty.noComponentCheck");
     return;
   }
   container.classList.remove("empty-list");
@@ -1059,7 +1227,7 @@ function renderProductEval() {
   container.replaceChildren();
   if (!state.productEval) {
     container.classList.add("empty-list");
-    container.textContent = "No product acceptance eval run.";
+    container.textContent = t("empty.noProductEval");
     return;
   }
   container.classList.remove("empty-list");
@@ -1072,7 +1240,7 @@ function renderRetrievalProbe() {
   container.replaceChildren();
   if (!state.retrievalProbe) {
     container.classList.add("empty-list");
-    container.textContent = "No retrieval probe run.";
+    container.textContent = t("empty.noRetrievalProbe");
     return;
   }
   container.classList.remove("empty-list");
@@ -1085,7 +1253,7 @@ function renderMemoryProbe() {
   container.replaceChildren();
   if (!state.memoryProbe) {
     container.classList.add("empty-list");
-    container.textContent = "No memory probe run.";
+    container.textContent = t("empty.noMemoryProbe");
     return;
   }
   container.classList.remove("empty-list");
@@ -1098,7 +1266,7 @@ function renderClosedLoopProbe() {
   container.replaceChildren();
   if (!state.closedLoopProbe) {
     container.classList.add("empty-list");
-    container.textContent = "No live closed-loop probe run.";
+    container.textContent = t("empty.noClosedLoopProbe");
     return;
   }
   container.classList.remove("empty-list");
@@ -1106,16 +1274,16 @@ function renderClosedLoopProbe() {
 }
 
 function renderDatasets() {
-  renderList(document.getElementById("datasets-list"), state.datasets, "No datasets loaded.", datasetCard);
+  renderList(document.getElementById("datasets-list"), state.datasets, t("empty.datasets"), datasetCard);
 }
 
 function renderDocuments(documents) {
-  renderList(document.getElementById("documents-list"), documents, "No documents loaded.", documentCard);
+  renderList(document.getElementById("documents-list"), documents, t("empty.documents"), documentCard);
   syncParseButton(documents);
 }
 
 function renderReviews() {
-  renderList(document.getElementById("reviews-list"), state.reviewView, "No reviews loaded.", reviewCard);
+  renderList(document.getElementById("reviews-list"), state.reviewView, t("empty.reviews"), reviewCard);
 }
 
 function setReviewStatusFilter(status) {
@@ -1125,11 +1293,11 @@ function setReviewStatusFilter(status) {
 }
 
 function renderWorkflowList() {
-  renderList(document.getElementById("workflow-list"), state.workflows, "No runs loaded.", workflowCard);
+  renderList(document.getElementById("workflow-list"), state.workflows, t("empty.runs"), workflowCard);
 }
 
 function renderAuditEvents() {
-  renderList(document.getElementById("audit-list"), state.auditEvents, "No audit events loaded.", auditEventCard);
+  renderList(document.getElementById("audit-list"), state.auditEvents, t("empty.audit"), auditEventCard);
 }
 
 function auditActionForAskResult(result) {
@@ -1163,7 +1331,7 @@ function renderAskDatasetPicker() {
   if (!picker) return;
   picker.replaceChildren();
   if (!state.datasets.length) {
-    picker.append(el("option", { value: "" }, "No datasets"));
+    picker.append(el("option", { value: "" }, t("empty.noDatasetsOption")));
     picker.disabled = true;
     return;
   }
@@ -1187,7 +1355,7 @@ function renderAskScope() {
     summary.classList.toggle("empty-list", !datasetIds.length && !documentIds.length);
     summary.replaceChildren();
     if (!datasetIds.length && !documentIds.length) {
-      summary.textContent = "No scope selected.";
+      summary.textContent = t("empty.noScope");
     } else {
       datasetIds.forEach((datasetId) => {
         summary.append(el("span", { className: "tag ready" }, `dataset ${shortId(datasetId)}`));
@@ -1218,7 +1386,7 @@ async function checkAskReadiness(options = {}) {
     state.askReadiness = null;
     state.askReadinessScopeKey = "";
     renderAskReadinessStatus();
-    if (!options.silent) showToast("Select at least one dataset.");
+    if (!options.silent) showToast(t("toast.selectAtLeastOneDataset"));
     return null;
   }
   try {
@@ -1233,7 +1401,7 @@ async function checkAskReadiness(options = {}) {
     state.askReadinessScopeKey = askScopeKey(datasetIds, documentIds);
     renderAskReadinessStatus();
     if (!options.silent) {
-      showToast(state.askReadiness && state.askReadiness.ready ? "Ask scope is ready." : "Ask scope is not ready.");
+      showToast(state.askReadiness && state.askReadiness.ready ? t("toast.askScopeReady") : t("toast.askScopeNotReady"));
     }
     return state.askReadiness;
   } catch (error) {
@@ -1260,21 +1428,21 @@ function renderAskReadinessStatus() {
   const currentKey = askScopeKey(datasetIds, documentIds);
   if (!datasetIds.length) {
     node.className = "job-status pending";
-    node.textContent = "No Ask scope selected.";
+    node.textContent = t("empty.noScope");
     return;
   }
   if (!state.askReadiness || state.askReadinessScopeKey !== currentKey) {
     node.className = "job-status pending";
-    node.textContent = "Ask scope readiness has not been checked.";
+    node.textContent = t("empty.noAskScopeChecked");
     return;
   }
   const readiness = state.askReadiness;
   const job = readiness.ingestion_status || {};
   const actions = (job.next_actions || []).map(readableName).join(", ");
-  const suffix = actions ? ` Next: ${actions}.` : "";
+  const suffix = actions ? ` 下一步：${actions}。` : "";
   const progress = job.kind ? ` ${formatPercent(job.progress)}.` : "";
   node.className = `job-status ${statusClass(readiness.status)}`;
-  node.textContent = `${readiness.message || "Ask scope readiness checked."}${progress}${suffix}`;
+  node.textContent = `${readiness.message || "提问范围就绪状态已检查。"}${progress}${suffix}`;
   renderAskReadinessActions(actionsNode, readiness);
 }
 
@@ -1286,7 +1454,7 @@ function renderAskReadinessActions(container, readiness, options = {}) {
   const documentIds = options.documentIds || readiness.document_ids || askDocumentIds();
   const datasetId = readinessDatasetForAction(readiness, "", datasetIds) || datasetIds[0] || "";
   if (options.includeRunAsk !== false && (readiness.ready || actions.has("run_ask"))) {
-    container.append(el("button", { className: "primary-button", onclick: submitAskForm }, "Run Ask"));
+    container.append(el("button", { className: "primary-button", onclick: submitAskForm }, t("button.runAsk")));
   }
   if (actions.has("start_parse")) {
     container.append(
@@ -1296,7 +1464,7 @@ function renderAskReadinessActions(container, readiness, options = {}) {
           className: "primary-button",
           onclick: () => handleAskReadinessAction("start_parse", { readiness, datasetIds, documentIds }),
         },
-        "Parse Scope",
+        t("button.parseScope"),
       ),
     );
   }
@@ -1308,7 +1476,7 @@ function renderAskReadinessActions(container, readiness, options = {}) {
           className: "secondary-button",
           onclick: () => handleAskReadinessAction("wait_for_ingestion", { readiness, datasetIds, documentIds }),
         },
-        "Track Status",
+        t("button.trackStatus"),
       ),
     );
   }
@@ -1320,7 +1488,7 @@ function renderAskReadinessActions(container, readiness, options = {}) {
           className: "secondary-button",
           onclick: () => handleAskReadinessAction("open_status", { readiness, datasetIds, documentIds }),
         },
-        "Open Status",
+        t("button.openStatus"),
       ),
     );
   }
@@ -1332,7 +1500,7 @@ async function handleAskReadinessAction(action, options = {}) {
   const documentIds = options.documentIds || askDocumentIds();
   const datasetId = readinessDatasetForAction(readiness, action, datasetIds) || datasetIds[0] || "";
   if (!datasetId) {
-    showToast("Select at least one dataset.");
+    showToast(t("toast.selectAtLeastOneDataset"));
     return;
   }
   await openDatasetStatus(datasetId);
@@ -1380,7 +1548,7 @@ function renderAskDocumentPicker() {
   container.replaceChildren();
   if (!loaded.length) {
     container.classList.add("empty-list");
-    container.textContent = datasetIds.length ? "No documents loaded for selected scope." : "Select a dataset.";
+    container.textContent = datasetIds.length ? t("empty.noAskDocuments") : t("empty.selectDataset");
     return;
   }
   container.classList.remove("empty-list");
@@ -1437,7 +1605,7 @@ async function parseActiveDocuments() {
 
 async function parseDatasetDocuments(datasetId, requestedDocumentIds = []) {
   if (!datasetId) {
-    showToast("Load a dataset before parsing documents.");
+    showToast(t("toast.loadDatasetBeforeParse"));
     return;
   }
   let documents = state.activeDocumentDatasetId === datasetId ? state.activeDocuments || [] : [];
@@ -1451,7 +1619,7 @@ async function parseDatasetDocuments(datasetId, requestedDocumentIds = []) {
     .map((document) => document.document_id)
     .filter(Boolean);
   if (!documentIds.length) {
-    showToast("No unready documents to parse.");
+    showToast(t("toast.noUnreadyDocuments"));
     return;
   }
   const parsed = await api(`/api/kb/datasets/${encodeURIComponent(datasetId)}/parse`, {
@@ -1461,7 +1629,7 @@ async function parseDatasetDocuments(datasetId, requestedDocumentIds = []) {
       wait: false,
     },
   });
-  showToast("Parse started.");
+  showToast(t("toast.parseStarted"));
   const displayDocuments = parsed.readiness ? mergeReadinessDocuments(documents, parsed.readiness) : documents;
   if (parsed.readiness) {
     state.readinessByDataset[datasetId] = parsed.readiness;
@@ -1470,7 +1638,7 @@ async function parseDatasetDocuments(datasetId, requestedDocumentIds = []) {
       prepareAskScope(datasetId, displayDocuments);
     }
   } else {
-    setIngestionStatus(`Tracking ${shortId(datasetId)} parsing...`, "pending");
+    setIngestionStatus(`正在跟踪 ${shortId(datasetId)} 解析...`, "pending");
   }
   if (!parsed.readiness || !parsed.readiness.ready) {
     startIngestionPolling(datasetId);
@@ -1484,7 +1652,7 @@ function addAskDataset(datasetId = "") {
   const picker = document.getElementById("ask-dataset-picker");
   const selected = String(datasetId || (picker ? picker.value : "") || "").trim();
   if (!selected) {
-    showToast("Select a dataset.");
+    showToast(t("toast.selectDataset"));
     return;
   }
   prepareAskScope(selected);
@@ -1494,7 +1662,7 @@ async function loadAskDocuments() {
   const picker = document.getElementById("ask-dataset-picker");
   const datasetId = String((picker && picker.value) || askDatasetIds()[0] || "").trim();
   if (!datasetId) {
-    showToast("Select a dataset.");
+    showToast(t("toast.selectDataset"));
     return;
   }
   addAskDataset(datasetId);
@@ -1522,7 +1690,7 @@ function startIngestionPolling(datasetId) {
     maxAttempts: 120,
     timer: null,
   };
-  setIngestionStatus(`Tracking ${shortId(datasetId)} ingestion...`, "pending");
+  setIngestionStatus(`正在跟踪 ${shortId(datasetId)} 入库...`, "pending");
   state.ingestionPoll.timer = window.setInterval(async () => {
     if (!state.ingestionPoll || state.ingestionPoll.datasetId !== datasetId) return;
     state.ingestionPoll.attempts += 1;
@@ -1534,12 +1702,12 @@ function startIngestionPolling(datasetId) {
       if (summary.status === "ready") {
         stopIngestionPolling();
         prepareAskScope(datasetId, documents);
-        showToast("Knowledge base is ready. Ask scope updated.");
+        showToast(t("toast.kbReadyAskUpdated"));
       } else if (["failed", "empty"].includes(summary.status)) {
         stopIngestionPolling();
       } else if (state.ingestionPoll && state.ingestionPoll.attempts >= state.ingestionPoll.maxAttempts) {
         stopIngestionPolling();
-        setIngestionStatus(`Tracking paused for ${shortId(datasetId)}.`, "pending");
+        setIngestionStatus(`${shortId(datasetId)} 的跟踪已暂停。`, "pending");
       }
     } catch (error) {
       stopIngestionPolling();
@@ -1560,13 +1728,13 @@ function renderIngestionStatus(datasetId, documents, readiness) {
   const job = readiness && readiness.ingestion_status;
   if (job && job.kind === "kb_ingestion_status") {
     const actions = (job.next_actions || []).map(readableName).join(", ");
-    const suffix = actions ? ` Next: ${actions}.` : "";
+    const suffix = actions ? ` 下一步：${actions}。` : "";
     setIngestionStatus(`${shortId(datasetId)}: ${job.message || readiness.message} ${formatPercent(job.progress)}.${suffix}`, job.status);
     renderIngestionActions(datasetId, job, summary);
     return;
   }
   const readinessStatus = readiness && readiness.status ? readiness.status : summary.status;
-  const label = readiness && readiness.message ? readiness.message : `${summary.ready}/${summary.total} documents ready.`;
+  const label = readiness && readiness.message ? readiness.message : `${summary.ready}/${summary.total} 个文档已就绪。`;
   setIngestionStatus(`${shortId(datasetId)}: ${label}`, readinessStatus);
   renderIngestionActions(datasetId, null, summary);
 }
@@ -1586,13 +1754,13 @@ function renderIngestionActions(datasetId, job, summary) {
   container.replaceChildren();
   const actions = new Set((job && job.next_actions) || []);
   if ((job && job.ready) || actions.has("run_ask") || summary.status === "ready") {
-    container.append(el("button", { className: "primary-button", onclick: () => setAskDataset(datasetId) }, "Ask This KB"));
+    container.append(el("button", { className: "primary-button", onclick: () => setAskDataset(datasetId) }, t("button.askThisKb")));
   }
   if (actions.has("start_parse")) {
-    container.append(el("button", { className: "primary-button", onclick: parseActiveDocuments }, "Parse Listed"));
+    container.append(el("button", { className: "primary-button", onclick: parseActiveDocuments }, t("button.parseListed")));
   }
   if (actions.has("wait_for_ingestion") || summary.status === "processing") {
-    container.append(el("button", { className: "secondary-button", onclick: () => startIngestionPolling(datasetId) }, "Track Status"));
+    container.append(el("button", { className: "secondary-button", onclick: () => startIngestionPolling(datasetId) }, t("button.trackStatus")));
   }
   if (
     actions.has("inspect_failure") ||
@@ -1601,7 +1769,7 @@ function renderIngestionActions(datasetId, job, summary) {
     actions.has("inspect_cancelled_documents") ||
     summary.status === "failed"
   ) {
-    container.append(el("button", { className: "secondary-button", onclick: () => loadDocuments(datasetId) }, "Reload Status"));
+    container.append(el("button", { className: "secondary-button", onclick: () => loadDocuments(datasetId) }, t("button.reloadStatus")));
   }
 }
 
@@ -1610,7 +1778,7 @@ function syncParseButton(documents = state.activeDocuments || []) {
   if (!button) return;
   const unreadyCount = documents.filter((document) => documentState(document).label !== "ready").length;
   button.disabled = !state.activeDocumentDatasetId || unreadyCount === 0;
-  button.textContent = unreadyCount ? `Parse Listed (${unreadyCount})` : "Parse Listed";
+  button.textContent = unreadyCount ? `${t("button.parseListed")} (${unreadyCount})` : t("button.parseListed");
 }
 
 function ingestDatasetId(result) {
@@ -1636,15 +1804,15 @@ function renderAskResult(result) {
   if (result.status === "insufficient_context") {
     container.append(
       el("div", { className: "item-card" }, [
-        el("h3", {}, "Insufficient Context"),
-        el("p", {}, result.message || "No context was retrieved from the selected scope."),
+        el("h3", {}, t("heading.insufficientContext")),
+        el("p", {}, result.message || t("empty.noContext")),
       ]),
     );
     container.append(loopPanel(result));
     if ((result.context_packets || []).length) {
       container.append(
         el("div", { className: "panel" }, [
-          el("h2", {}, "Retrieved Context"),
+          el("h2", {}, t("heading.retrievedContext")),
           el(
             "div",
             { className: "source-list" },
@@ -1661,8 +1829,8 @@ function renderAskResult(result) {
     const readiness = (fresh && fresh.readiness) || result.readiness || {};
     container.append(
       el("div", { className: "item-card" }, [
-        el("h3", {}, "Knowledge Scope Not Ready"),
-        el("p", {}, (fresh && fresh.message) || result.message || readiness.message || "Selected knowledge scope is not ready for retrieval."),
+        el("h3", {}, t("heading.scopeNotReady")),
+        el("p", {}, (fresh && fresh.message) || result.message || readiness.message || "所选知识范围尚未就绪，不能检索。"),
       ]),
     );
     container.append(readinessPanel(readiness));
@@ -1673,8 +1841,8 @@ function renderAskResult(result) {
   container.append(
     el("div", { className: "panel" }, [
       el("div", { className: "panel-header" }, [
-        el("h2", {}, "Sourced Brief"),
-        el("span", { className: "tag ready" }, result.review ? "Review created" : "Transient"),
+        el("h2", {}, t("heading.sourcedBrief")),
+        el("span", { className: "tag ready" }, result.review ? "已创建审核" : "临时结果"),
       ]),
       el("pre", {}, result.brief || ""),
     ]),
@@ -1682,8 +1850,8 @@ function renderAskResult(result) {
   container.append(askResultActions(result));
   container.append(loopPanel(result));
   container.append(
-    el("div", { className: "panel" }, [
-      el("h2", {}, "Context"),
+      el("div", { className: "panel" }, [
+      el("h2", {}, t("heading.context")),
       el(
         "div",
         { className: "source-list" },
@@ -1699,7 +1867,7 @@ function askResultActions(result) {
   const memoryApply = result.memory_apply || (reviewId && state.memoryApplyByReview[reviewId]);
   if (result.run && result.run.run_id) {
     actions.append(
-      el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, "Open Writing"),
+      el("button", { className: "secondary-button", onclick: () => openWritingRun(result.run.run_id) }, t("button.openWriting")),
     );
     if (result.status === "ready") {
       actions.append(
@@ -1720,7 +1888,7 @@ function askResultActions(result) {
         el(
           "button",
           { className: "primary-button", onclick: () => createMemoryReviewFromRun(result.run.run_id) },
-          "Create Memory Review",
+          t("button.memoryReview"),
         ),
       );
     }
@@ -1743,7 +1911,7 @@ function askResultActions(result) {
         el(
           "button",
           { className: "secondary-button", onclick: () => refreshBlockedAskReadiness(result.run.run_id) },
-          "Check Readiness",
+          t("button.checkReadiness"),
         ),
       );
       actions.append(
@@ -1754,7 +1922,7 @@ function askResultActions(result) {
             onclick: () => startBlockedAskTracking(result.run.run_id),
             ...(tracking ? { disabled: true } : {}),
           },
-          tracking ? "Tracking..." : "Track & Resume",
+          tracking ? t("button.tracking") : t("button.trackResume"),
         ),
       );
       if (!contractActions.some((action) => ["resume_blocked_ask", "resume_ingest_loop"].includes(action.action))) {
@@ -1766,7 +1934,7 @@ function askResultActions(result) {
               onclick: () => resumeBlockedRun(result.run.run_id),
               ...(canResume ? {} : { disabled: true }),
             },
-            isIngestLoopResume(resume) || hasIngestLoopResume(runForResume) ? "Resume Loop" : "Resume Ask",
+            isIngestLoopResume(resume) || hasIngestLoopResume(runForResume) ? t("button.resumeLoop") : t("button.resumeAsk"),
           ),
         );
       }
@@ -1774,7 +1942,7 @@ function askResultActions(result) {
   }
   if (reviewId) {
     actions.append(
-      el("button", { className: "secondary-button", onclick: () => openReview(reviewId) }, "Open Review"),
+      el("button", { className: "secondary-button", onclick: () => openReview(reviewId) }, t("button.openReview")),
     );
   }
   if (
@@ -1786,15 +1954,15 @@ function askResultActions(result) {
     !memoryApply
   ) {
     actions.append(
-      el("button", { className: "primary-button", onclick: () => applyMemory(reviewId) }, "Apply Memory"),
+      el("button", { className: "primary-button", onclick: () => applyMemory(reviewId) }, t("button.applyMemory")),
     );
   }
   if (memoryApply) {
     actions.append(el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)));
   }
   return el("div", { className: "panel compact-panel" }, [
-    el("h2", {}, "Next Actions"),
-    actions.children.length ? actions : el("p", {}, "No follow-up action is available for this result."),
+    el("h2", {}, t("heading.nextActions")),
+    actions.children.length ? actions : el("p", {}, t("empty.noFollowup")),
   ]);
 }
 
@@ -1913,7 +2081,7 @@ function renderWriting() {
   container.classList.toggle("empty-list", !state.currentBrief);
   container.replaceChildren();
   if (!state.currentBrief) {
-    container.textContent = "Run Ask to create a sourced brief.";
+    container.textContent = t("empty.writing");
     return;
   }
   const run = state.currentBrief.run || {};
@@ -1929,7 +2097,7 @@ function renderWriting() {
     el("article", { className: "item-card" }, [
       el("header", {}, [
         el("div", {}, [
-          el("h3", {}, run.intent || "Sourced brief"),
+          el("h3", {}, run.intent || t("heading.sourcedBrief")),
           el("p", {}, run.run_id || ""),
         ]),
         el("span", { className: `tag ${statusClass(review.status || state.currentBrief.status)}` }, review.status || state.currentBrief.status || "ready"),
@@ -1944,7 +2112,7 @@ function renderWriting() {
         ? el("pre", {}, state.currentBrief.brief)
         : latestProposal
           ? workProductBlock(latestProposal)
-          : el("p", { className: "empty-list" }, "Run loaded. Use Markdown or JSON to create an export."),
+          : el("p", { className: "empty-list" }, t("empty.exportPrompt")),
     ]),
   );
   const loop = run.metadata && run.metadata.agentic_loop;
@@ -1954,7 +2122,7 @@ function renderWriting() {
   if (memoryApply) {
     container.append(
       el("div", { className: "panel" }, [
-        el("h2", {}, "Applied Durable Knowledge"),
+        el("h2", {}, t("heading.appliedKnowledge")),
         memoryApplyCard(memoryApply),
       ]),
     );
@@ -1962,7 +2130,7 @@ function renderWriting() {
   if (!state.currentBrief.brief && memoryFacts.length) {
     container.append(
       el("div", { className: "panel" }, [
-        el("h2", {}, "Durable Memory"),
+        el("h2", {}, t("heading.durableMemory")),
         el("div", { className: "source-list" }, memoryFacts.map((fact) => memoryFactCard(fact))),
       ]),
     );
@@ -1970,7 +2138,7 @@ function renderWriting() {
   if (!state.currentBrief.brief && sourceInspections.length) {
     container.append(
       el("div", { className: "panel" }, [
-        el("h2", {}, "Inspected Sources"),
+        el("h2", {}, t("heading.inspectedSources")),
         el("div", { className: "source-list" }, sourceInspections.map((source) => sourceInspectionCard(source))),
       ]),
     );
@@ -1978,7 +2146,7 @@ function renderWriting() {
   if (!state.currentBrief.brief && sourceManifest.length) {
     container.append(
       el("div", { className: "panel" }, [
-        el("h2", {}, "Source Manifest"),
+        el("h2", {}, t("heading.sourceManifest")),
         el("div", { className: "source-list" }, sourceManifest.map((source) => sourceManifestCard(source))),
       ]),
     );
@@ -1986,7 +2154,7 @@ function renderWriting() {
   if (!state.currentBrief.brief && contextPackets.length) {
     container.append(
       el("div", { className: "panel" }, [
-        el("h2", {}, "Context"),
+        el("h2", {}, t("heading.context")),
         el("div", { className: "source-list" }, contextPackets.map((packet) => contextCard(packet))),
       ]),
     );
@@ -2023,10 +2191,10 @@ function datasetCard(dataset) {
       ]),
       el("div", { className: "card-actions" }, [
         el("span", { className: `tag ${stateName.className}` }, stateName.label),
-        el("button", { className: "secondary-button", onclick: () => setAskDataset(dataset.dataset_id) }, "Ask"),
-        el("button", { className: "secondary-button", onclick: () => openDatasetUpload(dataset.dataset_id) }, "Upload"),
-        el("button", { className: "secondary-button", onclick: () => openDatasetStatus(dataset.dataset_id) }, "Status"),
-        el("button", { className: "secondary-button danger-button", onclick: () => deleteDataset(dataset.dataset_id) }, "Delete"),
+        el("button", { className: "secondary-button", onclick: () => setAskDataset(dataset.dataset_id) }, t("button.ask")),
+        el("button", { className: "secondary-button", onclick: () => openDatasetUpload(dataset.dataset_id) }, t("button.upload")),
+        el("button", { className: "secondary-button", onclick: () => openDatasetStatus(dataset.dataset_id) }, t("button.openStatus")),
+        el("button", { className: "secondary-button danger-button", onclick: () => deleteDataset(dataset.dataset_id) }, t("button.delete")),
       ]),
     ]),
     el("div", { className: "meta-row" }, [
@@ -2076,7 +2244,7 @@ function contextCard(packet) {
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [el("h3", {}, packet.title || sourceRef.title || packet.context_id), el("p", {}, packet.text || "")]),
-      el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, "Source"),
+      el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, t("button.source")),
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, sourceRef.adapter || "adapter"),
@@ -2088,7 +2256,7 @@ function contextCard(packet) {
 
 function memoryFactCard(fact) {
   const sourceRefs = fact.source_refs || [];
-  const reason = el("input", { placeholder: "Reason", value: "" });
+  const reason = el("input", { placeholder: t("label.reviewReason"), value: "" });
   const updatedText = el("textarea", { placeholder: "Updated memory text", value: fact.text || "" });
   const updateSupported = memoryOperationSupported("update");
   const deleteSupported = memoryOperationSupported("delete");
@@ -2099,7 +2267,7 @@ function memoryFactCard(fact) {
       el("div", {}, [el("h3", {}, fact.fact_id || "Memory"), el("p", {}, fact.text || "")]),
       el("div", { className: "card-actions" }, [
         fact.fact_id
-          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(fact.fact_id) }, "History")
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(fact.fact_id) }, t("button.history"))
           : null,
         el("span", { className: "tag" }, `sources ${sourceRefs.length}`),
       ]),
@@ -2118,7 +2286,7 @@ function memoryFactCard(fact) {
           ...(sourceRefs.length && updateSupported ? {} : { disabled: true }),
           title: updateSupported ? "" : updateReason,
         },
-        updateSupported ? "Create Update Review" : "Update Unsupported",
+        updateSupported ? t("button.createUpdateReview") : t("button.unsupportedUpdate"),
       ),
       el(
         "button",
@@ -2128,7 +2296,7 @@ function memoryFactCard(fact) {
           ...(sourceRefs.length && deleteSupported ? {} : { disabled: true }),
           title: deleteSupported ? "" : deleteReason,
         },
-        deleteSupported ? "Create Delete Review" : "Delete Unsupported",
+        deleteSupported ? t("button.createDeleteReview") : t("button.unsupportedDelete"),
       ),
     ]),
   ]);
@@ -2146,7 +2314,7 @@ function memoryApplyCard(memoryApply) {
       el("div", { className: "card-actions" }, [
         el("span", { className: `tag ${memoryApply.applied ? "ready" : "pending"}` }, memoryApply.applied ? "applied" : "pending"),
         memoryApply.target_id
-          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(memoryApply.target_id) }, "History")
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(memoryApply.target_id) }, t("button.history"))
           : null,
       ]),
     ]),
@@ -2163,8 +2331,8 @@ function sourceManifestCard(source) {
   const sourceRef = source.source_ref || {};
   return el("article", { className: "item-card" }, [
     el("header", {}, [
-      el("div", {}, [el("h3", {}, source.title || source.context_id || "Source"), el("p", {}, source.source_id || "")]),
-      sourceRef.adapter ? el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, "Source") : null,
+      el("div", {}, [el("h3", {}, source.title || source.context_id || t("button.source")), el("p", {}, source.source_id || "")]),
+      sourceRef.adapter ? el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, t("button.source")) : null,
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, `#${source.index || ""}`),
@@ -2180,8 +2348,8 @@ function sourceInspectionCard(source) {
   const sourceRef = source.source_ref || {};
   return el("article", { className: "item-card" }, [
     el("header", {}, [
-      el("div", {}, [el("h3", {}, sourceRef.title || sourceRef.document_id || "Source"), el("p", {}, source.text || "")]),
-      sourceRef.adapter ? el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, "Source") : null,
+      el("div", {}, [el("h3", {}, sourceRef.title || sourceRef.document_id || t("button.source")), el("p", {}, source.text || "")]),
+      sourceRef.adapter ? el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, t("button.source")) : null,
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, sourceRef.adapter || "adapter"),
@@ -2217,26 +2385,26 @@ function reviewCard(review) {
   const memoryApplySupported = memoryOperation ? memoryOperationSupported(memoryOperation) : true;
   const memoryApplyReason = memoryOperation ? memoryCapabilityReason(memoryOperation) : "";
   const actions = el("div", { className: "review-actions" }, []);
-  const reason = el("input", { placeholder: "Reason", value: "" });
+  const reason = el("input", { placeholder: t("label.reviewReason"), value: "" });
   const memoryApply = review.memory_apply || state.memoryApplyByReview[review.review_id];
   const locked = Boolean(memoryApply);
   if (runId) {
-    actions.append(el("button", { className: "secondary-button", onclick: () => openWritingRun(runId) }, "Open Writing"));
+    actions.append(el("button", { className: "secondary-button", onclick: () => openWritingRun(runId) }, t("button.openWriting")));
   }
   if (locked) {
     actions.append(el("span", { className: "tag ready" }, memoryApplyLabel(memoryApply)));
-    actions.append(el("span", { className: "tag" }, "Locked"));
+    actions.append(el("span", { className: "tag" }, t("label.locked")));
     if (memoryApply.target_id) {
       actions.append(
-        el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(memoryApply.target_id) }, "History"),
+        el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(memoryApply.target_id) }, t("button.history")),
       );
     }
   } else if (review.status === "pending") {
     actions.append(
       reason,
-      el("button", { className: "primary-button", onclick: () => decideReview(review.review_id, "accept", reason.value) }, "Accept"),
-      el("button", { className: "secondary-button", onclick: () => decideReview(review.review_id, "edit", reason.value) }, "Edit"),
-      el("button", { className: "danger-button", onclick: () => decideReview(review.review_id, "reject", reason.value) }, "Reject"),
+      el("button", { className: "primary-button", onclick: () => decideReview(review.review_id, "accept", reason.value) }, t("button.accept")),
+      el("button", { className: "secondary-button", onclick: () => decideReview(review.review_id, "edit", reason.value) }, t("button.edit")),
+      el("button", { className: "danger-button", onclick: () => decideReview(review.review_id, "reject", reason.value) }, t("button.reject")),
     );
   } else if (review.status === "accepted") {
     if (proposal.kind === "memory_patch") {
@@ -2249,7 +2417,7 @@ function reviewCard(review) {
             ...(memoryApplySupported ? {} : { disabled: true }),
             title: memoryApplySupported ? "" : memoryApplyReason,
           },
-          memoryApplySupported ? "Apply Memory" : "Memory Apply Unsupported",
+          memoryApplySupported ? t("button.applyMemory") : t("button.unsupportedMemoryApply"),
         ),
       );
     }
@@ -2263,7 +2431,7 @@ function reviewCard(review) {
             ...(memoryApplySupported ? {} : { disabled: true }),
             title: memoryApplySupported ? "" : memoryApplyReason,
           },
-          memoryApplySupported ? "Apply Memory Update" : "Update Unsupported",
+          memoryApplySupported ? t("button.applyMemoryUpdate") : t("button.unsupportedUpdate"),
         ),
       );
     }
@@ -2277,17 +2445,17 @@ function reviewCard(review) {
             ...(memoryApplySupported ? {} : { disabled: true }),
             title: memoryApplySupported ? "" : memoryApplyReason,
           },
-          memoryApplySupported ? "Apply Memory Delete" : "Delete Unsupported",
+          memoryApplySupported ? t("button.applyMemoryDelete") : t("button.unsupportedDelete"),
         ),
       );
     }
   } else if (review.status === "needs_edit") {
     actions.append(
       reason,
-      el("button", { className: "primary-button", onclick: () => reviseReview(review.review_id, reason.value) }, "Revise"),
+      el("button", { className: "primary-button", onclick: () => reviseReview(review.review_id, reason.value) }, t("button.revise")),
     );
   } else if (review.status === "rejected") {
-    actions.append(el("span", { className: "tag failed" }, "Rejected"));
+    actions.append(el("span", { className: "tag failed" }, t("label.rejected")));
   }
   return el("article", { className: review.review_id === state.focusReviewId ? "item-card highlighted" : "item-card" }, [
     el("header", {}, [
@@ -2297,13 +2465,13 @@ function reviewCard(review) {
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, proposal.kind || "proposal"),
       el("span", { className: "tag" }, shortId(review.review_id)),
-      el("span", { className: "tag" }, `sources ${review.source_count ?? sourceRefs.length}`),
+      el("span", { className: "tag" }, `${t("label.sources")} ${review.source_count ?? sourceRefs.length}`),
       revision.previous_review_id ? el("span", { className: "tag" }, `from ${shortId(revision.previous_review_id)}`) : null,
       revision.next_review_id ? el("span", { className: "tag" }, `to ${shortId(revision.next_review_id)}`) : null,
     ]),
     sourceRefs.length
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
-      : el("p", { className: "empty-list" }, "No source trace is attached to this review."),
+      : el("p", { className: "empty-list" }, "此审核没有关联来源追踪。"),
     actions,
   ]);
 }
@@ -2311,14 +2479,14 @@ function reviewCard(review) {
 function reviewSourceRow(sourceRef, index) {
   return el("div", { className: "review-source-row" }, [
     el("div", {}, [
-      el("strong", {}, sourceRef.title || sourceRef.document_id || sourceRef.source_id || `Source ${index + 1}`),
+      el("strong", {}, sourceRef.title || sourceRef.document_id || sourceRef.source_id || `${t("button.source")} ${index + 1}`),
       el(
         "span",
         {},
         `${sourceRef.adapter || "adapter"} / ${shortId(sourceRef.document_id || sourceRef.source_id || sourceRef.external_id || "")}`,
       ),
     ]),
-    el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, "Source"),
+    el("button", { className: "secondary-button", onclick: () => readSource(sourceRef) }, t("button.source")),
   ]);
 }
 
@@ -2328,8 +2496,8 @@ function workflowCard(workflow) {
   const canResume = !resumable || Boolean(resumable.can_resume);
   const resumeLabel =
     isIngestLoopResume(resumable && resumable.resume) || hasIngestLoopResume((resumable && resumable.run) || workflow)
-      ? "Resume Loop"
-      : "Resume Ask";
+      ? t("button.resumeLoop")
+      : t("button.resumeAsk");
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -2347,7 +2515,7 @@ function workflowCard(workflow) {
                     ? resumeBlockedRun(workflow.run_id)
                     : openBlockedAskRun(workflow.run_id, { track: true }),
               },
-              canResume ? resumeLabel : "Track",
+              canResume ? resumeLabel : t("button.track"),
             )
           : null,
         el("button", { className: "secondary-button", onclick: () => openWorkflowRun(workflow.run_id) }, "Open"),
@@ -2371,7 +2539,7 @@ function resumableAskCard(record) {
   const run = record.run || {};
   const askRequest = record.ask_request || {};
   const readiness = record.readiness || {};
-  const resumeLabel = isIngestLoopResume(record.resume) || hasIngestLoopResume(run) ? "Resume Loop" : "Resume Ask";
+  const resumeLabel = isIngestLoopResume(record.resume) || hasIngestLoopResume(run) ? t("button.resumeLoop") : t("button.resumeAsk");
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -2394,9 +2562,9 @@ function resumableAskCard(record) {
               ? resumeBlockedRun(run.run_id)
               : openBlockedAskRun(run.run_id, { track: true }),
         },
-        record.can_resume ? resumeLabel : "Track",
+        record.can_resume ? resumeLabel : t("button.track"),
       ),
-      el("button", { className: "secondary-button", onclick: () => openBlockedAskRun(run.run_id) }, "Open Ask"),
+      el("button", { className: "secondary-button", onclick: () => openBlockedAskRun(run.run_id) }, t("button.openAsk")),
     ]),
   ]);
 }
@@ -2524,7 +2692,7 @@ function componentCheckCard(result) {
   if (datasetIds.length) tags.push(el("span", { className: "tag" }, `datasets ${datasetIds.length}`));
   return el("article", { className: "item-card" }, [
     el("header", {}, [
-      el("div", {}, [el("h3", {}, "Component Check"), el("p", {}, result.message || "")]),
+      el("div", {}, [el("h3", {}, t("heading.componentCheck")), el("p", {}, result.message || "")]),
       el("span", { className: `tag ${statusClass(result.status)}` }, result.status || "unknown"),
     ]),
     el("div", { className: "meta-row" }, tags),
@@ -2556,7 +2724,7 @@ function evalResultCard(result) {
   if (artifacts.resumed_run_id) tags.push(el("span", { className: "tag" }, `resumed ${shortId(artifacts.resumed_run_id)}`));
   return el("article", { className: "item-card" }, [
     el("header", {}, [
-      el("div", {}, [el("h3", {}, "Product Acceptance"), el("p", {}, result.message || "")]),
+      el("div", {}, [el("h3", {}, t("heading.productAcceptance")), el("p", {}, result.message || "")]),
       el("span", { className: `tag ${statusClass(result.status)}` }, result.status || "unknown"),
     ]),
     el("div", { className: "meta-row" }, tags),
@@ -2584,7 +2752,7 @@ function memoryProbeCard(probe) {
   if (error.type) tags.push(el("span", { className: "tag error" }, error.type));
   return el("article", { className: "item-card" }, [
     el("header", {}, [
-      el("div", {}, [el("h3", {}, "Memory Probe"), el("p", {}, probe.message || "")]),
+      el("div", {}, [el("h3", {}, t("heading.memoryProbe")), el("p", {}, probe.message || "")]),
       el("span", { className: `tag ${statusClass(probe.status)}` }, probe.status || "unknown"),
     ]),
     el("div", { className: "meta-row" }, tags),
@@ -2605,7 +2773,7 @@ function closedLoopProbeCard(probe) {
   if (exported.exported) tags.push(el("span", { className: "tag ready" }, "exported"));
   return el("article", { className: "item-card" }, [
     el("header", {}, [
-      el("div", {}, [el("h3", {}, "Live Closed Loop"), el("p", {}, probe.message || "")]),
+      el("div", {}, [el("h3", {}, t("heading.liveClosedLoop")), el("p", {}, probe.message || "")]),
       el("span", { className: `tag ${statusClass(probe.status)}` }, probe.status || "unknown"),
     ]),
     el("div", { className: "meta-row" }, tags),
@@ -2731,7 +2899,7 @@ async function openBlockedAskRun(runId, options = {}) {
   await loadResumableAsks();
   const record = resumableAskFor(runId);
   if (!record) {
-    showToast("Blocked Ask was not found.");
+    showToast("没有找到被阻塞的提问。");
     openView("activity");
     return;
   }
@@ -2782,11 +2950,11 @@ async function resumeIngestLoopRun(runId, exportFormat = "") {
   await loadAuditEvents(auditActionForIngestLoop(result));
   if (result.status === "ok" && result.run_id) {
     openLoopWorkProduct(result);
-    showToast("Ingest loop resumed and exported.");
+    showToast("闭环已恢复并导出。");
     return;
   }
   await applyAskResult(result, {
-    toast: result.status === "ready" ? "Ingest loop resumed." : "Knowledge scope is still not ready.",
+    toast: result.status === "ready" ? "闭环已恢复。" : "知识范围仍在处理中。",
   });
   document.querySelector('.nav-item[data-view="ask"]').click();
 }
@@ -2795,7 +2963,7 @@ async function resumeAskRun(runId) {
   stopBlockedAskTracking(runId);
   const result = await api(`/api/workflows/${encodeURIComponent(runId)}/resume-ask`, { method: "POST", body: {} });
   await applyAskResult(result, {
-    toast: result.status === "ready" ? "Ask resumed." : "Knowledge scope is still not ready.",
+    toast: result.status === "ready" ? "提问已恢复。" : "知识范围仍在处理中。",
   });
   document.querySelector('.nav-item[data-view="ask"]').click();
 }
@@ -2809,7 +2977,7 @@ async function refreshBlockedAskReadiness(runId) {
     state.currentAskResult.message = record.message || state.currentAskResult.message;
     renderAskResult(state.currentAskResult);
   }
-  showToast(record && record.can_resume ? "Knowledge scope is ready to resume." : "Knowledge scope is still processing.");
+  showToast(record && record.can_resume ? "知识范围已可恢复。" : "知识范围仍在处理中。");
   return record || null;
 }
 
@@ -2822,7 +2990,7 @@ function startBlockedAskTracking(runId) {
     timer: null,
   };
   renderAskResult(state.currentAskResult || {});
-  showToast("Tracking readiness for this Ask.");
+  showToast("正在跟踪本次提问的就绪状态。");
   state.blockedAskPoll.timer = window.setInterval(async () => {
     if (!state.blockedAskPoll || state.blockedAskPoll.runId !== runId) return;
     state.blockedAskPoll.attempts += 1;
@@ -2830,11 +2998,11 @@ function startBlockedAskTracking(runId) {
       const record = await refreshBlockedAskReadiness(runId);
       if (record && record.can_resume) {
         stopBlockedAskTracking(runId);
-        showToast("Knowledge scope is ready; resuming workflow.");
+        showToast("知识范围已就绪，正在恢复流程。");
         await resumeBlockedRun(runId);
       } else if (state.blockedAskPoll && state.blockedAskPoll.attempts >= state.blockedAskPoll.maxAttempts) {
         stopBlockedAskTracking(runId);
-        showToast("Readiness tracking paused.");
+        showToast("就绪跟踪已暂停。");
       }
     } catch (error) {
       stopBlockedAskTracking(runId);
@@ -2893,18 +3061,18 @@ async function openReview(reviewId) {
   state.focusReviewId = reviewId;
   const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}`);
   if (!syncReviewRecord(payload.review)) {
-    throw new Error("Review not found.");
+    throw new Error("未找到审核项。");
   }
   state.reviewView = [payload.review, ...state.reviewView.filter((review) => review.review_id !== reviewId)];
   renderReviews();
   renderHome();
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast("Review opened.");
+  showToast("审核已打开。");
 }
 
 async function exportCurrent(format) {
   if (!state.currentBrief || !state.currentBrief.run || !state.currentBrief.run.run_id) {
-    showToast("No run selected.");
+    showToast("尚未选择运行。");
     return;
   }
   await exportWorkflow(state.currentBrief.run.run_id, format);
@@ -2913,7 +3081,7 @@ async function exportCurrent(format) {
 async function exportWorkflow(runId, format, options = {}) {
   const selectedRunId = String(runId || "").trim();
   if (!selectedRunId) {
-    showToast("No run selected.");
+    showToast("尚未选择运行。");
     return;
   }
   try {
@@ -2937,7 +3105,7 @@ async function exportWorkflow(runId, format, options = {}) {
     if (options.openWriting) {
       document.querySelector('.nav-item[data-view="writing"]').click();
     }
-    showToast(`${format.toUpperCase()} export loaded.`);
+    showToast(`${format.toUpperCase()} 导出已加载。`);
   } catch (error) {
     showToast(error.message);
   }
@@ -2948,7 +3116,7 @@ async function createMemoryReviewFromRun(runId = "") {
     runId || (state.currentBrief && state.currentBrief.run && state.currentBrief.run.run_id) || "",
   ).trim();
   if (!selectedRunId) {
-    showToast("No workflow selected.");
+    showToast("尚未选择工作流。");
     return;
   }
   const intent =
@@ -2970,7 +3138,7 @@ async function createMemoryReviewFromRun(runId = "") {
   await loadAuditEvents(payload.memory_apply ? memoryApplyAction(payload.memory_apply) : "review.create");
   renderCurrentResultSurfaces();
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : "Memory review created.");
+  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : "记忆审核已创建。");
 }
 
 async function readSource(sourceRef) {
@@ -2989,7 +3157,7 @@ async function readDocumentGraph(datasetId, documentId) {
   renderReader();
   await loadAuditEvents("kb.graph.read");
   document.querySelector('.nav-item[data-view="reader"]').click();
-  showToast("Graph loaded.");
+  showToast("图谱已加载。");
 }
 
 async function deleteDataset(datasetId) {
@@ -3004,7 +3172,7 @@ async function deleteDataset(datasetId) {
   state.datasets = state.datasets.filter((dataset) => dataset.dataset_id !== datasetId);
   renderDatasets();
   renderDatasetPickers();
-  showToast("Knowledge base deleted.");
+  showToast("知识库已删除。");
   await loadDatasets();
   await loadWorkspaceStatus();
   await loadAuditEvents("kb.dataset.delete");
@@ -3013,7 +3181,7 @@ async function deleteDataset(datasetId) {
 async function deleteAllDatasets() {
   const count = state.datasets.length;
   if (!count) {
-    showToast("No knowledge bases to delete.");
+    showToast("没有可删除的知识库。");
     return;
   }
   if (!window.confirm(`Delete all knowledge bases in the configured KB provider? ${count} currently listed.`)) return;
@@ -3031,7 +3199,7 @@ async function deleteAllDatasets() {
   renderDatasets();
   renderDocuments([]);
   renderDatasetPickers();
-  showToast("Knowledge bases deleted.");
+  showToast("知识库已删除。");
   await loadDatasets();
   await loadWorkspaceStatus();
   await loadAuditEvents("kb.dataset.delete");
@@ -3045,27 +3213,27 @@ function renderReader() {
   sourceBox.replaceChildren();
   metadata.replaceChildren();
   if (!source) {
-    status.textContent = "No source selected";
+    status.textContent = "尚未选择来源";
     status.className = "tag";
     sourceBox.className = "reader-source empty-list";
-    sourceBox.textContent = "Select a source from Ask.";
+    sourceBox.textContent = "请从提问结果中选择来源。";
     return;
   }
   if (source.kind === "graph") {
     renderGraphReader(source.graph || {}, sourceBox, metadata, status);
     return;
   }
-  status.textContent = "Loaded";
+  status.textContent = "已加载";
   status.className = "tag ready";
   sourceBox.className = "reader-source";
-  sourceBox.append(el("pre", {}, source.text || "Source is empty."));
+  sourceBox.append(el("pre", {}, source.text || "来源为空。"));
   const ref = source.source_ref || {};
   [
     ["Adapter", ref.adapter || ""],
     ["Dataset", ref.dataset_id || ""],
     ["Document", ref.document_id || ""],
     ["Chunk", ref.chunk_id || ""],
-    ["Source", ref.source_id || ""],
+    [t("button.source"), ref.source_id || ""],
     ["External ID", ref.external_id || ""],
     ["Title", ref.title || ""],
     ["Path", ref.path || ""],
@@ -3076,13 +3244,13 @@ function renderReader() {
       metadata.append(el("dt", {}, key), el("dd", {}, value));
     });
   if (!metadata.children.length) {
-    metadata.append(el("dt", {}, "Metadata"), el("dd", {}, "No source coordinates available."));
+    metadata.append(el("dt", {}, "Metadata"), el("dd", {}, "没有可用的来源坐标。"));
   }
 }
 
 function renderGraphReader(graph, sourceBox, metadata, status) {
   const templates = graph.templates || [];
-  status.textContent = "Graph loaded";
+  status.textContent = "图谱已加载";
   status.className = "tag ready";
   sourceBox.className = "reader-source";
   sourceBox.append(el("pre", {}, JSON.stringify(graph, null, 2)));
@@ -3109,7 +3277,7 @@ async function decideReview(reviewId, decision, reason) {
     setReviewStatusFilter("");
   }
   syncReviewDecision(payload.decision);
-  showToast(`Review ${decision}.`);
+  showToast(`审核已${reviewDecisionLabel(decision)}。`);
   await loadReviews();
   await loadPendingReviews();
   await loadWorkspaceStatus();
@@ -3132,7 +3300,7 @@ async function reviseReview(reviewId, intent) {
   await loadWorkspaceStatus();
   await loadAuditEvents("review.revise");
   renderCurrentResultSurfaces();
-  showToast("Review revision created.");
+  showToast("审核修改已创建。");
 }
 
 async function applyMemory(reviewId) {
@@ -3160,7 +3328,7 @@ async function createMemoryUpdateReview(fact, text, reason) {
   await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast("Memory update review created.");
+  showToast("记忆更新审核已创建。");
 }
 
 async function createMemoryDeleteReview(fact, reason) {
@@ -3176,7 +3344,7 @@ async function createMemoryDeleteReview(fact, reason) {
   await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast("Memory delete review created.");
+  showToast("记忆删除审核已创建。");
 }
 
 async function openMemoryLifecycle(memoryTargetId) {
@@ -3185,14 +3353,14 @@ async function openMemoryLifecycle(memoryTargetId) {
   state.auditEvents = (payload.lifecycle && payload.lifecycle.events) || [];
   renderAuditEvents();
   document.querySelector('.nav-item[data-view="activity"]').click();
-  showToast("Memory lifecycle loaded.");
+  showToast("记忆生命周期已加载。");
 }
 
 function memoryApplyLabel(memoryApply) {
   const action = memoryApplyAction(memoryApply);
-  if (action === "memory.delete") return "memory deleted";
-  if (action === "memory.update") return "memory updated";
-  return "memory applied";
+  if (action === "memory.delete") return "记忆已删除";
+  if (action === "memory.update") return "记忆已更新";
+  return "记忆已应用";
 }
 
 function memoryApplyAction(memoryApply) {
@@ -3204,9 +3372,17 @@ function memoryApplyAction(memoryApply) {
 
 function memoryApplyToast(memoryApply) {
   const action = memoryApplyAction(memoryApply);
-  if (action === "memory.delete") return "Memory deletion applied.";
-  if (action === "memory.update") return "Memory update applied.";
-  return "Memory applied.";
+  if (action === "memory.delete") return "记忆删除已应用。";
+  if (action === "memory.update") return "记忆更新已应用。";
+  return "记忆已应用。";
+}
+
+function reviewDecisionLabel(decision) {
+  return {
+    accept: "接受",
+    edit: "标记为需修改",
+    reject: "拒绝",
+  }[decision] || decision;
 }
 
 function syncReviewDecision(decision) {
@@ -3268,7 +3444,7 @@ function askDocument(datasetId, document) {
   const normalizedDatasetId = String(datasetId || "").trim();
   const documentId = String((document && document.document_id) || "").trim();
   if (!normalizedDatasetId || !documentId) {
-    showToast("Dataset and document IDs are required.");
+    showToast("需要知识库 ID 和文档 ID。");
     return;
   }
   setAskDatasetIds([normalizedDatasetId]);
@@ -3277,7 +3453,7 @@ function askDocument(datasetId, document) {
   renderAskScope();
   document.querySelector('.nav-item[data-view="ask"]').click();
   void checkAskReadiness({ silent: true });
-  showToast("Document selected for Ask.");
+  showToast("文档已加入提问范围。");
 }
 
 function prepareAskScope(datasetId, documents = []) {

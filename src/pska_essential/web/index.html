@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -17,61 +17,61 @@
           </div>
         </div>
         <nav class="nav">
-          <button class="nav-item active" data-view="home">Home</button>
-          <button class="nav-item" data-view="kb">Knowledge Bases</button>
-          <button class="nav-item" data-view="ask">Ask</button>
-          <button class="nav-item" data-view="reader">Reader</button>
-          <button class="nav-item" data-view="writing">Writing</button>
-          <button class="nav-item" data-view="review">Review</button>
-          <button class="nav-item" data-view="activity">Activity</button>
-          <button class="nav-item" data-view="settings">Settings</button>
+          <button class="nav-item active" data-view="home">首页</button>
+          <button class="nav-item" data-view="kb">知识库</button>
+          <button class="nav-item" data-view="ask">提问</button>
+          <button class="nav-item" data-view="reader">来源</button>
+          <button class="nav-item" data-view="writing">写作</button>
+          <button class="nav-item" data-view="review">审核</button>
+          <button class="nav-item" data-view="activity">活动</button>
+          <button class="nav-item" data-view="settings">设置</button>
         </nav>
       </aside>
 
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Knowledge Workspace</p>
-            <h1 id="view-title">Home</h1>
+            <p class="eyebrow">知识工作台</p>
+            <h1 id="view-title">首页</h1>
           </div>
           <div class="status-strip">
-            <span id="api-status" class="status-pill pending">Checking API</span>
-            <button id="refresh-all" class="secondary-button" type="button">Refresh</button>
+            <span id="api-status" class="status-pill pending">检查 API</span>
+            <button id="refresh-all" class="secondary-button" type="button">刷新</button>
           </div>
         </header>
 
         <section id="home" class="view active">
           <div class="metrics-grid">
             <div class="metric-card">
-              <span>Datasets</span>
+              <span>知识库</span>
               <strong id="metric-datasets">0</strong>
             </div>
             <div class="metric-card">
-              <span>Pending Reviews</span>
+              <span>待审核</span>
               <strong id="metric-reviews">0</strong>
             </div>
             <div class="metric-card">
-              <span>Last Run</span>
-              <strong id="metric-run">None</strong>
+              <span>最近运行</span>
+              <strong id="metric-run">无</strong>
             </div>
           </div>
 
           <div class="work-band">
             <div>
-              <h2>Next Actions</h2>
-              <div id="home-next-actions" class="list empty-list">No workspace status loaded.</div>
+              <h2>下一步</h2>
+              <div id="home-next-actions" class="list empty-list">尚未加载工作区状态。</div>
             </div>
             <div>
-              <h2>Recent Knowledge Bases</h2>
-              <div id="home-datasets" class="list empty-list">No datasets loaded.</div>
+              <h2>最近知识库</h2>
+              <div id="home-datasets" class="list empty-list">尚未加载知识库。</div>
             </div>
             <div>
-              <h2>Review Queue</h2>
-              <div id="home-reviews" class="list empty-list">No pending reviews.</div>
+              <h2>审核队列</h2>
+              <div id="home-reviews" class="list empty-list">没有待审核项。</div>
             </div>
             <div>
-              <h2>Resumable Asks</h2>
-              <div id="home-resumable-asks" class="list empty-list">No resumable asks.</div>
+              <h2>可恢复提问</h2>
+              <div id="home-resumable-asks" class="list empty-list">没有可恢复提问。</div>
             </div>
           </div>
         </section>
@@ -79,17 +79,17 @@
         <section id="kb" class="view">
           <div class="two-column">
             <form id="create-kb-form" class="panel">
-              <h2>Create Knowledge Base</h2>
+              <h2>创建知识库</h2>
               <label>
-                Name
+                名称
                 <input name="name" autocomplete="off" required />
               </label>
               <label>
-                Description
+                描述
                 <textarea name="description" rows="3"></textarea>
               </label>
               <label>
-                Chunk Method
+                切分方式
                 <select name="chunk_method">
                   <option value="naive">naive</option>
                   <option value="paper">paper</option>
@@ -98,71 +98,71 @@
                 </select>
               </label>
               <label>
-                Embedding Model
+                Embedding 模型
                 <input name="embedding_model" autocomplete="off" />
               </label>
-              <button type="submit" class="primary-button">Create</button>
+              <button type="submit" class="primary-button">创建</button>
             </form>
 
             <form id="upload-form" class="panel">
-              <h2>Upload Documents</h2>
+              <h2>上传文档</h2>
               <div class="form-row">
                 <label>
-                  Upload Target
+                  上传目标
                   <select id="upload-dataset-picker"></select>
                 </label>
-                <button id="upload-use-dataset" type="button" class="secondary-button">Use Selected</button>
+                <button id="upload-use-dataset" type="button" class="secondary-button">使用所选</button>
               </div>
               <label>
-                Existing Dataset ID
+                已有知识库 ID
                 <input name="dataset_id" autocomplete="off" />
               </label>
               <label>
-                New Dataset Name
+                新知识库名称
                 <input name="dataset_name" autocomplete="off" />
               </label>
               <label>
-                Embedding Model
+                Embedding 模型
                 <input name="embedding_model" autocomplete="off" />
               </label>
               <label>
-                Files
+                文件
                 <input name="file" type="file" multiple required />
               </label>
               <label>
-                Loop Question
-                <textarea name="loop_question" rows="3">Summarize the uploaded documents with sources.</textarea>
+                闭环问题
+                <textarea name="loop_question" rows="3">请总结上传文档，并列出来源。</textarea>
               </label>
               <label>
-                Loop Export
+                闭环导出
                 <select name="loop_export_format">
                   <option value="markdown">markdown</option>
                   <option value="json">json</option>
                 </select>
               </label>
               <label>
-                Loop Retrieval Queries
-                <textarea name="loop_retrieval_queries" rows="3" placeholder="optional, one query per line"></textarea>
+                补充检索问题
+                <textarea name="loop_retrieval_queries" rows="3" placeholder="可选，每行一个问题"></textarea>
               </label>
               <div class="form-row">
                 <label>
-                  Limit
+                  数量
                   <input name="loop_limit" type="number" min="1" max="20" value="5" />
                 </label>
                 <label>
-                  Max Iterations
+                  最大轮数
                   <input name="loop_max_iterations" type="number" min="1" max="5" value="2" />
                 </label>
                 <label>
-                  Min Context
+                  最少上下文
                   <input name="loop_min_context_packets" type="number" min="1" max="20" value="1" />
                 </label>
                 <label>
-                  Source Inspect
+                  来源检查
                   <input name="loop_source_inspection_limit" type="number" min="0" max="10" value="3" />
                 </label>
                 <label>
-                  Proposal
+                  产物类型
                   <select name="loop_proposal_kind">
                     <option value="writing_brief">writing_brief</option>
                     <option value="digest">digest</option>
@@ -171,109 +171,109 @@
                 </label>
                 <label class="check-row side-check">
                   <input name="loop_create_review" type="checkbox" />
-                  <span>Force review</span>
+                  <span>强制审核</span>
                 </label>
                 <label class="check-row side-check">
                   <input name="loop_use_kg" type="checkbox" />
-                  <span>Use graph retrieval</span>
+                  <span>启用图检索</span>
                 </label>
               </div>
               <div class="inline-options">
                 <label class="check-row">
                   <input name="parse" type="checkbox" checked />
-                  <span>Parse after upload</span>
+                  <span>上传后解析</span>
                 </label>
                 <label class="check-row">
                   <input name="wait" type="checkbox" />
-                  <span>Wait for completion</span>
+                  <span>等待完成</span>
                 </label>
               </div>
               <div class="button-row">
-                <button type="submit" class="primary-button">Upload</button>
-                <button id="run-ingest-loop" type="button" class="secondary-button">Run Loop</button>
+                <button type="submit" class="primary-button">上传</button>
+                <button id="run-ingest-loop" type="button" class="secondary-button">运行闭环</button>
               </div>
             </form>
           </div>
 
-          <div id="ingestion-status" class="job-status pending">No active ingestion.</div>
+          <div id="ingestion-status" class="job-status pending">没有进行中的入库任务。</div>
           <div id="ingestion-actions" class="status-actions"></div>
 
           <div class="panel">
             <div class="panel-header">
-              <h2>Datasets</h2>
+              <h2>知识库</h2>
               <div class="card-actions">
-                <button id="reload-datasets" class="secondary-button" type="button">Reload</button>
-                <button id="delete-all-datasets" class="secondary-button danger-button" type="button">Delete All</button>
+                <button id="reload-datasets" class="secondary-button" type="button">重新加载</button>
+                <button id="delete-all-datasets" class="secondary-button danger-button" type="button">全部删除</button>
               </div>
             </div>
-            <div id="datasets-list" class="list empty-list">No datasets loaded.</div>
+            <div id="datasets-list" class="list empty-list">尚未加载知识库。</div>
           </div>
 
           <form id="document-status-form" class="panel compact-form">
-            <h2>Document Status</h2>
+            <h2>文档状态</h2>
             <label>
-              Dataset ID
+              知识库 ID
               <input name="dataset_id" autocomplete="off" required />
             </label>
-            <button type="submit" class="secondary-button">Check</button>
-            <button id="parse-documents" type="button" class="primary-button" disabled>Parse Listed</button>
+            <button type="submit" class="secondary-button">检查</button>
+            <button id="parse-documents" type="button" class="primary-button" disabled>解析列表</button>
           </form>
           <div id="documents-list" class="list"></div>
         </section>
 
         <section id="ask" class="view">
           <form id="ask-form" class="panel ask-panel">
-            <h2>Scoped Question</h2>
+            <h2>限定范围提问</h2>
             <div class="scope-builder">
               <div class="scope-controls">
                 <label>
-                  Knowledge Base
+                  知识库
                   <select id="ask-dataset-picker"></select>
                 </label>
-                <button id="ask-add-dataset" type="button" class="secondary-button">Add Dataset</button>
-                <button id="ask-load-documents" type="button" class="secondary-button">Load Docs</button>
-                <button id="ask-check-readiness" type="button" class="secondary-button">Check Readiness</button>
+                <button id="ask-add-dataset" type="button" class="secondary-button">加入知识库</button>
+                <button id="ask-load-documents" type="button" class="secondary-button">加载文档</button>
+                <button id="ask-check-readiness" type="button" class="secondary-button">检查就绪</button>
               </div>
-              <div id="ask-scope-summary" class="scope-summary empty-list">No scope selected.</div>
-              <div id="ask-readiness-status" class="job-status pending">No Ask scope checked.</div>
+              <div id="ask-scope-summary" class="scope-summary empty-list">尚未选择范围。</div>
+              <div id="ask-readiness-status" class="job-status pending">尚未检查提问范围。</div>
               <div id="ask-readiness-actions" class="status-actions"></div>
               <div id="ask-document-picker" class="source-list"></div>
             </div>
             <label>
-              Dataset IDs
+              知识库 ID
               <input name="dataset_ids" placeholder="dataset-a, dataset-b" autocomplete="off" required />
             </label>
             <label>
-              Document IDs
-              <input name="document_ids" placeholder="optional comma-separated ids" autocomplete="off" />
+              文档 ID
+              <input name="document_ids" placeholder="可选，逗号分隔" autocomplete="off" />
             </label>
             <label>
-              Question
+              问题
               <textarea name="question" rows="5" required></textarea>
             </label>
             <label>
-              Additional Retrieval Queries
-              <textarea name="retrieval_queries" rows="3" placeholder="optional, one query per line"></textarea>
+              补充检索问题
+              <textarea name="retrieval_queries" rows="3" placeholder="可选，每行一个问题"></textarea>
             </label>
             <div class="form-row">
               <label>
-                Limit
+                数量
                 <input name="limit" type="number" min="1" max="20" value="5" />
               </label>
               <label>
-                Max Iterations
+                最大轮数
                 <input name="max_iterations" type="number" min="1" max="5" value="2" />
               </label>
               <label>
-                Min Context
+                最少上下文
                 <input name="min_context_packets" type="number" min="1" max="20" value="1" />
               </label>
               <label>
-                Source Inspect
+                来源检查
                 <input name="source_inspection_limit" type="number" min="0" max="10" value="3" />
               </label>
               <label>
-                Proposal
+                产物类型
                 <select name="proposal_kind">
                   <option value="writing_brief">writing_brief</option>
                   <option value="digest">digest</option>
@@ -282,14 +282,14 @@
               </label>
               <label class="check-row side-check">
                 <input name="create_review" type="checkbox" />
-                <span>Force review</span>
+                <span>强制审核</span>
               </label>
               <label class="check-row side-check">
                 <input name="use_kg" type="checkbox" />
-                <span>Use graph retrieval</span>
+                <span>启用图检索</span>
               </label>
             </div>
-            <button type="submit" class="primary-button">Run Ask</button>
+            <button type="submit" class="primary-button">运行提问</button>
           </form>
 
           <div id="ask-result" class="results-zone"></div>
@@ -298,22 +298,22 @@
         <section id="review" class="view">
           <div class="panel">
             <div class="panel-header">
-              <h2>Review Queue</h2>
+              <h2>审核队列</h2>
               <div class="status-strip">
                 <label class="inline-control">
-                  <span>Status</span>
+                  <span>状态</span>
                   <select id="review-status-filter">
-                    <option value="">All</option>
+                    <option value="">全部</option>
                     <option value="pending">pending</option>
                     <option value="accepted">accepted</option>
                     <option value="needs_edit">needs_edit</option>
                     <option value="rejected">rejected</option>
                   </select>
                 </label>
-                <button id="reload-reviews" class="secondary-button" type="button">Reload</button>
+                <button id="reload-reviews" class="secondary-button" type="button">重新加载</button>
               </div>
             </div>
-            <div id="reviews-list" class="list empty-list">No reviews loaded.</div>
+            <div id="reviews-list" class="list empty-list">尚未加载审核项。</div>
           </div>
         </section>
 
@@ -321,19 +321,19 @@
           <div class="writing-layout">
             <div class="panel">
               <div class="panel-header">
-                <h2>Brief Workspace</h2>
+                <h2>写作工作区</h2>
                 <div class="status-strip">
-                  <button id="reload-workflows" class="secondary-button" type="button">Reload Runs</button>
-                  <button id="create-memory-review" class="primary-button" type="button">Memory Review</button>
+                  <button id="reload-workflows" class="secondary-button" type="button">重新加载运行</button>
+                  <button id="create-memory-review" class="primary-button" type="button">记忆审核</button>
                   <button id="export-markdown" class="secondary-button" type="button">Markdown</button>
                   <button id="export-json" class="secondary-button" type="button">JSON</button>
                 </div>
               </div>
-              <div id="writing-current" class="empty-list">Run Ask to create a sourced brief.</div>
+              <div id="writing-current" class="empty-list">运行提问后会生成带来源的 brief。</div>
             </div>
             <div class="panel">
-              <h2>Recent Runs</h2>
-              <div id="workflow-list" class="list empty-list">No runs loaded.</div>
+              <h2>最近运行</h2>
+              <div id="workflow-list" class="list empty-list">尚未加载运行记录。</div>
             </div>
           </div>
         </section>
@@ -342,13 +342,13 @@
           <div class="reader-layout">
             <div class="panel">
               <div class="panel-header">
-                <h2>Source Reader</h2>
-                <span id="reader-status" class="tag">No source selected</span>
+                <h2>来源阅读器</h2>
+                <span id="reader-status" class="tag">尚未选择来源</span>
               </div>
-              <div id="reader-source" class="reader-source empty-list">Select a source from Ask.</div>
+              <div id="reader-source" class="reader-source empty-list">从提问结果中选择来源。</div>
             </div>
             <div class="panel">
-              <h2>Source Coordinates</h2>
+              <h2>来源坐标</h2>
               <dl id="reader-metadata" class="settings-list"></dl>
             </div>
           </div>
@@ -357,12 +357,12 @@
         <section id="activity" class="view">
           <div class="panel">
             <div class="panel-header">
-              <h2>Audit Trail</h2>
+              <h2>审计记录</h2>
               <div class="status-strip">
                 <label class="inline-control">
-                  <span>Action</span>
+                  <span>动作</span>
                   <select id="audit-action-filter">
-                    <option value="">All</option>
+                    <option value="">全部</option>
                     <option value="kb.dataset.create">kb.dataset.create</option>
                     <option value="kb.ingest">kb.ingest</option>
                     <option value="kb.parse">kb.parse</option>
@@ -384,82 +384,82 @@
                     <option value="workflow.export">workflow.export</option>
                   </select>
                 </label>
-                <button id="reload-audit" class="secondary-button" type="button">Reload</button>
+                <button id="reload-audit" class="secondary-button" type="button">重新加载</button>
               </div>
             </div>
-            <div id="audit-list" class="list empty-list">No audit events loaded.</div>
+            <div id="audit-list" class="list empty-list">尚未加载审计记录。</div>
           </div>
         </section>
 
         <section id="settings" class="view">
           <div class="panel">
-            <h2>Runtime</h2>
+            <h2>运行时</h2>
             <dl id="runtime-settings" class="settings-list"></dl>
           </div>
           <div class="panel">
-            <h2>Workspace Policy</h2>
+            <h2>工作区策略</h2>
             <dl id="policy-settings" class="settings-list"></dl>
           </div>
           <div class="panel">
             <div class="panel-header">
-              <h2>Diagnostics</h2>
-              <span id="diagnostics-status" class="tag pending">Not checked</span>
+              <h2>诊断</h2>
+              <span id="diagnostics-status" class="tag pending">未检查</span>
             </div>
-            <div id="runtime-diagnostics" class="list empty-list">No diagnostics loaded.</div>
+            <div id="runtime-diagnostics" class="list empty-list">尚未加载诊断结果。</div>
           </div>
           <div class="panel">
             <div class="panel-header">
-              <h2>Retrieval Probe</h2>
+              <h2>检索探针</h2>
               <div class="button-row">
-                <button id="run-retrieval-probe" class="secondary-button" type="button">Run Retrieval</button>
-                <button id="run-closed-loop-probe" class="primary-button" type="button">Run Live Loop</button>
+                <button id="run-retrieval-probe" class="secondary-button" type="button">运行检索</button>
+                <button id="run-closed-loop-probe" class="primary-button" type="button">运行实时闭环</button>
               </div>
             </div>
             <div class="form-row">
               <label>
-                Knowledge Base
+                知识库
                 <select id="probe-dataset-picker"></select>
               </label>
               <label>
-                Question
-                <input id="probe-question" autocomplete="off" value="PSKA retrieval probe" />
+                问题
+                <input id="probe-question" autocomplete="off" value="PSKA 检索探针" />
               </label>
             </div>
-            <div id="retrieval-probe-result" class="list empty-list">No retrieval probe run.</div>
-            <div id="closed-loop-probe-result" class="list empty-list">No live closed-loop probe run.</div>
+            <div id="retrieval-probe-result" class="list empty-list">尚未运行检索探针。</div>
+            <div id="closed-loop-probe-result" class="list empty-list">尚未运行实时闭环。</div>
           </div>
           <div class="panel">
             <div class="panel-header">
-              <h2>Component Check</h2>
-              <button id="run-component-check" class="primary-button" type="button">Run Check</button>
+              <h2>组件检查</h2>
+              <button id="run-component-check" class="primary-button" type="button">运行检查</button>
             </div>
-            <div id="component-check-result" class="list empty-list">No component check run.</div>
+            <div id="component-check-result" class="list empty-list">尚未运行组件检查。</div>
           </div>
           <div class="panel">
             <div class="panel-header">
-              <h2>Product Acceptance</h2>
-              <button id="run-product-eval" class="secondary-button" type="button">Run Eval</button>
+              <h2>产品验收</h2>
+              <button id="run-product-eval" class="secondary-button" type="button">运行验收</button>
             </div>
-            <div id="product-eval-result" class="list empty-list">No product acceptance eval run.</div>
+            <div id="product-eval-result" class="list empty-list">尚未运行产品验收。</div>
           </div>
           <div class="panel">
             <div class="panel-header">
-              <h2>Memory Probe</h2>
-              <button id="run-memory-probe" class="secondary-button" type="button">Run Memory</button>
+              <h2>记忆探针</h2>
+              <button id="run-memory-probe" class="secondary-button" type="button">运行记忆</button>
             </div>
             <label>
-              Query
-              <input id="memory-probe-query" autocomplete="off" value="PSKA memory probe" />
+              查询
+              <input id="memory-probe-query" autocomplete="off" value="PSKA 记忆探针" />
             </label>
-            <div id="memory-probe-result" class="list empty-list">No memory probe run.</div>
+            <div id="memory-probe-result" class="list empty-list">尚未运行记忆探针。</div>
           </div>
           <div class="panel">
-            <h2>Product Boundary</h2>
+            <h2>产品边界</h2>
             <ul class="boundary-list">
-              <li>Frontend calls PSKA Product API only.</li>
-              <li>Provider payloads stay behind adapters.</li>
-              <li>Durable knowledge changes go through workspace governance.</li>
-              <li>Backend failures surface as explicit errors.</li>
+              <li>前端只调用 PSKA Product API。</li>
+              <li>Provider 原始 payload 留在 adapter 后面。</li>
+              <li>长期知识变更必须经过工作区治理。</li>
+              <li>后端失败以显式错误呈现。</li>
             </ul>
           </div>
         </section>
