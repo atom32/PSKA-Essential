@@ -31,6 +31,10 @@ candidate memory, review, and durable export.
   memory group IDs, Graphiti group IDs, or backend namespace parameters.
 - Use `pska_kb_*` tools when the user needs a document uploaded or parsed into
   an external knowledge base.
+- Use `pska_ingest_loop` when the user wants the normal file-to-work-product
+  loop in one PSKA-controlled tool call. Treat `status=not_ready` as a stop:
+  inspect readiness or ingestion status instead of answering from missing
+  context.
 - Treat upload, parsing, embedding, and indexing as asynchronous. Check document
   readiness and `pska_kb_ingestion_status` before asking over a dataset.
 - Do not use case-specific shortcuts or hardcoded domains.
@@ -110,26 +114,33 @@ For an existing KB:
 
 For a new document:
 
-1. Call `pska_kb_ingest_files` with absolute file paths, a dataset name, and
+1. Prefer `pska_ingest_loop` with absolute file paths, a dataset name, and the
+   user's question when the user wants the normal upload -> Ask -> export loop.
+2. If `pska_ingest_loop` returns `status=ok`, answer from its exported sourced
+   work product and artifact. If it returns `status=not_ready`, report the
+   readiness or ingestion failure and stop before answering.
+3. Use the lower-level path when the user wants step-by-step control or the
+   ingestion job needs long polling: call `pska_kb_ingest_files` with absolute
+   file paths, a dataset name, and
    `parse=true`; inspect the returned `readiness` and `ingestion_status`.
-2. Call `pska_workspace_status` and follow its ingestion-related next action.
-3. If ingestion did not wait or the returned status is not ready, call
+4. Call `pska_workspace_status` and follow its ingestion-related next action.
+5. If ingestion did not wait or the returned status is not ready, call
    `pska_kb_document_status` and `pska_kb_ingestion_status` until the selected
    scope is ready, failed, or requires parsing.
-4. If ingestion status returns a failed scope, report the failure reason instead
+6. If ingestion status returns a failed scope, report the failure reason instead
    of asking.
-5. Call `pska_agentic_question_start` with the returned `dataset_id`.
-6. If you already know useful follow-up angles, pass them as
+7. Call `pska_agentic_question_start` with the returned `dataset_id`.
+8. If you already know useful follow-up angles, pass them as
    `retrieval_queries`; PSKA will run them inside the same explicit scope and
    record the query plan.
-7. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
+9. Use `source_inspection_limit` to bound how many retrieved sources PSKA should
    inspect through adapters during Ask.
-8. If context is insufficient, retrieve again within the same explicit scope or
+10. If context is insufficient, retrieve again within the same explicit scope or
    report that the question cannot be answered from the selected materials.
-9. Answer from the returned context, inspected sources, artifact, and brief.
-10. If a memory patch or deletion was proposed, wait for human acceptance before
+11. Answer from the returned context, inspected sources, artifact, and brief.
+12. If a memory patch or deletion was proposed, wait for human acceptance before
    applying it.
-11. Use `pska_export_brief` only when the user asks for an explicit export.
+13. Use `pska_export_brief` only when the user asks for an explicit export.
 
 ## Good Prompt
 

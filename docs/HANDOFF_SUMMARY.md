@@ -345,7 +345,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 145 tests pass.
+- `make test`: 147 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -404,7 +404,7 @@ Expected result:
 - Governance/adapter tests cover durable memory backend scoping through the
   PSKA `memory_namespace`, including fake memory search and Graphiti group ID
   mapping.
-- `make list-tools`: lists 38 PSKA MCP tools.
+- `make list-tools`: lists 43 PSKA MCP tools, including `pska_ingest_loop`.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -429,6 +429,7 @@ New operational loop tools:
 
 ```text
 pska_kb_ingest_files
+pska_ingest_loop
 pska_kb_delete
 pska_kb_document_status
 pska_kb_readiness

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from pska_essential.config import build_service_from_env
 from pska_essential.kb_gateway import reset_fake_kb_gateway
 from pska_essential.mcp_server import tool_registry
 from pska_essential.workflow import build_fake_service
@@ -25,6 +26,7 @@ EXPECTED_TOOLS = {
     "pska_policy_get",
     "pska_capabilities_get",
     "pska_component_check",
+    "pska_ingest_loop",
     "pska_propose",
     "pska_runtime_diagnostics",
     "pska_review_create",
@@ -92,6 +94,70 @@ class McpContractTests(unittest.TestCase):
         self.assertIsNone(result["closed_loop_probe"])
         self.assertIn("retrieval.probe", [event.action for event in service.store.list_audit_events()])
 
+    def test_ingest_loop_tool_uploads_asks_exports_and_audits(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", env, clear=True):
+            reset_fake_kb_gateway()
+            path = Path(temp_dir) / "loop.txt"
+            path.write_text("PSKA produces sourced work products from uploaded materials.", encoding="utf-8")
+            service = build_service_from_env()
+            tools = tool_registry(service)
+
+            result = tools["pska_ingest_loop"](
+                [str(path)],
+                dataset_name="MCP Loop",
+                question="What does PSKA produce?",
+                export_format="json",
+                poll_interval_seconds=0.05,
+            )
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["ask_status"], "ready")
+        self.assertTrue(result["readiness"]["ready"])
+        self.assertTrue(result["run_id"].startswith("run_"))
+        self.assertEqual(result["export"]["traceability"]["source_count"], 1)
+        actions = {event.action for event in service.store.list_audit_events(limit=50)}
+        self.assertIn("kb.ingest", actions)
+        self.assertIn("agentic_loop.complete", actions)
+        self.assertIn("workflow.export", actions)
+
+    def test_ingest_loop_tool_stops_before_ask_when_scope_is_not_ready(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", env, clear=True):
+            reset_fake_kb_gateway()
+            path = Path(temp_dir) / "bad.pdf"
+            path.write_bytes(b"%PDF-1.5\nbinary")
+            service = build_service_from_env()
+            tools = tool_registry(service)
+
+            result = tools["pska_ingest_loop"](
+                [str(path)],
+                dataset_name="MCP Bad Loop",
+                question="Should not run",
+                poll_interval_seconds=0.05,
+            )
+
+        self.assertEqual(result["status"], "not_ready")
+        self.assertIsNone(result["export"])
+        self.assertIsNone(result["ask_status"])
+        self.assertEqual(result["readiness"]["status"], "failed")
+        actions = {event.action for event in service.store.list_audit_events(limit=50)}
+        self.assertIn("kb.ingest", actions)
+        self.assertNotIn("agentic_loop.complete", actions)
+        self.assertNotIn("workflow.export", actions)
+
     def test_mcp_tools_reject_blank_required_scope_lists_before_backend_calls(self):
         tools = tool_registry(build_fake_service())
 
@@ -99,6 +165,7 @@ class McpContractTests(unittest.TestCase):
             ("pska_agentic_question_start", ("No real scope", ["  "]), "dataset_ids is required"),
             ("pska_kb_readiness", (["  "],), "dataset_ids is required"),
             ("pska_kb_ingest_files", (["  "],), "file_paths is required"),
+            ("pska_ingest_loop", (["  "],), "file_paths is required"),
             ("pska_kb_parse_documents", ("demo", ["  "]), "document_ids is required"),
         ]:
             with self.subTest(tool_name=tool_name):

@@ -23,6 +23,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.governance import build_workspace_policy_from_env
+from pska_essential.ingest_loop import run_ingest_loop
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -237,6 +238,54 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         )
         add_live_closed_loop_probe_audit(service.store, probe)
         return probe
+
+    def pska_ingest_loop(
+        file_paths: list[str],
+        dataset_name: str | None = None,
+        dataset_id: str | None = None,
+        description: str = "",
+        chunk_method: str = "naive",
+        embedding_model: str = "",
+        parse: bool = True,
+        wait_ready: bool = True,
+        timeout_seconds: float = 600.0,
+        poll_interval_seconds: float = 2.0,
+        question: str = "Summarize the uploaded documents with sources.",
+        limit: int = 5,
+        proposal_kind: str = "writing_brief",
+        create_review: bool | None = None,
+        use_kg: bool = False,
+        max_iterations: int = 2,
+        min_context_packets: int = 1,
+        retrieval_queries: list[str] | None = None,
+        source_inspection_limit: int = 3,
+        export_format: str = "markdown",
+    ):
+        selected_file_paths = _required_strings(file_paths, "file_paths", dedupe=False)
+        return run_ingest_loop(
+            service,
+            build_kb_gateway_from_env(),
+            file_paths=selected_file_paths,
+            dataset_name=dataset_name or "",
+            dataset_id=dataset_id or "",
+            description=description,
+            chunk_method=chunk_method,
+            embedding_model=embedding_model,
+            parse=parse,
+            wait_ready=wait_ready,
+            timeout_seconds=timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            question=question,
+            limit=limit,
+            proposal_kind=proposal_kind,
+            create_review=create_review,
+            use_kg=use_kg,
+            max_iterations=max_iterations,
+            min_context_packets=min_context_packets,
+            retrieval_queries=retrieval_queries or [],
+            source_inspection_limit=source_inspection_limit,
+            export_format=export_format,
+        )
 
     def pska_eval_run(suite: str = "smoke"):
         return service.eval_run(suite)
@@ -473,6 +522,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_probe": pska_memory_probe,
         "pska_component_check": pska_component_check,
         "pska_live_closed_loop_probe": pska_live_closed_loop_probe,
+        "pska_ingest_loop": pska_ingest_loop,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,
         "pska_kb_create": pska_kb_create,

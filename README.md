@@ -216,6 +216,7 @@ Operational loop tools:
 - `pska_kb_create`
 - `pska_kb_delete`
 - `pska_kb_ingest_files`
+- `pska_ingest_loop`
 - `pska_kb_document_status`
 - `pska_kb_readiness`
 - `pska_kb_ingestion_status`
@@ -251,6 +252,10 @@ These tools are thin glue over RAGFlow plus the existing PSKA workflow gate:
 KB ingest and parse tools return normalized `readiness` and
 `ingestion_status` along with their operation result, so agents can decide
 whether to wait, parse, inspect a failure, or Ask without calling provider APIs.
+`pska_ingest_loop` is the file-first macro tool for Hermes: it ingests local
+files through the configured KB adapter, waits for PSKA readiness, runs the
+agentic Ask loop, and exports a sourced transient work product. If ingestion is
+not ready, it stops before Ask/export.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live

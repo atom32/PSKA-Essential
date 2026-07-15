@@ -305,7 +305,8 @@ RAGFlow upload/parse operations use the same API key through PSKA MCP tools:
 
 ```text
 pska_kb_delete if a bad development dataset should be removed
-  -> pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_ingestion_status
+  -> pska_ingest_loop for the one-call file-to-work-product path
+  -> or pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_ingestion_status
   -> pska_kb_readiness
   -> pska_agentic_question_start
   -> pska_agentic_question_resumable to find blocked Ask runs
