@@ -30,6 +30,9 @@ Fake KB is intentionally text-only:
 PDF/OCR/binary parsing, embedding, and indexing should use RAGFlow or another
 real KB provider. PDF-like files uploaded to fake KB are marked as failed
 ingestion, not fake-ready context.
+The same product acceptance eval is available through Product API
+`POST /api/runtime/eval` and the frontend Settings view when the Product API is
+running with explicit development or live providers.
 
 ### 2. Hermes MCP Development
 

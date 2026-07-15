@@ -33,6 +33,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.env_file import preload_env_file
+from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.kb_audit import (
@@ -223,6 +224,16 @@ def _handler_class(state: ProductApiState):
                     run_closed_loop=bool(payload.get("run_closed_loop", True)),
                 )
                 self._send_json({"ok": True, "component_check": result})
+                return
+
+            if method == "POST" and path == "/api/runtime/eval":
+                payload = self._read_json()
+                result = run_eval(
+                    str(payload.get("suite") or "product_acceptance"),
+                    state.service,
+                    gateway_factory=state.kb_gateway_factory,
+                )
+                self._send_json({"ok": True, "eval": result})
                 return
 
             if method == "POST" and path == "/api/runtime/memory-probe":

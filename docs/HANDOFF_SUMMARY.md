@@ -308,9 +308,10 @@ Implemented:
   contract. Frontend Run Loop syncs Review and Activity from that contract, so
   durable governance can continue after upload without provider or store access.
 - `pska_eval_run("product_acceptance")`, `pska-essential-eval
-  product_acceptance`, and `make eval` now run a local product acceptance suite
-  through PSKA contracts: file ingest, ready Ask/export, processing-blocked
-  resume, governed durable memory transition, and audit traceability.
+  product_acceptance`, `POST /api/runtime/eval`, frontend Settings Product
+  Acceptance, and `make eval` now run a local product acceptance suite through
+  PSKA contracts: file ingest, ready Ask/export, processing-blocked resume,
+  governed durable memory transition, and audit traceability.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
@@ -462,8 +463,9 @@ Expected result:
   acceptance path, the missing-dataset-scope failure, and skipped core checks
   returning `incomplete` instead of full success. They also cover processing
   KB scopes returning `incomplete` instead of `error`.
-- Eval tests cover `product_acceptance` through direct Python, CLI, and MCP
-  entry points, plus structured startup failures.
+- Eval/Product API tests cover `product_acceptance` through direct Python, CLI,
+  MCP, Product API, and frontend Settings entry points, plus structured startup
+  failures.
 - Env-file/component-check/live closed-loop CLI tests cover structured startup
   configuration errors for missing live provider env and missing live dataset
   scope.

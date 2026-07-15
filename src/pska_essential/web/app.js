@@ -17,6 +17,7 @@ const state = {
   diagnostics: null,
   workspaceStatus: null,
   componentCheck: null,
+  productEval: null,
   retrievalProbe: null,
   memoryProbe: null,
   closedLoopProbe: null,
@@ -207,6 +208,7 @@ function bindRefresh() {
   document.getElementById("reload-workflows").addEventListener("click", loadWorkflows);
   document.getElementById("reload-audit").addEventListener("click", () => loadAuditEvents());
   document.getElementById("run-component-check").addEventListener("click", runComponentCheck);
+  document.getElementById("run-product-eval").addEventListener("click", runProductEval);
   document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
   document.getElementById("run-memory-probe").addEventListener("click", runMemoryProbe);
   document.getElementById("run-closed-loop-probe").addEventListener("click", runClosedLoopProbe);
@@ -685,6 +687,7 @@ function renderSettings() {
   });
   renderPolicy();
   renderComponentCheck();
+  renderProductEval();
   renderRetrievalProbe();
   renderMemoryProbe();
   renderClosedLoopProbe();
@@ -986,6 +989,17 @@ async function runComponentCheck() {
   showToast("Component check recorded.");
 }
 
+async function runProductEval() {
+  const payload = await api("/api/runtime/eval", {
+    method: "POST",
+    body: { suite: "product_acceptance" },
+  });
+  state.productEval = payload.eval || null;
+  renderProductEval();
+  await loadAuditEvents(auditActionForEval(state.productEval));
+  showToast("Product acceptance eval completed.");
+}
+
 async function runMemoryProbe() {
   const query = document.getElementById("memory-probe-query");
   const payload = await api("/api/runtime/memory-probe", {
@@ -1037,6 +1051,19 @@ function renderComponentCheck() {
   }
   container.classList.remove("empty-list");
   container.append(componentCheckCard(state.componentCheck));
+}
+
+function renderProductEval() {
+  const container = document.getElementById("product-eval-result");
+  if (!container) return;
+  container.replaceChildren();
+  if (!state.productEval) {
+    container.classList.add("empty-list");
+    container.textContent = "No product acceptance eval run.";
+    return;
+  }
+  container.classList.remove("empty-list");
+  container.append(evalResultCard(state.productEval));
 }
 
 function renderRetrievalProbe() {
@@ -1118,6 +1145,11 @@ function auditActionForComponentCheck(result) {
   if (result.retrieval_probe) return "retrieval.probe";
   if (result.memory_probe) return "memory.probe";
   return "";
+}
+
+function auditActionForEval(result) {
+  if (!result || !result.ok) return "";
+  return "workflow.export";
 }
 
 function setAuditActionFilter(action) {
@@ -2504,6 +2536,38 @@ function componentCheckCard(result) {
             el("li", {}, [
               el("span", { className: `tag ${statusClass(step.status)}` }, step.status || "unknown"),
               ` ${readableName(step.name)}${step.required === false ? " (optional)" : ""}: ${step.message || ""}`,
+            ]),
+          ),
+        )
+      : null,
+  ]);
+}
+
+function evalResultCard(result) {
+  const providers = result.providers || {};
+  const artifacts = result.artifacts || {};
+  const tags = [
+    el("span", { className: "tag" }, result.suite || "eval"),
+    el("span", { className: "tag" }, `kb ${providers.kb || "unknown"}`),
+    el("span", { className: "tag" }, `retrieval ${providers.retrieval || "unknown"}`),
+    el("span", { className: "tag" }, `memory ${providers.memory || "unknown"}`),
+  ];
+  if (artifacts.ready_run_id) tags.push(el("span", { className: "tag" }, `ready ${shortId(artifacts.ready_run_id)}`));
+  if (artifacts.resumed_run_id) tags.push(el("span", { className: "tag" }, `resumed ${shortId(artifacts.resumed_run_id)}`));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, "Product Acceptance"), el("p", {}, result.message || "")]),
+      el("span", { className: `tag ${statusClass(result.status)}` }, result.status || "unknown"),
+    ]),
+    el("div", { className: "meta-row" }, tags),
+    result.steps && result.steps.length
+      ? el(
+          "ol",
+          { className: "compact-list" },
+          result.steps.map((step) =>
+            el("li", {}, [
+              el("span", { className: `tag ${statusClass(step.status)}` }, step.status || "unknown"),
+              ` ${readableName(step.name)}: ${step.message || ""}`,
             ]),
           ),
         )

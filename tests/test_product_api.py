@@ -1060,6 +1060,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("policy-settings", html)
         self.assertIn("component-check-result", html)
         self.assertIn("run-component-check", html)
+        self.assertIn("product-eval-result", html)
+        self.assertIn("run-product-eval", html)
+        self.assertIn("Product Acceptance", html)
         self.assertIn("retrieval-probe-result", html)
         self.assertIn("run-retrieval-probe", html)
         self.assertIn("memory-probe-result", html)
@@ -1213,6 +1216,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('await loadDocuments(datasetId, { silent: true });\n  await loadWorkspaceStatus();\n  await loadAuditEvents("kb.parse");', script)
         self.assertIn('/api/runtime/diagnostics', script)
         self.assertIn('/api/runtime/component-check', script)
+        self.assertIn('/api/runtime/eval', script)
+        self.assertIn('runProductEval', script)
+        self.assertIn('renderProductEval', script)
+        self.assertIn('evalResultCard', script)
+        self.assertIn('auditActionForEval', script)
         self.assertIn('/api/workspace/status', script)
         self.assertIn('loadWorkspaceStatus', script)
         self.assertIn('workspaceActionCard', script)
@@ -1468,6 +1476,18 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.thread.join(timeout=2)
         self.static_dir.cleanup()
         self.env_patch.stop()
+
+    def test_eval_route_runs_product_acceptance_suite(self):
+        result = self._post_json(
+            "/api/runtime/eval",
+            {"suite": "product_acceptance"},
+        )["eval"]
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["kind"], "eval")
+        self.assertEqual(result["suite"], "product_acceptance")
+        self.assertEqual(result["steps"][0]["name"], "upload_loop.ready_export")
+        self.assertEqual(result["steps"][-1]["name"], "audit.traceability")
 
     def test_product_api_upload_ask_and_source_read_use_uploaded_fake_document(self):
         dataset_name = f"Uploaded API Loop {uuid4().hex}"

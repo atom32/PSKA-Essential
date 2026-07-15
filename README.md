@@ -365,6 +365,7 @@ Implemented Alpha routes:
 - `GET /api/runtime/diagnostics`
 - `GET /api/workspace/status`
 - `POST /api/runtime/component-check`
+- `POST /api/runtime/eval`
 - `POST /api/runtime/retrieval-probe`
 - `POST /api/runtime/memory-probe`
 - `POST /api/runtime/closed-loop-probe`
@@ -555,9 +556,10 @@ source trace in their traceability metadata. Settings shows runtime provider
 configuration, Product API diagnostics for review store, KB gateway, retrieval,
 and memory connectivity, the explicit capability contract, and a component
 check that aggregates runtime diagnostics, memory probe, retrieval probe, and
-closed-loop probe. Settings also exposes focused retrieval and memory probes
-for verifying individual backend paths through PSKA instead of provider-native
-tools. Runtime diagnostics include a read-only memory search contract check so
+closed-loop probe. Settings also exposes product acceptance eval, focused
+retrieval probes, and memory probes for verifying backend paths through PSKA
+instead of provider-native tools. Runtime diagnostics include a read-only memory
+search contract check so
 a shallow Graphiti health check cannot be mistaken for a working memory
 backend. Settings and Product API runtime
 context expose the derived memory namespace. Product API health, diagnostics,
