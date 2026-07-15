@@ -140,6 +140,44 @@
                   <option value="json">json</option>
                 </select>
               </label>
+              <label>
+                Loop Retrieval Queries
+                <textarea name="loop_retrieval_queries" rows="3" placeholder="optional, one query per line"></textarea>
+              </label>
+              <div class="form-row">
+                <label>
+                  Limit
+                  <input name="loop_limit" type="number" min="1" max="20" value="5" />
+                </label>
+                <label>
+                  Max Iterations
+                  <input name="loop_max_iterations" type="number" min="1" max="5" value="2" />
+                </label>
+                <label>
+                  Min Context
+                  <input name="loop_min_context_packets" type="number" min="1" max="20" value="1" />
+                </label>
+                <label>
+                  Source Inspect
+                  <input name="loop_source_inspection_limit" type="number" min="0" max="10" value="3" />
+                </label>
+                <label>
+                  Proposal
+                  <select name="loop_proposal_kind">
+                    <option value="writing_brief">writing_brief</option>
+                    <option value="digest">digest</option>
+                    <option value="memory_patch">memory_patch</option>
+                  </select>
+                </label>
+                <label class="check-row side-check">
+                  <input name="loop_create_review" type="checkbox" />
+                  <span>Force review</span>
+                </label>
+                <label class="check-row side-check">
+                  <input name="loop_use_kg" type="checkbox" />
+                  <span>Use graph retrieval</span>
+                </label>
+              </div>
               <div class="inline-options">
                 <label class="check-row">
                   <input name="parse" type="checkbox" checked />

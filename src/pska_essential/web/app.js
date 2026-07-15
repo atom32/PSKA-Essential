@@ -94,8 +94,10 @@ function bindForms() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const payload = new FormData();
-    for (const file of form.getAll("file")) {
-      if (file && file.name) payload.append("file", file);
+    const fileCount = appendUploadFiles(form, payload);
+    if (!fileCount) {
+      showToast("Select files.");
+      return;
     }
     payload.append("dataset_id", form.get("dataset_id") || "");
     payload.append("dataset_name", form.get("dataset_name") || "");
@@ -808,6 +810,7 @@ async function runIngestLoopFromUploadForm() {
   payload.append("wait_ready", "true");
   payload.append("question", form.get("loop_question") || "Summarize the uploaded documents with sources.");
   payload.append("export_format", form.get("loop_export_format") || "markdown");
+  appendIngestLoopControls(form, payload);
   const payloadResult = await api("/api/ingest-loop", { method: "POST", formData: payload });
   const result = payloadResult.ingest_loop || {};
   const datasetId = ingestDatasetId(result.ingest || result);
@@ -841,6 +844,19 @@ function appendUploadFiles(form, payload) {
     }
   }
   return count;
+}
+
+function appendIngestLoopControls(form, payload) {
+  payload.append("limit", form.get("loop_limit") || "5");
+  payload.append("max_iterations", form.get("loop_max_iterations") || "2");
+  payload.append("min_context_packets", form.get("loop_min_context_packets") || "1");
+  payload.append("source_inspection_limit", form.get("loop_source_inspection_limit") || "3");
+  payload.append("proposal_kind", form.get("loop_proposal_kind") || "writing_brief");
+  payload.append("retrieval_queries", form.get("loop_retrieval_queries") || "");
+  payload.append("use_kg", form.get("loop_use_kg") ? "true" : "false");
+  if (form.get("loop_create_review")) {
+    payload.append("create_review", "true");
+  }
 }
 
 function openLoopWorkProduct(result) {

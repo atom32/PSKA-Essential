@@ -271,7 +271,9 @@ Implemented:
 - Frontend Knowledge Bases upload can call the same Product API ingest loop, so
   users can go from selected files to sourced Writing output without the
   frontend calling RAGFlow, Graphiti, embedding services, or fake providers
-  directly.
+  directly. The upload loop exposes PSKA loop controls for limit, iterations,
+  minimum context, additional retrieval queries, source inspection, proposal
+  kind, optional review, and graph-aware retrieval.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
@@ -352,7 +354,7 @@ Expected result:
 
 - `make test`: 149 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
-  affordances, scoped Ask, Review, memory apply/update/delete, audit records, KB
+  controls, scoped Ask, Review, memory apply/update/delete, audit records, KB
   readiness blocking, diagnostics, document graph read, dataset creation,
   parsing audit, multipart document upload, fake upload-to-Ask source reads,
   fake PDF-like upload failure before Ask, and export refusal for

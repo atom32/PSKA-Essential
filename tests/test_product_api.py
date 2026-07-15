@@ -995,6 +995,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("run-ingest-loop", html)
         self.assertIn("loop_question", html)
         self.assertIn("loop_export_format", html)
+        self.assertIn("loop_retrieval_queries", html)
+        self.assertIn("loop_max_iterations", html)
+        self.assertIn("loop_min_context_packets", html)
+        self.assertIn("loop_source_inspection_limit", html)
+        self.assertIn("loop_proposal_kind", html)
+        self.assertIn("loop_create_review", html)
+        self.assertIn("loop_use_kg", html)
         self.assertIn("Embedding Model", html)
         self.assertIn("embedding_model", html)
         self.assertIn("embedding_model: form.get(\"embedding_model\")", script)
@@ -1083,6 +1090,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('document.getElementById("run-ingest-loop").addEventListener("click", runIngestLoopFromUploadForm);', script)
         self.assertIn('/api/ingest-loop', script)
         self.assertIn("openLoopWorkProduct", script)
+        self.assertIn("appendIngestLoopControls", script)
+        self.assertIn('payload.append("retrieval_queries", form.get("loop_retrieval_queries") || "");', script)
+        self.assertIn('payload.append("use_kg", form.get("loop_use_kg") ? "true" : "false");', script)
+        self.assertIn('payload.append("create_review", "true");', script)
         self.assertIn('const datasetId = ingestDatasetId(result.ingest);', script)
         self.assertIn('showToast("Upload accepted. Target kept for more files.");', script)
         self.assertIn('renderIngestResult(result.ingest, result.readiness);\n    await loadDatasets();\n    await loadAuditEvents("kb.ingest");', script)
@@ -1394,6 +1405,12 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
                 "question": f"What does the uploaded file say about {unique_phrase}?",
                 "export_format": "json",
                 "poll_interval_seconds": "0.05",
+                "limit": "2",
+                "max_iterations": "4",
+                "min_context_packets": "1",
+                "retrieval_queries": "secondary retrieval\ntertiary retrieval",
+                "source_inspection_limit": "0",
+                "use_kg": "true",
             },
             "loop-note.txt",
             f"The uploaded file says {unique_phrase} inside the PSKA loop.",
@@ -1406,6 +1423,15 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.assertTrue(result["readiness"]["ready"])
         self.assertTrue(result["run_id"].startswith("run_"))
         self.assertEqual(result["export"]["traceability"]["source_count"], 1)
+        self.assertEqual(result["export"]["traceability"]["source_inspection_count"], 0)
+        ask_request = result["export"]["run"]["metadata"]["ask_request"]
+        self.assertEqual(ask_request["limit"], 2)
+        self.assertEqual(ask_request["max_iterations"], 4)
+        self.assertEqual(ask_request["min_context_packets"], 1)
+        self.assertEqual(ask_request["retrieval_queries"], ["secondary retrieval", "tertiary retrieval"])
+        self.assertEqual(ask_request["source_inspection_limit"], 0)
+        self.assertTrue(ask_request["use_kg"])
+        self.assertTrue(result["export"]["run"]["scope"]["use_kg"])
         self.assertIn(unique_phrase, result["export"]["context_packets"][0]["text"])
         ingest_audit = self._get_json("/api/audit?limit=10&action=kb.ingest")
         self.assertEqual(ingest_audit["events"][0]["metadata"]["document_names"], ["loop-note.txt"])

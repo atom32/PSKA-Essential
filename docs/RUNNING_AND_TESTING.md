@@ -113,7 +113,10 @@ documents for later Ask or run the file-first ingest loop through
 adapters, waits for PSKA readiness, and opens Writing only after a sourced
 transient work product is exported. If parsing, embedding, indexing, retrieval,
 or export is not ready, the UI keeps the explicit failure/not-ready state and
-does not substitute fake context. Ask displays explicit PSKA-controlled loop steps,
+does not substitute fake context. The upload loop exposes the same PSKA loop
+controls as Ask for limit, max iterations, minimum context, additional retrieval
+queries, source inspection, proposal kind, optional review, and graph-aware
+retrieval. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, explicit additional retrieval queries, and optional

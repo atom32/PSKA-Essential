@@ -359,7 +359,10 @@ the frontend posts files to `POST /api/ingest-loop`, waits on the same PSKA KB
 readiness gate, and opens Writing with the exported sourced work product only
 when the configured adapters complete successfully. Processing or failed
 ingestion remains visible as not-ready status instead of falling back to fake
-data or an unsourced answer.
+data or an unsourced answer. The same form exposes PSKA-owned loop controls for
+limit, max iterations, minimum context, additional retrieval queries, source
+inspection, proposal kind, optional review, and graph-aware retrieval; these are
+Product API fields, not provider-native calls.
 Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Each next action includes stable
