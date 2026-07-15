@@ -126,6 +126,11 @@ unsupported backend operations remain visible as inspect actions instead of
 being offered as apply actions. When a workspace or tenant is configured,
 Graphiti memory search/apply uses a derived PSKA memory namespace under the
 configured `GRAPHITI_GROUP_ID`.
+Use `pska_memory_probe` or `POST /api/runtime/memory-probe` to verify that the
+configured memory backend can actually serve search requests. Graphiti
+`/healthcheck` only proves the service is running; the probe surfaces LLM or
+embedding provider configuration failures explicitly instead of falling back to
+fake memory.
 
 Workspace governance policy:
 
@@ -196,6 +201,7 @@ Operational loop tools:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_retrieval_probe`
+- `pska_memory_probe`
 - `pska_live_closed_loop_probe`
 - `pska_agentic_question_start`
 - `pska_agentic_question_resumable`
@@ -223,6 +229,9 @@ KB ingest and parse tools return normalized `readiness` and
 `ingestion_status` along with their operation result, so agents can decide
 whether to wait, parse, inspect a failure, or Ask without calling provider APIs.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
+`pska_memory_probe` checks whether the configured memory backend can search
+through the PSKA memory contract; it rejects fake memory by default for live
+component verification and records a `memory.probe` audit event.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live
@@ -276,6 +285,7 @@ Implemented Alpha routes:
 - `GET /api/runtime/diagnostics`
 - `GET /api/workspace/status`
 - `POST /api/runtime/retrieval-probe`
+- `POST /api/runtime/memory-probe`
 - `POST /api/runtime/closed-loop-probe`
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`

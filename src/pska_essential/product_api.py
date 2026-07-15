@@ -24,9 +24,11 @@ from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import (
     add_live_closed_loop_probe_audit,
+    add_memory_probe_audit,
     add_retrieval_probe_audit,
     build_runtime_diagnostics,
     run_live_closed_loop_probe,
+    run_memory_probe,
     run_retrieval_probe,
 )
 from pska_essential.governance import build_workspace_policy_from_env
@@ -189,6 +191,19 @@ def _handler_class(state: ProductApiState):
                     use_kg=bool(payload.get("use_kg", False)),
                 )
                 add_retrieval_probe_audit(state.service.store, probe)
+                self._send_json({"ok": True, "probe": probe})
+                return
+
+            if method == "POST" and path == "/api/runtime/memory-probe":
+                payload = self._read_json()
+                probe = run_memory_probe(
+                    state.service,
+                    query=str(payload.get("query") or "PSKA memory probe"),
+                    scope=dict(payload.get("scope") or {}),
+                    limit=int(payload.get("limit") or 1),
+                    require_live=bool(payload.get("require_live", True)),
+                )
+                add_memory_probe_audit(state.service.store, probe)
                 self._send_json({"ok": True, "probe": probe})
                 return
 

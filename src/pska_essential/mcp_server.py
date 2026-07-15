@@ -14,8 +14,10 @@ from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import (
     add_live_closed_loop_probe_audit,
+    add_memory_probe_audit,
     add_retrieval_probe_audit,
     run_live_closed_loop_probe,
+    run_memory_probe,
     run_retrieval_probe,
 )
 from pska_essential.governance import build_workspace_policy_from_env
@@ -152,6 +154,22 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             use_kg=use_kg,
         )
         add_retrieval_probe_audit(service.store, probe)
+        return probe
+
+    def pska_memory_probe(
+        query: str = "PSKA memory probe",
+        scope: dict[str, Any] | None = None,
+        limit: int = 1,
+        require_live: bool = True,
+    ):
+        probe = run_memory_probe(
+            service,
+            query=query,
+            scope=scope or {},
+            limit=limit,
+            require_live=require_live,
+        )
+        add_memory_probe_audit(service.store, probe)
         return probe
 
     def pska_live_closed_loop_probe(
@@ -412,6 +430,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_export_brief": pska_export_brief,
         "pska_audit_list": pska_audit_list,
         "pska_retrieval_probe": pska_retrieval_probe,
+        "pska_memory_probe": pska_memory_probe,
         "pska_live_closed_loop_probe": pska_live_closed_loop_probe,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,

@@ -80,6 +80,7 @@ The public tool surface is:
 - `pska_export_brief`
 - `pska_audit_list`
 - `pska_retrieval_probe`
+- `pska_memory_probe`
 - `pska_live_closed_loop_probe`
 - `pska_eval_run`
 - `pska_kb_list`
@@ -110,6 +111,9 @@ Workspace status must keep per-dataset readiness visible, so a processing or
 failed dataset does not hide a separate ready dataset from Ask. Workspace status
 must translate ingestion-job action names into stable PSKA product actions, for
 example `start_parse` becomes `parse_documents`.
+`pska_memory_probe` is a read-only diagnostic for the configured memory adapter.
+It verifies memory search through the PSKA contract, rejects fake memory by
+default for live component verification, and writes `memory.probe` audit records.
 
 ## KB Gateway
 

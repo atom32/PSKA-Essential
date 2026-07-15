@@ -7,8 +7,10 @@ from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
 from pska_essential.contracts import ContextPacket, SourceContext, SourceRef
 from pska_essential.diagnostics import (
     add_live_closed_loop_probe_audit,
+    add_memory_probe_audit,
     add_retrieval_probe_audit,
     run_live_closed_loop_probe,
+    run_memory_probe,
     run_retrieval_probe,
 )
 from pska_essential.review_store import SQLiteReviewStore
@@ -58,6 +60,13 @@ class _BrokenReadinessGateway:
         raise RuntimeError("KB list failed")
 
 
+class _BrokenMemory:
+    backend_name = "graphiti"
+
+    def search(self, query, scope, limit):
+        raise RuntimeError("Graphiti HTTP POST /search failed: 500 Internal Server Error")
+
+
 class _LiveRetrieval:
     backend_name = "live-test"
 
@@ -85,6 +94,28 @@ class _LiveRetrieval:
 
 
 class DiagnosticsTests(unittest.TestCase):
+    def test_memory_probe_rejects_fake_as_live_proof(self):
+        service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
+
+        probe = run_memory_probe(service, query="probe memory")
+
+        self.assertEqual(probe["status"], "invalid_configuration")
+        self.assertEqual(probe["provider"], "fake")
+        self.assertEqual(probe["memory_count"], 0)
+
+    def test_memory_probe_reports_provider_errors_and_audits(self):
+        service = WorkflowService(_LiveRetrieval(), _BrokenMemory(), SQLiteReviewStore(":memory:"))
+
+        probe = run_memory_probe(service, query="probe graphiti")
+        add_memory_probe_audit(service.store, probe)
+
+        self.assertEqual(probe["status"], "error")
+        self.assertEqual(probe["provider"], "graphiti")
+        self.assertIn("LLM or embedding provider", probe["message"])
+        event = service.store.list_audit_events(action="memory.probe", limit=1)[0]
+        self.assertEqual(event.metadata["status"], "error")
+        self.assertEqual(event.metadata["error_type"], "RuntimeError")
+
     def test_retrieval_probe_surfaces_model_provider_errors_and_audits(self):
         service = SimpleNamespace(retrieval=_BrokenRetrieval())
         store = SQLiteReviewStore(":memory:")

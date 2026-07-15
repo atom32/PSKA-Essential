@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from io import BytesIO
 import json
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAdapter
 from pska_essential.adapters.graphiti import GraphitiAdapterError, GraphitiMemoryAdapter
@@ -125,6 +127,21 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(result.metadata["operation"], "delete")
         self.assertEqual(captured["method"], "DELETE")
         self.assertEqual(captured["url"], "http://graphiti.local/entity-edge/edge%201")
+
+    def test_graphiti_http_search_error_is_actionable(self):
+        def fake_urlopen(request, timeout):
+            raise HTTPError(
+                request.full_url,
+                500,
+                "Internal Server Error",
+                {},
+                BytesIO(b"Internal Server Error"),
+            )
+
+        adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local")
+        with patch("pska_essential.adapters.graphiti.memory.urlopen", fake_urlopen):
+            with self.assertRaisesRegex(GraphitiAdapterError, "LLM/embedding provider configuration"):
+                adapter.search("hello", {}, 1)
 
     def test_graphiti_update_fails_without_transactional_update_endpoint(self):
         adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local")

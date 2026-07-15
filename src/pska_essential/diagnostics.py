@@ -136,6 +136,55 @@ def run_retrieval_probe(
     }
 
 
+def run_memory_probe(
+    service: Any,
+    *,
+    query: str = "PSKA memory probe",
+    scope: dict[str, Any] | None = None,
+    limit: int = 1,
+    require_live: bool = True,
+) -> dict[str, Any]:
+    normalized_query = query.strip() or "PSKA memory probe"
+    selected_scope = dict(scope or {})
+    selected_limit = max(1, int(limit or 1))
+    provider = _provider_name("PSKA_MEMORY_PROVIDER", getattr(service, "memory", None))
+    if require_live and provider == "fake":
+        return {
+            "kind": "memory_probe",
+            "status": "invalid_configuration",
+            "provider": provider,
+            "message": "Memory probe requires a non-fake memory provider for live component verification.",
+            "query": normalized_query,
+            "scope": selected_scope,
+            "memory_count": 0,
+            "memory_facts": [],
+        }
+    try:
+        facts = service.memory_search(normalized_query, selected_scope, selected_limit)
+    except Exception as exc:  # noqa: BLE001 - probes should return explicit provider errors.
+        return {
+            "kind": "memory_probe",
+            "status": "error",
+            "provider": provider,
+            "message": _memory_probe_error_message(exc),
+            "query": normalized_query,
+            "scope": selected_scope,
+            "memory_count": 0,
+            "memory_facts": [],
+            "error": {"type": exc.__class__.__name__, "message": str(exc)},
+        }
+    return {
+        "kind": "memory_probe",
+        "status": "ok",
+        "provider": provider,
+        "message": f"Memory provider returned {len(facts)} fact(s).",
+        "query": normalized_query,
+        "scope": selected_scope,
+        "memory_count": len(facts),
+        "memory_facts": to_jsonable(facts),
+    }
+
+
 def run_live_closed_loop_probe(
     service: Any,
     gateway: Any,
@@ -430,6 +479,24 @@ def add_retrieval_probe_audit(store: Any, probe: dict[str, Any]) -> None:
     )
 
 
+def add_memory_probe_audit(store: Any, probe: dict[str, Any]) -> None:
+    scope = probe.get("scope") or {}
+    error = probe.get("error") or {}
+    store.add_audit_event(
+        audit_event(
+            "memory.probe",
+            "memory_scope",
+            str(scope.get("memory_namespace") or scope.get("memory_group_id") or "workspace"),
+            provider=str(probe.get("provider") or ""),
+            status=str(probe.get("status") or ""),
+            scope=scope,
+            memory_count=int(probe.get("memory_count") or 0),
+            error_type=str(error.get("type") or ""),
+            error_message=str(error.get("message") or ""),
+        )
+    )
+
+
 def add_live_closed_loop_probe_audit(store: Any, probe: dict[str, Any]) -> None:
     scope = probe.get("scope") or {}
     dataset_ids = [str(item) for item in scope.get("dataset_ids") or []]
@@ -569,6 +636,17 @@ def _retrieval_probe_error_message(exc: Exception) -> str:
             "Check the KB embedding model and model-provider configuration before running Ask."
         )
     return f"Retrieval provider failed: {raw}"
+
+
+def _memory_probe_error_message(exc: Exception) -> str:
+    raw = str(exc) or exc.__class__.__name__
+    normalized = raw.rstrip(".")
+    if "Graphiti HTTP" in raw and ("/search" in raw or "/messages" in raw):
+        return (
+            f"Memory provider failed: {normalized}. "
+            "Graphiti may be healthy while its LLM or embedding provider is not configured."
+        )
+    return f"Memory provider failed: {normalized}"
 
 
 def _ask_probe_summary(ask_result: dict[str, Any]) -> dict[str, Any]:

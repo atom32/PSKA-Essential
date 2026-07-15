@@ -248,6 +248,11 @@ curl http://127.0.0.1:8000/healthcheck
 The local Graphiti container needs `OPENAI_API_KEY` in
 `/Users/xudawei/PSKA-Components/graphiti/.env.pska` before real memory
 extraction/search should be used.
+The `/healthcheck` endpoint only proves the Graphiti service is running. Use
+`pska_memory_probe` or `POST /api/runtime/memory-probe` to prove that the
+configured Graphiti memory adapter can complete search through its LLM and
+embedding provider configuration. The probe rejects fake memory by default and
+surfaces provider errors explicitly.
 
 This is the normal development setup. Do not make PSKA-Essential own those
 processes unless the test explicitly targets orchestration.
@@ -355,6 +360,14 @@ retrieval through the configured retrieval adapter, records a `retrieval.probe`
 audit event, and surfaces provider errors such as missing embedding model
 providers explicitly.
 
+Use `pska_memory_probe` or `POST /api/runtime/memory-probe` when Graphiti is
+reachable but memory search or governed memory workflows fail. The probe calls
+the configured memory adapter through PSKA, records a `memory.probe` audit
+event, and rejects fake memory by default so it cannot be mistaken for a live
+component proof. A Graphiti health check can pass while LLM or embedding
+provider configuration is still missing; the probe reports that condition as a
+provider error instead of using fallback data.
+
 Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
 `make live-closed-loop` when the question is whether the real configured
 components can complete the product loop. The live probe rejects fake KB and
@@ -422,6 +435,7 @@ Core tests:
 - Product API and frontend boundary smoke tests
 - agentic Ask loop diagnostics and durable-governance defaults
 - explicit retrieval probe diagnostics for selected ready scopes
+- explicit memory probe diagnostics that reject fake memory by default
 - live closed-loop probe diagnostics that reject fake KB/retrieval providers
 
 Integration tests:

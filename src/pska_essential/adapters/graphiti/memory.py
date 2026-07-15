@@ -5,7 +5,7 @@ import inspect
 import json
 from datetime import datetime, timezone
 from typing import Any
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -167,6 +167,8 @@ class GraphitiMemoryAdapter:
         try:
             with urlopen(req, timeout=30) as response:
                 raw = response.read().decode("utf-8")
+        except HTTPError as exc:
+            raise GraphitiAdapterError(_http_error_message("POST", path, exc)) from exc
         except URLError as exc:
             raise GraphitiAdapterError(str(exc)) from exc
         if not raw and accept_empty:
@@ -178,6 +180,8 @@ class GraphitiMemoryAdapter:
         try:
             with urlopen(req, timeout=30) as response:
                 raw = response.read().decode("utf-8")
+        except HTTPError as exc:
+            raise GraphitiAdapterError(_http_error_message("DELETE", path, exc)) from exc
         except URLError as exc:
             raise GraphitiAdapterError(str(exc)) from exc
         return json.loads(raw or "{}")
@@ -241,3 +245,20 @@ def _iso(value: Any) -> str | None:
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)
+
+
+def _http_error_message(method: str, path: str, exc: HTTPError) -> str:
+    try:
+        body = exc.read().decode("utf-8", errors="replace").strip()
+    except Exception:
+        body = ""
+    status = f"{exc.code} {exc.reason}".strip()
+    message = f"Graphiti HTTP {method} {path} failed: {status}"
+    if body:
+        message = f"{message}: {body[:500]}"
+    if path in {"/search", "/messages"} and exc.code >= 500:
+        message = (
+            f"{message}. Check Graphiti LLM/embedding provider configuration "
+            "(OPENAI_API_KEY, OPENAI_BASE_URL, model, and embedding model)."
+        )
+    return message

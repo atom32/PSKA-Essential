@@ -733,6 +733,22 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(probe["readiness"]["status"], "processing")
         self.assertIn("not ready", probe["message"])
 
+    def test_memory_probe_route_rejects_fake_as_live_proof_and_can_run_dev_probe(self):
+        blocked = self._post_json("/api/runtime/memory-probe", {"query": "memory", "limit": 1})["probe"]
+
+        self.assertEqual(blocked["status"], "invalid_configuration")
+        self.assertEqual(blocked["provider"], "fake")
+
+        dev_probe = self._post_json(
+            "/api/runtime/memory-probe",
+            {"query": "memory", "limit": 1, "require_live": False},
+        )["probe"]
+
+        self.assertEqual(dev_probe["status"], "ok")
+        self.assertEqual(dev_probe["provider"], "fake")
+        audit = self._get_json("/api/audit?limit=5&action=memory.probe")
+        self.assertEqual(audit["events"][0]["metadata"]["status"], "ok")
+
     def test_closed_loop_probe_rejects_fake_retrieval_as_product_proof(self):
         probe = self._post_json(
             "/api/runtime/closed-loop-probe",

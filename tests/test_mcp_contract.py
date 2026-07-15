@@ -34,6 +34,7 @@ EXPECTED_TOOLS = {
     "pska_memory_apply",
     "pska_memory_delete_review",
     "pska_memory_lifecycle",
+    "pska_memory_probe",
     "pska_memory_review_from_workflow",
     "pska_memory_update_review",
     "pska_export_brief",
@@ -114,6 +115,9 @@ class McpContractTests(unittest.TestCase):
         applied = tools["pska_memory_apply"](review["review_id"])
         self.assertTrue(applied["applied"])
         facts = tools["pska_memory_search"]("mcp memory", {}, 10)
+        probe = tools["pska_memory_probe"]("mcp memory", {}, 1, require_live=False)
+        self.assertEqual(probe["status"], "ok")
+        self.assertEqual(probe["memory_count"], 1)
         update_review = tools["pska_memory_update_review"](facts[0], "updated mcp memory", "revise mcp memory")
         self.assertEqual(update_review["proposal"]["kind"], "memory_update")
         tools["pska_review_decide"](update_review["review"]["review_id"], "accept", "update")
