@@ -388,9 +388,10 @@ workflow export audit event, inspected source snippets, and durable-memory
 source trace in their traceability metadata. Settings shows runtime provider
 configuration, Product API diagnostics for review store, KB gateway, retrieval,
 and memory connectivity, the explicit capability contract, and an explicit
-retrieval probe for the selected dataset before running Ask. Product API health,
-diagnostics, probe audit records, and other audit records include the runtime
-workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`; the
-review store uses that same context to scope workflows, reviews, memory apply
-records, and audit reads, while memory adapters use it to scope durable memory
-backend search and writes.
+retrieval probe for the selected dataset before running Ask. Settings and
+Product API runtime context expose the derived memory namespace. Product API
+health, diagnostics, probe audit records, and other audit records include the
+runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`;
+the review store uses that same context to scope workflows, reviews, memory
+apply records, and audit reads, while memory adapters use it to scope durable
+memory backend search and writes.

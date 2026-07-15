@@ -229,8 +229,8 @@ Implemented:
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
-- Runtime workspace/tenant context surfaced in health, diagnostics, Settings,
-  and audit metadata.
+- Runtime workspace/tenant context, including derived PSKA `memory_namespace`,
+  surfaced in health, diagnostics, Settings, and audit metadata.
 - The SQLite review store indexes workflows, proposals, reviews, memory apply
   records, and audit events by workspace/tenant; default list/read APIs only
   return records for the current `PSKA_WORKSPACE_ID` / `PSKA_TENANT_ID`.
@@ -297,7 +297,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 102 tests pass.
+- `make test`: 104 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -334,8 +334,8 @@ Expected result:
 - Product API/MCP/frontend tests cover workspace policy visibility.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
-- Governance/runtime context tests cover explicit default workspace and audit
-  workspace/tenant metadata.
+- Governance/runtime context tests cover explicit default workspace, derived
+  memory namespace, and audit workspace/tenant metadata.
 - Governance/store tests cover workspace/tenant isolation for workflow, review,
   and audit reads in a shared SQLite review store.
 - Governance/adapter tests cover durable memory backend scoping through the
@@ -443,11 +443,12 @@ matching workflow/governance audit action. Settings shows runtime provider
 configuration, Product API diagnostics for review store, KB gateway, retrieval,
 and memory connectivity, and the explicit `/api/capabilities` operation
 contract.
-Product API health, diagnostics, and audit records include the runtime
-workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`, and the
-review store scopes workflow, review, memory-apply, and audit reads by that
-same context. Durable memory adapters receive the same context as
-`memory_namespace` for backend search/write scoping. If
+Product API health, diagnostics, Settings, and audit records include the
+runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and
+`PSKA_TENANT_ID`, including the derived PSKA `memory_namespace`. The review
+store scopes workflow, review, memory-apply, and audit reads by that same
+context. Durable memory adapters receive `memory_namespace` for backend
+search/write scoping. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
 does not start retrieval. If retrieved context remains below the required
 context count, Ask returns `insufficient_context`, shows any retrieved partial

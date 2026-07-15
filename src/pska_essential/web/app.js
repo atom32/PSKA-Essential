@@ -614,6 +614,7 @@ function renderSettings() {
     ["Runtime Status", diagnostics.status || "not checked"],
     ["Workspace", workspace.workspace_id || "default"],
     ["Tenant", workspace.tenant_id || "not configured"],
+    ["Memory Namespace", workspace.memory_namespace || "default"],
     ["Retrieval", providers.retrieval || "not configured"],
     ["Knowledge Base", providers.kb || "not configured"],
     ["Memory", providers.memory || "not configured"],

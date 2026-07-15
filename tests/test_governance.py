@@ -53,6 +53,28 @@ class GovernancePolicyTests(unittest.TestCase):
         self.assertFalse(context.workspace_configured)
         self.assertEqual(context.tenant_id, "")
         self.assertFalse(context.tenant_configured)
+        self.assertEqual(context.memory_namespace, "")
+
+    def test_runtime_workspace_context_derives_memory_namespace(self):
+        with patch.dict(
+            os.environ,
+            {"PSKA_WORKSPACE_ID": "workspace-a", "PSKA_TENANT_ID": "tenant-a"},
+            clear=True,
+        ):
+            context = build_runtime_workspace_context()
+
+        self.assertEqual(context.workspace_id, "workspace-a")
+        self.assertEqual(context.tenant_id, "tenant-a")
+        self.assertEqual(context.memory_namespace, "workspace:workspace-a:tenant:tenant-a")
+        self.assertEqual(context.to_dict()["memory_namespace"], "workspace:workspace-a:tenant:tenant-a")
+
+    def test_runtime_workspace_context_derives_workspace_only_memory_namespace(self):
+        with patch.dict(os.environ, {"PSKA_WORKSPACE_ID": "workspace-a"}, clear=True):
+            context = build_runtime_workspace_context()
+
+        self.assertEqual(context.workspace_id, "workspace-a")
+        self.assertEqual(context.tenant_id, "")
+        self.assertEqual(context.memory_namespace, "workspace:workspace-a")
 
     def test_audit_event_includes_workspace_context(self):
         with patch.dict(

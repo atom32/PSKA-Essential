@@ -816,9 +816,8 @@ def _memory_runtime_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]
     payload.setdefault("tenant_id", context.tenant_id)
     payload.setdefault("workspace_configured", context.workspace_configured)
     payload.setdefault("tenant_configured", context.tenant_configured)
-    namespace = _memory_namespace(context.to_dict())
-    if namespace:
-        payload.setdefault("memory_namespace", namespace)
+    if context.memory_namespace:
+        payload.setdefault("memory_namespace", context.memory_namespace)
     return payload
 
 
@@ -829,16 +828,6 @@ def _attach_memory_runtime_metadata(metadata: dict[str, Any], proposal: Proposal
             metadata.setdefault(key, scope[key])
     metadata.setdefault("proposal_id", proposal.proposal_id)
     metadata.setdefault("run_id", proposal.run_id)
-
-
-def _memory_namespace(context: dict[str, Any]) -> str:
-    if not context.get("workspace_configured") and not context.get("tenant_configured"):
-        return ""
-    parts = [f"workspace:{context.get('workspace_id') or 'default'}"]
-    tenant_id = str(context.get("tenant_id") or "")
-    if tenant_id:
-        parts.append(f"tenant:{tenant_id}")
-    return ":".join(parts)
 
 
 def _memory_fact_from_input(memory_fact: MemoryFact | dict[str, Any], operation: str) -> MemoryFact:
