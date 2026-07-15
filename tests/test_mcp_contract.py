@@ -78,14 +78,23 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(service.store.list_audit_events(action="memory.search"), [])
 
     def test_component_check_tool_returns_structured_acceptance_result(self):
-        service = build_fake_service()
-        tools = tool_registry(service)
-
-        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", env, clear=True):
             reset_fake_kb_gateway()
+            path = Path(temp_dir) / "component-check.txt"
+            path.write_text("Configured PSKA components can retrieve uploaded source material.", encoding="utf-8")
+            service = build_service_from_env()
+            tools = tool_registry(service)
+            ingested = tools["pska_kb_ingest_files"]([str(path)], dataset_name="MCP Component Check", parse=True)
             result = tools["pska_component_check"](
                 question="Can the configured components answer?",
-                dataset_ids=["demo"],
+                dataset_ids=[ingested["dataset"]["dataset_id"]],
                 require_memory=False,
                 run_closed_loop=False,
             )
@@ -325,19 +334,27 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(audit[-1]["action"], "workflow.export")
 
     def test_retrieval_probe_reports_scope_and_writes_audit(self):
-        service = build_fake_service()
-        tools = tool_registry(service)
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            service = build_service_from_env()
+            tools = tool_registry(service)
+            ingested = _ingest_text(
+                tools,
+                temp_dir,
+                name="retrieval-probe.txt",
+                text="Retrieval probes should answer from explicitly uploaded source material.",
+            )
+            dataset_id = ingested["dataset"]["dataset_id"]
 
-        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
             probe = tools["pska_retrieval_probe"](
                 question="Can retrieval answer?",
-                dataset_ids=["demo"],
+                dataset_ids=[dataset_id],
                 limit=1,
             )
 
         self.assertEqual(probe["status"], "ok")
         self.assertEqual(probe["provider"], "fake")
-        self.assertEqual(probe["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(probe["scope"]["dataset_ids"], [dataset_id])
         self.assertEqual(probe["context_count"], 1)
         event = service.store.list_audit_events(action="retrieval.probe", limit=1)[0]
         self.assertEqual(event.metadata["status"], "ok")
@@ -360,10 +377,17 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(event.metadata["status"], "invalid_configuration")
 
     def test_workspace_status_reports_operational_next_actions(self):
-        tools = tool_registry(build_fake_service())
-
-        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
             reset_fake_kb_gateway()
+            tools = tool_registry(build_service_from_env())
+            ingested = _ingest_text(
+                tools,
+                temp_dir,
+                name="workspace-status.txt",
+                text="Workspace status should surface uploaded ready knowledge as the Ask scope.",
+            )
+            dataset_id = ingested["dataset"]["dataset_id"]
+
             status = tools["pska_workspace_status"]()
 
         self.assertEqual(status["kind"], "workspace_status")
@@ -371,7 +395,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(status["kb"]["readiness"]["status"], "ready")
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
-        self.assertIn("demo", status["next_actions"][0]["params"]["dataset_ids"])
+        self.assertIn(dataset_id, status["next_actions"][0]["params"]["dataset_ids"])
 
     def test_memory_review_from_workflow_turns_transient_run_into_review(self):
         service = build_fake_service()
@@ -416,11 +440,23 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("review.revise", actions)
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
-        tools = tool_registry(build_fake_service())
-        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            tools = tool_registry(build_service_from_env())
+            ingested = _ingest_texts(
+                tools,
+                temp_dir,
+                files={
+                    "workflow-gate.txt": "The workflow gate retrieves context and prepares reviewed memory candidates.",
+                    "adapter-boundary.txt": "Adapter Boundary keeps provider payloads behind PSKA contracts.",
+                },
+                dataset_name="MCP Agentic Question",
+            )
+            dataset_id = ingested["dataset"]["dataset_id"]
+
             result = tools["pska_agentic_question_start"](
                 question="How does the workflow gate work?",
-                dataset_ids=["demo"],
+                dataset_ids=[dataset_id],
                 limit=1,
                 max_iterations=2,
                 min_context_packets=2,
@@ -464,27 +500,37 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("kb.readiness.blocked", audit_actions)
 
     def test_agentic_question_resume_uses_persisted_ask_request(self):
-        service = build_fake_service()
-        run = service.start("Resume this Ask", {"dataset_ids": ["demo"], "document_ids": [], "use_kg": False})
-        run.status = "blocked"
-        run.metadata["blocked_reason"] = "kb_not_ready"
-        run.metadata["ask_request"] = {
-            "question": "Resume this Ask",
-            "dataset_ids": ["demo"],
-            "document_ids": [],
-            "use_kg": False,
-            "limit": 1,
-            "proposal_kind": "writing_brief",
-            "create_review": None,
-            "max_iterations": 1,
-            "min_context_packets": 1,
-            "retrieval_queries": ["resume query"],
-            "source_inspection_limit": 0,
-        }
-        service.store.save_workflow(run)
-        tools = tool_registry(service)
-
-        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            service = build_service_from_env()
+            tools = tool_registry(service)
+            ingested = _ingest_text(
+                tools,
+                temp_dir,
+                name="resume-ask.txt",
+                text="Resumed Ask should use the persisted request once uploaded context is ready.",
+                parse=False,
+            )
+            dataset_id = ingested["dataset"]["dataset_id"]
+            document_id = ingested["documents"][0]["document_id"]
+            run = service.start("Resume this Ask", {"dataset_ids": [dataset_id], "document_ids": [], "use_kg": False})
+            run.status = "blocked"
+            run.metadata["blocked_reason"] = "kb_not_ready"
+            run.metadata["ask_request"] = {
+                "question": "Resume this Ask",
+                "dataset_ids": [dataset_id],
+                "document_ids": [],
+                "use_kg": False,
+                "limit": 1,
+                "proposal_kind": "writing_brief",
+                "create_review": None,
+                "max_iterations": 1,
+                "min_context_packets": 1,
+                "retrieval_queries": ["resume query"],
+                "source_inspection_limit": 0,
+            }
+            service.store.save_workflow(run)
+            tools["pska_kb_parse_documents"](dataset_id, [document_id], wait=True)
             resumable = tools["pska_agentic_question_resumable"](limit=5)
             resumed = tools["pska_agentic_question_resume"](run.run_id)
 
@@ -518,12 +564,14 @@ class McpContractTests(unittest.TestCase):
                     embedding_model="text-embedding-3-small@OpenAI",
                 )
                 ingested = tools["pska_kb_ingest_files"]([str(path)], dataset_name="MCP Dataset", parse=True)
+                dataset_id = ingested["dataset"]["dataset_id"]
+                document_id = ingested["documents"][0]["document_id"]
                 ingestion_status = tools["pska_kb_ingestion_status"](
-                    [ingested["dataset"]["dataset_id"]],
-                    [ingested["documents"][0]["document_id"]],
+                    [dataset_id],
+                    [document_id],
                 )
-                parsed = tools["pska_kb_parse_documents"]("demo", ["demo-1"])
-                graph = tools["pska_kb_graph_read"]("demo", "demo-1")
+                parsed = tools["pska_kb_parse_documents"](dataset_id, [document_id])
+                graph = tools["pska_kb_graph_read"](dataset_id, document_id)
                 deleted = tools["pska_kb_delete"](dataset_names=["MCP Dataset"])
 
         self.assertTrue(created["dataset_id"].startswith("fake_ds_"))
@@ -538,7 +586,7 @@ class McpContractTests(unittest.TestCase):
         self.assertTrue(parsed["parse_started"])
         self.assertEqual(parsed["ingestion_status"]["status"], "ready")
         self.assertIn("Parse started", parsed["note"])
-        self.assertEqual(graph["document_id"], "demo-1")
+        self.assertEqual(graph["document_id"], document_id)
         self.assertTrue(deleted["deleted"])
         self.assertEqual(deleted["dataset_names"], ["MCP Dataset"])
         self.assertEqual(deleted["dataset_ids"], [created["dataset_id"]])
@@ -554,10 +602,41 @@ class McpContractTests(unittest.TestCase):
         ingest_event = next(event for event in events if event.action == "kb.ingest")
         self.assertEqual(ingest_event.metadata["document_names"], ["note.txt"])
         graph_event = next(event for event in events if event.action == "kb.graph.read")
-        self.assertEqual(graph_event.metadata["dataset_id"], "demo")
-        self.assertEqual(graph_event.metadata["document_id"], "demo-1")
+        self.assertEqual(graph_event.metadata["dataset_id"], dataset_id)
+        self.assertEqual(graph_event.metadata["document_id"], document_id)
         delete_event = next(event for event in events if event.action == "kb.dataset.delete")
         self.assertEqual(delete_event.target_id, created["dataset_id"])
+
+
+def _fake_env() -> dict[str, str]:
+    return {
+        "PSKA_DEV_FAKE": "1",
+        "PSKA_RETRIEVAL_PROVIDER": "fake",
+        "PSKA_KB_PROVIDER": "fake",
+        "PSKA_MEMORY_PROVIDER": "fake",
+        "PSKA_REVIEW_DB": ":memory:",
+    }
+
+
+def _ingest_text(
+    tools,
+    temp_dir: str,
+    *,
+    name: str,
+    text: str,
+    dataset_name: str = "MCP Uploaded Source",
+    parse: bool = True,
+):
+    return _ingest_texts(tools, temp_dir, files={name: text}, dataset_name=dataset_name, parse=parse)
+
+
+def _ingest_texts(tools, temp_dir: str, *, files: dict[str, str], dataset_name: str, parse: bool = True):
+    paths = []
+    for name, text in files.items():
+        path = Path(temp_dir) / name
+        path.write_text(text, encoding="utf-8")
+        paths.append(str(path))
+    return tools["pska_kb_ingest_files"](paths, dataset_name=dataset_name, parse=parse)
 
 
 if __name__ == "__main__":

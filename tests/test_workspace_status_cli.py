@@ -27,9 +27,9 @@ class WorkspaceStatusCliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(status["kind"], "workspace_status")
         self.assertEqual(status["providers"]["kb"], "fake")
-        self.assertEqual(status["status"], "ready")
-        self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
-        self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
+        self.assertEqual(status["status"], "empty")
+        self.assertEqual(status["next_actions"][0]["action"], "run_file_to_work_product_loop")
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_ingest_loop")
 
     def test_workspace_status_cli_returns_nonzero_for_explicit_status_error(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):

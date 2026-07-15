@@ -312,7 +312,10 @@ Implemented:
   Acceptance, and `make eval` now run a local product acceptance suite through
   PSKA contracts: file ingest, ready Ask/export, processing-blocked resume,
   governed durable memory transition, audit traceability, and an `eval.run`
-  audit event.
+  audit event. The suite creates fresh source knowledge through upload; explicit
+  all-fake development mode may auto accept/apply to exercise memory apply, but
+  live/manual-review runs stop at the review gate and leave durable persistence
+  to user review or workspace policy.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
@@ -321,7 +324,8 @@ Implemented:
   development maintenance path for selected bad datasets or full local resets,
   including deletion by ID/name/all through PSKA adapters with audit records.
   The product/demo path still assumes a fresh workspace starts by uploading
-  source material, not by cleaning existing data.
+  source material, not by cleaning existing data. The explicit fake KB gateway
+  also starts empty and no longer preloads demo source knowledge.
 - Runtime workspace/tenant context, including derived PSKA `memory_namespace`,
   surfaced in health, diagnostics, Settings, and audit metadata.
 - The SQLite review store indexes workflows, proposals, reviews, memory apply

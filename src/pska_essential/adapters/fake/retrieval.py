@@ -77,7 +77,5 @@ class FakeRetrievalAdapter:
 
     def _corpus(self, scope: dict[str, Any] | None) -> list[dict[str, Any]]:
         if self.corpus_loader:
-            loaded = self.corpus_loader(scope)
-            if loaded:
-                return loaded
+            return self.corpus_loader(scope)
         return self.corpus

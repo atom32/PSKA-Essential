@@ -47,6 +47,8 @@ def run_product_acceptance_eval(service: WorkflowService, gateway: Any) -> dict[
 
     steps: list[dict[str, Any]] = []
     artifacts: dict[str, Any] = {}
+    providers = _product_acceptance_providers(service, gateway)
+    auto_apply_allowed = _product_acceptance_allows_auto_apply(providers)
 
     def step(name: str, condition: bool, message: str, **metadata: Any) -> bool:
         steps.append(
@@ -171,36 +173,55 @@ def run_product_acceptance_eval(service: WorkflowService, gateway: Any) -> dict[
             review = memory_transition.get("review") or {}
             review_id = str(review.get("review_id") or "")
             governance = memory_transition.get("governance") or {}
+            governance_action = str(governance.get("action") or "")
             blocked_before_review = False
             applied = memory_transition.get("memory_apply")
-            if governance.get("action") == "manual_review":
+            review_left_pending = False
+            if governance_action == "manual_review":
                 try:
                     service.memory_apply(review_id)
                 except Exception:  # noqa: BLE001 - acceptance records whether the gate blocks.
                     blocked_before_review = True
-                service.review_decide(review_id, "accept", "product acceptance eval")
-                applied = to_jsonable(service.memory_apply(review_id))
+                if auto_apply_allowed:
+                    service.review_decide(review_id, "accept", "product acceptance eval")
+                    applied = to_jsonable(service.memory_apply(review_id))
+                else:
+                    review_left_pending = True
+            review_decision = memory_transition.get("review_decision")
+            governed_transition_ok = bool(review_id) and (
+                (
+                    blocked_before_review
+                    and (bool(applied) if auto_apply_allowed else review_left_pending)
+                )
+                if governance_action == "manual_review"
+                else (
+                    bool(review_decision) and not bool(applied)
+                    if governance_action == "auto_accept"
+                    else governance_action == "auto_apply" and bool(applied)
+                )
+            )
             step(
                 "durable_knowledge.governed_transition",
-                bool(review_id)
-                and (
-                    blocked_before_review
-                    if governance.get("action") == "manual_review"
-                    else governance.get("action") in {"auto_accept", "auto_apply"}
-                )
-                and bool(applied),
-                "Durable memory transition went through workspace governance before apply.",
+                governed_transition_ok,
+                "Durable memory transition honored workspace governance before persistence.",
                 review_id=review_id,
-                governance_action=governance.get("action") or "",
+                governance_action=governance_action,
                 blocked_before_review=blocked_before_review,
+                auto_apply_allowed=auto_apply_allowed,
+                applied=bool(applied),
+                review_left_pending=review_left_pending,
             )
 
             audit_actions = {event.action for event in service.store.list_audit_events(limit=200)}
-            required_audit = {"kb.ingest", "agentic_loop.complete", "workflow.export", "review.create", "memory.apply"}
+            required_audit = {"kb.ingest", "agentic_loop.complete", "workflow.export", "review.create"}
+            if review_decision or applied:
+                required_audit.add("review.decide")
+            if applied:
+                required_audit.add("memory.apply")
             step(
                 "audit.traceability",
                 required_audit.issubset(audit_actions),
-                "Acceptance path produced traceable KB, workflow, export, review, and memory audit records.",
+                "Acceptance path produced traceable KB, workflow, export, review, and governed memory audit records.",
                 required_actions=sorted(required_audit),
                 observed_actions=sorted(audit_actions),
             )
@@ -227,17 +248,31 @@ def run_product_acceptance_eval(service: WorkflowService, gateway: Any) -> dict[
             else "Product acceptance eval failed; inspect failing steps."
         ),
         "providers": {
-            "retrieval": os.getenv("PSKA_RETRIEVAL_PROVIDER", "").strip().lower()
-            or str(getattr(service.retrieval, "backend_name", "custom")),
-            "kb": os.getenv("PSKA_KB_PROVIDER", "").strip().lower()
-            or str(getattr(gateway, "backend_name", "custom")),
-            "memory": os.getenv("PSKA_MEMORY_PROVIDER", "").strip().lower()
-            or str(getattr(service.memory, "backend_name", "custom")),
-            "dev_fake": os.getenv("PSKA_DEV_FAKE", "").strip().lower() in {"1", "true", "yes", "on"},
+            **providers,
+            "auto_apply_allowed": auto_apply_allowed,
         },
         "steps": steps,
         "artifacts": artifacts,
     }
+
+
+def _product_acceptance_providers(service: WorkflowService, gateway: Any) -> dict[str, Any]:
+    return {
+        "retrieval": os.getenv("PSKA_RETRIEVAL_PROVIDER", "").strip().lower()
+        or str(getattr(service.retrieval, "backend_name", "custom")),
+        "kb": os.getenv("PSKA_KB_PROVIDER", "").strip().lower()
+        or str(getattr(gateway, "backend_name", "custom")),
+        "memory": os.getenv("PSKA_MEMORY_PROVIDER", "").strip().lower()
+        or str(getattr(service.memory, "backend_name", "custom")),
+        "dev_fake": os.getenv("PSKA_DEV_FAKE", "").strip().lower() in {"1", "true", "yes", "on"},
+    }
+
+
+def _product_acceptance_allows_auto_apply(providers: dict[str, Any]) -> bool:
+    return bool(providers.get("dev_fake")) and all(
+        str(providers.get(name) or "").strip().lower() == "fake"
+        for name in ("retrieval", "kb", "memory")
+    )
 
 
 def add_eval_run_audit(store: Any, result: dict[str, Any]) -> None:

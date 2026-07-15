@@ -9,19 +9,21 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
+from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
 from pska_essential.config import build_service_from_env
 from pska_essential.eval import main as eval_main
-from pska_essential.eval import run_eval
+from pska_essential.eval import run_eval, run_product_acceptance_eval
 from pska_essential.kb_gateway import build_kb_gateway_from_env, reset_fake_kb_gateway
 from pska_essential.mcp_server import tool_registry
+from pska_essential.review_store import SQLiteReviewStore
+from pska_essential.workflow import WorkflowService, build_fake_service
 
 
 class EvalTests(unittest.TestCase):
     def test_eval_dispatcher_wraps_smoke_eval(self):
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, _fake_env(tmp), clear=True):
-            service = build_service_from_env()
+        service = build_fake_service()
 
-            result = run_eval("smoke", service, gateway_factory=build_kb_gateway_from_env)
+        result = run_eval("smoke", service, gateway_factory=build_kb_gateway_from_env)
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["kind"], "eval")
@@ -58,6 +60,28 @@ class EvalTests(unittest.TestCase):
         self.assertEqual(eval_audit[0].metadata["suite"], "product_acceptance")
         self.assertEqual(eval_audit[0].metadata["status"], "ok")
         self.assertEqual(eval_audit[0].metadata["step_count"], 6)
+
+    def test_product_acceptance_eval_leaves_manual_review_pending_outside_dev_fake(self):
+        with patch.dict(os.environ, {}, clear=True):
+            gateway = reset_fake_kb_gateway()
+            service = WorkflowService(
+                retrieval=FakeRetrievalAdapter(corpus_loader=gateway.retrieval_corpus),
+                memory=FakeMemoryAdapter(),
+                store=SQLiteReviewStore(":memory:"),
+            )
+
+            result = run_product_acceptance_eval(service, gateway)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["providers"]["dev_fake"])
+        self.assertFalse(result["providers"]["auto_apply_allowed"])
+        durable = next(step for step in result["steps"] if step["name"] == "durable_knowledge.governed_transition")
+        self.assertTrue(durable["metadata"]["blocked_before_review"])
+        self.assertFalse(durable["metadata"]["applied"])
+        self.assertTrue(durable["metadata"]["review_left_pending"])
+        audit = next(step for step in result["steps"] if step["name"] == "audit.traceability")
+        self.assertNotIn("memory.apply", audit["metadata"]["required_actions"])
+        self.assertNotIn("memory.apply", audit["metadata"]["observed_actions"])
 
     def test_eval_cli_runs_product_acceptance_from_explicit_env(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):

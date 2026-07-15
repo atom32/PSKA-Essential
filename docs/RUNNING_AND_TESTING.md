@@ -26,13 +26,17 @@ This mode uses fake adapters only through explicit test helpers or
 should always stay fast. In explicit fake KB mode, uploaded text documents are
 kept in the fake KB gateway and are retrievable by fake retrieval, so local
 upload-to-Ask checks and the `product_acceptance` eval do not need RAGFlow.
+The fake KB starts empty and does not preload demo source knowledge; tests and
+local demos must create knowledge through upload/ingest.
 Fake KB is intentionally text-only:
 PDF/OCR/binary parsing, embedding, and indexing should use RAGFlow or another
 real KB provider. PDF-like files uploaded to fake KB are marked as failed
 ingestion, not fake-ready context.
 The same product acceptance eval is available through Product API
 `POST /api/runtime/eval` and the frontend Settings view when the Product API is
-running with explicit development or live providers.
+running with explicit development or live providers. Outside explicit all-fake
+development mode, its manual-review durable memory check stops at the review
+gate instead of applying memory automatically.
 
 ### 2. Hermes MCP Development
 
@@ -548,6 +552,8 @@ Core tests:
 - fake adapter E2E
 - review gate
 - product acceptance eval for upload -> Ask/export -> resume -> governed memory
+  review, with memory apply only in explicit all-fake development mode or by
+  workspace policy
 - reviewed memory update/version lifecycle
 - reviewed memory deletion lifecycle
 - MCP tool registry

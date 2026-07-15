@@ -332,42 +332,9 @@ class FakeKnowledgeGateway:
     backend_name = "fake"
 
     def __init__(self) -> None:
-        self.datasets: dict[str, dict[str, Any]] = {
-            "demo": {
-                "backend": self.backend_name,
-                "dataset_id": "demo",
-                "name": "Demo Knowledge Base",
-                "description": "Local development dataset",
-                "document_count": 1,
-                "chunk_count": 2,
-                "chunk_method": "naive",
-                "embedding_model": "fake",
-                "permission": "me",
-            }
-        }
-        self.documents: dict[str, list[dict[str, Any]]] = {
-            "demo": [
-                {
-                    "backend": self.backend_name,
-                    "dataset_id": "demo",
-                    "document_id": "demo-1",
-                    "name": "pska-doctrine.txt",
-                    "chunk_method": "naive",
-                    "chunk_count": 2,
-                    "token_count": 42,
-                    "progress": 1.0,
-                    "progress_msg": "ready",
-                    "run": "DONE",
-                    "status": "ready",
-                }
-            ]
-        }
-        self.document_text: dict[str, str] = {
-            "demo-1": (
-                "PSKA-Essential is an agent knowledge workflow gate. It retrieves context, "
-                "proposes candidate knowledge, requires review, and only then applies memory."
-            )
-        }
+        self.datasets: dict[str, dict[str, Any]] = {}
+        self.documents: dict[str, list[dict[str, Any]]] = {}
+        self.document_text: dict[str, str] = {}
         self.document_parse_errors: dict[str, str] = {}
 
     def list_datasets(self, *, name: str | None = None, page_size: int = 30) -> list[dict[str, Any]]:

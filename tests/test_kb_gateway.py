@@ -212,13 +212,29 @@ class KbGatewayTests(unittest.TestCase):
         self.assertEqual(gateway.base_url, "http://ragflow.local")
         self.assertEqual(gateway.api_key, "test-key")
 
-    def test_fake_kb_provider_supports_dev_frontend(self):
+    def test_fake_kb_provider_starts_empty_for_dev_frontend(self):
         with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=True):
+            reset_fake_kb_gateway()
             gateway = build_kb_gateway_from_env()
             datasets = gateway.list_datasets()
 
-        self.assertEqual(datasets[0]["backend"], "fake")
-        self.assertEqual(datasets[0]["dataset_id"], "demo")
+        self.assertEqual(datasets, [])
+
+    def test_fake_retrieval_with_kb_loader_does_not_fallback_to_builtin_corpus(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            reset_fake_kb_gateway()
+            service = build_service_from_env()
+
+            packets = service.retrieval.retrieve("PSKA", {"dataset_ids": ["missing"]}, 3)
+
+        self.assertEqual(packets, [])
 
     def test_fake_upload_to_ask_retrieves_uploaded_content(self):
         env = {

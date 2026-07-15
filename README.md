@@ -416,7 +416,9 @@ Wait checkbox
 controls whether Run Loop blocks for readiness or quickly returns a resumable
 not-ready workflow for long parsing, embedding, and indexing jobs. Processing
 or failed ingestion remains visible as not-ready status instead of falling back
-to fake data or an unsourced answer. The same form exposes PSKA-owned loop
+to fake data or an unsourced answer. Explicit fake KB mode also starts empty;
+tests and demos create source knowledge through upload instead of relying on
+preloaded demo datasets. The same form exposes PSKA-owned loop
 controls for limit, max iterations, minimum context, additional retrieval
 queries, source inspection, proposal kind, optional review, and graph-aware
 retrieval; these are Product API fields, not provider-native calls. When the
@@ -559,7 +561,10 @@ and memory connectivity, the explicit capability contract, and a component
 check that aggregates runtime diagnostics, memory probe, retrieval probe, and
 closed-loop probe. Settings also exposes product acceptance eval, focused
 retrieval probes, and memory probes for verifying backend paths through PSKA
-instead of provider-native tools. Runtime diagnostics include a read-only memory
+instead of provider-native tools. Product acceptance starts by ingesting fresh
+temporary source files; outside explicit all-fake development mode it leaves
+manual-review durable memory candidates pending instead of applying them
+automatically. Runtime diagnostics include a read-only memory
 search contract check so
 a shallow Graphiti health check cannot be mistaken for a working memory
 backend. Settings and Product API runtime

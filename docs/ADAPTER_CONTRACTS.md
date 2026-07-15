@@ -128,7 +128,9 @@ component proof or reporting long-running ingestion as a backend failure.
 through PSKA contracts: file ingest, ready Ask/export, not-ready upload resume,
 governed durable memory transition, and audit traceability. It may use fake
 adapters only when explicit local development/test fake mode is configured, and
-it records an `eval.run` audit event for the acceptance result.
+it records an `eval.run` audit event for the acceptance result. Outside explicit
+all-fake development mode, manual-review durable memory checks stop at the
+review gate and leave persistence to user review or workspace policy.
 `pska_ingest_loop` runs the file-first operational loop through PSKA adapters:
 local file ingest, readiness polling, agentic Ask, and sourced export. It
 returns `not_ready` and stops before Ask/export when ingestion is still
@@ -153,6 +155,9 @@ Rules:
   status, and read optional structure graph data through provider APIs.
 - PSKA-Essential may delete selected datasets by ID, by name, or all datasets
   through adapter APIs for explicit cleanup and development reset flows.
+- Fresh workspaces, including the explicit fake KB gateway, start without
+  preloaded source knowledge. The product path starts with upload/ingest;
+  cleanup is only maintenance for bad development data.
 - PSKA-Essential must not persist raw documents or build its own index.
 - Public tools return normalized dataset/document IDs and status fields, not
   raw provider responses.
