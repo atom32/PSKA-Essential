@@ -54,6 +54,18 @@ print(build_fake_service().eval_run("smoke"))
 PY
 ```
 
+Run the local product acceptance eval with explicit fake dev adapters:
+
+```bash
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake \
+  PSKA_MEMORY_PROVIDER=fake PSKA_REVIEW_DB=:memory: \
+  make eval
+```
+
+This verifies the PSKA upload -> readiness -> Ask/export loop, resumable
+not-ready upload flow, governed durable memory transition, and audit trail
+without using fake as a live-provider fallback.
+
 Run the Product API and frontend in explicit local development mode:
 
 ```bash
@@ -246,6 +258,7 @@ Operational loop tools:
 - `pska_retrieval_probe`
 - `pska_memory_probe`
 - `pska_live_closed_loop_probe`
+- `pska_eval_run`
 - `pska_agentic_question_start`
 - `pska_agentic_question_resumable`
 - `pska_agentic_question_resume`

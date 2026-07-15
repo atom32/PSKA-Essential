@@ -23,6 +23,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.env_file import env_file_arg_parser, load_env_file
+from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.kb_audit import (
@@ -298,7 +299,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         )
 
     def pska_eval_run(suite: str = "smoke"):
-        return service.eval_run(suite)
+        return run_eval(suite, service, gateway_factory=build_kb_gateway_from_env)
 
     def pska_kb_list(name: str | None = None, page_size: int = 30):
         return build_kb_gateway_from_env().list_datasets(name=name, page_size=page_size)

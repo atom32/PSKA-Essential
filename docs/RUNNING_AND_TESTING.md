@@ -17,13 +17,16 @@ cd /Users/xudawei/PSKA-Essential
 PYTHONPATH=src python3 -m unittest discover -s tests
 PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
   PSKA_REVIEW_DB=:memory: PYTHONPATH=src python3 -m pska_essential --list-tools
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake \
+  PSKA_MEMORY_PROVIDER=fake PSKA_REVIEW_DB=:memory: make eval
 ```
 
 This mode uses fake adapters only through explicit test helpers or
 `PSKA_DEV_FAKE=1`; fake adapters are not runtime fallbacks. Core development
 should always stay fast. In explicit fake KB mode, uploaded text documents are
 kept in the fake KB gateway and are retrievable by fake retrieval, so local
-upload-to-Ask checks do not need RAGFlow. Fake KB is intentionally text-only:
+upload-to-Ask checks and the `product_acceptance` eval do not need RAGFlow.
+Fake KB is intentionally text-only:
 PDF/OCR/binary parsing, embedding, and indexing should use RAGFlow or another
 real KB provider. PDF-like files uploaded to fake KB are marked as failed
 ingestion, not fake-ready context.
@@ -541,6 +544,7 @@ Core tests:
 
 - fake adapter E2E
 - review gate
+- product acceptance eval for upload -> Ask/export -> resume -> governed memory
 - reviewed memory update/version lifecycle
 - reviewed memory deletion lifecycle
 - MCP tool registry

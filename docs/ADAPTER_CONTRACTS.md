@@ -124,6 +124,10 @@ PSKA: runtime diagnostics, memory probe, retrieval probe, and live closed-loop
 probe. It returns `incomplete` for missing dataset scope, skipped core checks,
 or `not_ready` KB scope instead of silently treating partial probes as full
 component proof or reporting long-running ingestion as a backend failure.
+`pska_eval_run("product_acceptance")` runs a local product-loop acceptance suite
+through PSKA contracts: file ingest, ready Ask/export, not-ready upload resume,
+governed durable memory transition, and audit traceability. It may use fake
+adapters only when explicit local development/test fake mode is configured.
 `pska_ingest_loop` runs the file-first operational loop through PSKA adapters:
 local file ingest, readiness polling, agentic Ask, and sourced export. It
 returns `not_ready` and stops before Ask/export when ingestion is still
