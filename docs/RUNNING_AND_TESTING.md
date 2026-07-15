@@ -425,7 +425,9 @@ proof passes; missing dataset scope, skipped core checks, fake live providers,
 memory search failures, and retrieval/Ask/export failures are surfaced as
 explicit step failures. Startup configuration errors, such as a selected
 RAGFlow provider without `RAGFLOW_API_KEY`, are returned as structured JSON with
-a nonzero exit instead of falling through to fake data.
+a nonzero exit instead of falling through to fake data. A selected scope that is
+still parsing, chunking, embedding, or indexing returns `incomplete`, not
+`error`, because the next action is to wait for KB readiness.
 
 Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
 `make live-closed-loop` when you only want the sourced Ask/export portion. The

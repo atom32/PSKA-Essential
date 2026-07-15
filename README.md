@@ -288,7 +288,9 @@ component verification and records a `memory.probe` audit event.
 `pska_component_check` is the full component proof path; if memory or
 closed-loop checks are skipped, the result is `incomplete` rather than a full
 success. CLI startup configuration errors are returned as structured JSON with
-a nonzero exit.
+a nonzero exit. A processing KB scope also returns `incomplete`, so long-running
+parsing, embedding, or indexing is reported as a readiness wait rather than a
+provider fallback or backend failure.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live

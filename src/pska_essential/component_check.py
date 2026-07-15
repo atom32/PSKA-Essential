@@ -20,6 +20,16 @@ from pska_essential.env_file import preload_env_file
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 
 
+_INCOMPLETE_STEP_STATUSES = {
+    "incomplete",
+    "skipped",
+    "not_ready",
+    "processing",
+    "retrieval_not_ready",
+    "agentic_not_ready",
+}
+
+
 def run_component_check(
     service: Any,
     gateway: Any,
@@ -190,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _component_status(steps: list[dict[str, Any]]) -> str:
     required = [step for step in steps if step.get("required")]
-    if any(step.get("status") in {"incomplete", "skipped"} for step in required):
+    if any(step.get("status") in _INCOMPLETE_STEP_STATUSES for step in required):
         return "incomplete"
     if any(step.get("status") == "error" for step in steps):
         return "error"
@@ -205,7 +215,10 @@ def _component_message(status: str) -> str:
     if status == "ok":
         return "All requested component checks passed."
     if status == "incomplete":
-        return "Component check is incomplete; provide the required scope/configuration or run all required checks."
+        return (
+            "Component check is incomplete; provide the required scope/configuration, "
+            "wait for readiness, or run all required checks."
+        )
     if status == "warning":
         return "Component checks passed with warnings."
     return "One or more component checks failed."

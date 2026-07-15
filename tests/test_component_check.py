@@ -37,6 +37,33 @@ class _ReadyGateway:
         ]
 
 
+class _ProcessingGateway(_ReadyGateway):
+    def list_datasets(self, *, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": "processing",
+                "name": "Processing KB",
+                "document_count": 1,
+                "chunk_count": 0,
+            }
+        ]
+
+    def list_documents(self, *, dataset_id, document_id=None, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": dataset_id,
+                "document_id": document_id or "doc-processing",
+                "name": name or "processing.pdf",
+                "chunk_count": 0,
+                "progress": 0.4,
+                "run": "RUNNING",
+                "status": "processing",
+            }
+        ]
+
+
 class ComponentCheckTests(unittest.TestCase):
     def test_component_check_runs_requested_probes_and_audits(self):
         adapter = CompanyGraphRagStubAdapter()
@@ -105,6 +132,27 @@ class ComponentCheckTests(unittest.TestCase):
         self.assertNotEqual(steps["memory.probe"].get("required"), False)
         self.assertEqual(steps["closed_loop.probe"]["status"], "skipped")
         self.assertNotEqual(steps["closed_loop.probe"].get("required"), False)
+
+    def test_component_check_is_incomplete_when_scope_is_not_ready(self):
+        adapter = CompanyGraphRagStubAdapter()
+        service = WorkflowService(adapter, adapter, SQLiteReviewStore(":memory:"))
+
+        result = run_component_check(
+            service,
+            _ProcessingGateway(),
+            dataset_ids=["processing"],
+            require_memory=True,
+            run_closed_loop=True,
+        )
+
+        self.assertEqual(result["status"], "incomplete")
+        self.assertEqual(result["memory_probe"]["status"], "ok")
+        self.assertEqual(result["retrieval_probe"]["status"], "not_ready")
+        self.assertEqual(result["closed_loop_probe"]["status"], "not_ready")
+        self.assertEqual(result["retrieval_probe"]["readiness"]["status"], "processing")
+        steps = {step["name"]: step for step in result["steps"]}
+        self.assertEqual(steps["retrieval.probe"]["status"], "not_ready")
+        self.assertEqual(steps["closed_loop.probe"]["status"], "not_ready")
 
 
 if __name__ == "__main__":

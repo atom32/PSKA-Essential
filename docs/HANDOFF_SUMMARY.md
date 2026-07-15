@@ -267,6 +267,8 @@ Implemented:
   memory or closed-loop checks now returns `incomplete` so partial probes are
   not mistaken for full component proof. The component-check CLI also reports
   startup configuration failures as structured JSON with a nonzero exit.
+  `not_ready` KB scope is also `incomplete`, so processing ingestion is treated
+  as a readiness wait instead of a backend failure or fallback path.
 - Product API startup validates both workflow providers and the configured KB
   gateway before serving the frontend. Missing provider env and unauthorized
   fake mode fail explicitly instead of starting a partially wired Product API.
@@ -390,7 +392,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 173 tests pass.
+- `make test`: 174 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit
@@ -449,7 +451,8 @@ Expected result:
   explicit fake-provider rejection and non-fake sourced Ask/export success.
 - Component-check tests cover the combined diagnostics/probe/closed-loop
   acceptance path, the missing-dataset-scope failure, and skipped core checks
-  returning `incomplete` instead of full success.
+  returning `incomplete` instead of full success. They also cover processing
+  KB scopes returning `incomplete` instead of `error`.
 - Env-file/component-check CLI tests cover structured startup configuration
   errors for missing live provider env.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.

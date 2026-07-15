@@ -121,8 +121,9 @@ for troubleshooting component configuration instead of probing provider-native
 health endpoints.
 `pska_component_check` runs the structured component acceptance path through
 PSKA: runtime diagnostics, memory probe, retrieval probe, and live closed-loop
-probe. It returns `incomplete` for missing dataset scope or skipped core checks
-instead of silently treating partial probes as full component proof.
+probe. It returns `incomplete` for missing dataset scope, skipped core checks,
+or `not_ready` KB scope instead of silently treating partial probes as full
+component proof or reporting long-running ingestion as a backend failure.
 `pska_ingest_loop` runs the file-first operational loop through PSKA adapters:
 local file ingest, readiness polling, agentic Ask, and sourced export. It
 returns `not_ready` and stops before Ask/export when ingestion is still
