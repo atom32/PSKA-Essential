@@ -69,6 +69,13 @@ class McpContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, message):
                     tools[tool_name](*args)
 
+    def test_mcp_export_requires_sourced_work_product(self):
+        tools = tool_registry(build_fake_service())
+        run = tools["pska_workflow_start"]("empty mcp export", {"dataset_ids": ["demo"]})
+
+        with self.assertRaisesRegex(Exception, "sourced work product"):
+            tools["pska_export_brief"](run["run_id"], "markdown")
+
     def test_tools_run_full_loop(self):
         service = build_fake_service()
         tools = tool_registry(service)

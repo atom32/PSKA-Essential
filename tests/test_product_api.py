@@ -119,12 +119,13 @@ class ProductApiTests(unittest.TestCase):
         self.env_patch = patch.dict(os.environ, {"PSKA_WORKSPACE_ID": "", "PSKA_TENANT_ID": ""}, clear=False)
         self.env_patch.start()
         self.gateway = _FakeGateway()
+        self.service = build_fake_service()
         self.static_dir = tempfile.TemporaryDirectory()
         Path(self.static_dir.name, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
         self.server = build_server(
             host="127.0.0.1",
             port=0,
-            service=build_fake_service(),
+            service=self.service,
             kb_gateway_factory=lambda: self.gateway,
             static_dir=self.static_dir.name,
         )
@@ -397,6 +398,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(json_exported["export"]["traceability"]["export"]["target_id"], run_id)
         self.assertEqual(json_exported["export"]["traceability"]["export"]["format"], "json")
         self.assertEqual(workflow_export_count(), before_open + 2)
+
+    def test_workflow_export_requires_sourced_work_product(self):
+        run = self.service.start("empty product api workflow", {"dataset_ids": ["demo"]})
+
+        failed = self._get_json_error(f"/api/workflows/{run.run_id}/export?format=markdown")
+
+        self.assertEqual(failed["status"], 400)
+        self.assertIn("sourced work product", failed["body"]["error"]["message"])
 
     def test_transient_ask_does_not_create_review_by_default(self):
         asked = self._post_json(
@@ -1091,6 +1100,16 @@ class ProductApiTests(unittest.TestCase):
     def _get_json(self, path: str) -> dict:
         with urlopen(f"{self.base_url}{path}", timeout=5) as response:
             return json.loads(response.read().decode("utf-8"))
+
+    def _get_json_error(self, path: str) -> dict:
+        try:
+            with urlopen(f"{self.base_url}{path}", timeout=5) as response:
+                self.fail(f"expected HTTP error, got {response.status}")
+        except HTTPError as exc:
+            return {
+                "status": exc.code,
+                "body": json.loads(exc.read().decode("utf-8")),
+            }
 
     def _post_json(self, path: str, payload: dict) -> dict:
         data = json.dumps(payload).encode("utf-8")

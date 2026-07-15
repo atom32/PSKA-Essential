@@ -118,6 +118,9 @@ class WorkflowTests(unittest.TestCase):
         update_review_id = update_result["review"]["review_id"]
         self.assertEqual(update_result["proposal"]["kind"], "memory_update")
         self.assertEqual(update_result["proposal"]["memory_update"]["target_id"], applied.target_id)
+        self.assertEqual(update_result["artifact"]["traceability"]["source_count"], 1)
+        self.assertEqual(update_result["artifact"]["source_manifest"][0]["origin"], "proposal")
+        self.assertEqual(update_result["artifact"]["source_manifest"][0]["source_ref"]["adapter"], "fake")
         with self.assertRaises(WorkflowError):
             service.memory_apply(update_review_id)
 
@@ -207,6 +210,21 @@ class WorkflowTests(unittest.TestCase):
             json_export["traceability"]["export"]["audit_event_id"],
             export_events[-1].audit_event_id,
         )
+
+    def test_export_requires_sourced_work_product(self):
+        service = build_fake_service()
+        empty = service.start("empty workflow", {"dataset_ids": ["demo"]})
+        with self.assertRaisesRegex(WorkflowError, "sourced work product"):
+            service.export_brief(empty.run_id, "markdown")
+
+        retrieved = service.start("retrieval only workflow", {"dataset_ids": ["demo"]})
+        service.context_retrieve(retrieved.run_id, "adapter", 1)
+        with self.assertRaisesRegex(WorkflowError, "create a proposal"):
+            service.export_brief(retrieved.run_id, "markdown")
+
+        service.propose(retrieved.run_id, "writing_brief", "now exportable")
+        exported = service.export_brief(retrieved.run_id, "markdown")
+        self.assertIn("PSKA-Essential Brief", exported)
 
     def test_workflow_artifact_reads_work_product_without_export_audit(self):
         service = build_fake_service()

@@ -2306,27 +2306,31 @@ async function exportWorkflow(runId, format, options = {}) {
     showToast("No run selected.");
     return;
   }
-  const payload = await api(`/api/workflows/${encodeURIComponent(selectedRunId)}/export?format=${encodeURIComponent(format)}`);
-  const content = typeof payload.export === "string" ? payload.export : JSON.stringify(payload.export, null, 2);
-  const current =
-    state.currentBrief && state.currentBrief.run && state.currentBrief.run.run_id === selectedRunId
-      ? state.currentBrief
-      : {
-          run: state.workflows.find((workflow) => workflow.run_id === selectedRunId) || { run_id: selectedRunId },
-          artifact: {},
-          status: "ready",
-        };
-  state.currentBrief = current;
-  state.currentBrief.brief = content;
-  if (payload.export && typeof payload.export === "object") {
-    state.currentBrief.artifact = payload.export;
+  try {
+    const payload = await api(`/api/workflows/${encodeURIComponent(selectedRunId)}/export?format=${encodeURIComponent(format)}`);
+    const content = typeof payload.export === "string" ? payload.export : JSON.stringify(payload.export, null, 2);
+    const current =
+      state.currentBrief && state.currentBrief.run && state.currentBrief.run.run_id === selectedRunId
+        ? state.currentBrief
+        : {
+            run: state.workflows.find((workflow) => workflow.run_id === selectedRunId) || { run_id: selectedRunId },
+            artifact: {},
+            status: "ready",
+          };
+    state.currentBrief = current;
+    state.currentBrief.brief = content;
+    if (payload.export && typeof payload.export === "object") {
+      state.currentBrief.artifact = payload.export;
+    }
+    renderWriting();
+    await loadAuditEvents("workflow.export");
+    if (options.openWriting) {
+      document.querySelector('.nav-item[data-view="writing"]').click();
+    }
+    showToast(`${format.toUpperCase()} export loaded.`);
+  } catch (error) {
+    showToast(error.message);
   }
-  renderWriting();
-  await loadAuditEvents("workflow.export");
-  if (options.openWriting) {
-    document.querySelector('.nav-item[data-view="writing"]').click();
-  }
-  showToast(`${format.toUpperCase()} export loaded.`);
 }
 
 async function createMemoryReviewFromRun(runId = "") {

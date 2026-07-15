@@ -387,6 +387,9 @@ opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products
 through explicit Product API actions; ready Ask results can also trigger those
 Markdown/JSON exports directly and open the generated work product in Writing.
+Explicit export requires a sourced work product: empty diagnostic workflows can
+be inspected in Writing, but they cannot be exported as briefs until a proposal
+and source trace exist.
 Exported work products include the
 workflow export audit event, inspected source snippets, and durable-memory
 source trace in their traceability metadata. Settings shows runtime provider

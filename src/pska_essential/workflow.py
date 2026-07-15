@@ -516,6 +516,7 @@ class WorkflowService:
     def export_brief(self, run_id: str, format: str = "markdown") -> str | dict[str, Any]:
         run = self.store.get_workflow(run_id)
         artifact = self._build_workflow_artifact(run)
+        _ensure_exportable_work_product(artifact)
         fmt = format.strip().lower()
         if fmt not in {"markdown", "json"}:
             raise WorkflowError("export format must be markdown or json")
@@ -671,12 +672,18 @@ class WorkflowService:
 
     def _build_workflow_artifact(self, run: WorkflowRun) -> dict[str, Any]:
         packet_payload = [to_jsonable(packet) for packet in run.context_packets]
-        proposal_payload = [
-            to_jsonable(self.store.get_proposal(proposal_id)) for proposal_id in run.proposal_ids
-        ]
+        proposals = [self.store.get_proposal(proposal_id) for proposal_id in run.proposal_ids]
+        proposal_payload = [to_jsonable(proposal) for proposal in proposals]
+        proposal_source_refs = _unique_source_refs(
+            [
+                source_ref
+                for proposal in proposals
+                for source_ref in proposal.source_refs
+            ]
+        )
         memory_facts = list(run.metadata.get("memory_context") or [])
         source_inspections = list(run.metadata.get("source_inspections") or [])
-        source_manifest = _source_manifest(run.context_packets)
+        source_manifest = _source_manifest(run.context_packets, proposal_source_refs)
         memory_source_manifest = _memory_source_manifest(memory_facts)
         return {
             "run": to_jsonable(run),
@@ -869,6 +876,18 @@ def _ensure_durable_proposal_source_trace(proposal: Proposal, transition: str) -
         return
 
 
+def _ensure_exportable_work_product(artifact: dict[str, Any]) -> None:
+    traceability = artifact.get("traceability") or {}
+    if int(traceability.get("proposal_count") or 0) <= 0:
+        raise WorkflowError(
+            "export requires a sourced work product; create a proposal before exporting"
+        )
+    if int(traceability.get("source_count") or 0) <= 0 and int(traceability.get("memory_source_count") or 0) <= 0:
+        raise WorkflowError(
+            "export requires a sourced work product; retrieve context or attach source refs before exporting"
+        )
+
+
 def _compose_body(kind: str, run: WorkflowRun, intent: str) -> str:
     snippets = "\n".join(f"- {packet.text[:500]}" for packet in run.context_packets)
     memory_snippets = "\n".join(
@@ -942,15 +961,21 @@ def _unique_source_refs(source_refs: list[SourceRef]) -> list[SourceRef]:
     return result
 
 
-def _source_manifest(packets: list[ContextPacket]) -> list[dict[str, Any]]:
+def _source_manifest(
+    packets: list[ContextPacket],
+    proposal_source_refs: list[SourceRef] | None = None,
+) -> list[dict[str, Any]]:
     manifest: list[dict[str, Any]] = []
-    for index, packet in enumerate(packets, start=1):
+    seen: set[str] = set()
+    for packet in packets:
         ref = packet.source_ref
+        seen.add(_source_ref_key(ref))
         manifest.append(
             {
-                "index": index,
+                "index": len(manifest) + 1,
                 "context_id": packet.context_id,
                 "title": packet.title or ref.title or packet.context_id,
+                "origin": "context",
                 "adapter": ref.adapter,
                 "dataset_id": ref.dataset_id or "",
                 "document_id": ref.document_id or "",
@@ -959,7 +984,39 @@ def _source_manifest(packets: list[ContextPacket]) -> list[dict[str, Any]]:
                 "source_ref": to_jsonable(ref),
             }
         )
+    for ref in proposal_source_refs or []:
+        key = _source_ref_key(ref)
+        if key in seen:
+            continue
+        seen.add(key)
+        manifest.append(
+            {
+                "index": len(manifest) + 1,
+                "context_id": "",
+                "title": ref.title or _source_display_id(ref) or f"Source {len(manifest) + 1}",
+                "origin": "proposal",
+                "adapter": ref.adapter,
+                "dataset_id": ref.dataset_id or "",
+                "document_id": ref.document_id or "",
+                "source_id": _source_display_id(ref),
+                "score": 0.0,
+                "source_ref": to_jsonable(ref),
+            }
+        )
     return manifest
+
+
+def _source_ref_key(ref: SourceRef) -> str:
+    return "|".join(
+        [
+            ref.adapter,
+            ref.dataset_id or "",
+            ref.document_id or "",
+            ref.chunk_id or "",
+            ref.source_id or "",
+            ref.external_id or "",
+        ]
+    )
 
 
 def _memory_source_refs(run: WorkflowRun) -> list[SourceRef]:

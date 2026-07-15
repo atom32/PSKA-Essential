@@ -276,7 +276,8 @@ Implemented:
   product content, source manifests, inspected source snippets, supporting
   context, and traceability metadata, including durable-memory source manifests,
   source inspection counts, and the workflow export audit event for explicit
-  exports.
+  exports. Explicit export requires both a proposal/work product and source
+  trace; empty diagnostic workflows can be inspected but not exported as briefs.
 - Workspace governance policy for durable memory: manual review, auto accept,
   or auto apply.
 - Product API, MCP, and frontend Settings expose the workspace governance
@@ -305,11 +306,12 @@ make smoke
 
 Expected result:
 
-- `make test`: 111 tests pass.
+- `make test`: 114 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
-  fake upload-to-Ask source reads, and fake PDF-like upload failure before Ask.
+  fake upload-to-Ask source reads, fake PDF-like upload failure before Ask, and
+  export refusal for unsourced/empty workflows.
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, review source trace display, and retrieval probe UI.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
