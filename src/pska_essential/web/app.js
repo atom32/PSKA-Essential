@@ -492,9 +492,11 @@ function workspaceActionButtonLabel(action) {
     inspect_unsupported_memory_operation: "Inspect",
     parse_documents: "Parse",
     resume_blocked_ask: "Resume",
+    resume_ingest_loop: "Resume Loop",
     review_pending_durable_knowledge: "Review",
     run_file_to_work_product_loop: "Start",
     run_agentic_question: "Ask",
+    track_ingestion_status: "Track",
     create_or_upload_knowledge_base: "Upload",
     upload_documents: "Upload",
     wait_for_ingestion: "Track",
@@ -508,6 +510,7 @@ function workspaceActionButtonClass(action) {
     "apply_accepted_memory",
     "parse_documents",
     "resume_blocked_ask",
+    "resume_ingest_loop",
     "run_file_to_work_product_loop",
   ].includes(action.action)
     ? "primary-button"
@@ -532,6 +535,10 @@ async function openWorkspaceAction(action) {
   }
   if (action.action === "resume_blocked_ask" && params.run_id) {
     await resumeBlockedRun(params.run_id);
+    return;
+  }
+  if (action.action === "resume_ingest_loop" && params.run_id) {
+    await resumeIngestLoopRun(params.run_id, params.export_format || "");
     return;
   }
   if (action.action === "wait_for_resumable_ask" && params.run_id) {
@@ -564,13 +571,14 @@ async function openWorkspaceAction(action) {
   if (
     [
       "wait_for_ingestion",
+      "track_ingestion_status",
       "parse_documents",
       "inspect_failure",
       "inspect_cancellation",
       "check_provider_status",
     ].includes(action.action)
   ) {
-    const datasetId = (params.dataset_ids || [])[0] || state.activeDocumentDatasetId;
+    const datasetId = params.dataset_id || (params.dataset_ids || [])[0] || state.activeDocumentDatasetId;
     if (datasetId) {
       openView("kb");
       await loadDocuments(datasetId, { silent: true });
@@ -578,7 +586,7 @@ async function openWorkspaceAction(action) {
         await parseDatasetDocuments(datasetId, params.document_ids || []);
         return;
       }
-      if (action.action === "wait_for_ingestion") startIngestionPolling(datasetId);
+      if (action.action === "wait_for_ingestion" || action.action === "track_ingestion_status") startIngestionPolling(datasetId);
     }
     openView("kb");
     return;
@@ -1692,6 +1700,8 @@ function askResultActions(result) {
       const resume = resumeContractForResult(result) || (fresh && fresh.resume) || null;
       const canResume = fresh ? Boolean(fresh.can_resume) : resume ? Boolean(resume.can_resume) : Boolean(result.readiness && result.readiness.ready);
       const tracking = state.blockedAskPoll && state.blockedAskPoll.runId === result.run.run_id;
+      const contractActions = resultNextActions(result, fresh);
+      appendResultContractActions(actions, contractActions);
       renderAskReadinessActions(actions, readiness, {
         datasetIds: askRequest.dataset_ids || readiness.dataset_ids || [],
         documentIds: askRequest.document_ids || readiness.document_ids || [],
@@ -1715,17 +1725,19 @@ function askResultActions(result) {
           tracking ? "Tracking..." : "Track & Resume",
         ),
       );
-      actions.append(
-        el(
-          "button",
-          {
-            className: "primary-button",
-            onclick: () => resumeBlockedRun(result.run.run_id),
-            ...(canResume ? {} : { disabled: true }),
-          },
-          isIngestLoopResume(resume) || hasIngestLoopResume(runForResume) ? "Resume Loop" : "Resume Ask",
-        ),
-      );
+      if (!contractActions.some((action) => ["resume_blocked_ask", "resume_ingest_loop"].includes(action.action))) {
+        actions.append(
+          el(
+            "button",
+            {
+              className: "primary-button",
+              onclick: () => resumeBlockedRun(result.run.run_id),
+              ...(canResume ? {} : { disabled: true }),
+            },
+            isIngestLoopResume(resume) || hasIngestLoopResume(runForResume) ? "Resume Loop" : "Resume Ask",
+          ),
+        );
+      }
     }
   }
   if (reviewId) {
@@ -1752,6 +1764,30 @@ function askResultActions(result) {
     el("h2", {}, "Next Actions"),
     actions.children.length ? actions : el("p", {}, "No follow-up action is available for this result."),
   ]);
+}
+
+function resultNextActions(result, fresh) {
+  const actions = (fresh && fresh.next_actions && fresh.next_actions.length ? fresh.next_actions : result.next_actions) || [];
+  return actions.filter((action) => action && action.action);
+}
+
+function appendResultContractActions(container, actions) {
+  const supported = actions.filter((action) =>
+    ["track_ingestion_status", "resume_ingest_loop", "resume_blocked_ask"].includes(action.action),
+  );
+  for (const action of supported) {
+    container.append(
+      el(
+        "button",
+        {
+          className: workspaceActionButtonClass(action),
+          onclick: () => openWorkspaceAction(action),
+          ...(action.requires_ready && !action.can_resume ? { disabled: true } : {}),
+        },
+        workspaceActionButtonLabel(action),
+      ),
+    );
+  }
 }
 
 function loopPanel(result) {
