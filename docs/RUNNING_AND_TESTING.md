@@ -178,7 +178,8 @@ review store, KB gateway, retrieval, and memory connectivity. It also loads
 Writing durable-memory controls stay disabled until the selected operation is
 reported as supported. Product API health, diagnostics, and audit records
 include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and
-`PSKA_TENANT_ID`.
+`PSKA_TENANT_ID`. Workflow, review, memory-apply, and audit reads are scoped by
+the same workspace/tenant context in the review store.
 
 Durable memory governance modes:
 

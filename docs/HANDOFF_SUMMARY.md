@@ -231,6 +231,10 @@ Implemented:
   reports provider/model errors without falling back.
 - Runtime workspace/tenant context surfaced in health, diagnostics, Settings,
   and audit metadata.
+- The SQLite review store indexes workflows, proposals, reviews, memory apply
+  records, and audit events by workspace/tenant; default list/read APIs only
+  return records for the current `PSKA_WORKSPACE_ID` / `PSKA_TENANT_ID`.
+  Existing unscoped SQLite rows are migrated into the `default` workspace.
 - Dataset creation, document ingestion, parsing, and graph reads write explicit
   KB audit records through both Product API and MCP.
 - Source reads write explicit `source.read` audit records through the shared
@@ -289,7 +293,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 98 tests pass.
+- `make test`: 100 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -328,6 +332,8 @@ Expected result:
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace and audit
   workspace/tenant metadata.
+- Governance/store tests cover workspace/tenant isolation for workflow, review,
+  and audit reads in a shared SQLite review store.
 - `make list-tools`: lists 37 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
@@ -431,7 +437,9 @@ configuration, Product API diagnostics for review store, KB gateway, retrieval,
 and memory connectivity, and the explicit `/api/capabilities` operation
 contract.
 Product API health, diagnostics, and audit records include the runtime
-workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`. If
+workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`, and the
+review store scopes workflow, review, memory-apply, and audit reads by that
+same context. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
 does not start retrieval. If retrieved context remains below the required
 context count, Ask returns `insufficient_context`, shows any retrieved partial

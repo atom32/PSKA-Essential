@@ -111,6 +111,12 @@ export PSKA_WORKSPACE_ID=default
 export PSKA_TENANT_ID=
 ```
 
+`PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID` scope the local review store. Workflow,
+review, memory-apply, and audit lists/read APIs default to the current
+workspace/tenant, so two workspaces can share one SQLite file without exposing
+each other's PSKA state. Existing unscoped SQLite rows are treated as
+`default` workspace records during migration.
+
 Local Graphiti install:
 
 ```bash
@@ -380,5 +386,6 @@ configuration, Product API diagnostics for review store, KB gateway, retrieval,
 and memory connectivity, the explicit capability contract, and an explicit
 retrieval probe for the selected dataset before running Ask. Product API health,
 diagnostics, probe audit records, and other audit records include the runtime
-workspace/tenant context from
-`PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`.
+workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`; the
+review store uses that same context to scope workflows, reviews, memory apply
+records, and audit reads.
