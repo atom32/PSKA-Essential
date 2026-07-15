@@ -18,6 +18,11 @@ from pska_essential.diagnostics import (
 )
 from pska_essential.env_file import preload_env_file
 from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.kb_scope import (
+    dataset_scope_has_resolution_errors,
+    dataset_scope_resolution_message,
+    resolve_dataset_scope,
+)
 
 
 _INCOMPLETE_STEP_STATUSES = {
@@ -35,6 +40,7 @@ def run_component_check(
     gateway: Any,
     *,
     dataset_ids: list[str] | None = None,
+    dataset_names: list[str] | None = None,
     document_ids: list[str] | None = None,
     question: str = "PSKA component check",
     memory_query: str = "PSKA component memory probe",
@@ -47,7 +53,8 @@ def run_component_check(
     require_memory: bool = True,
     run_closed_loop: bool = True,
 ) -> dict[str, Any]:
-    selected_dataset_ids = _normalized_ids(dataset_ids or [])
+    requested_dataset_ids = _normalized_ids(dataset_ids or [])
+    requested_dataset_names = _normalized_ids(dataset_names or [])
     selected_document_ids = _normalized_ids(document_ids or [])
     steps: list[dict[str, Any]] = []
 
@@ -91,59 +98,89 @@ def run_component_check(
     else:
         add_step("memory.probe", "skipped", "Memory probe skipped by configuration.")
 
-    retrieval_probe = None
-    closed_loop_probe = None
-    if not selected_dataset_ids:
+    try:
+        scope_resolution = resolve_dataset_scope(
+            gateway,
+            dataset_ids=requested_dataset_ids,
+            dataset_names=requested_dataset_names,
+        )
+    except Exception as exc:  # noqa: BLE001 - component checks must return structured failures.
+        scope_resolution = {
+            "dataset_ids": requested_dataset_ids,
+            "dataset_names": requested_dataset_names,
+            "resolved_dataset_names": [],
+            "unresolved_dataset_names": [],
+            "ambiguous_dataset_names": [],
+            "error": {"type": exc.__class__.__name__, "message": str(exc)},
+        }
         add_step(
             "scope.check",
-            "incomplete",
-            "dataset_ids are required for retrieval and closed-loop component checks.",
-            dataset_ids=[],
+            "error",
+            f"Dataset scope resolution failed: {exc}",
+            dataset_ids=requested_dataset_ids,
+            dataset_names=requested_dataset_names,
+            error_type=exc.__class__.__name__,
         )
-    else:
-        retrieval_probe = run_retrieval_probe(
-            service,
-            gateway,
-            question=question,
-            dataset_ids=selected_dataset_ids,
-            document_ids=selected_document_ids,
-            limit=retrieval_limit,
-            use_kg=use_kg,
-        )
-        add_retrieval_probe_audit(service.store, retrieval_probe)
-        add_step(
-            "retrieval.probe",
-            str(retrieval_probe.get("status") or "unknown"),
-            str(retrieval_probe.get("message") or "Retrieval probe completed."),
-            provider=retrieval_probe.get("provider") or "",
-            context_count=int(retrieval_probe.get("context_count") or 0),
-        )
-
-        if run_closed_loop:
-            closed_loop_probe = run_live_closed_loop_probe(
+    selected_dataset_ids = [str(item) for item in scope_resolution.get("dataset_ids") or []]
+    retrieval_probe = None
+    closed_loop_probe = None
+    scope_resolution_failed = "error" in scope_resolution
+    if not scope_resolution_failed:
+        if not selected_dataset_ids or dataset_scope_has_resolution_errors(scope_resolution):
+            add_step(
+                "scope.check",
+                "incomplete",
+                dataset_scope_resolution_message(scope_resolution),
+                dataset_ids=selected_dataset_ids,
+                dataset_names=requested_dataset_names,
+                unresolved_dataset_names=scope_resolution.get("unresolved_dataset_names") or [],
+                ambiguous_dataset_names=scope_resolution.get("ambiguous_dataset_names") or [],
+            )
+        else:
+            retrieval_probe = run_retrieval_probe(
                 service,
                 gateway,
                 question=question,
                 dataset_ids=selected_dataset_ids,
                 document_ids=selected_document_ids,
-                limit=limit,
-                proposal_kind=proposal_kind,
+                limit=retrieval_limit,
                 use_kg=use_kg,
-                export_format=export_format,
-                source_inspection_limit=source_inspection_limit,
             )
-            add_live_closed_loop_probe_audit(service.store, closed_loop_probe)
+            add_retrieval_probe_audit(service.store, retrieval_probe)
             add_step(
-                "closed_loop.probe",
-                str(closed_loop_probe.get("status") or "unknown"),
-                str(closed_loop_probe.get("message") or "Closed-loop probe completed."),
-                context_count=int(closed_loop_probe.get("context_count") or 0),
-                source_count=int(closed_loop_probe.get("source_count") or 0),
-                source_inspection_count=int(closed_loop_probe.get("source_inspection_count") or 0),
-                run_id=str(closed_loop_probe.get("run_id") or ""),
+                "retrieval.probe",
+                str(retrieval_probe.get("status") or "unknown"),
+                str(retrieval_probe.get("message") or "Retrieval probe completed."),
+                provider=retrieval_probe.get("provider") or "",
+                context_count=int(retrieval_probe.get("context_count") or 0),
             )
-        else:
-            add_step("closed_loop.probe", "skipped", "Closed-loop probe skipped by configuration.")
+
+            if run_closed_loop:
+                closed_loop_probe = run_live_closed_loop_probe(
+                    service,
+                    gateway,
+                    question=question,
+                    dataset_ids=selected_dataset_ids,
+                    dataset_names=[],
+                    document_ids=selected_document_ids,
+                    limit=limit,
+                    proposal_kind=proposal_kind,
+                    use_kg=use_kg,
+                    export_format=export_format,
+                    source_inspection_limit=source_inspection_limit,
+                )
+                add_live_closed_loop_probe_audit(service.store, closed_loop_probe)
+                add_step(
+                    "closed_loop.probe",
+                    str(closed_loop_probe.get("status") or "unknown"),
+                    str(closed_loop_probe.get("message") or "Closed-loop probe completed."),
+                    context_count=int(closed_loop_probe.get("context_count") or 0),
+                    source_count=int(closed_loop_probe.get("source_count") or 0),
+                    source_inspection_count=int(closed_loop_probe.get("source_inspection_count") or 0),
+                    run_id=str(closed_loop_probe.get("run_id") or ""),
+                )
+            else:
+                add_step("closed_loop.probe", "skipped", "Closed-loop probe skipped by configuration.")
 
     status = _component_status(steps)
     return {
@@ -154,7 +191,11 @@ def run_component_check(
             **(diagnostics.get("providers") or {}),
             "kb": str(getattr(gateway, "backend_name", None) or (diagnostics.get("providers") or {}).get("kb") or ""),
         },
-        "scope": {"dataset_ids": selected_dataset_ids, "document_ids": selected_document_ids, "use_kg": bool(use_kg)},
+        "scope": {
+            **scope_resolution,
+            "document_ids": selected_document_ids,
+            "use_kg": bool(use_kg),
+        },
         "steps": steps,
         "diagnostics": diagnostics,
         "memory_probe": memory_probe,
@@ -179,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
         service,
         gateway,
         dataset_ids=_csv_env("PSKA_COMPONENT_DATASET_IDS") or _csv_env("PSKA_LIVE_DATASET_IDS"),
+        dataset_names=_csv_env("PSKA_COMPONENT_DATASET_NAMES") or _csv_env("PSKA_LIVE_DATASET_NAMES"),
         document_ids=_csv_env("PSKA_COMPONENT_DOCUMENT_IDS") or _csv_env("PSKA_LIVE_DOCUMENT_IDS"),
         question=_env("PSKA_COMPONENT_QUESTION", _env("PSKA_LIVE_QUESTION", "PSKA component check")),
         memory_query=_env("PSKA_COMPONENT_MEMORY_QUERY", "PSKA component memory probe"),
@@ -235,7 +277,10 @@ def _startup_error(exc: Exception) -> dict[str, Any]:
             "memory": os.getenv("PSKA_MEMORY_PROVIDER", "").strip().lower(),
             "dev_fake": _env_enabled("PSKA_DEV_FAKE"),
         },
-        "scope": {"dataset_ids": _csv_env("PSKA_COMPONENT_DATASET_IDS") or _csv_env("PSKA_LIVE_DATASET_IDS")},
+        "scope": {
+            "dataset_ids": _csv_env("PSKA_COMPONENT_DATASET_IDS") or _csv_env("PSKA_LIVE_DATASET_IDS"),
+            "dataset_names": _csv_env("PSKA_COMPONENT_DATASET_NAMES") or _csv_env("PSKA_LIVE_DATASET_NAMES"),
+        },
         "steps": [
             {
                 "name": "runtime.startup",

@@ -154,6 +154,22 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(event.metadata["error_type"], "RuntimeError")
         self.assertIn("bge-m3", event.metadata["error_message"])
 
+    def test_retrieval_probe_resolves_dataset_names(self):
+        service = SimpleNamespace(retrieval=_LiveRetrieval())
+
+        probe = run_retrieval_probe(
+            service,
+            _ReadyGateway(),
+            question="probe by name",
+            dataset_ids=[],
+            dataset_names=["Ready KB"],
+            limit=1,
+        )
+
+        self.assertEqual(probe["status"], "ok")
+        self.assertEqual(probe["scope"]["dataset_ids"], ["ready"])
+        self.assertEqual(probe["scope"]["resolved_dataset_names"], [{"name": "Ready KB", "dataset_id": "ready"}])
+
     def test_retrieval_probe_reports_readiness_errors_without_traceback(self):
         service = SimpleNamespace(retrieval=_LiveRetrieval())
 
@@ -214,6 +230,39 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(event.metadata["source_count"], 1)
         self.assertEqual(event.metadata["source_inspection_count"], 1)
         self.assertEqual(event.target_id, probe["run_id"])
+
+    def test_live_closed_loop_probe_resolves_dataset_names(self):
+        service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
+
+        probe = run_live_closed_loop_probe(
+            service,
+            _ReadyGateway(),
+            question="Can PSKA run by KB name?",
+            dataset_ids=[],
+            dataset_names=["Ready KB"],
+            limit=1,
+        )
+
+        self.assertEqual(probe["status"], "ok")
+        self.assertEqual(probe["scope"]["dataset_ids"], ["ready"])
+        self.assertEqual(probe["scope"]["resolved_dataset_names"], [{"name": "Ready KB", "dataset_id": "ready"}])
+
+    def test_live_closed_loop_probe_reports_unresolved_dataset_names(self):
+        service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
+
+        probe = run_live_closed_loop_probe(
+            service,
+            _ReadyGateway(),
+            question="Missing scope",
+            dataset_ids=[],
+            dataset_names=["Missing KB"],
+            limit=1,
+        )
+
+        self.assertEqual(probe["status"], "incomplete")
+        self.assertEqual(probe["scope"]["unresolved_dataset_names"], ["Missing KB"])
+        self.assertEqual(probe["steps"][0]["name"], "scope.check")
+        self.assertEqual(probe["context_count"], 0)
 
     def test_live_closed_loop_probe_rejects_fake_kb_or_retrieval(self):
         service = WorkflowService(FakeRetrievalAdapter(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))

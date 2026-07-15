@@ -770,6 +770,16 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(audit["events"][0]["metadata"]["status"], "ok")
         self.assertEqual(audit["events"][0]["metadata"]["context_count"], 1)
 
+    def test_retrieval_probe_route_resolves_dataset_names(self):
+        probe = self._post_json(
+            "/api/runtime/retrieval-probe",
+            {"question": "How does PSKA retrieve?", "dataset_names": ["Demo"], "limit": 1},
+        )["probe"]
+
+        self.assertEqual(probe["status"], "ok")
+        self.assertEqual(probe["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(probe["scope"]["resolved_dataset_names"], [{"name": "Demo", "dataset_id": "demo"}])
+
     def test_retrieval_probe_does_not_retrieve_unready_scope(self):
         self.gateway.ready = False
         probe = self._post_json(
@@ -804,13 +814,14 @@ class ProductApiTests(unittest.TestCase):
                 "/api/runtime/component-check",
                 {
                     "question": "Can the configured components answer?",
-                    "dataset_ids": ["demo"],
+                    "dataset_names": ["Demo"],
                     "require_memory": False,
                     "run_closed_loop": False,
                 },
             )["component_check"]
 
         self.assertEqual(result["status"], "incomplete")
+        self.assertEqual(result["scope"]["dataset_ids"], ["demo"])
         self.assertEqual(result["retrieval_probe"]["status"], "ok")
         self.assertIsNone(result["closed_loop_probe"])
         audit = self._get_json("/api/audit?limit=5&action=retrieval.probe")

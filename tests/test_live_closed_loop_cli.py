@@ -24,7 +24,7 @@ class LiveClosedLoopCliTests(unittest.TestCase):
         self.assertEqual(result["status"], "incomplete")
         self.assertEqual(result["steps"][0]["name"], "scope.check")
         self.assertEqual(result["next_actions"][0]["action"], "select_ready_dataset")
-        self.assertIn("PSKA_LIVE_DATASET_IDS is required", result["message"])
+        self.assertIn("PSKA_LIVE_DATASET_IDS or PSKA_LIVE_DATASET_NAMES is required", result["message"])
 
     def test_live_closed_loop_cli_reports_startup_config_error_as_json(self):
         env = {
@@ -33,7 +33,7 @@ class LiveClosedLoopCliTests(unittest.TestCase):
             "PSKA_MEMORY_PROVIDER": "company_graphrag_stub",
             "PSKA_REVIEW_DB": ":memory:",
             "RAGFLOW_BASE_URL": "http://127.0.0.1:9380",
-            "PSKA_LIVE_DATASET_IDS": "demo",
+            "PSKA_LIVE_DATASET_NAMES": "Demo KB",
         }
         with patch.dict(os.environ, env, clear=True):
             output = io.StringIO()
@@ -45,7 +45,7 @@ class LiveClosedLoopCliTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(result["kind"], "live_closed_loop_probe")
         self.assertEqual(result["status"], "error")
-        self.assertEqual(result["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(result["scope"]["dataset_names"], ["Demo KB"])
         self.assertEqual(result["steps"][0]["name"], "runtime.startup")
         self.assertEqual(result["next_actions"][0]["action"], "fix_runtime_config")
         self.assertIn("RAGFlow retrieval is missing required env: RAGFLOW_API_KEY", result["message"])

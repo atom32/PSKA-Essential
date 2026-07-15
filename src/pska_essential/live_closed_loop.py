@@ -18,11 +18,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.parse_args(argv)
 
     dataset_ids = _csv_env("PSKA_LIVE_DATASET_IDS")
-    if not dataset_ids:
+    dataset_names = _csv_env("PSKA_LIVE_DATASET_NAMES")
+    if not dataset_ids and not dataset_names:
         result = missing_scope_payload(
             "live_closed_loop_probe",
-            message="PSKA_LIVE_DATASET_IDS is required, for example: PSKA_LIVE_DATASET_IDS=dataset_id",
-            env_var="PSKA_LIVE_DATASET_IDS",
+            message=(
+                "PSKA_LIVE_DATASET_IDS or PSKA_LIVE_DATASET_NAMES is required, "
+                "for example: PSKA_LIVE_DATASET_NAMES=dataset_name"
+            ),
+            env_var="PSKA_LIVE_DATASET_IDS or PSKA_LIVE_DATASET_NAMES",
         )
         print(json.dumps(to_jsonable(result), ensure_ascii=False, indent=2))
         return 2
@@ -32,7 +36,11 @@ def main(argv: list[str] | None = None) -> int:
         gateway = build_kb_gateway_from_env()
     except Exception as exc:  # noqa: BLE001 - CLI must report startup failures without fallback.
         result = startup_error_payload("live_closed_loop_probe", exc, operation="Live closed-loop probe")
-        result["scope"] = {"dataset_ids": dataset_ids, "document_ids": _csv_env("PSKA_LIVE_DOCUMENT_IDS")}
+        result["scope"] = {
+            "dataset_ids": dataset_ids,
+            "dataset_names": dataset_names,
+            "document_ids": _csv_env("PSKA_LIVE_DOCUMENT_IDS"),
+        }
         print(json.dumps(to_jsonable(result), ensure_ascii=False, indent=2))
         return 2
     probe = run_live_closed_loop_probe(
@@ -40,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         gateway,
         question=os.getenv("PSKA_LIVE_QUESTION", "PSKA live closed-loop probe"),
         dataset_ids=dataset_ids,
+        dataset_names=dataset_names,
         document_ids=_csv_env("PSKA_LIVE_DOCUMENT_IDS"),
         limit=int(os.getenv("PSKA_LIVE_LIMIT", "3")),
         proposal_kind=os.getenv("PSKA_LIVE_PROPOSAL_KIND", "writing_brief"),

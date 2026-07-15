@@ -112,6 +112,8 @@ After a RAGFlow dataset is uploaded and ready, run a live component check:
 ```bash
 make workspace-status ENV_FILE=.env.pska
 export PSKA_COMPONENT_DATASET_IDS=...
+# or:
+export PSKA_COMPONENT_DATASET_NAMES="ready dataset name"
 export PSKA_COMPONENT_QUESTION="Summarize the selected documents with sources."
 make live-component-check
 # or:
@@ -123,7 +125,9 @@ probe, and the live closed-loop probe in one structured result. It does not use
 fake providers as proof. A successful result means the configured live
 providers completed readiness, retrieval, agentic Ask, source inspection, and
 explicit export; the result reports the exact failing step when a component is
-not wired.
+not wired. Component and live probes accept either dataset IDs or dataset names;
+PSKA resolves names through the KB gateway and reports canonical dataset IDs in
+the returned scope.
 `make workspace-status` or `pska-essential-workspace-status` prints the same
 PSKA next-action summary used by Home and Hermes, including whether to upload,
 parse, wait, resume, review, apply memory, or ask over ready datasets.
@@ -316,7 +320,9 @@ fallback or backend failure.
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live
 providers. Durable memory or graph changes still use the normal review/apply
-workflow.
+workflow. Retrieval, component, and live probes accept `dataset_names` as an
+input convenience, but PSKA resolves them into canonical dataset IDs before
+retrieval or Ask.
 Dataset creation and ingest tools accept optional `embedding_model` so the
 PSKA product layer can request a configured RAGFlow embedding model without
 exposing RAGFlow-internal fields.

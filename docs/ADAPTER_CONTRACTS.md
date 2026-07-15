@@ -124,6 +124,10 @@ PSKA: runtime diagnostics, memory probe, retrieval probe, and live closed-loop
 probe. It returns `incomplete` for missing dataset scope, skipped core checks,
 or `not_ready` KB scope instead of silently treating partial probes as full
 component proof or reporting long-running ingestion as a backend failure.
+Component, retrieval, and live closed-loop probes may accept user-facing
+dataset names, but PSKA resolves them through the KB gateway into canonical
+dataset IDs before retrieval, Ask, or export. Unresolved or ambiguous names are
+reported as incomplete scope rather than replaced with another dataset.
 `pska_eval_run("product_acceptance")` runs a local product-loop acceptance suite
 through PSKA contracts: file ingest, ready Ask/export, not-ready upload resume,
 governed durable memory transition, and audit traceability. It may use fake

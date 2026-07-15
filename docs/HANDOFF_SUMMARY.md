@@ -243,7 +243,9 @@ Implemented:
   preserves the original request.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
-  reports provider/model errors without falling back.
+  reports provider/model errors without falling back. Retrieval probes can
+  accept dataset names and resolve them through the KB gateway into canonical
+  dataset IDs before checking readiness or retrieval.
 - Product API, MCP, and frontend Settings expose an explicit memory probe that
   verifies configured memory search through the PSKA adapter contract, rejects
   fake memory by default for live component verification, writes `memory.probe`
@@ -257,7 +259,10 @@ Implemented:
   configured live providers. It writes `closed_loop.probe` audit records and
   reports the exact failing stage without fallback; successful probes now
   surface top-level source and source-inspection counts. Durable memory/graph
-  writes still use the normal review/apply workflow.
+  writes still use the normal review/apply workflow. Component checks,
+  retrieval probes, and live closed-loop probes can accept dataset names; PSKA
+  resolves them through the configured KB gateway and returns incomplete scope
+  for unresolved or ambiguous names.
 - `make live-component-check`, `pska-essential-component-check`, MCP
   `pska_component_check`, and `POST /api/runtime/component-check` aggregate
   runtime diagnostics, explicit memory probe, retrieval probe, and live
@@ -415,7 +420,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 199 tests pass.
+- `make test`: 206 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit

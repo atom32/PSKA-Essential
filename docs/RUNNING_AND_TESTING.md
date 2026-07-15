@@ -424,7 +424,9 @@ selected ready dataset when RAGFlow is reachable but Ask still fails at
 retrieval time. The probe first checks PSKA readiness, then runs a limit-1
 retrieval through the configured retrieval adapter, records a `retrieval.probe`
 audit event, and surfaces provider errors such as missing embedding model
-providers explicitly.
+providers explicitly. Focused retrieval probes accept either `dataset_ids` or
+`dataset_names`; names are resolved through the KB gateway and returned as
+canonical dataset IDs before retrieval runs.
 
 Use runtime diagnostics for a read-only memory search contract check when
 Graphiti is reachable but memory search or governed memory workflows fail. Use
@@ -448,6 +450,10 @@ RAGFlow provider without `RAGFLOW_API_KEY`, are returned as structured JSON with
 a nonzero exit instead of falling through to fake data. A selected scope that is
 still parsing, chunking, embedding, or indexing returns `incomplete`, not
 `error`, because the next action is to wait for KB readiness.
+The selected scope can be provided as `PSKA_COMPONENT_DATASET_IDS` or
+`PSKA_COMPONENT_DATASET_NAMES`. Dataset names are resolved through the
+configured KB gateway, and unresolved or ambiguous names return `incomplete`
+instead of falling back to another scope.
 
 Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
 `make live-closed-loop` when you only want the sourced Ask/export portion. The
@@ -460,7 +466,9 @@ write durable memory or graph state; use the
 normal Ask/review/apply workflow for that. It writes a `closed_loop.probe` audit
 record and reports the exact stage that failed, such as `not_ready`,
 `retrieval_error`, `agentic_error`, or `export_error`. Successful probes include
-context, source, and source-inspection counts.
+context, source, and source-inspection counts. CLI scope can be provided as
+`PSKA_LIVE_DATASET_IDS` or `PSKA_LIVE_DATASET_NAMES`; names are resolved before
+readiness, retrieval, and Ask.
 
 Use `POST /api/ingest-loop`, `pska_ingest_loop`,
 `make live-ingest-loop`, or `pska-essential-ingest-loop` when the proof should
@@ -509,6 +517,8 @@ export PSKA_LOOP_DATASET_NAME="live-upload-test"
 export PSKA_LOOP_FILE_PATHS="/path/to/document.pdf"
 export PSKA_LOOP_QUESTION="Summarize the uploaded documents with sources."
 export PSKA_LIVE_DATASET_IDS=...
+# or:
+export PSKA_LIVE_DATASET_NAMES="ready dataset name"
 export PSKA_LIVE_QUESTION="Summarize the selected documents with sources."
 make workspace-status
 make live-ingest-loop

@@ -94,12 +94,13 @@ class McpContractTests(unittest.TestCase):
             ingested = tools["pska_kb_ingest_files"]([str(path)], dataset_name="MCP Component Check", parse=True)
             result = tools["pska_component_check"](
                 question="Can the configured components answer?",
-                dataset_ids=[ingested["dataset"]["dataset_id"]],
+                dataset_names=["MCP Component Check"],
                 require_memory=False,
                 run_closed_loop=False,
             )
 
         self.assertEqual(result["status"], "incomplete")
+        self.assertEqual(result["scope"]["dataset_ids"], [ingested["dataset"]["dataset_id"]])
         self.assertEqual(result["retrieval_probe"]["status"], "ok")
         self.assertIsNone(result["closed_loop_probe"])
         self.assertIn("retrieval.probe", [event.action for event in service.store.list_audit_events()])

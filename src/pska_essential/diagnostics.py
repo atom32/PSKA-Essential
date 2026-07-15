@@ -11,6 +11,11 @@ from pska_essential.audit import audit_event
 from pska_essential.capabilities import memory_capabilities
 from pska_essential.contracts import to_jsonable
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
+from pska_essential.kb_scope import (
+    dataset_scope_has_resolution_errors,
+    dataset_scope_resolution_message,
+    resolve_dataset_scope,
+)
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_memory_scope, build_runtime_workspace_context
 
@@ -50,21 +55,36 @@ def run_retrieval_probe(
     *,
     question: str,
     dataset_ids: list[str],
+    dataset_names: list[str] | None = None,
     document_ids: list[str] | None = None,
     limit: int = 1,
     use_kg: bool = False,
 ) -> dict[str, Any]:
-    selected_dataset_ids = _normalized_ids(dataset_ids)
+    requested_dataset_ids = _normalized_ids(dataset_ids)
+    requested_dataset_names = _normalized_ids(dataset_names or [])
     selected_document_ids = _normalized_ids(document_ids or [])
-    if not selected_dataset_ids:
-        raise ValueError("dataset_ids is required")
+    if not requested_dataset_ids and not requested_dataset_names:
+        raise ValueError("dataset_ids or dataset_names is required")
     normalized_question = question.strip() or "PSKA retrieval probe"
-    scope = {
-        "dataset_ids": selected_dataset_ids,
-        "document_ids": selected_document_ids,
-        "use_kg": bool(use_kg),
-    }
+    scope_resolution = resolve_dataset_scope(
+        gateway,
+        dataset_ids=requested_dataset_ids,
+        dataset_names=requested_dataset_names,
+    )
+    selected_dataset_ids = [str(item) for item in scope_resolution.get("dataset_ids") or []]
+    scope = {**scope_resolution, "document_ids": selected_document_ids, "use_kg": bool(use_kg)}
     provider = _provider_name("PSKA_RETRIEVAL_PROVIDER", getattr(service, "retrieval", None))
+    if not selected_dataset_ids or dataset_scope_has_resolution_errors(scope_resolution):
+        return {
+            "status": "incomplete",
+            "provider": provider,
+            "message": dataset_scope_resolution_message(scope_resolution),
+            "query": normalized_question,
+            "scope": scope,
+            "readiness": None,
+            "context_count": 0,
+            "contexts": [],
+        }
     try:
         readiness = evaluate_kb_readiness(
             gateway,
@@ -192,6 +212,7 @@ def run_live_closed_loop_probe(
     *,
     question: str,
     dataset_ids: list[str],
+    dataset_names: list[str] | None = None,
     document_ids: list[str] | None = None,
     limit: int = 3,
     proposal_kind: str = "writing_brief",
@@ -206,10 +227,11 @@ def run_live_closed_loop_probe(
     configured live substrates can support a sourced Ask/export workflow.
     """
 
-    selected_dataset_ids = _normalized_ids(dataset_ids)
+    requested_dataset_ids = _normalized_ids(dataset_ids)
+    requested_dataset_names = _normalized_ids(dataset_names or [])
     selected_document_ids = _normalized_ids(document_ids or [])
-    if not selected_dataset_ids:
-        raise ValueError("dataset_ids is required")
+    if not requested_dataset_ids and not requested_dataset_names:
+        raise ValueError("dataset_ids or dataset_names is required")
 
     normalized_question = question.strip() or "PSKA live closed-loop probe"
     normalized_proposal_kind = proposal_kind.strip().lower() or "writing_brief"
@@ -220,11 +242,13 @@ def run_live_closed_loop_probe(
         "retrieval": _provider_name("PSKA_RETRIEVAL_PROVIDER", getattr(service, "retrieval", None)),
         "memory": _provider_name("PSKA_MEMORY_PROVIDER", getattr(service, "memory", None)),
     }
-    scope = {
-        "dataset_ids": selected_dataset_ids,
-        "document_ids": selected_document_ids,
-        "use_kg": bool(use_kg),
-    }
+    scope_resolution = resolve_dataset_scope(
+        gateway,
+        dataset_ids=requested_dataset_ids,
+        dataset_names=requested_dataset_names,
+    )
+    selected_dataset_ids = [str(item) for item in scope_resolution.get("dataset_ids") or []]
+    scope = {**scope_resolution, "document_ids": selected_document_ids, "use_kg": bool(use_kg)}
     steps: list[dict[str, Any]] = []
 
     def add_step(name: str, status: str, message: str, **metadata: Any) -> None:
@@ -245,6 +269,29 @@ def run_live_closed_loop_probe(
                 "Live closed-loop probe only supports transient work products. "
                 "Use the normal Ask/review/apply workflow for durable memory or graph changes."
             ),
+            "providers": providers,
+            "query": normalized_question,
+            "scope": scope,
+            "steps": steps,
+            "context_count": 0,
+            "export": None,
+        }
+
+    if not selected_dataset_ids or dataset_scope_has_resolution_errors(scope_resolution):
+        message = dataset_scope_resolution_message(scope_resolution)
+        add_step(
+            "scope.check",
+            "blocked",
+            message,
+            dataset_ids=selected_dataset_ids,
+            dataset_names=requested_dataset_names,
+            unresolved_dataset_names=scope_resolution.get("unresolved_dataset_names") or [],
+            ambiguous_dataset_names=scope_resolution.get("ambiguous_dataset_names") or [],
+        )
+        return {
+            "kind": "live_closed_loop_probe",
+            "status": "incomplete",
+            "message": message,
             "providers": providers,
             "query": normalized_question,
             "scope": scope,

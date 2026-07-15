@@ -40,6 +40,10 @@ candidate memory, review, and durable export.
   parsing, embedding, or indexing finishes.
 - Treat upload, parsing, embedding, and indexing as asynchronous. Check document
   readiness and `pska_kb_ingestion_status` before asking over a dataset.
+- For retrieval, component, and live closed-loop probes, prefer canonical
+  `dataset_ids` when available. If the user only knows a knowledge-base name,
+  pass it as `dataset_names`; PSKA will resolve it through the KB gateway before
+  retrieval or Ask.
 - Do not use case-specific shortcuts or hardcoded domains.
 - Do not invent fallback answers when retrieval or backend calls fail.
 - Treat retrieved context as workflow-local until review accepts it.

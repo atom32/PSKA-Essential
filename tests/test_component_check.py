@@ -64,6 +64,17 @@ class _ProcessingGateway(_ReadyGateway):
         ]
 
 
+class _AmbiguousGateway(_ReadyGateway):
+    def list_datasets(self, *, name=None, page_size=30):
+        datasets = [
+            {"backend": "test", "dataset_id": "dup-1", "name": "Duplicate KB", "document_count": 1, "chunk_count": 1},
+            {"backend": "test", "dataset_id": "dup-2", "name": "Duplicate KB", "document_count": 1, "chunk_count": 1},
+        ]
+        if name:
+            return [dataset for dataset in datasets if dataset["name"] == name]
+        return datasets
+
+
 class ComponentCheckTests(unittest.TestCase):
     def test_component_check_runs_requested_probes_and_audits(self):
         adapter = CompanyGraphRagStubAdapter()
@@ -110,6 +121,57 @@ class ComponentCheckTests(unittest.TestCase):
         self.assertEqual(result["steps"][-1]["name"], "scope.check")
         self.assertEqual(result["steps"][-1]["status"], "incomplete")
         self.assertEqual(service.store.list_audit_events(), [])
+
+    def test_component_check_resolves_dataset_names_before_probes(self):
+        adapter = CompanyGraphRagStubAdapter()
+        service = WorkflowService(adapter, adapter, SQLiteReviewStore(":memory:"))
+
+        result = run_component_check(
+            service,
+            _ReadyGateway(),
+            dataset_names=["Ready KB"],
+            require_memory=False,
+            run_closed_loop=False,
+        )
+
+        self.assertEqual(result["scope"]["dataset_ids"], ["ready"])
+        self.assertEqual(result["scope"]["resolved_dataset_names"], [{"name": "Ready KB", "dataset_id": "ready"}])
+        self.assertEqual(result["retrieval_probe"]["status"], "ok")
+
+    def test_component_check_reports_unresolved_dataset_names_as_incomplete(self):
+        adapter = CompanyGraphRagStubAdapter()
+        service = WorkflowService(adapter, adapter, SQLiteReviewStore(":memory:"))
+
+        result = run_component_check(
+            service,
+            _ReadyGateway(),
+            dataset_names=["Missing KB"],
+            require_memory=False,
+            run_closed_loop=True,
+        )
+
+        self.assertEqual(result["status"], "incomplete")
+        self.assertEqual(result["scope"]["unresolved_dataset_names"], ["Missing KB"])
+        self.assertIsNone(result["retrieval_probe"])
+        self.assertIsNone(result["closed_loop_probe"])
+        self.assertEqual(result["steps"][-1]["name"], "scope.check")
+
+    def test_component_check_reports_ambiguous_dataset_names_as_incomplete(self):
+        adapter = CompanyGraphRagStubAdapter()
+        service = WorkflowService(adapter, adapter, SQLiteReviewStore(":memory:"))
+
+        result = run_component_check(
+            service,
+            _AmbiguousGateway(),
+            dataset_names=["Duplicate KB"],
+            require_memory=False,
+            run_closed_loop=True,
+        )
+
+        self.assertEqual(result["status"], "incomplete")
+        self.assertEqual(result["scope"]["ambiguous_dataset_names"][0]["name"], "Duplicate KB")
+        self.assertEqual(result["scope"]["ambiguous_dataset_names"][0]["dataset_ids"], ["dup-1", "dup-2"])
+        self.assertIsNone(result["retrieval_probe"])
 
     def test_component_check_is_incomplete_when_core_checks_are_skipped(self):
         adapter = CompanyGraphRagStubAdapter()

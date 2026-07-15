@@ -186,6 +186,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_component_check(
         question: str = "PSKA component check",
         dataset_ids: list[str] | None = None,
+        dataset_names: list[str] | None = None,
         document_ids: list[str] | None = None,
         memory_query: str = "PSKA component memory probe",
         limit: int = 3,
@@ -202,6 +203,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             build_kb_gateway_from_env(),
             question=question,
             dataset_ids=_optional_strings(dataset_ids),
+            dataset_names=_optional_strings(dataset_names),
             document_ids=_optional_strings(document_ids),
             memory_query=memory_query,
             limit=limit,
@@ -216,7 +218,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_live_closed_loop_probe(
         question: str,
-        dataset_ids: list[str],
+        dataset_ids: list[str] | None = None,
+        dataset_names: list[str] | None = None,
         document_ids: list[str] | None = None,
         limit: int = 3,
         proposal_kind: str = "writing_brief",
@@ -224,13 +227,17 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         export_format: str = "json",
         source_inspection_limit: int = 1,
     ):
-        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_dataset_ids = _optional_strings(dataset_ids)
+        selected_dataset_names = _optional_strings(dataset_names)
+        if not selected_dataset_ids and not selected_dataset_names:
+            raise ValueError("dataset_ids or dataset_names is required")
         selected_document_ids = _optional_strings(document_ids)
         probe = run_live_closed_loop_probe(
             service,
             build_kb_gateway_from_env(),
             question=question,
             dataset_ids=selected_dataset_ids,
+            dataset_names=selected_dataset_names,
             document_ids=selected_document_ids,
             limit=limit,
             proposal_kind=proposal_kind,
