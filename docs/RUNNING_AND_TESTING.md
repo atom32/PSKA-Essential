@@ -560,6 +560,7 @@ Core tests:
 - export
 - adapter replacement with company stub
 - KB gateway glue without live RAGFlow
+- RAGFlow KB pagination lookup and current document parse endpoint mapping
 - Product API and frontend boundary smoke tests
 - agentic Ask loop diagnostics and durable-governance defaults
 - explicit retrieval probe diagnostics for selected ready scopes

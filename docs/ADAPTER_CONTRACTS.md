@@ -153,6 +153,11 @@ Rules:
 
 - PSKA-Essential may create datasets, upload files, start parsing, poll document
   status, and read optional structure graph data through provider APIs.
+- RAGFlow dataset/document lookup used for reuse, maintenance, readiness, and
+  resume flows must scan visible pages through the provider API instead of
+  assuming the target appears on the first page.
+- RAGFlow parsing uses the current public document parse contract
+  `/datasets/{dataset_id}/documents/parse`.
 - PSKA-Essential may delete selected datasets by ID, by name, or all datasets
   through adapter APIs for explicit cleanup and development reset flows.
 - Fresh workspaces, including the explicit fake KB gateway, start without

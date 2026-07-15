@@ -26,6 +26,8 @@ class RagflowKnowledgeGateway:
 
     backend_name = "ragflow"
     max_page_size = 100
+    scan_page_size = 100
+    max_scan_pages = 100
 
     def __init__(self, *, base_url: str, api_key: str, timeout: float = 30.0) -> None:
         if not base_url:
@@ -37,16 +39,19 @@ class RagflowKnowledgeGateway:
         self.timeout = timeout
 
     def list_datasets(self, *, name: str | None = None, page_size: int = 30) -> list[dict[str, Any]]:
-        params = {"page": 1, "page_size": _ragflow_page_size(page_size), "orderby": "create_time", "desc": True}
         # RAGFlow currently reports a permission error for unknown `name`
-        # filters. List visible datasets first and filter client-side so
+        # filters. Scan visible datasets first and filter client-side so
         # "ensure dataset" can create a new one when it does not exist.
-        data = self._json("GET", "/datasets", params=params)
-        rows = data if isinstance(data, list) else data.get("data", data.get("datasets", []))
-        datasets = [_dataset_summary(row) for row in rows]
         if name:
-            return [dataset for dataset in datasets if dataset.get("name") == name]
-        return datasets
+            limit = _ragflow_page_size(page_size)
+            matches = []
+            for dataset in self._scan_datasets():
+                if dataset.get("name") == name:
+                    matches.append(dataset)
+                    if len(matches) >= limit:
+                        break
+            return matches
+        return self._list_dataset_page(page=1, page_size=_ragflow_page_size(page_size))
 
     def create_dataset(
         self,
@@ -98,18 +103,45 @@ class RagflowKnowledgeGateway:
         }
 
     def _dataset_ids_for_names(self, dataset_names: list[str]) -> tuple[list[str], list[str]]:
-        datasets = self.list_datasets(page_size=self.max_page_size)
         ids: list[str] = []
         matched_names: set[str] = set()
         requested = set(dataset_names)
-        for dataset in datasets:
+        for dataset in self._scan_datasets():
             name = str(dataset.get("name") or "")
             dataset_id = str(dataset.get("dataset_id") or "")
             if name in requested and dataset_id:
                 ids.append(dataset_id)
                 matched_names.add(name)
+                if matched_names == requested:
+                    break
         missing = [name for name in dataset_names if name not in matched_names]
         return ids, missing
+
+    def _find_dataset_by_id(self, dataset_id: str) -> dict[str, Any] | None:
+        for dataset in self._scan_datasets():
+            if dataset.get("dataset_id") == dataset_id:
+                return dataset
+        return None
+
+    def _scan_datasets(self) -> list[dict[str, Any]]:
+        page_size = _ragflow_page_size(self.scan_page_size)
+        datasets: list[dict[str, Any]] = []
+        page = 1
+        while page <= self.max_scan_pages:
+            page_rows = self._list_dataset_page(page=page, page_size=page_size)
+            datasets.extend(page_rows)
+            if len(page_rows) < page_size:
+                break
+            page += 1
+        else:
+            raise KbGatewayError("RAGFlow dataset scan exceeded max_scan_pages")
+        return datasets
+
+    def _list_dataset_page(self, *, page: int, page_size: int) -> list[dict[str, Any]]:
+        params = {"page": page, "page_size": _ragflow_page_size(page_size), "orderby": "create_time", "desc": True}
+        data = self._json("GET", "/datasets", params=params)
+        rows = data if isinstance(data, list) else data.get("data", data.get("datasets", []))
+        return [_dataset_summary(row) for row in rows]
 
     def ensure_dataset(
         self,
@@ -154,14 +186,19 @@ class RagflowKnowledgeGateway:
         name: str | None = None,
         page_size: int = 30,
     ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {"page": 1, "page_size": _ragflow_page_size(page_size), "orderby": "create_time", "desc": True}
-        if document_id:
-            params["id"] = document_id
-        if name:
-            params["name"] = name
-        data = self._json("GET", f"/datasets/{dataset_id}/documents", params=params)
-        rows = data if isinstance(data, list) else data.get("docs", [])
-        return [_document_summary(row, dataset_id=dataset_id) for row in rows]
+        if document_id or name:
+            limit = _ragflow_page_size(page_size)
+            matches = []
+            for document in self._scan_documents(dataset_id):
+                if document_id and document.get("document_id") != document_id:
+                    continue
+                if name and document.get("name") != name:
+                    continue
+                matches.append(document)
+                if len(matches) >= limit:
+                    break
+            return matches
+        return self._list_document_page(dataset_id=dataset_id, page=1, page_size=_ragflow_page_size(page_size))
 
     def parse_documents(
         self,
@@ -174,7 +211,7 @@ class RagflowKnowledgeGateway:
         ids = [str(doc_id) for doc_id in document_ids if doc_id]
         if not ids:
             raise KbGatewayError("document_ids is required")
-        self._json("POST", f"/datasets/{dataset_id}/chunks", payload={"document_ids": ids})
+        self._json("POST", f"/datasets/{dataset_id}/documents/parse", payload={"document_ids": ids})
         result: dict[str, Any] = {
             "backend": self.backend_name,
             "dataset_id": dataset_id,
@@ -241,8 +278,7 @@ class RagflowKnowledgeGateway:
         dataset: dict[str, Any]
         created = False
         if dataset_id:
-            matches = self.list_datasets(page_size=100)
-            dataset = next((item for item in matches if item.get("dataset_id") == dataset_id), {"dataset_id": dataset_id})
+            dataset = self._find_dataset_by_id(dataset_id) or {"dataset_id": dataset_id}
         else:
             if not dataset_name:
                 raise KbGatewayError("dataset_name is required when dataset_id is not provided")
@@ -274,6 +310,31 @@ class RagflowKnowledgeGateway:
             if wait and parse_result.get("documents"):
                 result["documents"] = parse_result["documents"]
         return result
+
+    def _scan_documents(self, dataset_id: str) -> list[dict[str, Any]]:
+        page_size = _ragflow_page_size(self.scan_page_size)
+        documents: list[dict[str, Any]] = []
+        page = 1
+        while page <= self.max_scan_pages:
+            page_rows = self._list_document_page(dataset_id=dataset_id, page=page, page_size=page_size)
+            documents.extend(page_rows)
+            if len(page_rows) < page_size:
+                break
+            page += 1
+        else:
+            raise KbGatewayError("RAGFlow document scan exceeded max_scan_pages")
+        return documents
+
+    def _list_document_page(self, *, dataset_id: str, page: int, page_size: int) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {
+            "page": page,
+            "page_size": _ragflow_page_size(page_size),
+            "orderby": "create_time",
+            "desc": True,
+        }
+        data = self._json("GET", f"/datasets/{dataset_id}/documents", params=params)
+        rows = data if isinstance(data, list) else data.get("docs", [])
+        return [_document_summary(row, dataset_id=dataset_id) for row in rows]
 
     def _json(
         self,

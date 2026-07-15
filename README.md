@@ -134,7 +134,10 @@ documents before running Ask.
 When creating a new RAGFlow-backed dataset through PSKA, `pska_kb_create`,
 `pska_kb_ingest_files`, and the Product API accept optional `embedding_model`.
 Leave it empty to use the RAGFlow tenant default, or set it to an embedding
-model/provider that RAGFlow already has configured.
+model/provider that RAGFlow already has configured. The RAGFlow KB gateway
+scans visible dataset/document pages when resolving IDs or names, and starts
+parsing through RAGFlow's current `/datasets/{dataset_id}/documents/parse`
+contract.
 
 Run the file-to-work-product loop when you want PSKA to create/populate the KB
 scope first, wait for readiness, ask, and export a sourced transient artifact:

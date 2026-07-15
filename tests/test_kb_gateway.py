@@ -93,14 +93,58 @@ class _RequestRecordingRagflowGateway(RagflowKnowledgeGateway):
     def __init__(self):
         super().__init__(base_url="http://ragflow.local", api_key="test")
         self.calls = []
+        self.scan_page_size = 2
 
     def _request(self, method, path, *, body=None, headers=None, params=None):
         self.calls.append({"method": method, "path": path, "params": dict(params or {}), "body": body})
         if method == "GET" and path == "/datasets":
+            page = int((params or {}).get("page") or 1)
+            if page == 2:
+                return [
+                    {"id": "dataset-page-2", "name": "Page Two Dataset"},
+                ]
+            if page > 2:
+                return []
             return [
                 {"id": "dataset-by-name", "name": "Bad Embedding Dataset"},
                 {"id": "other-dataset", "name": "Other"},
             ]
+        if method == "GET" and path == "/datasets/dataset-1/documents":
+            page = int((params or {}).get("page") or 1)
+            if page == 2:
+                return {
+                    "total": 3,
+                    "docs": [
+                        {
+                            "id": "doc-page-2",
+                            "name": "page-two.txt",
+                            "dataset_id": "dataset-1",
+                            "chunk_count": 1,
+                            "run": "DONE",
+                        }
+                    ],
+                }
+            if page > 2:
+                return {"total": 3, "docs": []}
+            return {
+                "total": 3,
+                "docs": [
+                    {
+                        "id": "doc-page-1",
+                        "name": "page-one.txt",
+                        "dataset_id": "dataset-1",
+                        "chunk_count": 1,
+                        "run": "DONE",
+                    },
+                    {
+                        "id": "doc-other",
+                        "name": "other.txt",
+                        "dataset_id": "dataset-1",
+                        "chunk_count": 1,
+                        "run": "DONE",
+                    },
+                ],
+            }
         if method == "POST" and path == "/datasets":
             payload = json.loads((body or b"{}").decode("utf-8"))
             return {
@@ -155,11 +199,58 @@ class KbGatewayTests(unittest.TestCase):
         self.assertEqual(result["dataset_ids"], ["dataset-by-name"])
         self.assertEqual(result["deleted_dataset_ids"], ["dataset-by-name"])
 
+    def test_ragflow_dataset_name_resolution_scans_visible_pages(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        result = gateway.delete_datasets(dataset_names=["Page Two Dataset"])
+
+        self.assertEqual(result["dataset_ids"], ["dataset-page-2"])
+        dataset_pages = [
+            call["params"]["page"]
+            for call in gateway.calls
+            if call["method"] == "GET" and call["path"] == "/datasets"
+        ]
+        self.assertEqual(dataset_pages, [1, 2])
+
+    def test_ragflow_ingest_dataset_id_lookup_scans_visible_pages(self):
+        gateway = _RequestRecordingRagflowGateway()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "note.txt"
+            path.write_text("PSKA live RAGFlow lookup", encoding="utf-8")
+
+            result = gateway.ingest_files(file_paths=[str(path)], dataset_id="dataset-page-2", parse=False)
+
+        self.assertEqual(result["dataset"]["name"], "Page Two Dataset")
+        self.assertFalse(result["dataset_created"])
+
     def test_ragflow_delete_dataset_name_fails_when_not_found(self):
         gateway = _RequestRecordingRagflowGateway()
 
         with self.assertRaisesRegex(KbGatewayError, "no dataset matched name"):
             gateway.delete_datasets(dataset_names=["Missing Dataset"])
+
+    def test_ragflow_document_id_lookup_scans_visible_pages(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        docs = gateway.list_documents(dataset_id="dataset-1", document_id="doc-page-2", page_size=1)
+
+        self.assertEqual([doc["document_id"] for doc in docs], ["doc-page-2"])
+        document_pages = [
+            call["params"]["page"]
+            for call in gateway.calls
+            if call["method"] == "GET" and call["path"] == "/datasets/dataset-1/documents"
+        ]
+        self.assertEqual(document_pages, [1, 2])
+
+    def test_ragflow_parse_uses_current_document_parse_endpoint(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        result = gateway.parse_documents(dataset_id="dataset-1", document_ids=["doc-1"], wait=False)
+
+        self.assertTrue(result["parse_started"])
+        self.assertEqual(gateway.calls[0]["method"], "POST")
+        self.assertEqual(gateway.calls[0]["path"], "/datasets/dataset-1/documents/parse")
+        self.assertEqual(json.loads(gateway.calls[0]["body"].decode("utf-8")), {"document_ids": ["doc-1"]})
 
     def test_ingest_files_reuses_existing_dataset_and_starts_parse(self):
         gateway = _Gateway()

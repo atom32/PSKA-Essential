@@ -320,6 +320,9 @@ Implemented:
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
   provider logs through Product API, MCP, or CLI output.
+- RAGFlow KB gateway dataset/document lookups scan visible provider pages for
+  reuse, maintenance, readiness, and resume flows, and parsing uses the current
+  `/datasets/{dataset_id}/documents/parse` contract.
 - KB creation/ingest accepts optional `embedding_model`. KB deletion remains a
   development maintenance path for selected bad datasets or full local resets,
   including deletion by ID/name/all through PSKA adapters with audit records.
@@ -405,7 +408,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 178 tests pass.
+- `make test`: 193 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit
