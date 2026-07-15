@@ -158,6 +158,9 @@ Rules:
   assuming the target appears on the first page.
 - KB gateways may expose `get_dataset(dataset_id)` so readiness gates can
   resolve explicitly selected scopes by ID instead of depending on a list page.
+- RAGFlow uploads request raw document rows through the provider's
+  `return_raw_files=true` query option, then normalize those rows into PSKA
+  document contracts before returning them to Product API or MCP callers.
 - RAGFlow parsing uses the current public document parse contract
   `/datasets/{dataset_id}/documents/parse`.
 - PSKA-Essential may delete selected datasets by ID, by name, or all datasets

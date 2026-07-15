@@ -352,7 +352,9 @@ pska_kb_delete if a bad development dataset should be removed
 
 These tools do not make PSKA-Essential a KB implementation. They call RAGFlow
 dataset/document/chunk APIs and return normalized IDs, readiness, ingestion
-status, and optional structure graph data.
+status, and optional structure graph data. RAGFlow document upload requests raw
+document rows so PSKA can reliably capture provider document IDs and status
+before exposing normalized document summaries.
 `pska_kb_ingest_files` and `pska_kb_parse_documents` include normalized
 `readiness` and `ingestion_status` in their returned operation payloads.
 

@@ -90,10 +90,11 @@ class _Gateway(RagflowKnowledgeGateway):
 
 
 class _RequestRecordingRagflowGateway(RagflowKnowledgeGateway):
-    def __init__(self):
+    def __init__(self, upload_response=None):
         super().__init__(base_url="http://ragflow.local", api_key="test")
         self.calls = []
         self.scan_page_size = 2
+        self.upload_response = upload_response
 
     def _request(self, method, path, *, body=None, headers=None, params=None):
         self.calls.append({"method": method, "path": path, "params": dict(params or {}), "body": body})
@@ -151,6 +152,24 @@ class _RequestRecordingRagflowGateway(RagflowKnowledgeGateway):
                 "id": "dataset-created",
                 "name": payload.get("name", ""),
                 "embedding_model": payload.get("embedding_model", ""),
+            }
+        if method == "POST" and path.startswith("/datasets/") and path.endswith("/documents"):
+            dataset_id = path.split("/")[2]
+            if self.upload_response is not None:
+                return self.upload_response
+            return {
+                "files": [
+                    {
+                        "id": "uploaded-doc",
+                        "name": "uploaded.txt",
+                        "kb_id": dataset_id,
+                        "parser_id": "naive",
+                        "chunk_num": 0,
+                        "token_num": 0,
+                        "progress": 0,
+                        "run": "0",
+                    }
+                ]
             }
         return []
 
@@ -264,6 +283,54 @@ class KbGatewayTests(unittest.TestCase):
         self.assertEqual(gateway.calls[0]["method"], "POST")
         self.assertEqual(gateway.calls[0]["path"], "/datasets/dataset-1/documents/parse")
         self.assertEqual(json.loads(gateway.calls[0]["body"].decode("utf-8")), {"document_ids": ["doc-1"]})
+
+    def test_ragflow_upload_requests_raw_document_rows(self):
+        gateway = _RequestRecordingRagflowGateway()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "uploaded.txt"
+            path.write_text("raw upload contract", encoding="utf-8")
+
+            documents = gateway.upload_documents(dataset_id="dataset-1", file_paths=[str(path)])
+
+        upload_call = gateway.calls[0]
+        body = upload_call["body"].decode("utf-8", errors="ignore")
+        self.assertEqual(upload_call["method"], "POST")
+        self.assertEqual(upload_call["path"], "/datasets/dataset-1/documents")
+        self.assertEqual(upload_call["params"], {"return_raw_files": "true"})
+        self.assertIn('name="file"; filename="uploaded.txt"', body)
+        self.assertEqual(documents[0]["document_id"], "uploaded-doc")
+        self.assertEqual(documents[0]["dataset_id"], "dataset-1")
+
+    def test_ragflow_upload_normalizes_supported_response_shapes(self):
+        gateway = _RequestRecordingRagflowGateway(
+            upload_response={
+                "documents": [
+                    {
+                        "document_id": "doc-from-documents",
+                        "document_name": "mapped.txt",
+                        "dataset_id": "dataset-1",
+                        "chunk_count": 0,
+                    }
+                ]
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mapped.txt"
+            path.write_text("mapped upload contract", encoding="utf-8")
+
+            documents = gateway.upload_documents(dataset_id="dataset-1", file_paths=[str(path)])
+
+        self.assertEqual(documents[0]["document_id"], "doc-from-documents")
+        self.assertEqual(documents[0]["name"], "mapped.txt")
+
+    def test_ragflow_upload_fails_when_provider_returns_no_document_rows(self):
+        gateway = _RequestRecordingRagflowGateway(upload_response={})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "empty.txt"
+            path.write_text("empty upload response", encoding="utf-8")
+
+            with self.assertRaisesRegex(KbGatewayError, "RAGFlow upload returned no document rows"):
+                gateway.upload_documents(dataset_id="dataset-1", file_paths=[str(path)])
 
     def test_ingest_files_reuses_existing_dataset_and_starts_parse(self):
         gateway = _Gateway()

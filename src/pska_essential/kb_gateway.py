@@ -174,14 +174,19 @@ class RagflowKnowledgeGateway:
         if not dataset_id:
             raise KbGatewayError("dataset_id is required")
         paths = [_checked_file(path) for path in file_paths]
+        if not paths:
+            raise KbGatewayError("file_paths is required")
         body, content_type = _multipart_files(paths)
         data = self._request(
             "POST",
             f"/datasets/{dataset_id}/documents",
             body=body,
             headers={"Content-Type": content_type},
+            params={"return_raw_files": "true"},
         )
-        rows = data if isinstance(data, list) else data.get("documents", data.get("docs", []))
+        rows = _document_rows(data)
+        if not rows:
+            raise KbGatewayError("RAGFlow upload returned no document rows")
         return [_document_summary(row, dataset_id=dataset_id) for row in rows]
 
     def list_documents(
@@ -339,7 +344,7 @@ class RagflowKnowledgeGateway:
             "desc": True,
         }
         data = self._json("GET", f"/datasets/{dataset_id}/documents", params=params)
-        rows = data if isinstance(data, list) else data.get("docs", [])
+        rows = _document_rows(data)
         return [_document_summary(row, dataset_id=dataset_id) for row in rows]
 
     def _json(
@@ -765,6 +770,21 @@ def _document_summary(row: dict[str, Any], *, dataset_id: str) -> dict[str, Any]
         "run": str(row.get("run") or ""),
         "status": str(row.get("status") or ""),
     }
+
+
+def _document_rows(data: Any) -> list[dict[str, Any]]:
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    if not isinstance(data, dict):
+        return []
+    for key in ("docs", "documents", "files"):
+        rows = data.get(key)
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+    nested = data.get("data")
+    if isinstance(nested, (dict, list)):
+        return _document_rows(nested)
+    return []
 
 
 def _document_terminal(doc: dict[str, Any]) -> bool:
