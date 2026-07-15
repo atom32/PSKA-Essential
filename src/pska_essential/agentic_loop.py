@@ -47,8 +47,8 @@ def run_agentic_question(
     if normalized_kind in {"memory_delete", "memory_update"}:
         raise ValueError(f"{normalized_kind} proposals require an explicit memory fact")
     scope = {
-        "dataset_ids": [str(dataset_id) for dataset_id in dataset_ids if str(dataset_id)],
-        "document_ids": [str(document_id) for document_id in (document_ids or []) if str(document_id)],
+        "dataset_ids": _normalized_ids(dataset_ids),
+        "document_ids": _normalized_ids(document_ids or []),
         "use_kg": bool(use_kg),
     }
     if not normalized_question:
@@ -365,8 +365,8 @@ def record_not_ready_agentic_question(
     if normalized_kind in {"memory_delete", "memory_update"}:
         raise ValueError(f"{normalized_kind} proposals require an explicit memory fact")
     scope = {
-        "dataset_ids": [str(dataset_id) for dataset_id in dataset_ids if str(dataset_id)],
-        "document_ids": [str(document_id) for document_id in (document_ids or []) if str(document_id)],
+        "dataset_ids": _normalized_ids(dataset_ids),
+        "document_ids": _normalized_ids(document_ids or []),
         "use_kg": bool(use_kg),
     }
     if not normalized_question:
@@ -537,8 +537,8 @@ def resume_agentic_question(service: WorkflowService, gateway: Any, *, run_id: s
         service,
         gateway,
         question=str(ask_request.get("question") or previous_run.intent),
-        dataset_ids=[str(item) for item in ask_request.get("dataset_ids") or []],
-        document_ids=[str(item) for item in ask_request.get("document_ids") or []],
+        dataset_ids=_normalized_ids(ask_request.get("dataset_ids") or []),
+        document_ids=_normalized_ids(ask_request.get("document_ids") or []),
         limit=int(ask_request.get("limit") or 5),
         proposal_kind=str(ask_request.get("proposal_kind") or "writing_brief"),
         create_review=ask_request.get("create_review") if "create_review" in ask_request else None,
@@ -702,6 +702,18 @@ def _retrieval_query_plan(question: str, retrieval_queries: list[str] | None) ->
         seen.add(dedupe_key)
         result.append(normalized)
     return result or [question]
+
+
+def _normalized_ids(values: list[str] | None) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values or []:
+        normalized = str(value or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
 
 
 def _unique_context_packets(packets: list[ContextPacket]) -> list[ContextPacket]:

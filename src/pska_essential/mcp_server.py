@@ -134,12 +134,14 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         limit: int = 1,
         use_kg: bool = False,
     ):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_document_ids = _optional_strings(document_ids)
         probe = run_retrieval_probe(
             service,
             build_kb_gateway_from_env(),
             question=question,
-            dataset_ids=dataset_ids,
-            document_ids=document_ids or [],
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
             limit=limit,
             use_kg=use_kg,
         )
@@ -171,9 +173,10 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ):
+        selected_file_paths = _required_strings(file_paths, "file_paths", dedupe=False)
         gateway = build_kb_gateway_from_env()
         result = gateway.ingest_files(
-            file_paths=file_paths,
+            file_paths=selected_file_paths,
             dataset_name=dataset_name,
             dataset_id=dataset_id,
             description=description,
@@ -209,20 +212,24 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         dataset_ids: list[str],
         document_ids: list[str] | None = None,
     ):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_document_ids = _optional_strings(document_ids)
         return evaluate_kb_readiness(
             build_kb_gateway_from_env(),
-            dataset_ids=dataset_ids,
-            document_ids=document_ids or [],
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
         )
 
     def pska_kb_ingestion_status(
         dataset_ids: list[str],
         document_ids: list[str] | None = None,
     ):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_document_ids = _optional_strings(document_ids)
         payload = _kb_status_payload(
             build_kb_gateway_from_env(),
-            dataset_ids=dataset_ids,
-            document_ids=document_ids or [],
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
         )
         return {
             **payload,
@@ -238,23 +245,27 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ):
+        selected_dataset_id = _required_string(dataset_id, "dataset_id")
+        selected_document_ids = _required_strings(document_ids, "document_ids")
         gateway = build_kb_gateway_from_env()
         result = gateway.parse_documents(
-            dataset_id=dataset_id,
-            document_ids=document_ids,
+            dataset_id=selected_dataset_id,
+            document_ids=selected_document_ids,
             wait=wait,
             timeout_seconds=timeout_seconds,
         )
         add_kb_parse_audit(service.store, result)
         return {
             **result,
-            **_kb_status_payload(gateway, dataset_ids=[dataset_id], document_ids=document_ids),
+            **_kb_status_payload(gateway, dataset_ids=[selected_dataset_id], document_ids=selected_document_ids),
             "note": "Parse started. Use ingestion_status/readiness before asking over this scope.",
         }
 
     def pska_kb_graph_read(dataset_id: str, document_id: str):
-        graph = build_kb_gateway_from_env().document_graph(dataset_id=dataset_id, document_id=document_id)
-        add_kb_graph_read_audit(service.store, graph, dataset_id=dataset_id, document_id=document_id)
+        selected_dataset_id = _required_string(dataset_id, "dataset_id")
+        selected_document_id = _required_string(document_id, "document_id")
+        graph = build_kb_gateway_from_env().document_graph(dataset_id=selected_dataset_id, document_id=selected_document_id)
+        add_kb_graph_read_audit(service.store, graph, dataset_id=selected_dataset_id, document_id=selected_document_id)
         return graph
 
     def pska_agentic_question_start(
@@ -270,12 +281,14 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         retrieval_queries: list[str] | None = None,
         source_inspection_limit: int = 3,
     ):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_document_ids = _optional_strings(document_ids)
         result = run_agentic_question_with_readiness(
             service,
             build_kb_gateway_from_env(),
             question=question,
-            dataset_ids=dataset_ids,
-            document_ids=document_ids or [],
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
             limit=limit,
             proposal_kind=proposal_kind,
             create_review=create_review,
@@ -370,10 +383,12 @@ def _kb_status_payload(
     dataset_ids: list[str],
     document_ids: list[str] | None = None,
 ) -> dict[str, Any]:
+    selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+    selected_document_ids = _optional_strings(document_ids)
     readiness = evaluate_kb_readiness(
         gateway,
-        dataset_ids=dataset_ids,
-        document_ids=document_ids or [],
+        dataset_ids=selected_dataset_ids,
+        document_ids=selected_document_ids,
     )
     return {"readiness": readiness, "ingestion_status": readiness.get("ingestion_status") or {}}
 
@@ -384,11 +399,40 @@ def _kb_operation_status_payload(gateway: Any, result: dict[str, Any]) -> dict[s
     if not dataset_id:
         return {"readiness": {}, "ingestion_status": {}}
     document_ids = [
-        str(document.get("document_id") or "")
+        str(document.get("document_id") or "").strip()
         for document in result.get("documents") or []
         if document.get("document_id")
     ]
     return _kb_status_payload(gateway, dataset_ids=[dataset_id], document_ids=document_ids)
+
+
+def _required_string(value: Any, name: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise ValueError(f"{name} is required")
+    return normalized
+
+
+def _required_strings(values: list[str] | None, name: str, *, dedupe: bool = True) -> list[str]:
+    result = _optional_strings(values, dedupe=dedupe)
+    if not result:
+        raise ValueError(f"{name} is required")
+    return result
+
+
+def _optional_strings(values: list[str] | None, *, dedupe: bool = True) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values or []:
+        normalized = str(value or "").strip()
+        if not normalized:
+            continue
+        if dedupe:
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+        result.append(normalized)
+    return result
 
 
 def build_fastmcp(service=None):

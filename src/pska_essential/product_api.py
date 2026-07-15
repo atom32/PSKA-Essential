@@ -623,7 +623,11 @@ def _required_list(payload: dict[str, Any], key: str) -> list[str]:
     value = payload.get(key)
     if not isinstance(value, list) or not value:
         raise ApiError(f"{key} must be a non-empty list", HTTPStatus.BAD_REQUEST)
-    return [str(item) for item in value if str(item)]
+    normalized = [str(item or "").strip() for item in value]
+    result = [item for item in normalized if item]
+    if not result:
+        raise ApiError(f"{key} must be a non-empty list", HTTPStatus.BAD_REQUEST)
+    return result
 
 
 def _optional_str_list(payload: dict[str, Any], key: str) -> list[str]:

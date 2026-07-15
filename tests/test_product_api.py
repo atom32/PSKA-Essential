@@ -578,6 +578,26 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(payload["ingestion_status"]["status"], "ready")
         self.assertEqual(payload["ingestion_status"]["next_actions"], ["run_ask"])
 
+    def test_product_api_required_lists_trim_and_reject_blank_values(self):
+        asked = self._post_json(
+            "/api/ask",
+            {"question": "Normalize this scope", "dataset_ids": [" demo ", "demo", "  "], "limit": 1},
+        )
+        self.assertEqual(asked["status"], "ready")
+        self.assertEqual(asked["run"]["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(asked["run"]["metadata"]["ask_request"]["dataset_ids"], ["demo"])
+
+        for path, payload, field in [
+            ("/api/ask", {"question": "No real scope", "dataset_ids": ["  "]}, "dataset_ids"),
+            ("/api/kb/readiness", {"dataset_ids": ["", "  "]}, "dataset_ids"),
+            ("/api/kb/datasets/demo/parse", {"document_ids": ["  "]}, "document_ids"),
+            ("/api/kb/ingest", {"dataset_name": "Blank Files", "file_paths": ["  "]}, "file_paths"),
+        ]:
+            with self.subTest(path=path):
+                failed = self._post_json_error(path, payload)
+                self.assertEqual(failed["status"], 400)
+                self.assertIn(f"{field} must be a non-empty list", failed["body"]["error"]["message"])
+
     def test_dataset_readiness_route_reports_scope_status(self):
         payload = self._get_json("/api/kb/datasets/demo/readiness")
         readiness = payload["readiness"]

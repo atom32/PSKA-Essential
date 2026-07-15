@@ -55,6 +55,19 @@ class McpContractTests(unittest.TestCase):
         tools = tool_registry(build_fake_service())
         self.assertEqual(set(tools), EXPECTED_TOOLS)
 
+    def test_mcp_tools_reject_blank_required_scope_lists_before_backend_calls(self):
+        tools = tool_registry(build_fake_service())
+
+        for tool_name, args, message in [
+            ("pska_agentic_question_start", ("No real scope", ["  "]), "dataset_ids is required"),
+            ("pska_kb_readiness", (["  "],), "dataset_ids is required"),
+            ("pska_kb_ingest_files", (["  "],), "file_paths is required"),
+            ("pska_kb_parse_documents", ("demo", ["  "]), "document_ids is required"),
+        ]:
+            with self.subTest(tool_name=tool_name):
+                with self.assertRaisesRegex(ValueError, message):
+                    tools[tool_name](*args)
+
     def test_tools_run_full_loop(self):
         service = build_fake_service()
         tools = tool_registry(service)

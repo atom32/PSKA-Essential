@@ -212,6 +212,9 @@ Implemented:
   next-action buttons can prefill Ask scope and check readiness, start parsing,
   resume blocked Ask workflows, open pending reviews, and apply accepted
   durable memory through Product API routes.
+- Product API and MCP normalize required list inputs for Ask, readiness,
+  ingestion, and parse operations. Blank dataset, document, and file path lists
+  fail at the PSKA boundary with explicit errors before provider calls.
 - Knowledge Bases polling now preselects a ready dataset in the Ask scope when
   ingestion completes, without automatically running Ask or writing durable
   knowledge.
@@ -299,7 +302,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 105 tests pass.
+- `make test`: 108 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and

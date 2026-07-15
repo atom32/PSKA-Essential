@@ -71,6 +71,22 @@ class AgenticLoopTests(unittest.TestCase):
         audit_actions = [event.action for event in service.store.list_audit_events()]
         self.assertNotIn("workflow.export", audit_actions)
 
+    def test_agentic_loop_normalizes_scope_ids(self):
+        service = build_fake_service()
+        result = run_agentic_question(
+            service,
+            question="Normalize scope IDs",
+            dataset_ids=[" demo ", "demo", "  "],
+            document_ids=[" doc-1 ", "doc-1", ""],
+            proposal_kind="writing_brief",
+        )
+
+        run = service.state(result["run"]["run_id"])
+        self.assertEqual(run.scope["dataset_ids"], ["demo"])
+        self.assertEqual(run.scope["document_ids"], ["doc-1"])
+        self.assertEqual(run.metadata["ask_request"]["dataset_ids"], ["demo"])
+        self.assertEqual(run.metadata["ask_request"]["document_ids"], ["doc-1"])
+
     def test_agentic_loop_uses_explicit_retrieval_query_plan(self):
         retrieval = _QueryRecordingRetrieval()
         service = WorkflowService(
