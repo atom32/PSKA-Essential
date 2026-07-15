@@ -156,11 +156,15 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(probe["retrieval_probe"]["status"], "ok")
         self.assertEqual(probe["ask"]["status"], "ready")
         self.assertEqual(probe["context_count"], 1)
+        self.assertEqual(probe["source_count"], 1)
+        self.assertEqual(probe["source_inspection_count"], 1)
         self.assertTrue(probe["export"]["exported"])
         self.assertEqual(probe["export"]["source_count"], 1)
         event = service.store.list_audit_events(action="closed_loop.probe", limit=1)[0]
         self.assertEqual(event.metadata["status"], "ok")
         self.assertEqual(event.metadata["exported"], True)
+        self.assertEqual(event.metadata["source_count"], 1)
+        self.assertEqual(event.metadata["source_inspection_count"], 1)
         self.assertEqual(event.target_id, probe["run_id"])
 
     def test_live_closed_loop_probe_rejects_fake_kb_or_retrieval(self):

@@ -363,7 +363,8 @@ source inspection, and explicit export for a transient work product. It does
 not write durable memory or graph state; use the normal Ask/review/apply
 workflow for that. It writes a `closed_loop.probe` audit record and reports the
 exact stage that failed, such as `not_ready`, `retrieval_error`,
-`agentic_error`, or `export_error`.
+`agentic_error`, or `export_error`. Successful probes include context, source,
+and source-inspection counts.
 
 When RAGFlow reports an embedding model binding failure such as a missing
 provider for the selected dataset embedding model, PSKA normalizes the KB

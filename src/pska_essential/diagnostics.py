@@ -400,6 +400,8 @@ def run_live_closed_loop_probe(
         "retrieval_probe": retrieval_probe,
         "ask": _ask_probe_summary(ask_result),
         "context_count": context_count,
+        "source_count": int(export_summary.get("source_count") or 0),
+        "source_inspection_count": int(export_summary.get("source_inspection_count") or 0),
         "run_id": run_id,
         "export": export_summary,
     }
@@ -449,6 +451,8 @@ def add_live_closed_loop_probe_audit(store: Any, probe: dict[str, Any]) -> None:
             readiness_status=str(readiness.get("status") or ""),
             retrieval_status=str(retrieval_probe.get("status") or ""),
             context_count=int(probe.get("context_count") or 0),
+            source_count=int(probe.get("source_count") or 0),
+            source_inspection_count=int(probe.get("source_inspection_count") or 0),
             exported=bool(probe.get("export")),
             error_type=str(error.get("type") or ""),
             error_message=str(error.get("message") or ""),

@@ -239,8 +239,9 @@ Implemented:
   fake retrieval providers, then runs readiness, retrieval, agentic Ask, source
   inspection, and explicit export for a transient work product against the
   configured live providers. It writes `closed_loop.probe` audit records and
-  reports the exact failing stage without fallback; durable memory/graph writes
-  still use the normal review/apply workflow.
+  reports the exact failing stage without fallback; successful probes now
+  surface top-level source and source-inspection counts. Durable memory/graph
+  writes still use the normal review/apply workflow.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
@@ -789,13 +790,12 @@ make list-tools
 
 - RAGFlow source backend needs base services running first.
 - RAGFlow live retrieval needs a dataset and API key.
-- Current live probe against the existing "海康威视年报测试" dataset reaches
-  RAGFlow readiness but stops at `configure_embedding_provider`: the dataset
-  uses `bge-m3@xxxx`, and RAGFlow reports that provider `xxxx` is not configured.
-  Since this is development data, delete the bad dataset through `pska_kb_delete`
-  or `DELETE /api/kb/datasets/{dataset_id}`, then recreate/re-ingest with a
-  RAGFlow-configured embedding model before expecting retrieval/Ask/export to
-  complete.
+- The earlier bad "海康威视年报测试" dataset that used `bge-m3@xxxx` was deleted
+  through `pska_kb_delete`. The current live RAGFlow dataset
+  `海康威视年报测试-local-embedding` uses
+  `bge-m3@local-infinity@OpenAI-API-Compatible`, has one parsed PDF with 615
+  chunks, and completed the PSKA live closed-loop probe with 5 context packets,
+  2 source inspections, and explicit JSON export.
 - RAGFlow ingestion can be slow because parsing, chunking, embedding, and
   indexing are long-running jobs. Check document status before asking.
 - Graphiti needs `OPENAI_API_KEY` in `.env.pska` before real memory extraction.
