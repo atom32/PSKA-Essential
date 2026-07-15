@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev clean
+.PHONY: test list-tools smoke workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -12,6 +12,9 @@ list-tools:
 
 smoke:
 	PYTHONPATH=src $(PYTHON) -c 'from pska_essential.workflow import build_fake_service; print(build_fake_service().eval_run("smoke"))'
+
+workspace-status:
+	@PYTHONPATH=src $(PYTHON) -m pska_essential.workspace_status_cli $(ENV_FILE_ARG)
 
 live-component-check:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.component_check $(ENV_FILE_ARG)

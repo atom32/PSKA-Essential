@@ -390,6 +390,9 @@ actions such as `start_parse` into stable PSKA product actions such as
 `parse_documents`. Home can execute the safe product actions directly:
 prefilling Ask scope and checking readiness, starting parse, resuming blocked
 Ask workflows, opening reviews, and applying accepted durable memory.
+Use `pska-essential-workspace-status --env-file .env.pska` or
+`make workspace-status ENV_FILE=.env.pska` for the same next-action contract
+from the terminal before choosing a live proof command.
 
 Use `pska_retrieval_probe` or `POST /api/runtime/retrieval-probe` against a
 selected ready dataset when RAGFlow is reachable but Ask still fails at
@@ -471,6 +474,7 @@ export PSKA_LOOP_FILE_PATHS="/path/to/document.pdf"
 export PSKA_LOOP_QUESTION="Summarize the uploaded documents with sources."
 export PSKA_LIVE_DATASET_IDS=...
 export PSKA_LIVE_QUESTION="Summarize the selected documents with sources."
+make workspace-status
 make live-ingest-loop
 # If live-ingest-loop returned status=not_ready for a processing upload:
 export PSKA_LOOP_RUN_ID=...
@@ -479,6 +483,7 @@ make live-component-check
 make live-closed-loop
 
 # Equivalent explicit env-file form:
+make workspace-status ENV_FILE=.env.pska
 make live-ingest-loop ENV_FILE=.env.pska
 make live-ingest-loop-resume ENV_FILE=.env.pska
 make live-component-check ENV_FILE=.env.pska

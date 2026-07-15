@@ -97,6 +97,7 @@ export RAGFLOW_API_KEY=...
 After a RAGFlow dataset is uploaded and ready, run a live component check:
 
 ```bash
+make workspace-status ENV_FILE=.env.pska
 export PSKA_COMPONENT_DATASET_IDS=...
 export PSKA_COMPONENT_QUESTION="Summarize the selected documents with sources."
 make live-component-check
@@ -110,6 +111,9 @@ fake providers as proof. A successful result means the configured live
 providers completed readiness, retrieval, agentic Ask, source inspection, and
 explicit export; the result reports the exact failing step when a component is
 not wired.
+`make workspace-status` or `pska-essential-workspace-status` prints the same
+PSKA next-action summary used by Home and Hermes, including whether to upload,
+parse, wait, resume, review, apply memory, or ask over ready datasets.
 Use `make live-closed-loop` when you only want the sourced Ask/export portion.
 If the result reports `configure_embedding_provider`, configure the selected
 dataset embedding model/provider in RAGFlow and re-parse/re-index the affected
@@ -234,6 +238,7 @@ Operational loop tools:
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
 - `pska_component_check`
+- `pska_workspace_status`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
 - `pska_live_closed_loop_probe`
@@ -242,7 +247,6 @@ Operational loop tools:
 - `pska_agentic_question_resume`
 - `pska_policy_get`
 - `pska_capabilities_get`
-- `pska_workspace_status`
 - `pska_runtime_diagnostics`
 - `pska_workflow_list`
 - `pska_workflow_artifact`

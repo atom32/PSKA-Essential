@@ -271,6 +271,10 @@ Implemented:
   entries can load an explicit runtime env file via `--env-file`; Make live
   targets accept `ENV_FILE=.env.pska`. Env files are not auto-loaded, and the
   normal provider validation/no-fallback rules still apply.
+- `pska-essential-workspace-status` and `make workspace-status` expose the same
+  PSKA next-action summary as Product API Home and MCP `pska_workspace_status`,
+  so terminal users can see whether to upload, parse, wait, resume, review,
+  apply memory, or ask without starting the frontend or reading provider state.
 - `POST /api/ingest-loop`, MCP `pska_ingest_loop`, `make live-ingest-loop`,
   and `pska-essential-ingest-loop` run the file-first operational loop through
   configured PSKA adapters: ingest local files, poll KB readiness, run the
@@ -381,7 +385,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 169 tests pass.
+- `make test`: 171 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit
@@ -422,6 +426,8 @@ Expected result:
 - Workspace status/Product API/frontend tests cover memory operation capability
   reporting, unsupported Graphiti update gating, and accepted unsupported
   review inspect actions.
+- Workspace status CLI tests cover explicit env-file startup, terminal
+  next-action output, and nonzero exit for explicit KB status errors.
 - Workflow/Product API/MCP tests cover reviewed memory update/versioning and
   verify later Ask runs see updated fake/stub memory facts.
 - Workflow/Product API/MCP tests cover durable memory lifecycle history derived
