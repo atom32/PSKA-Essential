@@ -16,6 +16,7 @@ from pska_essential.diagnostics import (
     add_live_closed_loop_probe_audit,
     add_memory_probe_audit,
     add_retrieval_probe_audit,
+    build_runtime_diagnostics,
     run_live_closed_loop_probe,
     run_memory_probe,
     run_retrieval_probe,
@@ -85,6 +86,12 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             dataset_page_size=dataset_page_size,
             review_limit=review_limit,
             workflow_limit=workflow_limit,
+        )
+
+    def pska_runtime_diagnostics():
+        return build_runtime_diagnostics(
+            service=service,
+            kb_gateway_factory=build_kb_gateway_from_env,
         )
 
     def pska_propose(run_id: str, kind: str, intent: str = ""):
@@ -415,6 +422,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_policy_get": pska_policy_get,
         "pska_capabilities_get": pska_capabilities_get,
         "pska_workspace_status": pska_workspace_status,
+        "pska_runtime_diagnostics": pska_runtime_diagnostics,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,
         "pska_review_list": pska_review_list,

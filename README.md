@@ -209,6 +209,7 @@ Operational loop tools:
 - `pska_policy_get`
 - `pska_capabilities_get`
 - `pska_workspace_status`
+- `pska_runtime_diagnostics`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`

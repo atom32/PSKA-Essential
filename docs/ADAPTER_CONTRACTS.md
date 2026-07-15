@@ -65,6 +65,7 @@ The public tool surface is:
 - `pska_policy_get`
 - `pska_capabilities_get`
 - `pska_workspace_status`
+- `pska_runtime_diagnostics`
 - `pska_propose`
 - `pska_review_create`
 - `pska_review_list`
@@ -111,9 +112,14 @@ Workspace status must keep per-dataset readiness visible, so a processing or
 failed dataset does not hide a separate ready dataset from Ask. Workspace status
 must translate ingestion-job action names into stable PSKA product actions, for
 example `start_parse` becomes `parse_documents`.
-`pska_memory_probe` is a read-only diagnostic for the configured memory adapter.
-It verifies memory search through the PSKA contract, rejects fake memory by
-default for live component verification, and writes `memory.probe` audit records.
+`pska_runtime_diagnostics` returns the same read-only provider, contract, and
+workspace diagnostics as the Product API diagnostics route. Agents should use it
+for troubleshooting component configuration instead of probing provider-native
+health endpoints.
+`pska_memory_probe` is an explicit diagnostic operation for the configured
+memory adapter. It verifies memory search through the PSKA contract, rejects
+fake memory by default for live component verification, and writes
+`memory.probe` audit records.
 
 ## KB Gateway
 

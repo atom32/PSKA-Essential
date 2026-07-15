@@ -198,6 +198,8 @@ Implemented:
 - Runtime diagnostics include a read-only memory search contract check, so a
   healthy Graphiti `/healthcheck` does not mask missing LLM/embedding provider
   configuration.
+- MCP exposes `pska_runtime_diagnostics`, so Hermes can inspect the same
+  read-only Product API diagnostics without direct provider calls.
 - Frontend Settings exposes retrieval, memory, and live closed-loop probes
   through Product API routes; probe audit records remain scoped to PSKA
   workspace/tenant context.
@@ -317,9 +319,9 @@ Implemented:
 - Smoke eval.
 - Hermes skill/config examples. Hermes now starts from `pska_workspace_status`
   and follows PSKA `next_actions` instead of inferring workflow steps from
-  provider state. It also exposes `pska_capabilities_get` and treats
-  `workspace.memory_namespace` as PSKA runtime context instead of passing
-  provider-native memory group IDs.
+  provider state. It also exposes `pska_runtime_diagnostics` and
+  `pska_capabilities_get`, and treats `workspace.memory_namespace` as PSKA
+  runtime context instead of passing provider-native memory group IDs.
 - Docs and runbook.
 
 Validated commands:
@@ -422,6 +424,7 @@ pska_agentic_question_resume
 pska_policy_get
 pska_capabilities_get
 pska_workspace_status
+pska_runtime_diagnostics
 pska_workflow_list
 pska_workflow_artifact
 pska_workflow_brief

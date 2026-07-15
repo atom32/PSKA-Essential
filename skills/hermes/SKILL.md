@@ -15,6 +15,9 @@ candidate memory, review, and durable export.
 - Start by calling `pska_workspace_status` unless the user explicitly asks for
   a specific low-level tool. Follow its `next_actions` tool/API/view hints and
   safe parameters instead of inspecting provider state directly.
+- Use `pska_runtime_diagnostics` when provider configuration, backend health,
+  or adapter contract readiness needs troubleshooting. Do not call provider
+  health endpoints directly.
 - Use `pska_capabilities_get` as the stable PSKA operation capability contract
   before durable memory apply, update, or delete work. If an operation is not
   supported, report that PSKA cannot perform it with the current memory adapter.
@@ -59,9 +62,11 @@ Default loop:
 3. Use its PSKA `tool` and `params` fields when they are present.
 4. If `requires_input` is present, ask the user for that input before calling
    the tool.
-5. For durable memory operations, call `pska_capabilities_get` before deciding
+5. If provider configuration or component readiness is unclear, call
+   `pska_runtime_diagnostics`.
+6. For durable memory operations, call `pska_capabilities_get` before deciding
    whether PSKA can apply, update, or delete memory with the configured adapter.
-6. After any KB, Ask, review, or memory mutation, call `pska_workspace_status`
+7. After any KB, Ask, review, or memory mutation, call `pska_workspace_status`
    again before choosing the next step.
 
 Common next actions:

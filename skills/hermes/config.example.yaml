@@ -20,6 +20,7 @@ mcp_servers:
         - pska_source_read
         - pska_policy_get
         - pska_workspace_status
+        - pska_runtime_diagnostics
         - pska_capabilities_get
         - pska_propose
         - pska_review_create
@@ -38,6 +39,7 @@ mcp_servers:
         - pska_eval_run
         - pska_kb_list
         - pska_kb_create
+        - pska_kb_delete
         - pska_kb_ingest_files
         - pska_kb_document_status
         - pska_kb_readiness
@@ -45,6 +47,8 @@ mcp_servers:
         - pska_kb_parse_documents
         - pska_kb_graph_read
         - pska_retrieval_probe
+        - pska_memory_probe
+        - pska_live_closed_loop_probe
         - pska_agentic_question_start
         - pska_agentic_question_resumable
         - pska_agentic_question_resume

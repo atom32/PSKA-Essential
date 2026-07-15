@@ -12,6 +12,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("next_actions", text)
         self.assertIn("Refresh `pska_workspace_status` after KB, Ask, review, or memory actions", text)
         self.assertIn("pska_agentic_question_resume", text)
+        self.assertIn("pska_runtime_diagnostics", text)
         self.assertIn("pska_capabilities_get", text)
         self.assertIn("workspace.memory_namespace", text)
         self.assertIn("provider-native", text)
@@ -23,11 +24,14 @@ class SkillDocsTests(unittest.TestCase):
 
         for tool_name in [
             "pska_workspace_status",
+            "pska_runtime_diagnostics",
             "pska_capabilities_get",
             "pska_workflow_list",
             "pska_agentic_question_resumable",
             "pska_agentic_question_resume",
             "pska_audit_list",
+            "pska_memory_probe",
+            "pska_live_closed_loop_probe",
         ]:
             self.assertIn(f"- {tool_name}", text)
 

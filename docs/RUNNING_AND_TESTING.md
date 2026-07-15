@@ -343,11 +343,13 @@ Ask, Parse Scope, Track Status, and Open Status. Blocked Ask results reuse the
 same scope actions and keep Resume Ask as the preserved-request path once the
 scope becomes ready.
 Use `pska_capabilities_get` or `GET /api/capabilities` for the stable product
-operation capability contract. Use `pska_workspace_status` or
-`GET /api/workspace/status` for the same product-level next-action summary from
-Hermes or the frontend without exposing provider APIs. Each returned action
-includes stable PSKA tool/API/view hints and safe parameters, such as ready
-dataset IDs or the relevant review/run ID.
+operation capability contract. Use `pska_runtime_diagnostics` or
+`GET /api/runtime/diagnostics` for read-only provider and adapter contract
+diagnostics. Use `pska_workspace_status` or `GET /api/workspace/status` for the
+same product-level next-action summary from Hermes or the frontend without
+exposing provider APIs. Each returned action includes stable PSKA tool/API/view
+hints and safe parameters, such as ready dataset IDs or the relevant review/run
+ID.
 The frontend refreshes this summary after KB, Ask, review, and memory actions
 so Home does not keep stale guidance. Workspace status includes per-dataset
 readiness; ready datasets remain actionable even while another selected dataset

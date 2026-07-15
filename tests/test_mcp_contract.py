@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "pska_policy_get",
     "pska_capabilities_get",
     "pska_propose",
+    "pska_runtime_diagnostics",
     "pska_review_create",
     "pska_review_list",
     "pska_review_get",
@@ -58,6 +59,19 @@ class McpContractTests(unittest.TestCase):
     def test_tool_registry_contains_public_contract(self):
         tools = tool_registry(build_fake_service())
         self.assertEqual(set(tools), EXPECTED_TOOLS)
+
+    def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            reset_fake_kb_gateway()
+            diagnostics = tools["pska_runtime_diagnostics"]()
+
+        checks = {item["name"]: item for item in diagnostics["checks"]}
+        self.assertEqual(checks["memory_search_contract"]["metadata"]["provider"], "fake")
+        self.assertFalse(checks["memory_search_contract"]["metadata"]["semantic_checked"])
+        self.assertEqual(service.store.list_audit_events(action="memory.search"), [])
 
     def test_mcp_tools_reject_blank_required_scope_lists_before_backend_calls(self):
         tools = tool_registry(build_fake_service())
