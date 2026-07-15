@@ -126,7 +126,10 @@ make live-ingest-loop
 
 This path still uses the configured KB/retrieval/memory adapters and the same
 readiness gate. If ingestion or embedding is not ready, it stops before Ask
-instead of producing an unsourced answer.
+instead of producing an unsourced answer. When the result includes a blocked
+`run_id`, resume the same upload -> Ask -> export intent after readiness with
+`PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume` or
+`pska-essential-ingest-loop-resume <run_id>`.
 
 Graphiti memory:
 
@@ -260,7 +263,9 @@ still processing, it records a resumable blocked Ask before stopping short of
 retrieval/export; failed or cancelled ingestion stops without creating a
 resumable Ask. `pska_ingest_loop_resume` resumes those blocked upload loops
 after parsing, embedding, and indexing finish, preserving the original Ask and
-export intent.
+export intent. The same resume path is available from the CLI as
+`pska-essential-ingest-loop-resume <run_id>` or
+`PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume`.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live

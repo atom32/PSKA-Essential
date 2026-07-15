@@ -270,9 +270,10 @@ Implemented:
   PSKA-controlled agentic Ask loop, and export a sourced transient work
   product. Processing ingestion records a resumable blocked Ask before stopping
   short of retrieval/export; `POST /api/workflows/{run_id}/resume-ingest-loop`
-  and MCP `pska_ingest_loop_resume` resume that same upload -> Ask -> export
-  intent after readiness is achieved. Failed or cancelled ingestion stops
-  without creating a resumable Ask.
+  MCP `pska_ingest_loop_resume`, `pska-essential-ingest-loop-resume <run_id>`,
+  and `PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume` resume that same
+  upload -> Ask -> export intent after readiness is achieved. Failed or
+  cancelled ingestion stops without creating a resumable Ask.
 - Frontend Knowledge Bases upload can call the same Product API ingest loop, so
   users can go from selected files to sourced Writing output without the
   frontend calling RAGFlow, Graphiti, embedding services, or fake providers
@@ -373,7 +374,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 158 tests pass.
+- `make test`: 159 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   controls, governance payloads, and resumable processing uploads, scoped Ask,
   Review, memory apply/update/delete, audit records, KB readiness blocking,

@@ -288,10 +288,11 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         )
 
     def pska_ingest_loop_resume(run_id: str, export_format: str = ""):
+        selected_run_id = _required_string(run_id, "run_id")
         return resume_ingest_loop(
             service,
             build_kb_gateway_from_env(),
-            run_id=run_id,
+            run_id=selected_run_id,
             export_format=export_format,
         )
 
@@ -476,10 +477,11 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         return result
 
     def pska_agentic_question_resume(run_id: str):
+        selected_run_id = _required_string(run_id, "run_id")
         result = resume_agentic_question(
             service,
             build_kb_gateway_from_env(),
-            run_id=run_id,
+            run_id=selected_run_id,
         )
         if result["status"] == "not_ready":
             result["note"] = (

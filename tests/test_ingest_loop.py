@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import io
+import json
 import os
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.config import build_service_from_env
-from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
+from pska_essential.ingest_loop import resume_ingest_loop, resume_main, run_ingest_loop
 from pska_essential.kb_gateway import build_kb_gateway_from_env, reset_fake_kb_gateway
 
 
@@ -200,6 +203,51 @@ class IngestLoopTests(unittest.TestCase):
         self.assertIn("agentic_loop.resume", actions)
         self.assertIn("workflow.export", actions)
         self.assertIn("agentic_loop.complete", actions)
+
+    def test_ingest_loop_resume_cli_uses_configured_pska_components(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                "PSKA_DEV_FAKE": "1",
+                "PSKA_RETRIEVAL_PROVIDER": "fake",
+                "PSKA_KB_PROVIDER": "fake",
+                "PSKA_MEMORY_PROVIDER": "fake",
+                "PSKA_REVIEW_DB": str(Path(tmp) / "review.sqlite3"),
+            }
+            with patch.dict(os.environ, env, clear=True):
+                reset_fake_kb_gateway()
+                path = Path(tmp) / "slow-cli-loop.txt"
+                path.write_text(
+                    "The CLI resume path should use configured PSKA components and export with sources.",
+                    encoding="utf-8",
+                )
+                service = build_service_from_env()
+                gateway = build_kb_gateway_from_env()
+
+                blocked = run_ingest_loop(
+                    service,
+                    gateway,
+                    file_paths=[str(path)],
+                    dataset_name="loop-resume-cli-test",
+                    question="What should the CLI resume path use?",
+                    parse=False,
+                    wait_ready=False,
+                    export_format="json",
+                    poll_interval_seconds=0.05,
+                )
+                document_ids = [document["document_id"] for document in blocked["documents"]]
+                gateway.parse_documents(dataset_id=blocked["dataset"]["dataset_id"], document_ids=document_ids, wait=True)
+
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    code = resume_main([blocked["run_id"]])
+
+        printed = json.loads(output.getvalue())
+        self.assertEqual(code, 0)
+        self.assertEqual(printed["kind"], "ingest_loop_resume")
+        self.assertEqual(printed["status"], "ok")
+        self.assertEqual(printed["ask_status"], "ready")
+        self.assertEqual(printed["export_format"], "json")
+        self.assertEqual(printed["export"]["traceability"]["source_count"], 1)
 
     def test_ingest_loop_stops_when_ingested_scope_is_not_ready(self):
         env = {

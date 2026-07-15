@@ -432,9 +432,11 @@ and `workflow.export` audit records when the scope is ready. If parsing, OCR,
 embedding, or indexing is still processing, the loop records a resumable blocked
 Ask and returns `status=not_ready` without retrieval/export. Failed or cancelled
 ingestion returns `status=not_ready` without creating a resumable Ask. Resume a
-processing-blocked upload loop with `pska_ingest_loop_resume` or
-`POST /api/workflows/{run_id}/resume-ingest-loop` after readiness reports the
-selected scope is ready.
+processing-blocked upload loop with `pska_ingest_loop_resume`,
+`POST /api/workflows/{run_id}/resume-ingest-loop`,
+`pska-essential-ingest-loop-resume <run_id>`, or
+`PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume` after readiness reports
+the selected scope is ready.
 
 When RAGFlow reports an embedding model binding failure such as a missing
 provider for the selected dataset embedding model, PSKA normalizes the KB
@@ -466,6 +468,9 @@ export PSKA_LOOP_QUESTION="Summarize the uploaded documents with sources."
 export PSKA_LIVE_DATASET_IDS=...
 export PSKA_LIVE_QUESTION="Summarize the selected documents with sources."
 make live-ingest-loop
+# If live-ingest-loop returned status=not_ready for a processing upload:
+export PSKA_LOOP_RUN_ID=...
+make live-ingest-loop-resume
 make live-component-check
 make live-closed-loop
 ```

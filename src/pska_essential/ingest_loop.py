@@ -280,6 +280,25 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if result.get("status") == "ok" else 2
 
 
+def resume_main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Resume a blocked PSKA upload -> Ask -> export loop.")
+    parser.add_argument("run_id", nargs="?", default=os.getenv("PSKA_LOOP_RUN_ID", ""))
+    parser.add_argument("--export-format", default=os.getenv("PSKA_LOOP_EXPORT_FORMAT", ""))
+    args = parser.parse_args(argv)
+    run_id = str(args.run_id or "").strip()
+    if not run_id:
+        parser.error("run_id is required")
+
+    result = resume_ingest_loop(
+        build_service_from_env(),
+        build_kb_gateway_from_env(),
+        run_id=run_id,
+        export_format=args.export_format,
+    )
+    print(json.dumps(to_jsonable(result), ensure_ascii=False, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
 def _wait_for_readiness(
     gateway: Any,
     *,

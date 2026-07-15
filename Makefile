@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke live-component-check live-closed-loop live-ingest-loop serve-api serve-dev clean
+.PHONY: test list-tools smoke live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev clean
 
 PYTHON ?= python3
 
@@ -19,6 +19,9 @@ live-closed-loop:
 
 live-ingest-loop:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.ingest_loop
+
+live-ingest-loop-resume:
+	PYTHONPATH=src $(PYTHON) -m pska_essential.ingest_loop_resume
 
 serve-api:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.product_api

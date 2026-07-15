@@ -206,6 +206,8 @@ class McpContractTests(unittest.TestCase):
             ("pska_kb_readiness", (["  "],), "dataset_ids is required"),
             ("pska_kb_ingest_files", (["  "],), "file_paths is required"),
             ("pska_ingest_loop", (["  "],), "file_paths is required"),
+            ("pska_ingest_loop_resume", ("  ",), "run_id is required"),
+            ("pska_agentic_question_resume", ("  ",), "run_id is required"),
             ("pska_kb_parse_documents", ("demo", ["  "]), "document_ids is required"),
         ]:
             with self.subTest(tool_name=tool_name):
