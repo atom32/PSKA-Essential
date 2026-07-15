@@ -438,7 +438,8 @@ Expected result:
   review inspect actions. Workspace status tests also lock the fresh empty
   workspace next action to upload/create knowledge, not cleanup or Ask.
 - Workspace status CLI tests cover explicit env-file startup, terminal
-  next-action output, and nonzero exit for explicit KB status errors.
+  next-action output, structured startup configuration errors, and nonzero exit
+  for explicit KB status errors.
 - Workflow/Product API/MCP tests cover reviewed memory update/versioning and
   verify later Ask runs see updated fake/stub memory facts.
 - Workflow/Product API/MCP tests cover durable memory lifecycle history derived
@@ -457,8 +458,9 @@ Expected result:
   acceptance path, the missing-dataset-scope failure, and skipped core checks
   returning `incomplete` instead of full success. They also cover processing
   KB scopes returning `incomplete` instead of `error`.
-- Env-file/component-check CLI tests cover structured startup configuration
-  errors for missing live provider env.
+- Env-file/component-check/live closed-loop CLI tests cover structured startup
+  configuration errors for missing live provider env and missing live dataset
+  scope.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace, derived
   memory namespace, and audit workspace/tenant metadata.

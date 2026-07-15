@@ -101,10 +101,11 @@ PYTHONPATH=src python3 -m pska_essential.product_api
 ```
 
 The selected live providers must have their required connection env configured
-before Product API, MCP, or component-check startup. RAGFlow retrieval/KB
-requires `RAGFLOW_BASE_URL` and `RAGFLOW_API_KEY`; Graphiti memory requires
-`GRAPHITI_BASE_URL`. Missing values fail explicitly and are not replaced by
-implicit localhost, empty-key, fake, or alternate-provider defaults.
+before Product API, MCP, workspace-status, component-check, or live closed-loop
+startup. RAGFlow retrieval/KB requires `RAGFLOW_BASE_URL` and
+`RAGFLOW_API_KEY`; Graphiti memory requires `GRAPHITI_BASE_URL`. Missing values
+fail explicitly and are not replaced by implicit localhost, empty-key, fake, or
+alternate-provider defaults.
 Instead of exporting each value in the shell, copy `.env.example` to an explicit
 runtime file such as `.env.pska`, fill in real keys, and pass it with
 `--env-file .env.pska` or `make ... ENV_FILE=.env.pska`. PSKA does not
@@ -440,7 +441,10 @@ Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
 `make live-closed-loop` when you only want the sourced Ask/export portion. The
 live probe rejects fake KB and fake retrieval providers, then runs readiness,
 retrieval, agentic Ask, bounded source inspection, and explicit export for a
-transient work product. It does not write durable memory or graph state; use the
+transient work product. CLI missing-scope or startup configuration errors are
+returned as structured JSON with nonzero exit status, so automation can report
+the missing dataset or provider env without parsing tracebacks. It does not
+write durable memory or graph state; use the
 normal Ask/review/apply workflow for that. It writes a `closed_loop.probe` audit
 record and reports the exact stage that failed, such as `not_ready`,
 `retrieval_error`, `agentic_error`, or `export_error`. Successful probes include

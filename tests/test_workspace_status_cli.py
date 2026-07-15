@@ -57,6 +57,21 @@ class WorkspaceStatusCliTests(unittest.TestCase):
         self.assertTrue(status["kb"]["error"]["type"])
         self.assertTrue(status["kb"]["error"]["message"])
 
+    def test_workspace_status_cli_reports_startup_config_error_as_json(self):
+        with patch.dict(os.environ, {}, clear=True):
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                code = workspace_status_main([])
+
+        status = json.loads(output.getvalue())
+        self.assertEqual(code, 2)
+        self.assertEqual(status["kind"], "workspace_status")
+        self.assertEqual(status["status"], "error")
+        self.assertEqual(status["steps"][0]["name"], "runtime.startup")
+        self.assertEqual(status["next_actions"][0]["action"], "fix_runtime_config")
+        self.assertIn("PSKA_RETRIEVAL_PROVIDER is required", status["message"])
+
 
 def _write_env(path: Path, *, lines: list[str] | None = None) -> Path:
     values = lines or [

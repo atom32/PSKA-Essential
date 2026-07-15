@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 
+from pska_essential.cli_errors import missing_scope_payload, startup_error_payload
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
 from pska_essential.diagnostics import add_live_closed_loop_probe_audit, run_live_closed_loop_probe
@@ -18,10 +19,22 @@ def main(argv: list[str] | None = None) -> int:
 
     dataset_ids = _csv_env("PSKA_LIVE_DATASET_IDS")
     if not dataset_ids:
-        raise SystemExit("PSKA_LIVE_DATASET_IDS is required, for example: PSKA_LIVE_DATASET_IDS=dataset_id")
+        result = missing_scope_payload(
+            "live_closed_loop_probe",
+            message="PSKA_LIVE_DATASET_IDS is required, for example: PSKA_LIVE_DATASET_IDS=dataset_id",
+            env_var="PSKA_LIVE_DATASET_IDS",
+        )
+        print(json.dumps(to_jsonable(result), ensure_ascii=False, indent=2))
+        return 2
 
-    service = build_service_from_env()
-    gateway = build_kb_gateway_from_env()
+    try:
+        service = build_service_from_env()
+        gateway = build_kb_gateway_from_env()
+    except Exception as exc:  # noqa: BLE001 - CLI must report startup failures without fallback.
+        result = startup_error_payload("live_closed_loop_probe", exc, operation="Live closed-loop probe")
+        result["scope"] = {"dataset_ids": dataset_ids, "document_ids": _csv_env("PSKA_LIVE_DOCUMENT_IDS")}
+        print(json.dumps(to_jsonable(result), ensure_ascii=False, indent=2))
+        return 2
     probe = run_live_closed_loop_probe(
         service,
         gateway,

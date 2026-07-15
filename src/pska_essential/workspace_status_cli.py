@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 
+from pska_essential.cli_errors import startup_error_payload
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
 from pska_essential.env_file import preload_env_file
@@ -18,13 +19,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workflow-limit", type=int, default=50)
     args = parser.parse_args(argv)
 
-    status = build_workspace_status(
-        service=build_service_from_env(),
-        gateway=build_kb_gateway_from_env(),
-        dataset_page_size=args.dataset_page_size,
-        review_limit=args.review_limit,
-        workflow_limit=args.workflow_limit,
-    )
+    try:
+        status = build_workspace_status(
+            service=build_service_from_env(),
+            gateway=build_kb_gateway_from_env(),
+            dataset_page_size=args.dataset_page_size,
+            review_limit=args.review_limit,
+            workflow_limit=args.workflow_limit,
+        )
+    except Exception as exc:  # noqa: BLE001 - CLI must report startup failures without fallback.
+        status = startup_error_payload("workspace_status", exc, operation="Workspace status")
     print(json.dumps(to_jsonable(status), ensure_ascii=False, indent=2))
     return 2 if status.get("status") == "error" else 0
 
