@@ -174,25 +174,42 @@ Fake adapters remain valid only for explicit local development and tests with
 
 ## Frontend Modules
 
-V1 frontend should include:
+The frontend should be redesigned as a conversation-first product shell, not as
+an engineering console or a replacement RAGFlow UI.
 
-- Home: recent work, pending jobs, pending reviews, recent briefs.
-- Knowledge Bases: create datasets, upload files, track ingestion and readiness.
-- Ask: select scope, tune the agentic loop, show sourced answers and source
-  gaps.
-- Reader: inspect source chunks/documents, optional source-derived structure
-  graphs, and trace where evidence was used.
-- Writing: inspect workflow state, work products, source manifests, and turn
-  sourced answers into explicit exports.
-- Review: inspect and decide durable knowledge changes according to workspace
-  policy.
-- Activity: inspect the audit trail for workflow, review, memory, and export
-  events.
-- Settings: configure providers, keys, embedding service, workspace/tenant scope.
+PSKA should not reimplement mature component frontends when those components
+already own the workflow well. RAGFlow should remain the primary UI for
+knowledge-base creation, document upload, parsing, chunking, embedding,
+indexing, and chunk inspection. Hermes may provide or later gain its own agent
+run UI. PSKA may link or embed those component pages inside a unified shell.
 
-The frontend should be a real application surface, not a demo page. It must make
-slow ingestion, scoped retrieval, durable knowledge governance, and backend
-configuration visible to the user.
+"PSKA wraps components" means PSKA owns the global product shell: navigation,
+workspace identity, theme, selected context, component status, PSKA-native
+workflow pages, review, audit, and policy. It does not mean PSKA rewrites or
+scrapes provider-native screens. The PSKA frontend calls PSKA Product APIs; an
+embedded component page may call its own backend inside its own app context.
+
+V1 frontend should focus on:
+
+- Conversation: the default surface for scoped agentic questions, readiness,
+  sources, work products, and resumable workflows.
+- Work Products: sourced briefs, source manifests, exports, and durable-review
+  creation from selected transient results.
+- Review: durable knowledge governance according to workspace policy.
+- Activity: audit trail across workflow, review, memory, and export events.
+- Knowledge: a PSKA readiness/status summary plus embedded or linked RAGFlow
+  knowledge-base console.
+- Components: RAGFlow, Hermes, Graphiti, embedding, LLM, capability, and
+  diagnostic status with links to native consoles where appropriate.
+- Settings: workspace policy, tenant/workspace context, and provider
+  configuration guidance.
+
+Provider-specific controls such as embedding model, chunk method, parse flags,
+and wait flags should be hidden from the normal user flow unless they are
+explicitly advanced settings. The ordinary upload path should prefer the
+component-native UI or a simplified PSKA quick-upload.
+
+The detailed frontend redesign is specified in `docs/FRONTEND_REDESIGN.md`.
 
 ## Glue Layer Responsibilities
 

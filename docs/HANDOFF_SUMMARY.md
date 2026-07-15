@@ -53,6 +53,9 @@ Important constraints:
 - Do not add silent fallback behavior.
 - Do not add hardcoded domain, company, document, or demo-case behavior to
   runtime code.
+- Do not treat the current frontend alpha as the final product model. The next
+  frontend direction is conversation-first PSKA shell plus embedded/linked
+  mature component UIs, especially RAGFlow for knowledge-base operations.
 
 ## Repositories And Paths
 
@@ -105,6 +108,12 @@ Implemented:
 - Product API over the PSKA workflow and KB gateway.
 - Frontend Alpha served by the Product API, including Home, Knowledge Bases,
   Ask, Reader, Writing, Review, and Settings.
+- Frontend Alpha is known to be too engineering-console-like. The desired
+  redesign is documented in `docs/FRONTEND_REDESIGN.md`: PSKA should provide a
+  conversation-first shell and native pages only for PSKA-specific workflow,
+  governance, review, audit, and sourced work products, while using RAGFlow's
+  native frontend for KB creation, upload, parsing, embedding, indexing, and
+  chunk inspection where possible.
 - PSKA-controlled agentic Ask loop with explicit loop diagnostics.
 - Canonical KB readiness checks for Product API and MCP Ask entry points.
 - Normalized KB ingestion status for Product API, MCP, and frontend flows,
