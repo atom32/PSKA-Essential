@@ -129,6 +129,17 @@
                 Files
                 <input name="file" type="file" multiple required />
               </label>
+              <label>
+                Loop Question
+                <textarea name="loop_question" rows="3">Summarize the uploaded documents with sources.</textarea>
+              </label>
+              <label>
+                Loop Export
+                <select name="loop_export_format">
+                  <option value="markdown">markdown</option>
+                  <option value="json">json</option>
+                </select>
+              </label>
               <div class="inline-options">
                 <label class="check-row">
                   <input name="parse" type="checkbox" checked />
@@ -139,7 +150,10 @@
                   <span>Wait for completion</span>
                 </label>
               </div>
-              <button type="submit" class="primary-button">Upload</button>
+              <div class="button-row">
+                <button type="submit" class="primary-button">Upload</button>
+                <button id="run-ingest-loop" type="button" class="secondary-button">Run Loop</button>
+              </div>
             </form>
           </div>
 

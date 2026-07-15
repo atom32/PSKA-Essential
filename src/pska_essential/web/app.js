@@ -191,6 +191,7 @@ function bindRefresh() {
   document.getElementById("refresh-all").addEventListener("click", refreshAll);
   document.getElementById("reload-datasets").addEventListener("click", loadDatasets);
   document.getElementById("upload-use-dataset").addEventListener("click", setUploadDatasetFromPicker);
+  document.getElementById("run-ingest-loop").addEventListener("click", runIngestLoopFromUploadForm);
   document.getElementById("parse-documents").addEventListener("click", parseActiveDocuments);
   document.getElementById("ask-add-dataset").addEventListener("click", () => addAskDataset());
   document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
@@ -789,6 +790,72 @@ async function runRetrievalProbe() {
   renderRetrievalProbe();
   await loadAuditEvents("retrieval.probe");
   showToast("Retrieval probe recorded.");
+}
+
+async function runIngestLoopFromUploadForm() {
+  const formEl = document.getElementById("upload-form");
+  const form = new FormData(formEl);
+  const payload = new FormData();
+  const fileCount = appendUploadFiles(form, payload);
+  if (!fileCount) {
+    showToast("Select files.");
+    return;
+  }
+  payload.append("dataset_id", form.get("dataset_id") || "");
+  payload.append("dataset_name", form.get("dataset_name") || "");
+  payload.append("embedding_model", form.get("embedding_model") || "");
+  payload.append("parse", form.get("parse") ? "true" : "false");
+  payload.append("wait_ready", "true");
+  payload.append("question", form.get("loop_question") || "Summarize the uploaded documents with sources.");
+  payload.append("export_format", form.get("loop_export_format") || "markdown");
+  const payloadResult = await api("/api/ingest-loop", { method: "POST", formData: payload });
+  const result = payloadResult.ingest_loop || {};
+  const datasetId = ingestDatasetId(result.ingest || result);
+  formEl.reset();
+  if (datasetId) {
+    setUploadDataset(datasetId);
+    const documents = await loadDocuments(datasetId, { silent: true });
+    renderIngestResult(result.ingest || { dataset: result.dataset, documents: result.documents || documents }, result.readiness);
+  }
+  await loadDatasets();
+  await loadWorkflows();
+  await loadWorkspaceStatus();
+  await loadAuditEvents(result.status === "ok" ? "workflow.export" : "kb.ingest");
+  if (result.status === "ok" && result.run_id) {
+    openLoopWorkProduct(result);
+    showToast("Ingest loop completed.");
+    return;
+  }
+  if (datasetId && result.readiness && result.readiness.status === "processing") {
+    startIngestionPolling(datasetId);
+  }
+  showToast(result.message || "Ingest loop did not complete.");
+}
+
+function appendUploadFiles(form, payload) {
+  let count = 0;
+  for (const file of form.getAll("file")) {
+    if (file && file.name) {
+      payload.append("file", file);
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function openLoopWorkProduct(result) {
+  const exported = result.export;
+  const artifact = exported && typeof exported === "object" ? exported : result.artifact || {};
+  const run = artifact.run || (result.artifact && result.artifact.run) || { run_id: result.run_id };
+  state.lastRunId = result.run_id || state.lastRunId;
+  state.currentBrief = {
+    run,
+    artifact,
+    brief: typeof exported === "string" ? exported : JSON.stringify(exported || artifact, null, 2),
+    status: result.ask_status || result.status || "ready",
+  };
+  renderWriting();
+  document.querySelector('.nav-item[data-view="writing"]').click();
 }
 
 async function runComponentCheck() {

@@ -107,7 +107,13 @@ ready Ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Home action buttons can prefill Ask
 scope and check readiness, start document parsing, resume blocked Ask
 workflows, open pending reviews, and apply already accepted durable memory
-through Product API routes. Ask displays explicit PSKA-controlled loop steps,
+through Product API routes. The Knowledge Bases upload form can either upload
+documents for later Ask or run the file-first ingest loop through
+`POST /api/ingest-loop`; the loop uses the configured KB/retrieval/memory
+adapters, waits for PSKA readiness, and opens Writing only after a sourced
+transient work product is exported. If parsing, embedding, indexing, retrieval,
+or export is not ready, the UI keeps the explicit failure/not-ready state and
+does not substitute fake context. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, explicit additional retrieval queries, and optional

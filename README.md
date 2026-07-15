@@ -354,6 +354,12 @@ Review, Activity, and Settings. It is served by the Product API and uses only
 same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
+Knowledge Bases can also run the file-first ingest loop from the upload form:
+the frontend posts files to `POST /api/ingest-loop`, waits on the same PSKA KB
+readiness gate, and opens Writing with the exported sourced work product only
+when the configured adapters complete successfully. Processing or failed
+ingestion remains visible as not-ready status instead of falling back to fake
+data or an unsourced answer.
 Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Each next action includes stable

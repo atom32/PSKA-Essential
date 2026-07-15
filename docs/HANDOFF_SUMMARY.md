@@ -268,6 +268,10 @@ Implemented:
   configured PSKA adapters: ingest local files, poll KB readiness, run the
   PSKA-controlled agentic Ask loop, and export a sourced transient work
   product. Not-ready or failed ingestion stops before Ask/export.
+- Frontend Knowledge Bases upload can call the same Product API ingest loop, so
+  users can go from selected files to sourced Writing output without the
+  frontend calling RAGFlow, Graphiti, embedding services, or fake providers
+  directly.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
@@ -347,11 +351,12 @@ make smoke
 Expected result:
 
 - `make test`: 149 tests pass.
-- Product API tests cover health, static frontend serving, scoped Ask, Review,
-  memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
-  graph read, dataset creation, parsing audit, multipart document upload, and
-  fake upload-to-Ask source reads, fake PDF-like upload failure before Ask, and
-  export refusal for unsourced/empty workflows.
+- Product API tests cover health, static frontend serving, frontend ingest-loop
+  affordances, scoped Ask, Review, memory apply/update/delete, audit records, KB
+  readiness blocking, diagnostics, document graph read, dataset creation,
+  parsing audit, multipart document upload, fake upload-to-Ask source reads,
+  fake PDF-like upload failure before Ask, and export refusal for
+  unsourced/empty workflows.
 - Config/KB gateway tests cover explicit provider selection, fake dev gating,
   and live RAGFlow/Graphiti startup failure when required connection env is
   missing.
