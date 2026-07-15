@@ -10,6 +10,7 @@ from pska_essential.agentic_loop import (
     run_agentic_question_with_readiness,
 )
 from pska_essential.capabilities import product_capabilities
+from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import (
@@ -178,6 +179,37 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         )
         add_memory_probe_audit(service.store, probe)
         return probe
+
+    def pska_component_check(
+        question: str = "PSKA component check",
+        dataset_ids: list[str] | None = None,
+        document_ids: list[str] | None = None,
+        memory_query: str = "PSKA component memory probe",
+        limit: int = 3,
+        retrieval_limit: int = 1,
+        proposal_kind: str = "writing_brief",
+        use_kg: bool = False,
+        export_format: str = "json",
+        source_inspection_limit: int = 1,
+        require_memory: bool = True,
+        run_closed_loop: bool = True,
+    ):
+        return run_component_check(
+            service,
+            build_kb_gateway_from_env(),
+            question=question,
+            dataset_ids=_optional_strings(dataset_ids),
+            document_ids=_optional_strings(document_ids),
+            memory_query=memory_query,
+            limit=limit,
+            retrieval_limit=retrieval_limit,
+            proposal_kind=proposal_kind,
+            use_kg=use_kg,
+            export_format=export_format,
+            source_inspection_limit=source_inspection_limit,
+            require_memory=require_memory,
+            run_closed_loop=run_closed_loop,
+        )
 
     def pska_live_closed_loop_probe(
         question: str,
@@ -439,6 +471,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_audit_list": pska_audit_list,
         "pska_retrieval_probe": pska_retrieval_probe,
         "pska_memory_probe": pska_memory_probe,
+        "pska_component_check": pska_component_check,
         "pska_live_closed_loop_probe": pska_live_closed_loop_probe,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,

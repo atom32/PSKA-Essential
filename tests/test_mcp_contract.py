@@ -24,6 +24,7 @@ EXPECTED_TOOLS = {
     "pska_source_read",
     "pska_policy_get",
     "pska_capabilities_get",
+    "pska_component_check",
     "pska_propose",
     "pska_runtime_diagnostics",
     "pska_review_create",
@@ -72,6 +73,24 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(checks["memory_search_contract"]["metadata"]["provider"], "fake")
         self.assertFalse(checks["memory_search_contract"]["metadata"]["semantic_checked"])
         self.assertEqual(service.store.list_audit_events(action="memory.search"), [])
+
+    def test_component_check_tool_returns_structured_acceptance_result(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
+            reset_fake_kb_gateway()
+            result = tools["pska_component_check"](
+                question="Can the configured components answer?",
+                dataset_ids=["demo"],
+                require_memory=False,
+                run_closed_loop=False,
+            )
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["retrieval_probe"]["status"], "ok")
+        self.assertIsNone(result["closed_loop_probe"])
+        self.assertIn("retrieval.probe", [event.action for event in service.store.list_audit_events()])
 
     def test_mcp_tools_reject_blank_required_scope_lists_before_backend_calls(self):
         tools = tool_registry(build_fake_service())

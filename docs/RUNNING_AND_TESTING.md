@@ -376,7 +376,8 @@ Graphiti health check can pass while LLM or embedding provider configuration
 is still missing; diagnostics and the probe report that condition as a provider
 error instead of using fallback data.
 
-Use `make live-component-check` when the question is whether the configured
+Use `make live-component-check`, `pska_component_check`, or
+`POST /api/runtime/component-check` when the question is whether the configured
 components can support the product loop. The component check runs runtime
 diagnostics, explicit memory probe, retrieval probe, and live closed-loop probe
 in one structured result. It exits successfully only when the requested checks

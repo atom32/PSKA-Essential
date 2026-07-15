@@ -203,6 +203,7 @@ Operational loop tools:
 - `pska_kb_ingestion_status`
 - `pska_kb_parse_documents`
 - `pska_kb_graph_read`
+- `pska_component_check`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
 - `pska_live_closed_loop_probe`
@@ -288,6 +289,7 @@ Implemented Alpha routes:
 - `GET /api/policy`
 - `GET /api/runtime/diagnostics`
 - `GET /api/workspace/status`
+- `POST /api/runtime/component-check`
 - `POST /api/runtime/retrieval-probe`
 - `POST /api/runtime/memory-probe`
 - `POST /api/runtime/closed-loop-probe`

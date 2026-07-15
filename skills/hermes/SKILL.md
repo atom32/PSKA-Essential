@@ -18,6 +18,9 @@ candidate memory, review, and durable export.
 - Use `pska_runtime_diagnostics` when provider configuration, backend health,
   or adapter contract readiness needs troubleshooting. Do not call provider
   health endpoints directly.
+- Use `pska_component_check` when the user wants to verify that configured
+  providers can support the PSKA product loop. Treat `incomplete`, `error`, or
+  skipped required checks as not proven.
 - Use `pska_capabilities_get` as the stable PSKA operation capability contract
   before durable memory apply, update, or delete work. If an operation is not
   supported, report that PSKA cannot perform it with the current memory adapter.

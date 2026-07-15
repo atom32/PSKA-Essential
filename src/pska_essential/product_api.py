@@ -20,6 +20,7 @@ from pska_essential.agentic_loop import (
     run_agentic_question_with_readiness,
 )
 from pska_essential.capabilities import product_capabilities
+from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import (
@@ -192,6 +193,27 @@ def _handler_class(state: ProductApiState):
                 )
                 add_retrieval_probe_audit(state.service.store, probe)
                 self._send_json({"ok": True, "probe": probe})
+                return
+
+            if method == "POST" and path == "/api/runtime/component-check":
+                payload = self._read_json()
+                result = run_component_check(
+                    state.service,
+                    state.kb_gateway_factory(),
+                    dataset_ids=[str(item) for item in payload.get("dataset_ids") or []],
+                    document_ids=[str(item) for item in payload.get("document_ids") or []],
+                    question=str(payload.get("question") or "PSKA component check"),
+                    memory_query=str(payload.get("memory_query") or "PSKA component memory probe"),
+                    limit=int(payload.get("limit") or 3),
+                    retrieval_limit=int(payload.get("retrieval_limit") or 1),
+                    proposal_kind=str(payload.get("proposal_kind") or "writing_brief"),
+                    use_kg=bool(payload.get("use_kg", False)),
+                    export_format=str(payload.get("export_format") or "json"),
+                    source_inspection_limit=int(payload.get("source_inspection_limit") or 1),
+                    require_memory=bool(payload.get("require_memory", True)),
+                    run_closed_loop=bool(payload.get("run_closed_loop", True)),
+                )
+                self._send_json({"ok": True, "component_check": result})
                 return
 
             if method == "POST" and path == "/api/runtime/memory-probe":

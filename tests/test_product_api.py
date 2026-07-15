@@ -751,6 +751,24 @@ class ProductApiTests(unittest.TestCase):
         audit = self._get_json("/api/audit?limit=5&action=memory.probe")
         self.assertEqual(audit["events"][0]["metadata"]["status"], "ok")
 
+    def test_component_check_route_runs_structured_acceptance_check(self):
+        with patch.dict(os.environ, {"PSKA_DEV_FAKE": "1"}, clear=False):
+            result = self._post_json(
+                "/api/runtime/component-check",
+                {
+                    "question": "Can the configured components answer?",
+                    "dataset_ids": ["demo"],
+                    "require_memory": False,
+                    "run_closed_loop": False,
+                },
+            )["component_check"]
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["retrieval_probe"]["status"], "ok")
+        self.assertIsNone(result["closed_loop_probe"])
+        audit = self._get_json("/api/audit?limit=5&action=retrieval.probe")
+        self.assertEqual(audit["events"][0]["metadata"]["status"], "ok")
+
     def test_closed_loop_probe_rejects_fake_retrieval_as_product_proof(self):
         probe = self._post_json(
             "/api/runtime/closed-loop-probe",

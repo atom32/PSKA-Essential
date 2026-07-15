@@ -80,6 +80,7 @@ The public tool surface is:
 - `pska_memory_lifecycle`
 - `pska_export_brief`
 - `pska_audit_list`
+- `pska_component_check`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
 - `pska_live_closed_loop_probe`
@@ -116,6 +117,10 @@ example `start_parse` becomes `parse_documents`.
 workspace diagnostics as the Product API diagnostics route. Agents should use it
 for troubleshooting component configuration instead of probing provider-native
 health endpoints.
+`pska_component_check` runs the structured component acceptance path through
+PSKA: runtime diagnostics, memory probe, retrieval probe, and optional
+closed-loop probe. It returns `incomplete` for missing dataset scope instead of
+silently skipping retrieval proof.
 `pska_memory_probe` is an explicit diagnostic operation for the configured
 memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
