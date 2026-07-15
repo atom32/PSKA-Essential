@@ -364,6 +364,13 @@ workflow for that. It writes a `closed_loop.probe` audit record and reports the
 exact stage that failed, such as `not_ready`, `retrieval_error`,
 `agentic_error`, or `export_error`.
 
+When RAGFlow reports an embedding model binding failure such as a missing
+provider for the selected dataset embedding model, PSKA normalizes the KB
+readiness failure to `failure_code=embedding_provider_missing` and
+`next_actions=["configure_embedding_provider"]`. Configure the embedding
+provider or choose an available embedding model in the KB backend, then
+re-parse/re-index the affected documents before running Ask again.
+
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow
 export PSKA_KB_PROVIDER=ragflow

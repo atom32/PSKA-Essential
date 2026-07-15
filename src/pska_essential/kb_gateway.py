@@ -25,6 +25,7 @@ class RagflowKnowledgeGateway:
     """
 
     backend_name = "ragflow"
+    max_page_size = 100
 
     def __init__(self, *, base_url: str, api_key: str, timeout: float = 30.0) -> None:
         if not base_url:
@@ -36,7 +37,7 @@ class RagflowKnowledgeGateway:
         self.timeout = timeout
 
     def list_datasets(self, *, name: str | None = None, page_size: int = 30) -> list[dict[str, Any]]:
-        params = {"page": 1, "page_size": page_size, "orderby": "create_time", "desc": True}
+        params = {"page": 1, "page_size": _ragflow_page_size(page_size), "orderby": "create_time", "desc": True}
         # RAGFlow currently reports a permission error for unknown `name`
         # filters. List visible datasets first and filter client-side so
         # "ensure dataset" can create a new one when it does not exist.
@@ -96,7 +97,7 @@ class RagflowKnowledgeGateway:
         name: str | None = None,
         page_size: int = 30,
     ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {"page": 1, "page_size": page_size, "orderby": "create_time", "desc": True}
+        params: dict[str, Any] = {"page": 1, "page_size": _ragflow_page_size(page_size), "orderby": "create_time", "desc": True}
         if document_id:
             params["id"] = document_id
         if name:
@@ -581,6 +582,14 @@ def _document_terminal(doc: dict[str, Any]) -> bool:
     if int(doc.get("chunk_count") or 0) > 0 and run not in {"1", "RUNNING"}:
         return True
     return False
+
+
+def _ragflow_page_size(value: Any) -> int:
+    try:
+        size = int(value)
+    except (TypeError, ValueError):
+        size = 30
+    return min(max(size, 1), RagflowKnowledgeGateway.max_page_size)
 
 
 def _checked_file(path: str) -> Path:

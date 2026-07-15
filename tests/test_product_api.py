@@ -873,6 +873,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("closed-loop-probe-result", html)
         self.assertIn("run-closed-loop-probe", html)
         self.assertIn("probe-dataset-picker", html)
+        self.assertIn("configure_embedding_provider", script)
         self.assertIn("upload-dataset-picker", html)
         self.assertIn("upload-use-dataset", html)
         self.assertIn("retrieval.probe", html)

@@ -69,7 +69,26 @@ class _Gateway(RagflowKnowledgeGateway):
         }
 
 
+class _RequestRecordingRagflowGateway(RagflowKnowledgeGateway):
+    def __init__(self):
+        super().__init__(base_url="http://ragflow.local", api_key="test")
+        self.calls = []
+
+    def _request(self, method, path, *, body=None, headers=None, params=None):
+        self.calls.append({"method": method, "path": path, "params": dict(params or {})})
+        return []
+
+
 class KbGatewayTests(unittest.TestCase):
+    def test_ragflow_list_operations_cap_page_size_to_provider_limit(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        gateway.list_datasets(page_size=200)
+        gateway.list_documents(dataset_id="dataset-1", page_size=500)
+
+        self.assertEqual(gateway.calls[0]["params"]["page_size"], 100)
+        self.assertEqual(gateway.calls[1]["params"]["page_size"], 100)
+
     def test_ingest_files_reuses_existing_dataset_and_starts_parse(self):
         gateway = _Gateway()
         with tempfile.TemporaryDirectory() as tmp:

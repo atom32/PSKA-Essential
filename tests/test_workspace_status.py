@@ -114,6 +114,36 @@ class _UploadedGateway:
         ]
 
 
+class _EmbeddingProviderFailedGateway:
+    backend_name = "test"
+
+    def list_datasets(self, *, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": "provider-failed",
+                "name": "Provider Failed",
+                "document_count": 1,
+                "chunk_count": 0,
+            }
+        ][:page_size]
+
+    def list_documents(self, *, dataset_id, document_id=None, name=None, page_size=30):
+        return [
+            {
+                "backend": "test",
+                "dataset_id": dataset_id,
+                "document_id": "doc-provider-failed",
+                "name": "provider-failed.pdf",
+                "chunk_count": 0,
+                "progress": -1.0,
+                "progress_msg": "Fail to bind embedding model: Provider xxxx not found for model bge-m3@xxxx.",
+                "run": "FAIL",
+                "status": "failed",
+            }
+        ]
+
+
 class _MixedUploadedGateway:
     backend_name = "test"
 
@@ -206,6 +236,16 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["tool"], "pska_kb_parse_documents")
         self.assertEqual(status["next_actions"][0]["api"], "POST /api/kb/datasets/{dataset_id}/parse")
         self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["uploaded"])
+
+    def test_embedding_provider_failure_suggests_provider_configuration(self):
+        status = build_workspace_status(service=build_fake_service(), gateway=_EmbeddingProviderFailedGateway())
+
+        self.assertEqual(status["status"], "action_required")
+        self.assertEqual(status["kb"]["readiness"]["ingestion_status"]["next_actions"], ["configure_embedding_provider"])
+        self.assertEqual(status["next_actions"][0]["action"], "configure_embedding_provider")
+        self.assertEqual(status["next_actions"][0]["view"], "settings")
+        self.assertEqual(status["next_actions"][0]["api"], "GET /api/runtime/diagnostics")
+        self.assertIn("Embedding model provider", status["next_actions"][0]["reason"])
 
     def test_mixed_uploaded_workspace_keeps_ready_scope_action_visible(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_MixedUploadedGateway())

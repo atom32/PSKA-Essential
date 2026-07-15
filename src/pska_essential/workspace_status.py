@@ -333,6 +333,7 @@ def _workspace_status(
     if {
         "check_dataset_access",
         "check_provider_status",
+        "configure_embedding_provider",
         "inspect_failure",
         "inspect_cancellation",
         "parse_documents",
@@ -396,6 +397,16 @@ def _readiness_action(action: str, reason: str, readiness: dict[str, Any]) -> di
             api="GET /api/kb/datasets/{dataset_id}/documents",
             tool="pska_kb_document_status",
             view="kb",
+            params=_scope_params(readiness),
+        )
+    if action == "configure_embedding_provider":
+        return _action(
+            action,
+            _action_label(action),
+            reason,
+            api="GET /api/runtime/diagnostics",
+            tool="pska_workspace_status",
+            view="settings",
             params=_scope_params(readiness),
         )
     if action == "run_agentic_question":
@@ -468,6 +479,7 @@ def _scope_params(readiness: dict[str, Any]) -> dict[str, Any]:
 
 def _product_readiness_action(action: str) -> str:
     mapping = {
+        "configure_embedding_provider": "configure_embedding_provider",
         "inspect_cancelled_documents": "inspect_cancellation",
         "inspect_failed_documents": "inspect_failure",
         "run_ask": "run_agentic_question",
@@ -488,6 +500,7 @@ def _action_label(action: str) -> str:
     labels = {
         "check_dataset_access": "Check dataset access",
         "check_provider_status": "Check provider status",
+        "configure_embedding_provider": "Configure embedding provider",
         "inspect_cancellation": "Inspect cancellation",
         "inspect_failure": "Inspect failure",
         "parse_documents": "Parse documents",

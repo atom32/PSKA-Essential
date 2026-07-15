@@ -241,6 +241,10 @@ Implemented:
   configured live providers. It writes `closed_loop.probe` audit records and
   reports the exact failing stage without fallback; durable memory/graph writes
   still use the normal review/apply workflow.
+- KB readiness normalizes repeated RAGFlow embedding provider failures into a
+  stable PSKA `failure_code=embedding_provider_missing` and
+  `configure_embedding_provider` next action instead of leaking page-by-page
+  provider logs through Product API, MCP, or CLI output.
 - Runtime workspace/tenant context, including derived PSKA `memory_namespace`,
   surfaced in health, diagnostics, Settings, and audit metadata.
 - The SQLite review store indexes workflows, proposals, reviews, memory apply
@@ -312,7 +316,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 119 tests pass.
+- `make test`: 124 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -781,6 +785,11 @@ make list-tools
 
 - RAGFlow source backend needs base services running first.
 - RAGFlow live retrieval needs a dataset and API key.
+- Current live probe against the existing "海康威视年报测试" dataset reaches
+  RAGFlow readiness but stops at `configure_embedding_provider`: the dataset
+  uses `bge-m3@xxxx`, and RAGFlow reports that provider `xxxx` is not configured.
+  Configure a real embedding provider/model in RAGFlow and re-parse/re-index the
+  document before expecting retrieval/Ask/export to complete.
 - RAGFlow ingestion can be slow because parsing, chunking, embedding, and
   indexing are long-running jobs. Check document status before asking.
 - Graphiti needs `OPENAI_API_KEY` in `.env.pska` before real memory extraction.

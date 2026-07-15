@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pska_essential.governance import (
@@ -255,6 +256,7 @@ def _document_report(document: dict[str, Any], *, requested: bool) -> dict[str, 
     status = _document_status(document)
     phase = _document_phase(document, status)
     failure_reason = _document_failure_reason(document, status)
+    failure_code = _document_failure_code(document, status)
     return {
         "dataset_id": str(document.get("dataset_id") or ""),
         "document_id": str(document.get("document_id") or ""),
@@ -263,12 +265,13 @@ def _document_report(document: dict[str, Any], *, requested: bool) -> dict[str, 
         "ready": status == READY,
         "status": status,
         "phase": phase,
-        "next_action": _document_next_action(status, phase),
+        "next_action": _document_next_action(status, phase, failure_code),
+        "failure_code": failure_code,
         "failure_reason": failure_reason,
         "chunk_count": int(document.get("chunk_count") or 0),
         "token_count": int(document.get("token_count") or 0),
         "progress": _float_value(document.get("progress")),
-        "progress_msg": document.get("progress_msg") or "",
+        "progress_msg": _normalize_status_message(str(document.get("progress_msg") or "")),
         "run": str(document.get("run") or ""),
     }
 
@@ -314,11 +317,11 @@ def _document_status(document: dict[str, Any]) -> str:
 def _document_blocking_message(doc: dict[str, Any]) -> str:
     label = doc.get("name") or doc.get("document_id") or "unknown document"
     if doc["status"] == FAILED:
-        reason = doc.get("progress_msg") or doc.get("run") or "failed"
-        return f"Document '{label}' failed during ingestion: {reason}."
+        reason = doc.get("failure_reason") or doc.get("progress_msg") or doc.get("run") or "failed"
+        return f"Document '{label}' failed during ingestion: {_sentence_fragment(reason)}."
     if doc["status"] == CANCELLED:
-        reason = doc.get("progress_msg") or doc.get("run") or "cancelled"
-        return f"Document '{label}' was cancelled during ingestion: {reason}."
+        reason = doc.get("failure_reason") or doc.get("progress_msg") or doc.get("run") or "cancelled"
+        return f"Document '{label}' was cancelled during ingestion: {_sentence_fragment(reason)}."
     if doc["status"] == PROCESSING:
         return f"Document '{label}' is still processing: progress {doc['progress']:.2f}, run {doc.get('run') or 'unknown'}."
     return f"Document '{label}' is not ready for retrieval."
@@ -435,13 +438,62 @@ def _document_failure_reason(document: dict[str, Any], status: str) -> str:
     if status not in {FAILED, CANCELLED}:
         return ""
     default = "cancelled" if status == CANCELLED else "failed"
-    return str(document.get("progress_msg") or document.get("run") or document.get("status") or default)
+    return _normalize_failure_reason(str(document.get("progress_msg") or document.get("run") or document.get("status") or default))
 
 
-def _document_next_action(status: str, phase: str) -> str:
+def _normalize_failure_reason(reason: str) -> str:
+    text = " ".join(str(reason or "").split())
+    if not text:
+        return ""
+    provider_model = re.search(r"Provider\s+(\S+)\s+not\s+found\s+for\s+model\s+([^\s.]+)", text, re.IGNORECASE)
+    if provider_model:
+        provider, model = provider_model.groups()
+        return (
+            f"Embedding model provider '{provider}' is not configured for model '{model}'. "
+            "Configure the provider in the KB backend, choose an available embedding model, "
+            "then re-parse/re-index the document."
+        )
+    bind_model = re.search(r"Fail to bind embedding model:?\s*([^.;]+)", text, re.IGNORECASE)
+    if bind_model:
+        return f"Embedding model binding failed: {bind_model.group(1).strip()}."
+    if len(text) > 600:
+        return f"{text[:597]}..."
+    return text
+
+
+def _document_failure_code(document: dict[str, Any], status: str) -> str:
+    if status != FAILED:
+        return ""
+    text = " ".join(str(document.get("progress_msg") or document.get("run") or document.get("status") or "").split())
+    if re.search(r"Provider\s+\S+\s+not\s+found\s+for\s+model\s+[^\s.]+", text, re.IGNORECASE):
+        return "embedding_provider_missing"
+    if re.search(r"Fail to bind embedding model", text, re.IGNORECASE):
+        return "embedding_model_binding_failed"
+    return ""
+
+
+def _normalize_status_message(message: str) -> str:
+    text = " ".join(str(message or "").split())
+    if not text:
+        return ""
+    normalized_failure = _normalize_failure_reason(text)
+    if normalized_failure and normalized_failure != text:
+        return normalized_failure
+    if len(text) > 600:
+        return f"{text[:597]}..."
+    return text
+
+
+def _sentence_fragment(value: Any) -> str:
+    return str(value or "").strip().rstrip(".")
+
+
+def _document_next_action(status: str, phase: str, failure_code: str = "") -> str:
     if status == READY:
         return "available_for_retrieval"
     if status == FAILED:
+        if failure_code == "embedding_provider_missing":
+            return "configure_embedding_provider"
         return "inspect_failure"
     if status == CANCELLED:
         return "inspect_cancellation"
@@ -477,6 +529,8 @@ def _dataset_next_action(status: str, documents: list[dict[str, Any]]) -> str:
     if status == MISSING:
         return "check_dataset_access"
     if status == FAILED:
+        if any(document.get("next_action") == "configure_embedding_provider" for document in documents):
+            return "configure_embedding_provider"
         return "inspect_failed_documents"
     if status == CANCELLED:
         return "inspect_cancelled_documents"

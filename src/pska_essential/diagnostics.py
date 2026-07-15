@@ -64,11 +64,27 @@ def run_retrieval_probe(
         "use_kg": bool(use_kg),
     }
     provider = _provider_name("PSKA_RETRIEVAL_PROVIDER", getattr(service, "retrieval", None))
-    readiness = evaluate_kb_readiness(
-        gateway,
-        dataset_ids=selected_dataset_ids,
-        document_ids=selected_document_ids,
-    )
+    try:
+        readiness = evaluate_kb_readiness(
+            gateway,
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
+        )
+    except Exception as exc:  # noqa: BLE001 - probes should report backend readiness failures.
+        return {
+            "status": "readiness_error",
+            "provider": provider,
+            "message": f"Readiness check failed before retrieval: {exc}",
+            "query": normalized_question,
+            "scope": scope,
+            "readiness": None,
+            "context_count": 0,
+            "source_refs": [],
+            "error": {
+                "type": exc.__class__.__name__,
+                "message": str(exc),
+            },
+        }
     if not readiness["ready"]:
         return {
             "status": "not_ready",
@@ -210,11 +226,27 @@ def run_live_closed_loop_probe(
         }
 
     add_step("provider.check", "complete", "Configured providers are not fake.", providers=providers)
-    readiness = evaluate_kb_readiness(
-        gateway,
-        dataset_ids=selected_dataset_ids,
-        document_ids=selected_document_ids,
-    )
+    try:
+        readiness = evaluate_kb_readiness(
+            gateway,
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
+        )
+    except Exception as exc:  # noqa: BLE001 - diagnostics should return explicit readiness failures.
+        add_step("kb.readiness", "error", f"Readiness check failed: {exc}", error_type=exc.__class__.__name__)
+        return {
+            "kind": "live_closed_loop_probe",
+            "status": "readiness_error",
+            "message": f"Readiness check failed before retrieval: {exc}",
+            "providers": providers,
+            "query": normalized_question,
+            "scope": scope,
+            "steps": steps,
+            "readiness": None,
+            "context_count": 0,
+            "export": None,
+            "error": {"type": exc.__class__.__name__, "message": str(exc)},
+        }
     add_step(
         "kb.readiness",
         "complete" if readiness.get("ready") else "blocked",

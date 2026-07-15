@@ -50,6 +50,13 @@ class _Gateway:
                 "document_count": 1,
                 "chunk_count": 0,
             },
+            "provider_failed": {
+                "backend": "test",
+                "dataset_id": "provider_failed",
+                "name": "Provider Failed KB",
+                "document_count": 1,
+                "chunk_count": 0,
+            },
         }
         self.documents = {
             "ready": [
@@ -127,6 +134,24 @@ class _Gateway:
                     "progress_msg": "cancelled by user",
                     "run": "CANCEL",
                     "status": "cancelled",
+                }
+            ],
+            "provider_failed": [
+                {
+                    "backend": "test",
+                    "dataset_id": "provider_failed",
+                    "document_id": "doc-provider-failed",
+                    "name": "provider-failed.pdf",
+                    "chunk_count": 0,
+                    "progress": -1.0,
+                    "progress_msg": (
+                        "Task has been received. Page(1~13): [ERROR]Fail to bind embedding model: "
+                        "Provider xxxx not found for model bge-m3@xxxx. "
+                        "Task has been received. Page(13~25): [ERROR]Fail to bind embedding model: "
+                        "Provider xxxx not found for model bge-m3@xxxx."
+                    ),
+                    "run": "FAIL",
+                    "status": "failed",
                 }
             ],
         }
@@ -224,6 +249,19 @@ class ReadinessTests(unittest.TestCase):
         self.assertIn("embedding failed", result["blocking"][0])
         self.assertEqual(result["ingestion_status"]["status"], "failed")
         self.assertEqual(result["ingestion_status"]["next_actions"], ["inspect_failed_documents"])
+
+    def test_embedding_provider_failures_are_normalized_for_product_readiness(self):
+        result = evaluate_kb_readiness(_Gateway(), dataset_ids=["provider_failed"])
+        document = result["datasets"][0]["documents"][0]
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("Embedding model provider 'xxxx'", document["failure_reason"])
+        self.assertEqual(document["failure_code"], "embedding_provider_missing")
+        self.assertEqual(document["next_action"], "configure_embedding_provider")
+        self.assertEqual(result["ingestion_status"]["next_actions"], ["configure_embedding_provider"])
+        self.assertIn("re-parse/re-index", result["blocking"][0])
+        self.assertLess(len(result["blocking"][0]), 320)
+        self.assertEqual(document["progress_msg"], document["failure_reason"])
 
     def test_cancelled_document_is_explicit(self):
         result = evaluate_kb_readiness(_Gateway(), dataset_ids=["cancelled"], document_ids=["doc-cancelled"])

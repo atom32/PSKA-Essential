@@ -531,7 +531,7 @@ async function openWorkspaceAction(action) {
     openView("kb");
     return;
   }
-  if (action.action === "check_dataset_access") {
+  if (action.action === "check_dataset_access" || action.action === "configure_embedding_provider") {
     openView("settings");
     return;
   }
@@ -1069,6 +1069,7 @@ function readinessDatasetForAction(readiness, action, fallbackDatasetIds = []) {
 
 function productReadinessAction(action) {
   const mapping = {
+    configure_embedding_provider: "configure_embedding_provider",
     inspect_cancelled_documents: "inspect_cancellation",
     inspect_failed_documents: "inspect_failure",
     open_status: "open_status",

@@ -98,6 +98,9 @@ make live-closed-loop
 This command does not allow fake KB or fake retrieval providers. A successful
 result means the configured live providers completed readiness, retrieval,
 agentic Ask, source inspection, and explicit export.
+If the result reports `configure_embedding_provider`, configure the selected
+dataset embedding model/provider in RAGFlow and re-parse/re-index the affected
+documents before running Ask.
 
 Graphiti memory:
 

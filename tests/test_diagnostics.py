@@ -51,6 +51,13 @@ class _BrokenRetrieval:
         raise RuntimeError("LookupError('Provider xxxx not found for model bge-m3@xxxx.')")
 
 
+class _BrokenReadinessGateway:
+    backend_name = "test-kb"
+
+    def list_datasets(self, *, name=None, page_size=30):
+        raise RuntimeError("KB list failed")
+
+
 class _LiveRetrieval:
     backend_name = "live-test"
 
@@ -98,6 +105,37 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(event.metadata["status"], "error")
         self.assertEqual(event.metadata["error_type"], "RuntimeError")
         self.assertIn("bge-m3", event.metadata["error_message"])
+
+    def test_retrieval_probe_reports_readiness_errors_without_traceback(self):
+        service = SimpleNamespace(retrieval=_LiveRetrieval())
+
+        probe = run_retrieval_probe(
+            service,
+            _BrokenReadinessGateway(),
+            question="probe readiness",
+            dataset_ids=["ready"],
+            limit=1,
+        )
+
+        self.assertEqual(probe["status"], "readiness_error")
+        self.assertEqual(probe["context_count"], 0)
+        self.assertEqual(probe["error"]["type"], "RuntimeError")
+        self.assertIn("KB list failed", probe["message"])
+
+    def test_live_closed_loop_probe_reports_readiness_errors_without_traceback(self):
+        service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
+
+        probe = run_live_closed_loop_probe(
+            service,
+            _BrokenReadinessGateway(),
+            question="probe live readiness",
+            dataset_ids=["ready"],
+        )
+
+        self.assertEqual(probe["status"], "readiness_error")
+        self.assertEqual(probe["context_count"], 0)
+        self.assertEqual(probe["steps"][-1]["name"], "kb.readiness")
+        self.assertIn("KB list failed", probe["message"])
 
     def test_live_closed_loop_probe_runs_ready_non_fake_workflow_and_audits(self):
         service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
