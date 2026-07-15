@@ -157,6 +157,10 @@ class IngestLoopTests(unittest.TestCase):
         self.assertIsNone(result["export"])
         self.assertEqual(resumable[0]["run"]["run_id"], result["run_id"])
         self.assertFalse(resumable[0]["can_resume"])
+        self.assertEqual(resumable[0]["resume"]["tool"], "pska_ingest_loop_resume")
+        self.assertEqual(resumable[0]["resume"]["api"], f"POST /api/workflows/{result['run_id']}/resume-ingest-loop")
+        self.assertEqual(resumable[0]["resume"]["params"]["export_format"], "markdown")
+        self.assertEqual(resumable[0]["next_actions"][-1]["action"], "resume_ingest_loop")
         actions = {event.action for event in service.store.list_audit_events(limit=50)}
         self.assertIn("kb.ingest", actions)
         self.assertIn("agentic_loop.not_ready", actions)

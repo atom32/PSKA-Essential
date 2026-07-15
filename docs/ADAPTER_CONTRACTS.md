@@ -188,6 +188,9 @@ workflow evidence, records `source.inspect` loop metadata, and uses normal
 If readiness blocks the selected scope, PSKA must persist the blocked workflow,
 surface it through a resumable Ask list with a fresh readiness check, and allow
 a later resume to create a new audited Ask workflow from the stored request.
+The resumable list must expose PSKA-level `resume` and `next_actions` contracts
+so agents and clients do not infer resume behavior from provider or workflow
+metadata.
 
 ## Review Gate
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from pska_essential.audit import audit_event
-from pska_essential.contracts import ContextPacket, SourceContext, SourceRef, to_jsonable, utc_now_iso
+from pska_essential.contracts import ContextPacket, SourceContext, SourceRef, WorkflowRun, to_jsonable, utc_now_iso
 from pska_essential.governance import (
     AUTO_ACCEPT,
     AUTO_APPLY,
@@ -581,20 +581,96 @@ def list_resumable_agentic_questions(
         dataset_ids = [str(item) for item in ask_request.get("dataset_ids") or []]
         document_ids = [str(item) for item in ask_request.get("document_ids") or []]
         readiness = evaluate_kb_readiness(gateway, dataset_ids=dataset_ids, document_ids=document_ids)
+        can_resume = bool(readiness.get("ready"))
+        resume = _resumable_resume_contract(run, can_resume)
         records.append(
             {
                 "run": to_jsonable(run),
                 "ask_request": to_jsonable(ask_request),
                 "readiness": readiness,
-                "can_resume": bool(readiness.get("ready")),
+                "can_resume": can_resume,
+                "resume": resume,
+                "next_actions": _resumable_next_actions(
+                    readiness=readiness,
+                    dataset_ids=dataset_ids,
+                    document_ids=document_ids,
+                    resume=resume,
+                ),
                 "message": (
                     "Selected knowledge scope is ready; resume can create a new Ask workflow."
-                    if readiness.get("ready")
+                    if can_resume
                     else "Selected knowledge scope is still not ready."
                 ),
             }
         )
     return records
+
+
+def _resumable_resume_contract(run: WorkflowRun, can_resume: bool) -> dict[str, Any]:
+    run_id = run.run_id
+    is_ingest_loop = isinstance(run.metadata.get("ingest_loop"), dict)
+    tool = "pska_ingest_loop_resume" if is_ingest_loop else "pska_agentic_question_resume"
+    path = "resume-ingest-loop" if is_ingest_loop else "resume-ask"
+    action = "resume_ingest_loop" if is_ingest_loop else "resume_blocked_ask"
+    params: dict[str, Any] = {"run_id": run_id}
+    if is_ingest_loop:
+        export_format = str((run.metadata.get("ingest_loop") or {}).get("export_format") or "").strip()
+        if export_format:
+            params["export_format"] = export_format
+    return {
+        "action": action,
+        "run_id": run_id,
+        "can_resume": can_resume,
+        "api": f"POST /api/workflows/{run_id}/{path}",
+        "tool": tool,
+        "params": params,
+    }
+
+
+def _resumable_next_actions(
+    *,
+    readiness: dict[str, Any],
+    dataset_ids: list[str],
+    document_ids: list[str],
+    resume: dict[str, Any],
+) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    if dataset_ids:
+        actions.append(
+            {
+                "action": "track_ingestion_status",
+                "label": "Track Status",
+                "reason": "Track parsing, chunking, embedding, and indexing before resuming.",
+                "api": f"GET /api/kb/datasets/{dataset_ids[0]}/ingestion-status",
+                "tool": "pska_kb_ingestion_status",
+                "view": "kb",
+                "params": {"dataset_id": dataset_ids[0], "document_ids": document_ids},
+            }
+        )
+    action = str(resume.get("action") or "resume_blocked_ask")
+    is_ingest_loop = action == "resume_ingest_loop"
+    actions.append(
+        {
+            "action": action,
+            "label": "Resume Loop" if is_ingest_loop else "Resume Ask",
+            "reason": (
+                "Selected knowledge scope is ready; resume the preserved upload -> Ask -> export intent."
+                if is_ingest_loop and readiness.get("ready")
+                else "Resume the preserved upload -> Ask -> export intent after the selected knowledge scope is ready."
+                if is_ingest_loop
+                else "Selected knowledge scope is ready; resume the preserved Ask request."
+                if readiness.get("ready")
+                else "Resume the preserved Ask request after the selected knowledge scope is ready."
+            ),
+            "api": resume["api"],
+            "tool": resume["tool"],
+            "view": "ask",
+            "params": resume["params"],
+            "can_resume": bool(resume.get("can_resume")),
+            "requires_ready": True,
+        }
+    )
+    return actions
 
 
 def _loop_summary(

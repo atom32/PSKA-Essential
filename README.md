@@ -463,6 +463,9 @@ workflow with readiness diagnostics so Writing, Activity, and MCP tools can
 recover the blocked state after ingestion continues. Users and agents can resume
 that blocked Ask from the stored workflow when the selected scope becomes ready;
 the resumed Ask creates a new audited workflow linked back to the blocked run.
+The resumable Ask list returns a fresh readiness check plus stable `resume` and
+`next_actions` contracts, including the correct PSKA resume tool/API for plain
+Ask workflows versus upload loops.
 The Ask result view can refresh the blocked workflow's readiness and enable
 resume in place when the scope becomes ready, or track readiness and resume
 automatically after a user starts tracking.

@@ -490,6 +490,10 @@ class McpContractTests(unittest.TestCase):
 
         self.assertEqual(resumable[0]["run"]["run_id"], run.run_id)
         self.assertTrue(resumable[0]["can_resume"])
+        self.assertEqual(resumable[0]["resume"]["tool"], "pska_agentic_question_resume")
+        self.assertEqual(resumable[0]["resume"]["api"], f"POST /api/workflows/{run.run_id}/resume-ask")
+        self.assertTrue(resumable[0]["resume"]["can_resume"])
+        self.assertEqual(resumable[0]["next_actions"][-1]["action"], "resume_blocked_ask")
         self.assertEqual(resumable[0]["ask_request"]["question"], "Resume this Ask")
         self.assertEqual(resumed["status"], "ready")
         self.assertNotEqual(resumed["run"]["run_id"], run.run_id)

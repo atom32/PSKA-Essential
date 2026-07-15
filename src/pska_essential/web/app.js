@@ -1689,7 +1689,8 @@ function askResultActions(result) {
       const runForResume = (fresh && fresh.run) || result.run;
       const askRequest = (fresh && fresh.ask_request) || (result.run.metadata && result.run.metadata.ask_request) || {};
       const readiness = (fresh && fresh.readiness) || result.readiness || {};
-      const canResume = fresh ? Boolean(fresh.can_resume) : Boolean(result.readiness && result.readiness.ready);
+      const resume = resumeContractForResult(result) || (fresh && fresh.resume) || null;
+      const canResume = fresh ? Boolean(fresh.can_resume) : resume ? Boolean(resume.can_resume) : Boolean(result.readiness && result.readiness.ready);
       const tracking = state.blockedAskPoll && state.blockedAskPoll.runId === result.run.run_id;
       renderAskReadinessActions(actions, readiness, {
         datasetIds: askRequest.dataset_ids || readiness.dataset_ids || [],
@@ -1722,7 +1723,7 @@ function askResultActions(result) {
             onclick: () => resumeBlockedRun(result.run.run_id),
             ...(canResume ? {} : { disabled: true }),
           },
-          hasIngestLoopResume(runForResume) ? "Resume Loop" : "Resume Ask",
+          isIngestLoopResume(resume) || hasIngestLoopResume(runForResume) ? "Resume Loop" : "Resume Ask",
         ),
       );
     }
@@ -2257,7 +2258,10 @@ function workflowCard(workflow) {
   const blockedByKb = workflow.metadata && workflow.metadata.blocked_reason === "kb_not_ready";
   const resumable = resumableAskFor(workflow.run_id);
   const canResume = !resumable || Boolean(resumable.can_resume);
-  const resumeLabel = hasIngestLoopResume((resumable && resumable.run) || workflow) ? "Resume Loop" : "Resume Ask";
+  const resumeLabel =
+    isIngestLoopResume(resumable && resumable.resume) || hasIngestLoopResume((resumable && resumable.run) || workflow)
+      ? "Resume Loop"
+      : "Resume Ask";
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -2299,7 +2303,7 @@ function resumableAskCard(record) {
   const run = record.run || {};
   const askRequest = record.ask_request || {};
   const readiness = record.readiness || {};
-  const resumeLabel = hasIngestLoopResume(run) ? "Resume Loop" : "Resume Ask";
+  const resumeLabel = isIngestLoopResume(record.resume) || hasIngestLoopResume(run) ? "Resume Loop" : "Resume Ask";
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -2333,6 +2337,37 @@ function resumableAskFor(runId) {
   return state.resumableAsks.find((record) => record.run && record.run.run_id === runId) || null;
 }
 
+function resumeContractForResult(result) {
+  return result && result.resume && typeof result.resume === "object" ? result.resume : null;
+}
+
+function resumeContractForRun(runId) {
+  const current =
+    state.currentAskResult &&
+    state.currentAskResult.run &&
+    state.currentAskResult.run.run_id === runId
+      ? resumeContractForResult(state.currentAskResult)
+      : null;
+  if (current) return current;
+  const record = resumableAskFor(runId);
+  if (record && record.resume) return record.resume;
+  const run =
+    (record && record.run) ||
+    state.workflows.find((workflow) => workflow.run_id === runId) ||
+    {};
+  const metadata = ingestLoopResumeMetadata(run);
+  if (!metadata) return null;
+  const exportFormat = metadata.export_format || "";
+  return {
+    tool: "pska_ingest_loop_resume",
+    params: { run_id: runId, export_format: exportFormat },
+  };
+}
+
+function isIngestLoopResume(resume) {
+  return Boolean(resume && resume.tool === "pska_ingest_loop_resume");
+}
+
 function ingestLoopResumeMetadata(run) {
   const metadata = run && run.metadata && run.metadata.ingest_loop;
   return metadata && typeof metadata === "object" ? metadata : null;
@@ -2349,6 +2384,8 @@ function askResultFromResumableRecord(record) {
     message: record.message || "Selected knowledge scope is still not ready.",
     run,
     readiness: record.readiness || (run.metadata && run.metadata.readiness) || {},
+    resume: record.resume || null,
+    next_actions: record.next_actions || [],
     loop: (run.metadata && run.metadata.agentic_loop) || {},
     artifact: { run },
     context_packets: [],
@@ -2612,17 +2649,10 @@ async function openBlockedAskRun(runId, options = {}) {
 }
 
 async function resumeBlockedRun(runId) {
-  const record = resumableAskFor(runId);
-  const run =
-    (record && record.run) ||
-    (state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.run_id === runId
-      ? state.currentAskResult.run
-      : null) ||
-    state.workflows.find((workflow) => workflow.run_id === runId) ||
-    {};
-  const metadata = ingestLoopResumeMetadata(run);
-  if (metadata) {
-    await resumeIngestLoopRun(runId, metadata.export_format || "");
+  const resume = resumeContractForRun(runId);
+  if (isIngestLoopResume(resume)) {
+    const params = resume.params || {};
+    await resumeIngestLoopRun(runId, params.export_format || "");
     return;
   }
   await resumeAskRun(runId);

@@ -356,7 +356,9 @@ the selected scope becomes ready. For a blocked `pska_ingest_loop` run, use
 `POST /api/workflows/{run_id}/resume-ingest-loop` so the original upload -> Ask
 -> export intent is preserved. Use `pska_agentic_question_resumable` or
 `GET /api/workflows/resumable-asks` to list readiness-blocked Ask runs with a
-fresh readiness check. The frontend Ask result can refresh a blocked run's
+fresh readiness check and stable `resume` / `next_actions` contracts, so
+Hermes, CLI tools, and the frontend can choose the PSKA resume path without
+inspecting workflow metadata. The frontend Ask result can refresh a blocked run's
 readiness in place and enable resume when the stored scope becomes ready; the
 user can also start `Track & Resume` from Ask, Resumable Asks, or Home next
 actions to poll readiness and resume automatically.
