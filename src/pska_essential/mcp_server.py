@@ -22,6 +22,7 @@ from pska_essential.diagnostics import (
     run_memory_probe,
     run_retrieval_probe,
 )
+from pska_essential.env_file import env_file_arg_parser, load_env_file
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.kb_audit import (
@@ -630,12 +631,26 @@ def build_fastmcp(service=None):
     return mcp
 
 
-def main() -> int:
-    if "--list-tools" in sys.argv:
+def main(argv: list[str] | None = None) -> int:
+    cli_args = list(sys.argv[1:] if argv is None else argv)
+    if any(arg in {"-h", "--help"} for arg in cli_args):
+        print("usage: pska-essential-mcp [--env-file ENV_FILE] [--list-tools]")
+        return 0
+    env_parser = env_file_arg_parser()
+    env_args, remaining = env_parser.parse_known_args(cli_args)
+    if env_args.env_file:
+        load_env_file(env_args.env_file)
+
+    if "--list-tools" in remaining:
         print(json.dumps(sorted(tool_registry().keys()), ensure_ascii=False, indent=2))
         return 0
-    server = build_fastmcp()
-    server.run()
+    original_argv = sys.argv
+    sys.argv = [original_argv[0], *remaining]
+    try:
+        server = build_fastmcp()
+        server.run()
+    finally:
+        sys.argv = original_argv
     return 0
 
 

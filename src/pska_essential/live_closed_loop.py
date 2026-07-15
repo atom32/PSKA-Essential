@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
 from pska_essential.diagnostics import add_live_closed_loop_probe_audit, run_live_closed_loop_probe
+from pska_essential.env_file import preload_env_file
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    env_parser = preload_env_file(argv)
+    parser = argparse.ArgumentParser(description="Run a PSKA live closed-loop probe.", parents=[env_parser])
+    parser.parse_args(argv)
+
     dataset_ids = _csv_env("PSKA_LIVE_DATASET_IDS")
     if not dataset_ids:
         raise SystemExit("PSKA_LIVE_DATASET_IDS is required, for example: PSKA_LIVE_DATASET_IDS=dataset_id")

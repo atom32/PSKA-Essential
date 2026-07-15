@@ -32,6 +32,7 @@ from pska_essential.diagnostics import (
     run_memory_probe,
     run_retrieval_probe,
 )
+from pska_essential.env_file import preload_env_file
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.kb_audit import (
@@ -79,11 +80,15 @@ def build_server(
     return server
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the PSKA-Essential Product API and frontend.")
+def main(argv: list[str] | None = None) -> int:
+    env_parser = preload_env_file(argv)
+    parser = argparse.ArgumentParser(
+        description="Run the PSKA-Essential Product API and frontend.",
+        parents=[env_parser],
+    )
     parser.add_argument("--host", default=os.getenv("PSKA_API_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.getenv("PSKA_API_PORT", "8765")))
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     server = build_server(host=args.host, port=args.port)
     print(f"PSKA Product API listening on http://{args.host}:{args.port}", flush=True)

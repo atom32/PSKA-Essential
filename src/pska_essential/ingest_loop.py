@@ -14,6 +14,7 @@ from pska_essential.agentic_loop import (
 from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
+from pska_essential.env_file import preload_env_file
 from pska_essential.kb_audit import add_kb_ingest_audit
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.readiness import evaluate_kb_readiness
@@ -219,7 +220,11 @@ def resume_ingest_loop(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run upload -> readiness -> Ask -> export through PSKA.")
+    env_parser = preload_env_file(argv)
+    parser = argparse.ArgumentParser(
+        description="Run upload -> readiness -> Ask -> export through PSKA.",
+        parents=[env_parser],
+    )
     parser.add_argument("file_paths", nargs="*", help="Files to ingest through the configured KB provider.")
     parser.add_argument("--dataset-id", default=os.getenv("PSKA_LOOP_DATASET_ID", ""))
     parser.add_argument("--dataset-name", default=os.getenv("PSKA_LOOP_DATASET_NAME", ""))
@@ -281,7 +286,11 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def resume_main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Resume a blocked PSKA upload -> Ask -> export loop.")
+    env_parser = preload_env_file(argv)
+    parser = argparse.ArgumentParser(
+        description="Resume a blocked PSKA upload -> Ask -> export loop.",
+        parents=[env_parser],
+    )
     parser.add_argument("run_id", nargs="?", default=os.getenv("PSKA_LOOP_RUN_ID", ""))
     parser.add_argument("--export-format", default=os.getenv("PSKA_LOOP_EXPORT_FORMAT", ""))
     args = parser.parse_args(argv)

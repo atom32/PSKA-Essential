@@ -100,6 +100,10 @@ before Product API, MCP, or component-check startup. RAGFlow retrieval/KB
 requires `RAGFLOW_BASE_URL` and `RAGFLOW_API_KEY`; Graphiti memory requires
 `GRAPHITI_BASE_URL`. Missing values fail explicitly and are not replaced by
 implicit localhost, empty-key, fake, or alternate-provider defaults.
+Instead of exporting each value in the shell, copy `.env.example` to an explicit
+runtime file such as `.env.pska`, fill in real keys, and pass it with
+`--env-file .env.pska` or `make ... ENV_FILE=.env.pska`. PSKA does not
+auto-load env files, and the same provider validation still applies.
 
 The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. Home shows PSKA workspace next actions for
@@ -473,6 +477,12 @@ export PSKA_LOOP_RUN_ID=...
 make live-ingest-loop-resume
 make live-component-check
 make live-closed-loop
+
+# Equivalent explicit env-file form:
+make live-ingest-loop ENV_FILE=.env.pska
+make live-ingest-loop-resume ENV_FILE=.env.pska
+make live-component-check ENV_FILE=.env.pska
+make live-closed-loop ENV_FILE=.env.pska
 ```
 
 If you are intentionally validating only the RAGFlow retrieval/Ask/export path

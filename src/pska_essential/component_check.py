@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 from typing import Any
@@ -15,6 +16,7 @@ from pska_essential.diagnostics import (
     run_memory_probe,
     run_retrieval_probe,
 )
+from pska_essential.env_file import preload_env_file
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 
 
@@ -151,7 +153,11 @@ def run_component_check(
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    env_parser = preload_env_file(argv)
+    parser = argparse.ArgumentParser(description="Run PSKA configured component checks.", parents=[env_parser])
+    parser.parse_args(argv)
+
     service = build_service_from_env()
     gateway = build_kb_gateway_from_env()
     result = run_component_check(

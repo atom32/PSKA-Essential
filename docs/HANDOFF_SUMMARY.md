@@ -267,6 +267,10 @@ Implemented:
 - Product API startup validates both workflow providers and the configured KB
   gateway before serving the frontend. Missing provider env and unauthorized
   fake mode fail explicitly instead of starting a partially wired Product API.
+- Product API, MCP, component-check, live closed-loop, and ingest-loop CLI
+  entries can load an explicit runtime env file via `--env-file`; Make live
+  targets accept `ENV_FILE=.env.pska`. Env files are not auto-loaded, and the
+  normal provider validation/no-fallback rules still apply.
 - `POST /api/ingest-loop`, MCP `pska_ingest_loop`, `make live-ingest-loop`,
   and `pska-essential-ingest-loop` run the file-first operational loop through
   configured PSKA adapters: ingest local files, poll KB readiness, run the
@@ -377,7 +381,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 162 tests pass.
+- `make test`: 169 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit
@@ -388,6 +392,9 @@ Expected result:
 - Config/KB gateway tests cover explicit provider selection, fake dev gating,
   and live RAGFlow/Graphiti startup failure when required connection env is
   missing.
+- Env-file tests cover explicit runtime config loading for MCP/component-check
+  startup, non-overriding behavior for already exported variables, and invalid
+  env-file failures.
 - Ingest-loop tests cover CLI/MCP/Product API file upload -> readiness -> Ask
   -> governance payload -> export, resumable blocked Ask creation for
   processing uploads, and the failed-ingestion stop condition before Ask/export.

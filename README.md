@@ -81,6 +81,9 @@ export PSKA_MEMORY_PROVIDER=graphiti
 Selected live providers also require their connection environment variables at
 startup. PSKA fails explicitly when a provider is selected without the required
 URL/key instead of starting with an implicit localhost or empty-key default.
+CLI entry points can load an explicit env file with `--env-file .env.pska`, and
+the Make targets accept `ENV_FILE=.env.pska`. This is only configuration
+loading; PSKA still fails when required providers or keys are absent.
 
 RAGFlow retrieval:
 
@@ -97,6 +100,8 @@ After a RAGFlow dataset is uploaded and ready, run a live component check:
 export PSKA_COMPONENT_DATASET_IDS=...
 export PSKA_COMPONENT_QUESTION="Summarize the selected documents with sources."
 make live-component-check
+# or:
+make live-component-check ENV_FILE=.env.pska
 ```
 
 This command runs runtime diagnostics, memory search verification, retrieval
@@ -122,6 +127,8 @@ export PSKA_LOOP_DATASET_NAME="annual-report-test"
 export PSKA_LOOP_FILE_PATHS="/path/to/document.pdf"
 export PSKA_LOOP_QUESTION="Summarize the uploaded documents with sources."
 make live-ingest-loop
+# or:
+make live-ingest-loop ENV_FILE=.env.pska
 ```
 
 This path still uses the configured KB/retrieval/memory adapters and the same
