@@ -100,7 +100,9 @@ contract, health, diagnostics, and workspace status so the frontend and Hermes
 can avoid unsupported durable actions before creating review items. Historical
 accepted reviews that target
 unsupported backend operations remain visible as inspect actions instead of
-being offered as apply actions.
+being offered as apply actions. When a workspace or tenant is configured,
+Graphiti memory search/apply uses a derived PSKA memory namespace under the
+configured `GRAPHITI_GROUP_ID`.
 
 Workspace governance policy:
 
@@ -115,7 +117,9 @@ export PSKA_TENANT_ID=
 review, memory-apply, and audit lists/read APIs default to the current
 workspace/tenant, so two workspaces can share one SQLite file without exposing
 each other's PSKA state. Existing unscoped SQLite rows are treated as
-`default` workspace records during migration.
+`default` workspace records during migration. Durable memory adapters receive
+the same context as a PSKA `memory_namespace`, so fake, company-stub, and
+Graphiti memory search/write flows stay aligned with the workspace boundary.
 
 Local Graphiti install:
 
@@ -388,4 +392,5 @@ retrieval probe for the selected dataset before running Ask. Product API health,
 diagnostics, probe audit records, and other audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`; the
 review store uses that same context to scope workflows, reviews, memory apply
-records, and audit reads.
+records, and audit reads, while memory adapters use it to scope durable memory
+backend search and writes.

@@ -179,7 +179,10 @@ Writing durable-memory controls stay disabled until the selected operation is
 reported as supported. Product API health, diagnostics, and audit records
 include the runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and
 `PSKA_TENANT_ID`. Workflow, review, memory-apply, and audit reads are scoped by
-the same workspace/tenant context in the review store.
+the same workspace/tenant context in the review store. Durable memory search
+and reviewed writes receive the same context as a PSKA `memory_namespace`; fake,
+company-stub, and Graphiti adapters use it to keep backend memory scoped to the
+same workspace boundary.
 
 Durable memory governance modes:
 
@@ -222,7 +225,9 @@ are exposed through the Product API capabilities route, MCP capabilities tool,
 health, diagnostics, and workspace status so the frontend and Hermes can avoid
 unsupported durable actions before creating review items. Historical accepted
 reviews that target unsupported backend operations remain visible as inspect
-actions instead of being offered as apply actions.
+actions instead of being offered as apply actions. When workspace or tenant
+context is configured, the adapter maps PSKA `memory_namespace` to a derived
+Graphiti group ID under `GRAPHITI_GROUP_ID`.
 
 Current local component install:
 

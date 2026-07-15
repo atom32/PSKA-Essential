@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 
 from pska_essential.adapters.fake import FakeRetrievalAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
@@ -13,11 +15,13 @@ class _GraphitiClient:
     def __init__(self):
         self.episodes = []
         self.deleted_edges = []
+        self.searches = []
 
     def add_episode(self, **kwargs):
         self.episodes.append(kwargs)
 
     def search(self, **kwargs):
+        self.searches.append(kwargs)
         return []
 
     def delete_entity_edge(self, uuid):
@@ -46,6 +50,33 @@ class GraphitiGateTests(unittest.TestCase):
         self.assertTrue(result.applied)
         self.assertEqual(len(graphiti.episodes), 1)
         self.assertEqual(graphiti.episodes[0]["group_id"], "test-group")
+
+    def test_graphiti_group_id_uses_runtime_memory_namespace_when_configured(self):
+        graphiti = _GraphitiClient()
+        with patch.dict(
+            os.environ,
+            {"PSKA_WORKSPACE_ID": "workspace-a", "PSKA_TENANT_ID": "tenant-a"},
+            clear=False,
+        ):
+            service = WorkflowService(
+                retrieval=FakeRetrievalAdapter(),
+                memory=GraphitiMemoryAdapter(client=graphiti, group_id="test-group"),
+                store=SQLiteReviewStore(":memory:"),
+            )
+            run = service.start("graphiti scoped gate", {"dataset_ids": ["demo"]})
+            service.context_retrieve(run.run_id, "memory review", 1)
+            proposal = service.propose(run.run_id, "memory_patch", "graphiti scoped patch")
+            review = service.review_create(proposal.proposal_id)
+            service.review_decide(review.review_id, "accept", "approved")
+
+            result = service.memory_apply(review.review_id)
+            service.memory_search("graphiti scoped patch", {}, 10)
+
+        expected_group_id = "test-group:workspace:workspace-a:tenant:tenant-a"
+        self.assertTrue(result.applied)
+        self.assertEqual(graphiti.episodes[0]["group_id"], expected_group_id)
+        self.assertEqual(result.metadata["group_id"], expected_group_id)
+        self.assertEqual(graphiti.searches[0]["group_ids"], [expected_group_id])
 
     def test_graphiti_delete_entity_edge_is_only_called_after_review_acceptance(self):
         graphiti = _GraphitiClient()

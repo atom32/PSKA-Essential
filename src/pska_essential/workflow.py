@@ -26,6 +26,7 @@ from pska_essential.contracts import (
 from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
+from pska_essential.runtime_context import build_runtime_workspace_context
 
 
 class WorkflowError(RuntimeError):
@@ -365,7 +366,7 @@ class WorkflowService:
         }
 
     def memory_search(self, query: str, scope: dict[str, Any] | None = None, limit: int = 10) -> list[MemoryFact]:
-        search_scope = dict(scope or {})
+        search_scope = _memory_runtime_scope(scope)
         facts = self.memory.search(query, search_scope, limit)
         self.store.add_audit_event(
             audit_event(
@@ -394,6 +395,7 @@ class WorkflowService:
                 raise WorkflowError("memory_patch proposal is missing memory patch payload")
             if not proposal.memory_patch.source_refs:
                 raise WorkflowError("memory patch requires source refs before apply")
+            _attach_memory_runtime_metadata(proposal.memory_patch.metadata, proposal)
             result = self.memory.apply(proposal.memory_patch)
             self.store.save_memory_apply(review_id, to_jsonable(result))
             self.store.add_audit_event(
@@ -420,6 +422,7 @@ class WorkflowService:
                 raise WorkflowError("memory_update proposal is missing memory update payload")
             if not proposal.memory_update.source_refs:
                 raise WorkflowError("memory update requires source refs before apply")
+            _attach_memory_runtime_metadata(proposal.memory_update.metadata, proposal)
             result = self.memory.update(proposal.memory_update)
             self.store.save_memory_apply(review_id, to_jsonable(result))
             self.store.add_audit_event(
@@ -446,6 +449,7 @@ class WorkflowService:
                 raise WorkflowError("memory_delete proposal is missing memory delete payload")
             if not proposal.memory_delete.source_refs:
                 raise WorkflowError("memory delete requires source refs before apply")
+            _attach_memory_runtime_metadata(proposal.memory_delete.metadata, proposal)
             result = self.memory.delete(proposal.memory_delete)
             self.store.save_memory_apply(review_id, to_jsonable(result))
             self.store.add_audit_event(
@@ -803,6 +807,38 @@ def build_fake_service(db_path: str = ":memory:") -> WorkflowService:
         memory=FakeMemoryAdapter(),
         store=SQLiteReviewStore(db_path),
     )
+
+
+def _memory_runtime_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]:
+    context = build_runtime_workspace_context()
+    payload = dict(scope or {})
+    payload.setdefault("workspace_id", context.workspace_id)
+    payload.setdefault("tenant_id", context.tenant_id)
+    payload.setdefault("workspace_configured", context.workspace_configured)
+    payload.setdefault("tenant_configured", context.tenant_configured)
+    namespace = _memory_namespace(context.to_dict())
+    if namespace:
+        payload.setdefault("memory_namespace", namespace)
+    return payload
+
+
+def _attach_memory_runtime_metadata(metadata: dict[str, Any], proposal: Proposal) -> None:
+    scope = _memory_runtime_scope(proposal.metadata)
+    for key in ("workspace_id", "tenant_id", "workspace_configured", "tenant_configured", "memory_namespace"):
+        if key in scope:
+            metadata.setdefault(key, scope[key])
+    metadata.setdefault("proposal_id", proposal.proposal_id)
+    metadata.setdefault("run_id", proposal.run_id)
+
+
+def _memory_namespace(context: dict[str, Any]) -> str:
+    if not context.get("workspace_configured") and not context.get("tenant_configured"):
+        return ""
+    parts = [f"workspace:{context.get('workspace_id') or 'default'}"]
+    tenant_id = str(context.get("tenant_id") or "")
+    if tenant_id:
+        parts.append(f"tenant:{tenant_id}")
+    return ":".join(parts)
 
 
 def _memory_fact_from_input(memory_fact: MemoryFact | dict[str, Any], operation: str) -> MemoryFact:

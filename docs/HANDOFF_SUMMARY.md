@@ -235,6 +235,10 @@ Implemented:
   records, and audit events by workspace/tenant; default list/read APIs only
   return records for the current `PSKA_WORKSPACE_ID` / `PSKA_TENANT_ID`.
   Existing unscoped SQLite rows are migrated into the `default` workspace.
+- Workflow memory search and reviewed memory writes attach the same
+  workspace/tenant context as a PSKA `memory_namespace`. Fake, company-stub, and
+  Graphiti memory adapters honor that namespace; Graphiti maps it to a derived
+  group ID under the configured `GRAPHITI_GROUP_ID`.
 - Dataset creation, document ingestion, parsing, and graph reads write explicit
   KB audit records through both Product API and MCP.
 - Source reads write explicit `source.read` audit records through the shared
@@ -293,7 +297,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 100 tests pass.
+- `make test`: 102 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -334,6 +338,9 @@ Expected result:
   workspace/tenant metadata.
 - Governance/store tests cover workspace/tenant isolation for workflow, review,
   and audit reads in a shared SQLite review store.
+- Governance/adapter tests cover durable memory backend scoping through the
+  PSKA `memory_namespace`, including fake memory search and Graphiti group ID
+  mapping.
 - `make list-tools`: lists 37 PSKA MCP tools.
 - `make smoke`: fake adapter workflow succeeds.
 
@@ -439,7 +446,8 @@ contract.
 Product API health, diagnostics, and audit records include the runtime
 workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`, and the
 review store scopes workflow, review, memory-apply, and audit reads by that
-same context. If
+same context. Durable memory adapters receive the same context as
+`memory_namespace` for backend search/write scoping. If
 the selected dataset or document scope is not ready, Ask returns `not_ready` and
 does not start retrieval. If retrieved context remains below the required
 context count, Ask returns `insufficient_context`, shows any retrieved partial

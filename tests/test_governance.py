@@ -166,6 +166,40 @@ class GovernancePolicyTests(unittest.TestCase):
                 with self.assertRaises(KeyError):
                     store.get_workflow(old_run.run_id)
 
+    def test_memory_backend_search_is_scoped_by_workspace_and_tenant(self):
+        memory = FakeMemoryAdapter()
+        store = SQLiteReviewStore(":memory:")
+
+        with patch.dict(
+            os.environ,
+            {"PSKA_WORKSPACE_ID": "workspace-shared", "PSKA_TENANT_ID": "tenant-a"},
+            clear=False,
+        ):
+            service_a = WorkflowService(FakeRetrievalAdapter(), memory, store)
+            run = service_a.start("tenant a memory", {"dataset_ids": ["demo"]})
+            service_a.context_retrieve(run.run_id, "adapter", 1)
+            proposal = service_a.propose(run.run_id, "memory_patch", "tenant a private memory")
+            review = service_a.review_create(proposal.proposal_id)
+            service_a.review_decide(review.review_id, "accept", "tenant a accepts")
+            service_a.memory_apply(review.review_id)
+            self.assertEqual(len(service_a.memory_search("tenant a private memory", {}, 10)), 1)
+
+        with patch.dict(
+            os.environ,
+            {"PSKA_WORKSPACE_ID": "workspace-shared", "PSKA_TENANT_ID": "tenant-b"},
+            clear=False,
+        ):
+            service_b = WorkflowService(FakeRetrievalAdapter(), memory, store)
+            self.assertEqual(service_b.memory_search("tenant a private memory", {}, 10), [])
+
+        with patch.dict(
+            os.environ,
+            {"PSKA_WORKSPACE_ID": "workspace-shared", "PSKA_TENANT_ID": "tenant-a"},
+            clear=False,
+        ):
+            service_a_again = WorkflowService(FakeRetrievalAdapter(), memory, store)
+            self.assertEqual(len(service_a_again.memory_search("tenant a private memory", {}, 10)), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

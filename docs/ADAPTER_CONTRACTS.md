@@ -46,6 +46,10 @@ Rules:
   capabilities contract, diagnostics, workspace status, MCP tools, and
   frontend controls use those capabilities to avoid creating durable review
   items that the selected backend cannot apply.
+- Memory adapters must honor PSKA `memory_namespace` / workspace metadata on
+  search and reviewed writes. Provider-specific isolation, such as Graphiti
+  group IDs, belongs inside adapters and must not leak into core workflow code
+  or public tool contracts.
 
 ## Public MCP Contract
 

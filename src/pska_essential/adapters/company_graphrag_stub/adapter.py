@@ -69,7 +69,9 @@ class CompanyGraphRagStubAdapter:
         matches = [
             fact
             for fact in self.memory
-            if not fact.invalid_at and (not words or any(word in fact.text.lower() for word in words))
+            if _fact_in_scope(fact, scope)
+            and not fact.invalid_at
+            and (not words or any(word in fact.text.lower() for word in words))
         ]
         return matches[:limit]
 
@@ -78,7 +80,7 @@ class CompanyGraphRagStubAdapter:
             fact_id=f"company_mem_{uuid4().hex}",
             text=reviewed_patch.text,
             source_refs=reviewed_patch.source_refs,
-            metadata={"company_stub": True},
+            metadata={"company_stub": True, **reviewed_patch.metadata},
         )
         self.memory.append(fact)
         return MemoryApplyResult(
@@ -90,7 +92,7 @@ class CompanyGraphRagStubAdapter:
 
     def update(self, reviewed_update: MemoryUpdate) -> MemoryApplyResult:
         for fact in self.memory:
-            if fact.fact_id == reviewed_update.target_id:
+            if fact.fact_id == reviewed_update.target_id and _metadata_in_scope(fact.metadata, reviewed_update.metadata):
                 previous_text = fact.text
                 version = int(fact.metadata.get("version", 1)) + 1
                 fact.metadata.setdefault("versions", []).append(
@@ -116,7 +118,7 @@ class CompanyGraphRagStubAdapter:
 
     def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
         for fact in self.memory:
-            if fact.fact_id == reviewed_delete.target_id:
+            if fact.fact_id == reviewed_delete.target_id and _metadata_in_scope(fact.metadata, reviewed_delete.metadata):
                 fact.invalid_at = utc_now_iso()
                 fact.metadata["delete_reason"] = reviewed_delete.reason
                 return MemoryApplyResult(
@@ -127,3 +129,15 @@ class CompanyGraphRagStubAdapter:
                     metadata={"operation": "delete"},
                 )
         raise ValueError(f"memory fact not found: {reviewed_delete.target_id}")
+
+
+def _fact_in_scope(fact: MemoryFact, scope: dict) -> bool:
+    return _metadata_in_scope(fact.metadata, scope)
+
+
+def _metadata_in_scope(metadata: dict, scope: dict) -> bool:
+    expected = str(scope.get("memory_namespace") or "")
+    actual = str(metadata.get("memory_namespace") or "")
+    if expected:
+        return actual == expected
+    return actual == ""

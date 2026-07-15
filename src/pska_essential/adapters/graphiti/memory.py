@@ -63,6 +63,7 @@ class GraphitiMemoryAdapter:
         if not reviewed_patch.source_refs:
             raise GraphitiAdapterError("reviewed memory patch requires source refs")
         episode_uuid = f"pska_{uuid4().hex}"
+        group_id = _group_id_from_metadata(reviewed_patch.metadata, self.group_id)
         if self.client is not None and hasattr(self.client, "add_episode"):
             kwargs = {
                 "uuid": episode_uuid,
@@ -70,7 +71,7 @@ class GraphitiMemoryAdapter:
                 "episode_body": reviewed_patch.text,
                 "source_description": "PSKA-Essential reviewed memory patch",
                 "reference_time": datetime.now(timezone.utc),
-                "group_id": self.group_id,
+                "group_id": group_id,
             }
             try:
                 from graphiti_core.nodes import EpisodeType  # type: ignore
@@ -84,10 +85,11 @@ class GraphitiMemoryAdapter:
                 target_id=episode_uuid,
                 backend=self.backend_name,
                 message="Reviewed memory patch queued in Graphiti",
+                metadata={"group_id": group_id},
             )
         if self.base_url:
             payload = {
-                "group_id": self.group_id,
+                "group_id": group_id,
                 "messages": [
                     {
                         "uuid": episode_uuid,
@@ -106,6 +108,7 @@ class GraphitiMemoryAdapter:
                 target_id=episode_uuid,
                 backend=self.backend_name,
                 message="Reviewed memory patch queued in Graphiti HTTP service",
+                metadata={"group_id": group_id},
             )
         raise GraphitiAdapterError("Graphiti adapter requires a graphiti client or base_url")
 
@@ -115,6 +118,7 @@ class GraphitiMemoryAdapter:
         if not reviewed_delete.source_refs:
             raise GraphitiAdapterError("reviewed memory delete requires source refs")
         if self.client is not None:
+            group_id = _group_id_from_metadata(reviewed_delete.metadata, self.group_id)
             if hasattr(self.client, "delete_entity_edge"):
                 _run_maybe_async(self.client.delete_entity_edge(reviewed_delete.target_id))
                 return MemoryApplyResult(
@@ -122,7 +126,7 @@ class GraphitiMemoryAdapter:
                     target_id=reviewed_delete.target_id,
                     backend=self.backend_name,
                     message="Reviewed memory fact deleted in Graphiti",
-                    metadata={"operation": "delete"},
+                    metadata={"operation": "delete", "group_id": group_id},
                 )
             if hasattr(self.client, "get_entity_edge") and hasattr(self.client, "driver"):
                 edge = _run_maybe_async(self.client.get_entity_edge(reviewed_delete.target_id))
@@ -132,17 +136,18 @@ class GraphitiMemoryAdapter:
                     target_id=reviewed_delete.target_id,
                     backend=self.backend_name,
                     message="Reviewed memory fact deleted in Graphiti",
-                    metadata={"operation": "delete"},
+                    metadata={"operation": "delete", "group_id": group_id},
                 )
             raise GraphitiAdapterError("Graphiti client does not expose reviewed memory delete")
         if self.base_url:
+            group_id = _group_id_from_metadata(reviewed_delete.metadata, self.group_id)
             data = self._delete_json(f"/entity-edge/{quote(reviewed_delete.target_id, safe='')}")
             return MemoryApplyResult(
                 applied=True,
                 target_id=reviewed_delete.target_id,
                 backend=self.backend_name,
                 message=str(data.get("message") or "Reviewed memory fact deleted in Graphiti HTTP service"),
-                metadata={"operation": "delete"},
+                metadata={"operation": "delete", "group_id": group_id},
             )
         raise GraphitiAdapterError("Graphiti adapter requires a graphiti client or base_url")
 
@@ -189,10 +194,19 @@ def _run_maybe_async(value: Any) -> Any:
 
 
 def _group_ids(scope: dict[str, Any], default: str) -> list[str]:
-    raw = scope.get("group_ids") or scope.get("graphiti_group_ids") or scope.get("group_id") or default
+    raw = (
+        scope.get("memory_group_ids")
+        or scope.get("memory_group_id")
+        or _group_id_from_metadata(scope, default)
+    )
     if isinstance(raw, list):
         return [str(item) for item in raw if item]
     return [str(raw)]
+
+
+def _group_id_from_metadata(metadata: dict[str, Any], default: str) -> str:
+    namespace = str(metadata.get("memory_namespace") or "")
+    return f"{default}:{namespace}" if namespace else default
 
 
 def _edge_to_fact(edge: Any) -> MemoryFact:

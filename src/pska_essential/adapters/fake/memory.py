@@ -24,7 +24,9 @@ class FakeMemoryAdapter:
         matches = [
             fact
             for fact in self.facts
-            if not fact.invalid_at and (not words or any(word in fact.text.lower() for word in words))
+            if _fact_in_scope(fact, scope)
+            and not fact.invalid_at
+            and (not words or any(word in fact.text.lower() for word in words))
         ]
         return matches[:limit]
 
@@ -46,7 +48,7 @@ class FakeMemoryAdapter:
 
     def update(self, reviewed_update: MemoryUpdate) -> MemoryApplyResult:
         for fact in self.facts:
-            if fact.fact_id == reviewed_update.target_id:
+            if fact.fact_id == reviewed_update.target_id and _metadata_in_scope(fact.metadata, reviewed_update.metadata):
                 previous_text = fact.text
                 version = int(fact.metadata.get("version", 1)) + 1
                 fact.metadata.setdefault("versions", []).append(
@@ -72,7 +74,7 @@ class FakeMemoryAdapter:
 
     def delete(self, reviewed_delete: MemoryDelete) -> MemoryApplyResult:
         for fact in self.facts:
-            if fact.fact_id == reviewed_delete.target_id:
+            if fact.fact_id == reviewed_delete.target_id and _metadata_in_scope(fact.metadata, reviewed_delete.metadata):
                 fact.invalid_at = utc_now_iso()
                 fact.metadata["delete_reason"] = reviewed_delete.reason
                 return MemoryApplyResult(
@@ -83,3 +85,15 @@ class FakeMemoryAdapter:
                     metadata={"operation": "delete"},
                 )
         raise ValueError(f"memory fact not found: {reviewed_delete.target_id}")
+
+
+def _fact_in_scope(fact: MemoryFact, scope: dict[str, Any]) -> bool:
+    return _metadata_in_scope(fact.metadata, scope)
+
+
+def _metadata_in_scope(metadata: dict[str, Any], scope: dict[str, Any]) -> bool:
+    expected = str(scope.get("memory_namespace") or "")
+    actual = str(metadata.get("memory_namespace") or "")
+    if expected:
+        return actual == expected
+    return actual == ""
