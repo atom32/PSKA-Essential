@@ -1,29 +1,9 @@
 # Demo Runbook
 
-## Local Fake Demo
-
-```bash
-cd /Users/xudawei/PSKA-Essential
-PYTHONPATH=src python3 -m unittest discover -s tests
-PYTHONPATH=src python3 - <<'PY'
-from pska_essential.workflow import build_fake_service
-
-svc = build_fake_service()
-run = svc.start("Show the workflow gate", {"dataset_ids": ["demo"]})
-ctx = svc.context_retrieve(run.run_id, "adapter review memory", 2)
-proposal = svc.propose(run.run_id, "memory_patch", "remember reviewed knowledge")
-review = svc.review_create(proposal.proposal_id)
-
-try:
-    svc.memory_apply(review.review_id)
-except Exception as exc:
-    print("Blocked before review:", exc)
-
-svc.review_decide(review.review_id, "accept", "demo approval")
-print(svc.memory_apply(review.review_id))
-print(svc.export_brief(run.run_id, "markdown"))
-PY
-```
+Product demos assume a fresh workspace: no useful datasets, no preloaded demo
+knowledge, and no cleanup step in the user path. The user starts by uploading
+source material through PSKA. Bad local datasets may be deleted only as
+development maintenance before rerunning the fresh upload loop.
 
 ## Hermes Demo
 
@@ -109,6 +89,34 @@ optional graph layer:
 
 ```text
 pska_kb_graph_read("<dataset_id>", "<document_id>")
+```
+
+## Local Contract Smoke (Fake Only)
+
+This is not the product demo path. It is a local development/test smoke for the
+review gate contract when live RAGFlow/Graphiti components are unavailable.
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+PSKA_DEV_FAKE=1 PYTHONPATH=src python3 -m unittest discover -s tests
+PSKA_DEV_FAKE=1 PYTHONPATH=src python3 - <<'PY'
+from pska_essential.workflow import build_fake_service
+
+svc = build_fake_service()
+run = svc.start("Show the workflow gate", {"dataset_ids": ["demo"]})
+ctx = svc.context_retrieve(run.run_id, "adapter review memory", 2)
+proposal = svc.propose(run.run_id, "memory_patch", "remember reviewed knowledge")
+review = svc.review_create(proposal.proposal_id)
+
+try:
+    svc.memory_apply(review.review_id)
+except Exception as exc:
+    print("Blocked before review:", exc)
+
+svc.review_decide(review.review_id, "accept", "demo approval")
+print(svc.memory_apply(review.review_id))
+print(svc.export_brief(run.run_id, "markdown"))
+PY
 ```
 
 ## Development Maintenance
