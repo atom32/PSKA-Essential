@@ -1091,6 +1091,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/ingest-loop', script)
         self.assertIn("openLoopWorkProduct", script)
         self.assertIn("appendIngestLoopControls", script)
+        self.assertIn("auditActionForIngestLoop", script)
+        self.assertIn("syncReviewRecord(result.review);", script)
+        self.assertIn('await loadAuditEvents(auditActionForIngestLoop(result));', script)
         self.assertIn('payload.append("retrieval_queries", form.get("loop_retrieval_queries") || "");', script)
         self.assertIn('payload.append("use_kg", form.get("loop_use_kg") ? "true" : "false");', script)
         self.assertIn('payload.append("create_review", "true");', script)
@@ -1422,6 +1425,12 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.assertEqual(result["ask_status"], "ready")
         self.assertTrue(result["readiness"]["ready"])
         self.assertTrue(result["run_id"].startswith("run_"))
+        self.assertEqual(result["run"]["run_id"], result["run_id"])
+        self.assertEqual(result["proposal"]["kind"], "writing_brief")
+        self.assertIsNone(result["review"])
+        self.assertIsNone(result["review_decision"])
+        self.assertIsNone(result["memory_apply"])
+        self.assertEqual(result["loop"]["status"], "ready")
         self.assertEqual(result["export"]["traceability"]["source_count"], 1)
         self.assertEqual(result["export"]["traceability"]["source_inspection_count"], 0)
         ask_request = result["export"]["run"]["metadata"]["ask_request"]
@@ -1437,6 +1446,38 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.assertEqual(ingest_audit["events"][0]["metadata"]["document_names"], ["loop-note.txt"])
         export_audit = self._get_json("/api/audit?limit=10&action=workflow.export")
         self.assertEqual(export_audit["events"][0]["target_id"], result["run_id"])
+
+    def test_product_api_ingest_loop_exposes_governance_payload_for_review(self):
+        dataset_name = f"Ingest Loop Review API {uuid4().hex}"
+        unique_phrase = f"product api ingest loop review {uuid4().hex}"
+        payload = self._post_multipart_ingest(
+            {
+                "dataset_name": dataset_name,
+                "question": f"What durable knowledge rule mentions {unique_phrase}?",
+                "proposal_kind": "memory_patch",
+                "create_review": "true",
+                "export_format": "json",
+                "poll_interval_seconds": "0.05",
+            },
+            "review-note.txt",
+            f"The durable knowledge rule says {unique_phrase} must be reviewed before memory is written.",
+            route="/api/ingest-loop",
+        )
+        result = payload["ingest_loop"]
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["proposal"]["kind"], "memory_patch")
+        self.assertEqual(result["review"]["status"], "pending")
+        self.assertEqual(result["review"]["proposal_id"], result["proposal"]["proposal_id"])
+        self.assertIsNone(result["review_decision"])
+        self.assertIsNone(result["memory_apply"])
+        self.assertTrue(result["loop"]["review_required"])
+        self.assertEqual(result["loop"]["governance"]["action"], "manual_review")
+        self.assertEqual(result["export"]["latest_proposal"]["kind"], "memory_patch")
+        review_audit = self._get_json("/api/audit?limit=10&action=review.create")
+        self.assertEqual(review_audit["events"][0]["target_id"], result["review"]["review_id"])
+        memory_audit = self._get_json("/api/audit?limit=10&action=memory.apply")
+        self.assertEqual(memory_audit["events"], [])
 
     def test_product_api_fake_pdf_upload_reports_ingestion_failure_before_ask(self):
         dataset_name = f"Unsupported Fake PDF {uuid4().hex}"

@@ -822,8 +822,16 @@ async function runIngestLoopFromUploadForm() {
   }
   await loadDatasets();
   await loadWorkflows();
+  if (result.review) {
+    syncReviewRecord(result.review);
+    await loadReviews();
+    await loadPendingReviews();
+  }
+  if (result.review && result.memory_apply) {
+    syncMemoryApply(result.review.review_id, result.memory_apply);
+  }
   await loadWorkspaceStatus();
-  await loadAuditEvents(result.status === "ok" ? "workflow.export" : "kb.ingest");
+  await loadAuditEvents(auditActionForIngestLoop(result));
   if (result.status === "ok" && result.run_id) {
     openLoopWorkProduct(result);
     showToast("Ingest loop completed.");
@@ -862,16 +870,28 @@ function appendIngestLoopControls(form, payload) {
 function openLoopWorkProduct(result) {
   const exported = result.export;
   const artifact = exported && typeof exported === "object" ? exported : result.artifact || {};
-  const run = artifact.run || (result.artifact && result.artifact.run) || { run_id: result.run_id };
+  const run = result.run || artifact.run || (result.artifact && result.artifact.run) || { run_id: result.run_id };
   state.lastRunId = result.run_id || state.lastRunId;
   state.currentBrief = {
     run,
     artifact,
+    proposal: result.proposal || artifact.latest_proposal || null,
+    review: result.review || null,
+    review_decision: result.review_decision || null,
+    memory_apply: result.memory_apply || null,
+    memory_facts: result.memory_facts || artifact.memory_facts || [],
     brief: typeof exported === "string" ? exported : JSON.stringify(exported || artifact, null, 2),
     status: result.ask_status || result.status || "ready",
   };
   renderWriting();
   document.querySelector('.nav-item[data-view="writing"]').click();
+}
+
+function auditActionForIngestLoop(result) {
+  if (!result || result.status !== "ok") return "kb.ingest";
+  if (result.memory_apply) return memoryApplyAction(result.memory_apply);
+  if (result.review) return "review.create";
+  return "workflow.export";
 }
 
 async function runComponentCheck() {

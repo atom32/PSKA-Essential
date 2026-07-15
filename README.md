@@ -362,7 +362,10 @@ ingestion remains visible as not-ready status instead of falling back to fake
 data or an unsourced answer. The same form exposes PSKA-owned loop controls for
 limit, max iterations, minimum context, additional retrieval queries, source
 inspection, proposal kind, optional review, and graph-aware retrieval; these are
-Product API fields, not provider-native calls.
+Product API fields, not provider-native calls. When the loop creates a durable
+knowledge candidate, the response includes the proposal, review decision, and
+memory-apply state so the frontend can continue the Review workflow without
+inspecting workflow internals.
 Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Each next action includes stable

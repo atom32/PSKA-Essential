@@ -116,7 +116,9 @@ or export is not ready, the UI keeps the explicit failure/not-ready state and
 does not substitute fake context. The upload loop exposes the same PSKA loop
 controls as Ask for limit, max iterations, minimum context, additional retrieval
 queries, source inspection, proposal kind, optional review, and graph-aware
-retrieval. Ask displays explicit PSKA-controlled loop steps,
+retrieval. Its Product API result exposes proposal, review, review-decision,
+memory-apply, loop, and export fields, so the frontend can continue the Review
+workflow directly after a file-first run. Ask displays explicit PSKA-controlled loop steps,
 including KB readiness before retrieval, and includes a dataset/document picker
 that syncs to explicit scope IDs. Ask can tune loop depth with max iterations,
 required context count, explicit additional retrieval queries, and optional
