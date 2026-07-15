@@ -143,8 +143,8 @@ Rules:
 
 - PSKA-Essential may create datasets, upload files, start parsing, poll document
   status, and read optional structure graph data through provider APIs.
-- PSKA-Essential may delete selected datasets through adapter APIs for explicit
-  cleanup and development reset flows.
+- PSKA-Essential may delete selected datasets or all datasets through adapter
+  APIs for explicit cleanup and development reset flows.
 - PSKA-Essential must not persist raw documents or build its own index.
 - Public tools return normalized dataset/document IDs and status fields, not
   raw provider responses.

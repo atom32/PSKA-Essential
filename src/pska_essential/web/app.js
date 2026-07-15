@@ -192,6 +192,7 @@ async function applyAskResult(result, options = {}) {
 function bindRefresh() {
   document.getElementById("refresh-all").addEventListener("click", refreshAll);
   document.getElementById("reload-datasets").addEventListener("click", loadDatasets);
+  document.getElementById("delete-all-datasets").addEventListener("click", deleteAllDatasets);
   document.getElementById("upload-use-dataset").addEventListener("click", setUploadDatasetFromPicker);
   document.getElementById("run-ingest-loop").addEventListener("click", runIngestLoopFromUploadForm);
   document.getElementById("parse-documents").addEventListener("click", parseActiveDocuments);
@@ -323,10 +324,7 @@ async function loadDatasets() {
     const payload = await api("/api/kb/datasets");
     state.datasets = payload.datasets || [];
     renderDatasets();
-    renderUploadDatasetPicker();
-    renderAskDatasetPicker();
-    renderProbeDatasetPicker();
-    renderAskScope();
+    renderDatasetPickers();
     renderHome();
   } catch (error) {
     renderList(document.getElementById("datasets-list"), [], "Datasets unavailable.");
@@ -759,6 +757,13 @@ function renderUploadDatasetPicker() {
   if (current && state.datasets.some((dataset) => dataset.dataset_id === current)) {
     picker.value = current;
   }
+}
+
+function renderDatasetPickers() {
+  renderUploadDatasetPicker();
+  renderAskDatasetPicker();
+  renderProbeDatasetPicker();
+  renderAskScope();
 }
 
 function setUploadDatasetFromPicker() {
@@ -2778,6 +2783,33 @@ async function deleteDataset(datasetId) {
   renderDatasets();
   renderDatasetPickers();
   showToast("Knowledge base deleted.");
+  await loadDatasets();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("kb.dataset.delete");
+}
+
+async function deleteAllDatasets() {
+  const count = state.datasets.length;
+  if (!count) {
+    showToast("No knowledge bases to delete.");
+    return;
+  }
+  if (!window.confirm(`Delete all knowledge bases in the configured KB provider? ${count} currently listed.`)) return;
+  await api("/api/kb/datasets", { method: "DELETE", body: { delete_all: true } });
+  state.activeDocumentDatasetId = null;
+  state.activeDocuments = [];
+  state.datasets = [];
+  setAskDatasetIds([]);
+  setAskDocumentIds([]);
+  const uploadDataset = document.querySelector('#upload-form input[name="dataset_id"]');
+  if (uploadDataset) uploadDataset.value = "";
+  const documentDataset = document.querySelector('#document-status-form input[name="dataset_id"]');
+  if (documentDataset) documentDataset.value = "";
+  invalidateAskReadiness();
+  renderDatasets();
+  renderDocuments([]);
+  renderDatasetPickers();
+  showToast("Knowledge bases deleted.");
   await loadDatasets();
   await loadWorkspaceStatus();
   await loadAuditEvents("kb.dataset.delete");

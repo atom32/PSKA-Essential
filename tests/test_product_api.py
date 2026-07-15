@@ -924,6 +924,26 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(audit["events"][0]["target_id"], "demo")
         self.assertEqual(audit["events"][0]["metadata"]["dataset_ids"], ["demo"])
 
+    def test_dataset_delete_all_writes_kb_audit_record(self):
+        self.gateway.extra_datasets["scratch"] = {
+            "backend": "fake-kb",
+            "dataset_id": "scratch",
+            "name": "Scratch",
+            "document_count": 0,
+            "chunk_count": 0,
+        }
+
+        deleted = self._delete_json("/api/kb/datasets", {"delete_all": True})
+
+        self.assertTrue(deleted["delete"]["deleted"])
+        self.assertTrue(deleted["delete"]["delete_all"])
+        self.assertEqual(deleted["delete"]["dataset_ids"], [])
+        self.assertEqual(deleted["delete"]["deleted_dataset_ids"], ["scratch"])
+        audit = self._get_json("/api/audit?limit=5")
+        self.assertEqual(audit["events"][0]["action"], "kb.dataset.delete")
+        self.assertEqual(audit["events"][0]["target_id"], "scratch")
+        self.assertTrue(audit["events"][0]["metadata"]["delete_all"])
+
     def test_audit_route_filters_by_action(self):
         self._post_json(
             "/api/kb/datasets",
@@ -1007,6 +1027,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("embedding_model: form.get(\"embedding_model\")", script)
         self.assertIn('payload.append("embedding_model", form.get("embedding_model") || "");', script)
         self.assertIn("deleteDataset(dataset.dataset_id)", script)
+        self.assertIn("delete-all-datasets", html)
+        self.assertIn("deleteAllDatasets", script)
+        self.assertIn("delete_all: true", script)
+        self.assertIn("renderDatasetPickers", script)
         self.assertIn("/api/kb/datasets/${encodeURIComponent(datasetId)}", script)
         self.assertIn("kb.dataset.delete", script)
         self.assertIn("Component Check", script)

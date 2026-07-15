@@ -274,8 +274,8 @@ Dataset creation and ingest tools accept optional `embedding_model` so the
 PSKA product layer can request a configured RAGFlow embedding model without
 exposing RAGFlow-internal fields.
 `pska_kb_delete` is the explicit development/operations cleanup path for bad
-datasets; it deletes through the KB adapter and records audit instead of
-touching provider databases directly.
+datasets; it can delete selected datasets or all datasets through the KB
+adapter and records audit instead of touching provider databases directly.
 
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> inspect workspace policy
@@ -373,7 +373,8 @@ memory-apply state so the frontend can continue the Review workflow without
 inspecting workflow internals. When the uploaded scope is still processing, the
 frontend opens the blocked Ask result with Track & Resume actions; failed or
 cancelled ingestion stays a cleanup/status issue instead of becoming a fake
-answer.
+answer. Knowledge Bases exposes explicit Delete and Delete All cleanup actions
+through Product API for bad development datasets.
 Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Each next action includes stable

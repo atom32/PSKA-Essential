@@ -445,7 +445,8 @@ RAGFlow tenant default, or pass a model/provider name that RAGFlow has already
 configured. PSKA validates required RAGFlow connection env, but RAGFlow remains
 the authority for embedding/model availability.
 If a development dataset is already bound to a bad embedding model, delete it
-through `pska_kb_delete` or `DELETE /api/kb/datasets/{dataset_id}`, then recreate
+through `pska_kb_delete`, `DELETE /api/kb/datasets/{dataset_id}`, or the
+Knowledge Bases Delete All action for a full development reset, then recreate
 and re-ingest. Do not rely on fake adapters or silent provider fallback.
 
 ```bash

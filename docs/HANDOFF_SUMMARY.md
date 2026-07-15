@@ -291,8 +291,10 @@ Implemented:
   `configure_embedding_provider` next action instead of leaking page-by-page
   provider logs through Product API, MCP, or CLI output.
 - KB creation/ingest accepts optional `embedding_model`, and KB deletion is now
-  an explicit adapter-backed cleanup operation for bad development datasets. No
-  fake provider or silent fallback is used to hide embedding/model failures.
+  an explicit adapter-backed cleanup operation for selected or all bad
+  development datasets. Frontend Knowledge Bases exposes Delete and Delete All
+  through Product API, with audit records. No fake provider or silent fallback
+  is used to hide embedding/model failures.
 - Runtime workspace/tenant context, including derived PSKA `memory_namespace`,
   surfaced in health, diagnostics, Settings, and audit metadata.
 - The SQLite review store indexes workflows, proposals, reviews, memory apply
@@ -364,7 +366,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 153 tests pass.
+- `make test`: 157 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   controls, governance payloads, and resumable processing uploads, scoped Ask,
   Review, memory apply/update/delete, audit records, KB readiness blocking,
@@ -378,8 +380,8 @@ Expected result:
   -> governance payload -> export, resumable blocked Ask creation for
   processing uploads, and the failed-ingestion stop condition before Ask/export.
 - Product API/static frontend tests cover Review status filtering, pending
-  review summaries, review source trace display, component check UI, and
-  focused probe UI.
+  review summaries, review source trace display, component check UI, focused
+  probe UI, and Knowledge Bases Delete All cleanup.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Agentic loop/Product API/MCP tests cover explicit retrieval query plans and
   source-coordinate de-duplication across query rounds.
