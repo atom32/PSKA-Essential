@@ -493,7 +493,9 @@ function workspaceActionButtonLabel(action) {
     parse_documents: "Parse",
     resume_blocked_ask: "Resume",
     review_pending_durable_knowledge: "Review",
+    run_file_to_work_product_loop: "Start",
     run_agentic_question: "Ask",
+    create_or_upload_knowledge_base: "Upload",
     upload_documents: "Upload",
     wait_for_ingestion: "Track",
     wait_for_resumable_ask: "Track",
@@ -502,13 +504,24 @@ function workspaceActionButtonLabel(action) {
 }
 
 function workspaceActionButtonClass(action) {
-  return ["apply_accepted_memory", "parse_documents", "resume_blocked_ask"].includes(action.action)
+  return [
+    "apply_accepted_memory",
+    "parse_documents",
+    "resume_blocked_ask",
+    "run_file_to_work_product_loop",
+  ].includes(action.action)
     ? "primary-button"
     : "secondary-button";
 }
 
 async function openWorkspaceAction(action) {
   const params = action.params || {};
+  if (action.action === "run_file_to_work_product_loop") {
+    prepareIngestLoopForm(params);
+    openView("kb");
+    showToast("Select source files, name the dataset, then run the loop.");
+    return;
+  }
   if (action.action === "run_agentic_question") {
     setAskDatasetIds(params.dataset_ids || []);
     setAskDocumentIds(params.document_ids || []);
@@ -538,8 +551,9 @@ async function openWorkspaceAction(action) {
     await openReview(params.review_id);
     return;
   }
-  if (action.action === "upload_documents") {
+  if (action.action === "upload_documents" || action.action === "create_or_upload_knowledge_base") {
     setUploadDataset(params.dataset_ids || []);
+    prepareIngestLoopForm(params);
     openView("kb");
     return;
   }
@@ -570,6 +584,27 @@ async function openWorkspaceAction(action) {
     return;
   }
   openView(action.view || "home");
+}
+
+function prepareIngestLoopForm(params = {}) {
+  const form = document.getElementById("upload-form");
+  if (!form) return;
+  const datasetId = form.querySelector('input[name="dataset_id"]');
+  if (datasetId && !(params.dataset_ids || []).length) datasetId.value = "";
+  const picker = document.getElementById("upload-dataset-picker");
+  if (picker && !(params.dataset_ids || []).length) picker.value = "";
+  const parse = form.querySelector('input[name="parse"]');
+  if (parse && Object.prototype.hasOwnProperty.call(params, "parse")) parse.checked = Boolean(params.parse);
+  const wait = form.querySelector('input[name="wait"]');
+  if (wait && Object.prototype.hasOwnProperty.call(params, "wait_ready")) wait.checked = Boolean(params.wait_ready);
+  const proposal = form.querySelector('[name="loop_proposal_kind"]');
+  if (proposal && params.proposal_kind) proposal.value = params.proposal_kind;
+  const format = form.querySelector('[name="loop_export_format"]');
+  if (format && params.export_format) format.value = params.export_format;
+  const question = form.querySelector('[name="loop_question"]');
+  if (question && params.question) question.value = params.question;
+  const fileInput = form.querySelector('input[name="file"]');
+  if (fileInput) fileInput.focus();
 }
 
 function setUploadDataset(datasetIds) {

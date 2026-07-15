@@ -389,7 +389,8 @@ hints and safe parameters, such as ready dataset IDs or the relevant review/run
 ID. In a fresh empty workspace, the first product action is
 `run_file_to_work_product_loop`, which points Hermes/frontends to
 `pska_ingest_loop` / `POST /api/ingest-loop`; lower-level KB ingest remains
-available only for manual dataset control.
+available only for manual dataset control. Home opens the Knowledge Bases Run
+Loop form for that action and preloads the safe loop defaults.
 The frontend refreshes this summary after KB, Ask, review, and memory actions
 so Home does not keep stale guidance. Workspace status includes per-dataset
 readiness; ready datasets remain actionable even while another selected dataset

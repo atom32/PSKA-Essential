@@ -417,7 +417,8 @@ PSKA tool/API/view hints and safe parameters, so Hermes and the frontend can
 navigate the workflow without inspecting provider internals. In an empty
 workspace, the first action points to the full file-to-work-product loop
 (`pska_ingest_loop` / `POST /api/ingest-loop`) rather than a provider-native
-setup step. Mutating frontend
+setup step; Home opens the Knowledge Bases Run Loop form with the safe loop
+defaults ready. Mutating frontend
 actions refresh this status after completion so the Home guidance follows the
 current workflow state. Workspace status reports both aggregate KB readiness and
 per-dataset readiness, so a newly uploaded processing dataset does not hide
