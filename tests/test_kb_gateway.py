@@ -171,6 +171,24 @@ class KbGatewayTests(unittest.TestCase):
             with self.assertRaisesRegex(KbGatewayError, "PSKA_KB_PROVIDER=fake"):
                 build_kb_gateway_from_env()
 
+    def test_ragflow_kb_provider_requires_backend_env(self):
+        with patch.dict("os.environ", {"PSKA_KB_PROVIDER": "ragflow"}, clear=True):
+            with self.assertRaisesRegex(KbGatewayError, "RAGFlow KB gateway is missing required env"):
+                build_kb_gateway_from_env()
+
+    def test_ragflow_kb_provider_uses_explicit_backend_env(self):
+        env = {
+            "PSKA_KB_PROVIDER": "ragflow",
+            "RAGFLOW_BASE_URL": "http://ragflow.local",
+            "RAGFLOW_API_KEY": "test-key",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            gateway = build_kb_gateway_from_env()
+
+        self.assertEqual(gateway.backend_name, "ragflow")
+        self.assertEqual(gateway.base_url, "http://ragflow.local")
+        self.assertEqual(gateway.api_key, "test-key")
+
     def test_fake_kb_provider_supports_dev_frontend(self):
         with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=True):
             gateway = build_kb_gateway_from_env()

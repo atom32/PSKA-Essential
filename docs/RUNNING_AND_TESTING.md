@@ -95,6 +95,12 @@ export PSKA_TENANT_ID=
 PYTHONPATH=src python3 -m pska_essential.product_api
 ```
 
+The selected live providers must have their required connection env configured
+before Product API, MCP, or component-check startup. RAGFlow retrieval/KB
+requires `RAGFLOW_BASE_URL` and `RAGFLOW_API_KEY`; Graphiti memory requires
+`GRAPHITI_BASE_URL`. Missing values fail explicitly and are not replaced by
+implicit localhost, empty-key, fake, or alternate-provider defaults.
+
 The Alpha frontend includes Home, Knowledge Bases, Ask, Reader, Writing,
 Review, Activity, and Settings. Home shows PSKA workspace next actions for
 ready Ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
@@ -403,8 +409,8 @@ re-parse/re-index the affected documents before running Ask again.
 For new RAGFlow-backed datasets, `pska_kb_create`, `pska_kb_ingest_files`, and
 the Product API accept optional `embedding_model`. Leave it empty to use the
 RAGFlow tenant default, or pass a model/provider name that RAGFlow has already
-configured. PSKA does not validate provider credentials itself; RAGFlow remains
-the authority for model availability.
+configured. PSKA validates required RAGFlow connection env, but RAGFlow remains
+the authority for embedding/model availability.
 If a development dataset is already bound to a bad embedding model, delete it
 through `pska_kb_delete` or `DELETE /api/kb/datasets/{dataset_id}`, then recreate
 and re-ingest. Do not rely on fake adapters or silent provider fallback.

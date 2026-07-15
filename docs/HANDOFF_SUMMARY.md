@@ -341,12 +341,15 @@ make smoke
 
 Expected result:
 
-- `make test`: 137 tests pass.
+- `make test`: 143 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
   fake upload-to-Ask source reads, fake PDF-like upload failure before Ask, and
   export refusal for unsourced/empty workflows.
+- Config/KB gateway tests cover explicit provider selection, fake dev gating,
+  and live RAGFlow/Graphiti startup failure when required connection env is
+  missing.
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, review source trace display, component check UI, and
   focused probe UI.
@@ -460,6 +463,12 @@ not own the KB/index; RAGFlow remains the KB backend.
 `fake` adapters are now explicit development/test adapters only. Product runtime
 must set providers intentionally. Use `PSKA_DEV_FAKE=1` only for local tests or
 tool discovery.
+
+Selected live providers now fail at startup when required connection env is
+missing. RAGFlow retrieval/KB requires `RAGFLOW_BASE_URL` and
+`RAGFLOW_API_KEY`; Graphiti memory requires `GRAPHITI_BASE_URL`. PSKA does not
+substitute implicit localhost, empty API keys, fake providers, or alternate
+providers.
 
 Product API and frontend:
 

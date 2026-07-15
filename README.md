@@ -78,6 +78,10 @@ export PSKA_KB_PROVIDER=ragflow
 export PSKA_MEMORY_PROVIDER=graphiti
 ```
 
+Selected live providers also require their connection environment variables at
+startup. PSKA fails explicitly when a provider is selected without the required
+URL/key instead of starting with an implicit localhost or empty-key default.
+
 RAGFlow retrieval:
 
 ```bash

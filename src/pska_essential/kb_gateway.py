@@ -619,9 +619,12 @@ def build_kb_gateway_from_env() -> RagflowKnowledgeGateway | FakeKnowledgeGatewa
         return _FAKE_KB_GATEWAY
     if provider != "ragflow":
         raise KbGatewayError(f"unsupported KB provider: {provider}")
+    missing = _missing_env("RAGFLOW_BASE_URL", "RAGFLOW_API_KEY")
+    if missing:
+        raise KbGatewayError(f"RAGFlow KB gateway is missing required env: {', '.join(missing)}")
     return RagflowKnowledgeGateway(
-        base_url=os.getenv("RAGFLOW_BASE_URL", "http://127.0.0.1:9380"),
-        api_key=os.getenv("RAGFLOW_API_KEY", ""),
+        base_url=os.environ["RAGFLOW_BASE_URL"],
+        api_key=os.environ["RAGFLOW_API_KEY"],
         timeout=float(os.getenv("RAGFLOW_TIMEOUT", "30")),
     )
 
@@ -739,3 +742,7 @@ def _multipart_files(paths: list[Path]) -> tuple[bytes, str]:
 
 def _env_enabled(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _missing_env(*names: str) -> list[str]:
+    return [name for name in names if not os.getenv(name, "").strip()]

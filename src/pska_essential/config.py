@@ -24,6 +24,7 @@ def build_service_from_env() -> WorkflowService:
             corpus_loader=_fake_kb_corpus_loader if _kb_provider_is_fake(dev_fake) else None
         )
     elif retrieval_provider == "ragflow":
+        _require_env("RAGFLOW_BASE_URL", "RAGFLOW_API_KEY", provider="RAGFlow retrieval")
         retrieval = RagflowRetrievalAdapter(
             base_url=os.getenv("RAGFLOW_BASE_URL"),
             api_key=os.getenv("RAGFLOW_API_KEY"),
@@ -37,6 +38,7 @@ def build_service_from_env() -> WorkflowService:
         _require_dev_fake("PSKA_MEMORY_PROVIDER", dev_fake)
         memory = FakeMemoryAdapter()
     elif memory_provider == "graphiti":
+        _require_env("GRAPHITI_BASE_URL", provider="Graphiti memory")
         memory = GraphitiMemoryAdapter(
             base_url=os.getenv("GRAPHITI_BASE_URL"),
             group_id=os.getenv("GRAPHITI_GROUP_ID", "pska-essential"),
@@ -68,6 +70,12 @@ def _required_provider(name: str, dev_fake: bool) -> str:
 def _require_dev_fake(name: str, dev_fake: bool) -> None:
     if not dev_fake:
         raise ValueError(f"{name}=fake is allowed only when PSKA_DEV_FAKE=1")
+
+
+def _require_env(*names: str, provider: str) -> None:
+    missing = [name for name in names if not os.getenv(name, "").strip()]
+    if missing:
+        raise ValueError(f"{provider} is missing required env: {', '.join(missing)}")
 
 
 def _env_enabled(name: str) -> bool:

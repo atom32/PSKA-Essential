@@ -65,8 +65,11 @@ def build_server(
     kb_gateway_factory: KbGatewayFactory = build_kb_gateway_from_env,
     static_dir: str | Path | None = None,
 ) -> ThreadingHTTPServer:
+    resolved_service = service or build_service_from_env()
+    # Build once at startup so missing KB provider configuration fails before serving.
+    kb_gateway_factory()
     state = ProductApiState(
-        service=service or build_service_from_env(),
+        service=resolved_service,
         kb_gateway_factory=kb_gateway_factory,
         static_dir=Path(static_dir) if static_dir else Path(__file__).with_name("web"),
     )

@@ -35,6 +35,41 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(service.retrieval.backend_name, "fake")
         self.assertEqual(service.memory.backend_name, "fake")
 
+    def test_ragflow_retrieval_requires_backend_env(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "ragflow",
+            "PSKA_MEMORY_PROVIDER": "company_graphrag_stub",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "RAGFlow retrieval is missing required env"):
+                build_service_from_env()
+
+    def test_graphiti_memory_requires_backend_env(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "company_graphrag_stub",
+            "PSKA_MEMORY_PROVIDER": "graphiti",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "Graphiti memory is missing required env: GRAPHITI_BASE_URL"):
+                build_service_from_env()
+
+    def test_live_provider_config_builds_without_network_probe(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "ragflow",
+            "PSKA_MEMORY_PROVIDER": "graphiti",
+            "RAGFLOW_BASE_URL": "http://ragflow.local",
+            "RAGFLOW_API_KEY": "test-key",
+            "GRAPHITI_BASE_URL": "http://graphiti.local",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            service = build_service_from_env()
+
+        self.assertEqual(service.retrieval.backend_name, "ragflow")
+        self.assertEqual(service.memory.backend_name, "graphiti")
+
 
 if __name__ == "__main__":
     unittest.main()

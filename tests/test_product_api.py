@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from pska_essential.config import build_service_from_env
-from pska_essential.kb_gateway import build_kb_gateway_from_env, reset_fake_kb_gateway
+from pska_essential.kb_gateway import KbGatewayError, build_kb_gateway_from_env, reset_fake_kb_gateway
 from pska_essential.product_api import build_server
 from pska_essential.workflow import build_fake_service
 
@@ -152,6 +152,20 @@ class _FakeGateway:
             "templates": [{"name": "demo-structure", "nodes": [], "edges": []}],
             "note": "Fake graph for Product API tests.",
         }
+
+
+class ProductApiStartupTests(unittest.TestCase):
+    def test_build_server_validates_kb_gateway_configuration(self):
+        env = {"PSKA_KB_PROVIDER": "ragflow"}
+        with tempfile.TemporaryDirectory() as static_dir, patch.dict(os.environ, env, clear=True):
+            Path(static_dir, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
+            with self.assertRaisesRegex(KbGatewayError, "RAGFlow KB gateway is missing required env"):
+                build_server(
+                    host="127.0.0.1",
+                    port=0,
+                    service=build_fake_service(),
+                    static_dir=static_dir,
+                )
 
 
 class ProductApiTests(unittest.TestCase):
