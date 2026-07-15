@@ -8,7 +8,7 @@ test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover -s tests
 
 list-tools:
-	PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake PSKA_REVIEW_DB=:memory: PYTHONPATH=src $(PYTHON) -m pska_essential --list-tools
+	PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake PSKA_REVIEW_DB=:memory: PYTHONPATH=src $(PYTHON) -m pska_essential --list-tools
 
 smoke:
 	PYTHONPATH=src $(PYTHON) -c 'from pska_essential.workflow import build_fake_service; print(build_fake_service().eval_run("smoke"))'

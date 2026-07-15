@@ -325,7 +325,9 @@ Implemented:
   `/datasets/{dataset_id}/documents/parse` contract. Readiness gates resolve
   explicitly selected dataset IDs through gateway `get_dataset` when available,
   so a selected live dataset is not misclassified as missing merely because it
-  is absent from the first list page.
+  is absent from the first list page. RAGFlow document upload requests raw
+  document rows with `return_raw_files=true` and normalizes those rows into
+  PSKA document contracts before returning them to MCP/Product API callers.
 - KB creation/ingest accepts optional `embedding_model`. KB deletion remains a
   development maintenance path for selected bad datasets or full local resets,
   including deletion by ID/name/all through PSKA adapters with audit records.
@@ -397,7 +399,9 @@ Implemented:
   `pska_ingest_loop_resume` for file-first workflows, with lower-level KB tools
   reserved for manual dataset control. The Hermes config example starts
   PSKA-Essential MCP with `--env-file .env.pska` and no longer embeds fake
-  provider env directly.
+  provider env directly. A skill-doc test now verifies the Hermes config tool
+  allowlist matches the actual PSKA MCP `tool_registry()`, so stale or
+  nonexistent tool names fail during tests.
 - Docs and runbook.
 
 Validated commands:
@@ -411,7 +415,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 195 tests pass.
+- `make test`: 199 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit

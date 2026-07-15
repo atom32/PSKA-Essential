@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+from pska_essential.mcp_server import tool_registry
 
 
 class SkillDocsTests(unittest.TestCase):
@@ -49,6 +53,22 @@ class SkillDocsTests(unittest.TestCase):
             "pska_live_closed_loop_probe",
         ]:
             self.assertIn(f"- {tool_name}", text)
+
+    def test_hermes_config_tool_list_matches_mcp_registry(self):
+        text = Path("skills/hermes/config.example.yaml").read_text(encoding="utf-8")
+        configured_tools = set(re.findall(r"^\s*- (pska_[A-Za-z0-9_]+)\s*$", text, flags=re.MULTILINE))
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+
+        with patch.dict("os.environ", env, clear=True):
+            actual_tools = set(tool_registry())
+
+        self.assertEqual(configured_tools, actual_tools)
 
     def test_openclaw_skill_prefers_pska_ingest_loop_boundary(self):
         text = Path("skills/openclaw/SKILL.md").read_text(encoding="utf-8")
