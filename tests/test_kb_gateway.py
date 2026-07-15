@@ -96,6 +96,11 @@ class _RequestRecordingRagflowGateway(RagflowKnowledgeGateway):
 
     def _request(self, method, path, *, body=None, headers=None, params=None):
         self.calls.append({"method": method, "path": path, "params": dict(params or {}), "body": body})
+        if method == "GET" and path == "/datasets":
+            return [
+                {"id": "dataset-by-name", "name": "Bad Embedding Dataset"},
+                {"id": "other-dataset", "name": "Other"},
+            ]
         if method == "POST" and path == "/datasets":
             payload = json.loads((body or b"{}").decode("utf-8"))
             return {
@@ -137,6 +142,24 @@ class KbGatewayTests(unittest.TestCase):
         self.assertEqual(sent["ids"], ["0876c5b87f4a11f189366f73247a116f"])
         self.assertFalse(sent["delete_all"])
         self.assertTrue(result["deleted"])
+
+    def test_ragflow_delete_dataset_can_resolve_dataset_names(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        result = gateway.delete_datasets(dataset_names=["Bad Embedding Dataset"])
+
+        sent = json.loads(gateway.calls[-1]["body"].decode("utf-8"))
+        self.assertEqual(gateway.calls[-1]["method"], "DELETE")
+        self.assertEqual(sent["ids"], ["dataset-by-name"])
+        self.assertEqual(result["dataset_names"], ["Bad Embedding Dataset"])
+        self.assertEqual(result["dataset_ids"], ["dataset-by-name"])
+        self.assertEqual(result["deleted_dataset_ids"], ["dataset-by-name"])
+
+    def test_ragflow_delete_dataset_name_fails_when_not_found(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        with self.assertRaisesRegex(KbGatewayError, "no dataset matched name"):
+            gateway.delete_datasets(dataset_names=["Missing Dataset"])
 
     def test_ingest_files_reuses_existing_dataset_and_starts_parse(self):
         gateway = _Gateway()

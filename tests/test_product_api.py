@@ -57,8 +57,13 @@ class _FakeGateway:
             "embedding_model": embedding_model,
         }
 
-    def delete_datasets(self, *, dataset_ids=None, delete_all=False):
+    def delete_datasets(self, *, dataset_ids=None, dataset_names=None, delete_all=False):
         ids = [str(dataset_id) for dataset_id in dataset_ids or []]
+        names = [str(dataset_name) for dataset_name in dataset_names or [] if str(dataset_name).strip()]
+        if names and not delete_all:
+            for dataset in self.list_datasets(page_size=100):
+                if dataset["name"] in names and dataset["dataset_id"] not in ids:
+                    ids.append(dataset["dataset_id"])
         deleted_ids = list(self.extra_datasets.keys()) if delete_all else [dataset_id for dataset_id in ids if dataset_id in self.extra_datasets or dataset_id == "demo"]
         if delete_all:
             self.extra_datasets.clear()
@@ -68,6 +73,7 @@ class _FakeGateway:
         return {
             "backend": "fake-kb",
             "dataset_ids": ids,
+            "dataset_names": names,
             "deleted_dataset_ids": deleted_ids,
             "delete_all": bool(delete_all),
             "deleted": True,
@@ -970,6 +976,26 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(audit["events"][0]["action"], "kb.dataset.delete")
         self.assertEqual(audit["events"][0]["target_id"], "scratch")
         self.assertTrue(audit["events"][0]["metadata"]["delete_all"])
+
+    def test_dataset_delete_by_name_writes_kb_audit_record(self):
+        self.gateway.extra_datasets["bad"] = {
+            "backend": "fake-kb",
+            "dataset_id": "bad",
+            "name": "Bad Dataset",
+            "document_count": 0,
+            "chunk_count": 0,
+        }
+
+        deleted = self._delete_json("/api/kb/datasets", {"dataset_names": ["Bad Dataset"]})
+
+        self.assertTrue(deleted["delete"]["deleted"])
+        self.assertEqual(deleted["delete"]["dataset_names"], ["Bad Dataset"])
+        self.assertEqual(deleted["delete"]["dataset_ids"], ["bad"])
+        self.assertEqual(deleted["delete"]["deleted_dataset_ids"], ["bad"])
+        audit = self._get_json("/api/audit?limit=5")
+        self.assertEqual(audit["events"][0]["action"], "kb.dataset.delete")
+        self.assertEqual(audit["events"][0]["target_id"], "bad")
+        self.assertEqual(audit["events"][0]["metadata"]["dataset_names"], ["Bad Dataset"])
 
     def test_audit_route_filters_by_action(self):
         self._post_json(

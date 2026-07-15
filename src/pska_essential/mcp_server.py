@@ -318,10 +318,18 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         add_kb_dataset_create_audit(service.store, dataset)
         return dataset
 
-    def pska_kb_delete(dataset_ids: list[str] | None = None, delete_all: bool = False):
-        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids") if not delete_all else []
+    def pska_kb_delete(
+        dataset_ids: list[str] | None = None,
+        dataset_names: list[str] | None = None,
+        delete_all: bool = False,
+    ):
+        selected_dataset_ids = _optional_strings(dataset_ids)
+        selected_dataset_names = _optional_strings(dataset_names)
+        if not delete_all and not selected_dataset_ids and not selected_dataset_names:
+            raise ValueError("dataset_ids or dataset_names is required unless delete_all is true")
         result = build_kb_gateway_from_env().delete_datasets(
             dataset_ids=selected_dataset_ids,
+            dataset_names=selected_dataset_names,
             delete_all=delete_all,
         )
         add_kb_dataset_delete_audit(service.store, result)

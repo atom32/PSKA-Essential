@@ -514,7 +514,7 @@ class McpContractTests(unittest.TestCase):
                 )
                 parsed = tools["pska_kb_parse_documents"]("demo", ["demo-1"])
                 graph = tools["pska_kb_graph_read"]("demo", "demo-1")
-                deleted = tools["pska_kb_delete"]([created["dataset_id"]])
+                deleted = tools["pska_kb_delete"](dataset_names=["MCP Dataset"])
 
         self.assertTrue(created["dataset_id"].startswith("fake_ds_"))
         self.assertEqual(created["embedding_model"], "text-embedding-3-small@OpenAI")
@@ -530,6 +530,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("Parse started", parsed["note"])
         self.assertEqual(graph["document_id"], "demo-1")
         self.assertTrue(deleted["deleted"])
+        self.assertEqual(deleted["dataset_names"], ["MCP Dataset"])
         self.assertEqual(deleted["dataset_ids"], [created["dataset_id"]])
         events = service.store.list_audit_events()
         actions = [event.action for event in events]

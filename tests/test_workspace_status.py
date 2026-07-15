@@ -47,6 +47,13 @@ class _Gateway:
         ]
 
 
+class _EmptyGateway:
+    backend_name = "test"
+
+    def list_datasets(self, *, name=None, page_size=30):
+        return []
+
+
 class _MixedGateway:
     backend_name = "test"
 
@@ -182,6 +189,17 @@ class _MixedUploadedGateway:
 
 
 class WorkspaceStatusTests(unittest.TestCase):
+    def test_empty_workspace_starts_with_upload_or_create_next_action(self):
+        status = build_workspace_status(service=build_fake_service(), gateway=_EmptyGateway())
+
+        self.assertEqual(status["status"], "empty")
+        self.assertEqual(status["kb"]["dataset_count"], 0)
+        self.assertIsNone(status["kb"]["readiness"])
+        self.assertEqual(status["next_actions"][0]["action"], "create_or_upload_knowledge_base")
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_kb_ingest_files")
+        self.assertEqual(status["next_actions"][0]["view"], "kb")
+        self.assertEqual(status["next_actions"][0]["requires_input"], ["files", "dataset_name_or_id"])
+
     def test_ready_workspace_suggests_agentic_question(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway())
 

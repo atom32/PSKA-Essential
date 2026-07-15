@@ -70,18 +70,46 @@ class RagflowKnowledgeGateway:
             payload["parser_config"] = parser_config
         return _dataset_summary(self._json("POST", "/datasets", payload=payload))
 
-    def delete_datasets(self, *, dataset_ids: list[str] | None = None, delete_all: bool = False) -> dict[str, Any]:
+    def delete_datasets(
+        self,
+        *,
+        dataset_ids: list[str] | None = None,
+        dataset_names: list[str] | None = None,
+        delete_all: bool = False,
+    ) -> dict[str, Any]:
         ids = [str(dataset_id) for dataset_id in dataset_ids or [] if str(dataset_id).strip()]
+        names = _normalized_strings(dataset_names)
+        if names and not delete_all:
+            resolved_ids, missing_names = self._dataset_ids_for_names(names)
+            if missing_names:
+                raise KbGatewayError(f"no dataset matched name(s): {', '.join(missing_names)}")
+            ids = _deduped(ids + resolved_ids)
         if not ids and not delete_all:
-            raise KbGatewayError("dataset_ids is required unless delete_all is true")
+            raise KbGatewayError("dataset_ids or dataset_names is required unless delete_all is true")
         data = self._json("DELETE", "/datasets", payload={"ids": ids or None, "delete_all": bool(delete_all)})
         return {
             "backend": self.backend_name,
             "dataset_ids": ids,
+            "dataset_names": names,
+            "deleted_dataset_ids": ids if not delete_all else [],
             "delete_all": bool(delete_all),
             "deleted": True,
             "result": data,
         }
+
+    def _dataset_ids_for_names(self, dataset_names: list[str]) -> tuple[list[str], list[str]]:
+        datasets = self.list_datasets(page_size=self.max_page_size)
+        ids: list[str] = []
+        matched_names: set[str] = set()
+        requested = set(dataset_names)
+        for dataset in datasets:
+            name = str(dataset.get("name") or "")
+            dataset_id = str(dataset.get("dataset_id") or "")
+            if name in requested and dataset_id:
+                ids.append(dataset_id)
+                matched_names.add(name)
+        missing = [name for name in dataset_names if name not in matched_names]
+        return ids, missing
 
     def ensure_dataset(
         self,
@@ -372,10 +400,22 @@ class FakeKnowledgeGateway:
         self.documents[dataset_id] = []
         return dict(dataset)
 
-    def delete_datasets(self, *, dataset_ids: list[str] | None = None, delete_all: bool = False) -> dict[str, Any]:
+    def delete_datasets(
+        self,
+        *,
+        dataset_ids: list[str] | None = None,
+        dataset_names: list[str] | None = None,
+        delete_all: bool = False,
+    ) -> dict[str, Any]:
         ids = [str(dataset_id) for dataset_id in dataset_ids or [] if str(dataset_id).strip()]
+        names = _normalized_strings(dataset_names)
+        if names and not delete_all:
+            resolved_ids, missing_names = self._dataset_ids_for_names(names)
+            if missing_names:
+                raise KbGatewayError(f"no dataset matched name(s): {', '.join(missing_names)}")
+            ids = _deduped(ids + resolved_ids)
         if not ids and not delete_all:
-            raise KbGatewayError("dataset_ids is required unless delete_all is true")
+            raise KbGatewayError("dataset_ids or dataset_names is required unless delete_all is true")
         if delete_all:
             deleted_ids = list(self.datasets.keys())
             self.datasets.clear()
@@ -394,10 +434,24 @@ class FakeKnowledgeGateway:
         return {
             "backend": self.backend_name,
             "dataset_ids": ids,
+            "dataset_names": names,
             "deleted_dataset_ids": deleted_ids,
             "delete_all": bool(delete_all),
             "deleted": True,
         }
+
+    def _dataset_ids_for_names(self, dataset_names: list[str]) -> tuple[list[str], list[str]]:
+        ids: list[str] = []
+        matched_names: set[str] = set()
+        requested = set(dataset_names)
+        for dataset in self.datasets.values():
+            name = str(dataset.get("name") or "")
+            dataset_id = str(dataset.get("dataset_id") or "")
+            if name in requested and dataset_id:
+                ids.append(dataset_id)
+                matched_names.add(name)
+        missing = [name for name in dataset_names if name not in matched_names]
+        return ids, missing
 
     def ensure_dataset(
         self,
@@ -692,6 +746,21 @@ def _ragflow_page_size(value: Any) -> int:
     except (TypeError, ValueError):
         size = 30
     return min(max(size, 1), RagflowKnowledgeGateway.max_page_size)
+
+
+def _normalized_strings(values: list[str] | None) -> list[str]:
+    return _deduped([str(value).strip() for value in values or [] if str(value).strip()])
+
+
+def _deduped(values: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 def _checked_file(path: str) -> Path:

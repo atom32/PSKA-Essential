@@ -32,8 +32,9 @@ PY
 3. Ask Hermes to run this workflow:
 
 ```text
-Use PSKA-Essential to inspect workspace status, follow the returned next action
-for a ready knowledge scope, ask about adapter replaceability, propose a memory
+Use PSKA-Essential to inspect workspace status. If no knowledge base exists,
+follow the returned next action to ingest a local document first. When the
+selected scope is ready, ask about the uploaded document, propose a memory
 patch, create a review item, stop for review, then explicitly export a brief.
 ```
 
@@ -49,6 +50,8 @@ the agent-facing workflow.
 
 This is the first operational loop: the user brings a document, RAGFlow owns
 the KB and parsing work, and PSKA-Essential owns the agent-facing workflow gate.
+Assume a fresh workspace with no useful datasets; the demo starts by uploading
+source material through PSKA, not by relying on pre-existing KB data.
 
 Prerequisites:
 
@@ -107,3 +110,10 @@ optional graph layer:
 ```text
 pska_kb_graph_read("<dataset_id>", "<document_id>")
 ```
+
+## Development Maintenance
+
+Bad development datasets may be deleted through PSKA maintenance paths such as
+`pska_kb_delete`, `DELETE /api/kb/datasets/{dataset_id}`, or Knowledge Bases
+Delete All. Cleanup is not part of the product demo path; it is only for
+resetting a development environment before rerunning the fresh upload loop.

@@ -290,6 +290,7 @@ def _handler_class(state: ProductApiState):
                 gateway = state.kb_gateway_factory()
                 result = gateway.delete_datasets(
                     dataset_ids=[str(item) for item in payload.get("dataset_ids") or []],
+                    dataset_names=_optional_str_list(payload, "dataset_names"),
                     delete_all=bool(payload.get("delete_all", False)),
                 )
                 add_kb_dataset_delete_audit(state.service.store, result)

@@ -299,9 +299,10 @@ workflow.
 Dataset creation and ingest tools accept optional `embedding_model` so the
 PSKA product layer can request a configured RAGFlow embedding model without
 exposing RAGFlow-internal fields.
-`pska_kb_delete` is the explicit development/operations cleanup path for bad
-datasets; it can delete selected datasets or all datasets through the KB
-adapter and records audit instead of touching provider databases directly.
+`pska_kb_delete` is the explicit development maintenance path for bad local
+datasets; it can delete selected datasets by ID, by name, or all datasets
+through the KB adapter and records audit instead of touching provider databases
+directly.
 
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> inspect workspace policy
@@ -388,10 +389,11 @@ Review, Activity, and Settings. It is served by the Product API and uses only
 same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
-Knowledge Bases can also run the file-first ingest loop from the upload form:
-the frontend posts files to `POST /api/ingest-loop`, uses the same PSKA KB
-readiness gate, and opens Writing with the exported sourced work product only
-when the configured adapters complete successfully. The form's Wait checkbox
+Knowledge Bases can also run the file-first ingest loop from an empty
+workspace: the upload form posts files to `POST /api/ingest-loop`, uses the
+same PSKA KB readiness gate, and opens Writing with the exported sourced work
+product only when the configured adapters complete successfully. The form's
+Wait checkbox
 controls whether Run Loop blocks for readiness or quickly returns a resumable
 not-ready workflow for long parsing, embedding, and indexing jobs. Processing
 or failed ingestion remains visible as not-ready status instead of falling back
@@ -406,7 +408,8 @@ inspecting workflow internals. When the uploaded scope is still processing, the
 frontend opens the blocked Ask result with Track & Resume actions; failed or
 cancelled ingestion stays a cleanup/status issue instead of becoming a fake
 answer. Knowledge Bases exposes explicit Delete and Delete All cleanup actions
-through Product API for bad development datasets.
+through Product API for development maintenance, not as the demo/product start
+path.
 Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Each next action includes stable

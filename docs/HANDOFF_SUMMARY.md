@@ -311,11 +311,11 @@ Implemented:
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
   provider logs through Product API, MCP, or CLI output.
-- KB creation/ingest accepts optional `embedding_model`, and KB deletion is now
-  an explicit adapter-backed cleanup operation for selected or all bad
-  development datasets. Frontend Knowledge Bases exposes Delete and Delete All
-  through Product API, with audit records. No fake provider or silent fallback
-  is used to hide embedding/model failures.
+- KB creation/ingest accepts optional `embedding_model`. KB deletion remains a
+  development maintenance path for selected bad datasets or full local resets,
+  including deletion by ID/name/all through PSKA adapters with audit records.
+  The product/demo path still assumes a fresh workspace starts by uploading
+  source material, not by cleaning existing data.
 - Runtime workspace/tenant context, including derived PSKA `memory_namespace`,
   surfaced in health, diagnostics, Settings, and audit metadata.
 - The SQLite review store indexes workflows, proposals, reviews, memory apply
@@ -392,7 +392,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 174 tests pass.
+- `make test`: 178 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit
@@ -401,8 +401,8 @@ Expected result:
   document upload, fake upload-to-Ask source reads, fake PDF-like upload failure
   before Ask, and export refusal for unsourced/empty workflows.
 - Config/KB gateway tests cover explicit provider selection, fake dev gating,
-  and live RAGFlow/Graphiti startup failure when required connection env is
-  missing.
+  RAGFlow delete-by-name maintenance cleanup, and live RAGFlow/Graphiti startup
+  failure when required connection env is missing.
 - Env-file tests cover explicit runtime config loading for MCP/component-check
   startup, non-overriding behavior for already exported variables, and invalid
   env-file failures.
@@ -411,7 +411,7 @@ Expected result:
   processing uploads, and the failed-ingestion stop condition before Ask/export.
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, review source trace display, component check UI, focused
-  probe UI, and Knowledge Bases Delete All cleanup.
+  probe UI, and Knowledge Bases maintenance cleanup by ID/name/all.
 - Product API tests cover Ask loop controls reaching the PSKA-controlled loop.
 - Agentic loop/Product API/MCP tests cover explicit retrieval query plans and
   source-coordinate de-duplication across query rounds.
@@ -432,7 +432,8 @@ Expected result:
   confirm Graphiti delete is blocked until review acceptance.
 - Workspace status/Product API/frontend tests cover memory operation capability
   reporting, unsupported Graphiti update gating, and accepted unsupported
-  review inspect actions.
+  review inspect actions. Workspace status tests also lock the fresh empty
+  workspace next action to upload/create knowledge, not cleanup or Ask.
 - Workspace status CLI tests cover explicit env-file startup, terminal
   next-action output, and nonzero exit for explicit KB status errors.
 - Workflow/Product API/MCP tests cover reviewed memory update/versioning and

@@ -24,8 +24,9 @@ def add_kb_dataset_create_audit(store: Any, dataset: dict[str, Any]) -> None:
 
 def add_kb_dataset_delete_audit(store: Any, result: dict[str, Any]) -> None:
     dataset_ids = [str(dataset_id) for dataset_id in result.get("dataset_ids") or []]
+    dataset_names = [str(dataset_name) for dataset_name in result.get("dataset_names") or []]
     deleted_dataset_ids = [str(dataset_id) for dataset_id in result.get("deleted_dataset_ids") or []]
-    target_id = ",".join(dataset_ids or deleted_dataset_ids) or ("all" if result.get("delete_all") else "unknown")
+    target_id = ",".join(dataset_ids or deleted_dataset_ids or dataset_names) or ("all" if result.get("delete_all") else "unknown")
     store.add_audit_event(
         audit_event(
             "kb.dataset.delete",
@@ -33,6 +34,7 @@ def add_kb_dataset_delete_audit(store: Any, result: dict[str, Any]) -> None:
             target_id,
             backend=str(result.get("backend") or ""),
             dataset_ids=dataset_ids,
+            dataset_names=dataset_names,
             deleted_dataset_ids=deleted_dataset_ids,
             delete_all=bool(result.get("delete_all")),
             deleted=bool(result.get("deleted")),
