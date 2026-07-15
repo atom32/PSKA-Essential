@@ -349,7 +349,8 @@ the selected scope becomes ready. For a blocked `pska_ingest_loop` run, use
 `GET /api/workflows/resumable-asks` to list readiness-blocked Ask runs with a
 fresh readiness check. The frontend Ask result can refresh a blocked run's
 readiness in place and enable resume when the stored scope becomes ready; the
-user can also start `Track & Resume` to poll readiness and resume automatically.
+user can also start `Track & Resume` from Ask, Resumable Asks, or Home next
+actions to poll readiness and resume automatically.
 Use `pska_kb_ingestion_status`, `POST /api/kb/ingestion-status`, or
 `GET /api/kb/datasets/{dataset_id}/ingestion-status` when the user or agent
 needs a normalized job summary with phase, progress, next actions, and failure

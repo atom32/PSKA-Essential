@@ -496,6 +496,7 @@ function workspaceActionButtonLabel(action) {
     run_agentic_question: "Ask",
     upload_documents: "Upload",
     wait_for_ingestion: "Track",
+    wait_for_resumable_ask: "Track",
   };
   return labels[action.action] || "Open";
 }
@@ -518,6 +519,10 @@ async function openWorkspaceAction(action) {
   }
   if (action.action === "resume_blocked_ask" && params.run_id) {
     await resumeBlockedRun(params.run_id);
+    return;
+  }
+  if (action.action === "wait_for_resumable_ask" && params.run_id) {
+    await openBlockedAskRun(params.run_id, { track: true });
     return;
   }
   if (action.action === "apply_accepted_memory" && params.review_id) {
@@ -2217,6 +2222,7 @@ function workflowCard(workflow) {
   const blockedByKb = workflow.metadata && workflow.metadata.blocked_reason === "kb_not_ready";
   const resumable = resumableAskFor(workflow.run_id);
   const canResume = !resumable || Boolean(resumable.can_resume);
+  const resumeLabel = hasIngestLoopResume((resumable && resumable.run) || workflow) ? "Resume Loop" : "Resume Ask";
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -2229,10 +2235,12 @@ function workflowCard(workflow) {
               "button",
               {
                 className: "primary-button",
-                onclick: () => resumeBlockedRun(workflow.run_id),
-                ...(canResume ? {} : { disabled: true }),
+                onclick: () =>
+                  canResume
+                    ? resumeBlockedRun(workflow.run_id)
+                    : openBlockedAskRun(workflow.run_id, { track: true }),
               },
-              hasIngestLoopResume((resumable && resumable.run) || workflow) ? "Resume Loop" : "Resume Ask",
+              canResume ? resumeLabel : "Track",
             )
           : null,
         el("button", { className: "secondary-button", onclick: () => openWorkflowRun(workflow.run_id) }, "Open"),
@@ -2256,6 +2264,7 @@ function resumableAskCard(record) {
   const run = record.run || {};
   const askRequest = record.ask_request || {};
   const readiness = record.readiness || {};
+  const resumeLabel = hasIngestLoopResume(run) ? "Resume Loop" : "Resume Ask";
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -2273,12 +2282,14 @@ function resumableAskCard(record) {
         "button",
         {
           className: "primary-button",
-          onclick: () => resumeBlockedRun(run.run_id),
-          ...(record.can_resume ? {} : { disabled: true }),
+          onclick: () =>
+            record.can_resume
+              ? resumeBlockedRun(run.run_id)
+              : openBlockedAskRun(run.run_id, { track: true }),
         },
-        hasIngestLoopResume(run) ? "Resume Loop" : "Resume Ask",
+        record.can_resume ? resumeLabel : "Track",
       ),
-      el("button", { className: "secondary-button", onclick: () => openWorkflowRun(run.run_id) }, "Open"),
+      el("button", { className: "secondary-button", onclick: () => openBlockedAskRun(run.run_id) }, "Open Ask"),
     ]),
   ]);
 }
@@ -2294,6 +2305,25 @@ function ingestLoopResumeMetadata(run) {
 
 function hasIngestLoopResume(run) {
   return Boolean(ingestLoopResumeMetadata(run));
+}
+
+function askResultFromResumableRecord(record) {
+  const run = record.run || {};
+  return {
+    status: "not_ready",
+    message: record.message || "Selected knowledge scope is still not ready.",
+    run,
+    readiness: record.readiness || (run.metadata && run.metadata.readiness) || {},
+    loop: (run.metadata && run.metadata.agentic_loop) || {},
+    artifact: { run },
+    context_packets: [],
+    proposal: null,
+    review: null,
+    review_decision: null,
+    memory_apply: null,
+    memory_facts: [],
+    brief: "",
+  };
 }
 
 function diagnosticCard(check) {
@@ -2520,6 +2550,30 @@ async function openWorkflowRun(runId) {
   };
   renderWriting();
   document.querySelector('.nav-item[data-view="writing"]').click();
+}
+
+async function openBlockedAskRun(runId, options = {}) {
+  await loadResumableAsks();
+  const record = resumableAskFor(runId);
+  if (!record) {
+    showToast("Blocked Ask was not found.");
+    openView("activity");
+    return;
+  }
+  if (record.can_resume && options.track) {
+    await resumeBlockedRun(runId);
+    return;
+  }
+  const result = askResultFromResumableRecord(record);
+  state.currentAskResult = result;
+  state.currentBrief = null;
+  state.lastRunId = runId;
+  renderAskResult(result);
+  renderWriting();
+  openView("ask");
+  if (options.track) {
+    startBlockedAskTracking(runId);
+  }
 }
 
 async function resumeBlockedRun(runId) {

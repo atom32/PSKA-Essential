@@ -389,8 +389,9 @@ per-dataset readiness, so a newly uploaded processing dataset does not hide
 other ready datasets from Ask. Workspace status also translates lower-level
 ingestion job actions such as `start_parse` into stable product actions such as
 `parse_documents`. Home next-action buttons can prefill Ask scope and check
-readiness, start document parsing, resume blocked Ask workflows, open pending
-reviews, and apply already accepted durable memory through Product API routes.
+readiness, start document parsing, open and track blocked Ask workflows, resume
+ready blocked Ask workflows, open pending reviews, and apply already accepted
+durable memory through Product API routes.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,

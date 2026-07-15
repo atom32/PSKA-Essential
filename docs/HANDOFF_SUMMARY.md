@@ -221,8 +221,9 @@ Implemented:
   ready datasets from Ask, and it translates ingestion job actions such as
   `start_parse` into product actions such as `parse_documents`. Home
   next-action buttons can prefill Ask scope and check readiness, start parsing,
-  resume blocked Ask workflows, open pending reviews, and apply accepted
-  durable memory through Product API routes.
+  open/track waiting blocked Ask workflows, resume ready blocked Ask workflows,
+  open pending reviews, and apply accepted durable memory through Product API
+  routes.
 - Product API and MCP normalize required list inputs for Ask, readiness,
   ingestion, and parse operations. Blank dataset, document, and file path lists
   fail at the PSKA boundary with explicit errors before provider calls.
@@ -281,9 +282,10 @@ Implemented:
   is unchecked, Run Loop returns a resumable not-ready workflow instead of
   holding the browser request open through long parsing/embedding/indexing jobs.
 - Frontend Run Loop opens the blocked Ask result with Track & Resume actions
-  when uploaded documents are still processing, and resumes ingest-loop runs as
-  Resume Loop so the eventual Ask/export path remains intact. Failed/cancelled
-  ingestion remains a KB status/cleanup path.
+  when uploaded documents are still processing. Home and Resumable Ask cards can
+  open that blocked Ask view and start Track & Resume, and ready ingest-loop
+  runs resume as Resume Loop so the eventual Ask/export path remains intact.
+  Failed/cancelled ingestion remains a KB status/cleanup path.
 - The file-first ingest loop returns proposal, review, review-decision,
   memory-apply, memory context, loop, and export payloads as a single PSKA
   contract. Frontend Run Loop syncs Review and Activity from that contract, so
