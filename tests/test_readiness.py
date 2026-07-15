@@ -171,6 +171,15 @@ class _Gateway:
         return docs[:page_size]
 
 
+class _GatewayWithDatasetLookup(_Gateway):
+    def list_datasets(self, *, name=None, page_size=30):
+        return []
+
+    def get_dataset(self, dataset_id):
+        dataset = self.datasets.get(dataset_id)
+        return dict(dataset) if dataset else None
+
+
 class ReadinessTests(unittest.TestCase):
     def test_dataset_with_chunks_is_ready(self):
         result = evaluate_kb_readiness(_Gateway(), dataset_ids=["ready"])
@@ -179,6 +188,13 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["blocking"], [])
         self.assertEqual(result["ingestion_status"]["phase"], "ready")
+
+    def test_selected_dataset_can_be_resolved_by_id_after_list_page_miss(self):
+        result = evaluate_kb_readiness(_GatewayWithDatasetLookup(), dataset_ids=["ready"])
+
+        self.assertTrue(result["ready"])
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["datasets"][0]["dataset_id"], "ready")
 
     def test_missing_dataset_blocks_ask(self):
         result = evaluate_kb_readiness(_Gateway(), dataset_ids=["missing"])

@@ -39,6 +39,12 @@ def evaluate_kb_readiness(
 
     datasets = gateway.list_datasets(page_size=max(page_size, len(selected_dataset_ids) * 10))
     dataset_by_id = {str(dataset.get("dataset_id") or ""): dict(dataset) for dataset in datasets}
+    missing_dataset_ids = [dataset_id for dataset_id in selected_dataset_ids if dataset_id not in dataset_by_id]
+    if missing_dataset_ids and hasattr(gateway, "get_dataset"):
+        for dataset_id in missing_dataset_ids:
+            dataset = gateway.get_dataset(dataset_id)
+            if dataset:
+                dataset_by_id[dataset_id] = dict(dataset)
     dataset_reports = [_dataset_report(dataset_by_id.get(dataset_id), dataset_id) for dataset_id in selected_dataset_ids]
 
     blocking: list[str] = []

@@ -212,6 +212,19 @@ class KbGatewayTests(unittest.TestCase):
         ]
         self.assertEqual(dataset_pages, [1, 2])
 
+    def test_ragflow_get_dataset_scans_visible_pages(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        dataset = gateway.get_dataset("dataset-page-2")
+
+        self.assertEqual(dataset["name"], "Page Two Dataset")
+        dataset_pages = [
+            call["params"]["page"]
+            for call in gateway.calls
+            if call["method"] == "GET" and call["path"] == "/datasets"
+        ]
+        self.assertEqual(dataset_pages, [1, 2])
+
     def test_ragflow_ingest_dataset_id_lookup_scans_visible_pages(self):
         gateway = _RequestRecordingRagflowGateway()
         with tempfile.TemporaryDirectory() as tmp:

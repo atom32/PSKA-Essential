@@ -322,7 +322,10 @@ Implemented:
   provider logs through Product API, MCP, or CLI output.
 - RAGFlow KB gateway dataset/document lookups scan visible provider pages for
   reuse, maintenance, readiness, and resume flows, and parsing uses the current
-  `/datasets/{dataset_id}/documents/parse` contract.
+  `/datasets/{dataset_id}/documents/parse` contract. Readiness gates resolve
+  explicitly selected dataset IDs through gateway `get_dataset` when available,
+  so a selected live dataset is not misclassified as missing merely because it
+  is absent from the first list page.
 - KB creation/ingest accepts optional `embedding_model`. KB deletion remains a
   development maintenance path for selected bad datasets or full local resets,
   including deletion by ID/name/all through PSKA adapters with audit records.
@@ -408,7 +411,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 193 tests pass.
+- `make test`: 195 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit

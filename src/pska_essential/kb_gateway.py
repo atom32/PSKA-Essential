@@ -53,6 +53,12 @@ class RagflowKnowledgeGateway:
             return matches
         return self._list_dataset_page(page=1, page_size=_ragflow_page_size(page_size))
 
+    def get_dataset(self, dataset_id: str) -> dict[str, Any] | None:
+        selected = str(dataset_id or "").strip()
+        if not selected:
+            return None
+        return self._find_dataset_by_id(selected)
+
     def create_dataset(
         self,
         *,
@@ -403,6 +409,10 @@ class FakeKnowledgeGateway:
         if name:
             datasets = [dataset for dataset in datasets if dataset.get("name") == name]
         return [dict(dataset) for dataset in datasets[:page_size]]
+
+    def get_dataset(self, dataset_id: str) -> dict[str, Any] | None:
+        dataset = self.datasets.get(str(dataset_id or "").strip())
+        return dict(dataset) if dataset else None
 
     def create_dataset(
         self,
