@@ -79,7 +79,7 @@ def run_component_check(
             memory_count=int(memory_probe.get("memory_count") or 0),
         )
     else:
-        add_step("memory.probe", "skipped", "Memory probe skipped by configuration.", required=False)
+        add_step("memory.probe", "skipped", "Memory probe skipped by configuration.")
 
     retrieval_probe = None
     closed_loop_probe = None
@@ -133,7 +133,7 @@ def run_component_check(
                 run_id=str(closed_loop_probe.get("run_id") or ""),
             )
         else:
-            add_step("closed_loop.probe", "skipped", "Closed-loop probe skipped by configuration.", required=False)
+            add_step("closed_loop.probe", "skipped", "Closed-loop probe skipped by configuration.")
 
     status = _component_status(steps)
     return {
@@ -158,8 +158,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run PSKA configured component checks.", parents=[env_parser])
     parser.parse_args(argv)
 
-    service = build_service_from_env()
-    gateway = build_kb_gateway_from_env()
+    try:
+        service = build_service_from_env()
+        gateway = build_kb_gateway_from_env()
+    except Exception as exc:  # noqa: BLE001 - CLI must report startup failures without fallback.
+        print(json.dumps(to_jsonable(_startup_error(exc)), ensure_ascii=False, indent=2))
+        return 2
+
     result = run_component_check(
         service,
         gateway,
@@ -185,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _component_status(steps: list[dict[str, Any]]) -> str:
     required = [step for step in steps if step.get("required")]
-    if any(step.get("status") == "incomplete" for step in required):
+    if any(step.get("status") in {"incomplete", "skipped"} for step in required):
         return "incomplete"
     if any(step.get("status") == "error" for step in steps):
         return "error"
@@ -200,10 +205,38 @@ def _component_message(status: str) -> str:
     if status == "ok":
         return "All requested component checks passed."
     if status == "incomplete":
-        return "Component check is incomplete; provide the required scope or configuration."
+        return "Component check is incomplete; provide the required scope/configuration or run all required checks."
     if status == "warning":
         return "Component checks passed with warnings."
     return "One or more component checks failed."
+
+
+def _startup_error(exc: Exception) -> dict[str, Any]:
+    return {
+        "kind": "component_check",
+        "status": "error",
+        "message": f"Component check startup failed: {exc}",
+        "providers": {
+            "retrieval": os.getenv("PSKA_RETRIEVAL_PROVIDER", "").strip().lower(),
+            "kb": os.getenv("PSKA_KB_PROVIDER", "").strip().lower(),
+            "memory": os.getenv("PSKA_MEMORY_PROVIDER", "").strip().lower(),
+            "dev_fake": _env_enabled("PSKA_DEV_FAKE"),
+        },
+        "scope": {"dataset_ids": _csv_env("PSKA_COMPONENT_DATASET_IDS") or _csv_env("PSKA_LIVE_DATASET_IDS")},
+        "steps": [
+            {
+                "name": "runtime.startup",
+                "status": "error",
+                "message": str(exc),
+                "required": True,
+                "metadata": {"error_type": exc.__class__.__name__},
+            }
+        ],
+        "diagnostics": None,
+        "memory_probe": None,
+        "retrieval_probe": None,
+        "closed_loop_probe": None,
+    }
 
 
 def _csv_env(name: str) -> list[str]:

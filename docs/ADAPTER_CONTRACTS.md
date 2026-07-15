@@ -120,9 +120,9 @@ workspace diagnostics as the Product API diagnostics route. Agents should use it
 for troubleshooting component configuration instead of probing provider-native
 health endpoints.
 `pska_component_check` runs the structured component acceptance path through
-PSKA: runtime diagnostics, memory probe, retrieval probe, and optional
-closed-loop probe. It returns `incomplete` for missing dataset scope instead of
-silently skipping retrieval proof.
+PSKA: runtime diagnostics, memory probe, retrieval probe, and live closed-loop
+probe. It returns `incomplete` for missing dataset scope or skipped core checks
+instead of silently treating partial probes as full component proof.
 `pska_ingest_loop` runs the file-first operational loop through PSKA adapters:
 local file ingest, readiness polling, agentic Ask, and sourced export. It
 returns `not_ready` and stops before Ask/export when ingestion is still

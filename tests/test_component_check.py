@@ -84,6 +84,28 @@ class ComponentCheckTests(unittest.TestCase):
         self.assertEqual(result["steps"][-1]["status"], "incomplete")
         self.assertEqual(service.store.list_audit_events(), [])
 
+    def test_component_check_is_incomplete_when_core_checks_are_skipped(self):
+        adapter = CompanyGraphRagStubAdapter()
+        service = WorkflowService(adapter, adapter, SQLiteReviewStore(":memory:"))
+
+        result = run_component_check(
+            service,
+            _ReadyGateway(),
+            dataset_ids=["ready"],
+            require_memory=False,
+            run_closed_loop=False,
+        )
+
+        self.assertEqual(result["status"], "incomplete")
+        self.assertEqual(result["memory_probe"], None)
+        self.assertIsNotNone(result["retrieval_probe"])
+        self.assertEqual(result["closed_loop_probe"], None)
+        steps = {step["name"]: step for step in result["steps"]}
+        self.assertEqual(steps["memory.probe"]["status"], "skipped")
+        self.assertNotEqual(steps["memory.probe"].get("required"), False)
+        self.assertEqual(steps["closed_loop.probe"]["status"], "skipped")
+        self.assertNotEqual(steps["closed_loop.probe"].get("required"), False)
+
 
 if __name__ == "__main__":
     unittest.main()

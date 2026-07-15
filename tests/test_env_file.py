@@ -101,10 +101,32 @@ class EnvFileTests(unittest.TestCase):
                 code = component_check_main(["--env-file", str(env_file)])
 
         result = json.loads(output.getvalue())
-        self.assertEqual(code, 0)
-        self.assertEqual(result["status"], "ok")
+        self.assertEqual(code, 2)
+        self.assertEqual(result["status"], "incomplete")
         self.assertEqual(result["providers"]["retrieval"], "fake")
         self.assertEqual(result["providers"]["kb"], "fake")
+
+    def test_component_check_reports_startup_config_error_as_json(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "ragflow",
+            "PSKA_KB_PROVIDER": "ragflow",
+            "PSKA_MEMORY_PROVIDER": "company_graphrag_stub",
+            "PSKA_REVIEW_DB": ":memory:",
+            "RAGFLOW_BASE_URL": "http://127.0.0.1:9380",
+            "PSKA_COMPONENT_DATASET_IDS": "demo",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                code = component_check_main([])
+
+        result = json.loads(output.getvalue())
+        self.assertEqual(code, 2)
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["steps"][0]["name"], "runtime.startup")
+        self.assertEqual(result["steps"][0]["metadata"]["error_type"], "ValueError")
+        self.assertIn("RAGFlow retrieval is missing required env: RAGFLOW_API_KEY", result["message"])
 
 
 def _write_fake_env(path: Path, *, extra: list[str] | None = None) -> Path:

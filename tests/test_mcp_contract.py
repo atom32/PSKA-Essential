@@ -90,7 +90,7 @@ class McpContractTests(unittest.TestCase):
                 run_closed_loop=False,
             )
 
-        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["status"], "incomplete")
         self.assertEqual(result["retrieval_probe"]["status"], "ok")
         self.assertIsNone(result["closed_loop_probe"])
         self.assertIn("retrieval.probe", [event.action for event in service.store.list_audit_events()])

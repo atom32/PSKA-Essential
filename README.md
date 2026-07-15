@@ -285,6 +285,10 @@ export intent. The same resume path is available from the CLI as
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.
+`pska_component_check` is the full component proof path; if memory or
+closed-loop checks are skipped, the result is `incomplete` rather than a full
+success. CLI startup configuration errors are returned as structured JSON with
+a nonzero exit.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live

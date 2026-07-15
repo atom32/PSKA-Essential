@@ -420,9 +420,12 @@ Use `make live-component-check`, `pska_component_check`, or
 `POST /api/runtime/component-check` when the question is whether the configured
 components can support the product loop. The component check runs runtime
 diagnostics, explicit memory probe, retrieval probe, and live closed-loop probe
-in one structured result. It exits successfully only when the requested checks
-pass; missing dataset scope, fake live providers, memory search failures, and
-retrieval/Ask/export failures are surfaced as explicit step failures.
+in one structured result. It exits successfully only when the full component
+proof passes; missing dataset scope, skipped core checks, fake live providers,
+memory search failures, and retrieval/Ask/export failures are surfaced as
+explicit step failures. Startup configuration errors, such as a selected
+RAGFlow provider without `RAGFLOW_API_KEY`, are returned as structured JSON with
+a nonzero exit instead of falling through to fake data.
 
 Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
 `make live-closed-loop` when you only want the sourced Ask/export portion. The
@@ -497,8 +500,9 @@ make live-closed-loop ENV_FILE=.env.pska
 
 If you are intentionally validating only the RAGFlow retrieval/Ask/export path
 before Graphiti is configured, run `PSKA_COMPONENT_SKIP_MEMORY=1 make
-live-component-check` or use `make live-closed-loop`. Do not treat a skipped or
-fake memory check as proof that durable memory is wired.
+live-component-check` or use `make live-closed-loop`. The skipped-memory
+component check returns `incomplete`; do not treat a skipped or fake memory
+check as proof that durable memory is wired.
 
 ### 5. Full Demo / Deployment
 

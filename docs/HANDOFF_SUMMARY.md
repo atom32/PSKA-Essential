@@ -262,8 +262,11 @@ Implemented:
   `pska_component_check`, and `POST /api/runtime/component-check` aggregate
   runtime diagnostics, explicit memory probe, retrieval probe, and live
   closed-loop probe into one structured component acceptance result. They
-  surface missing dataset scope, fake live proofs, memory search failures, or
-  retrieval/Ask/export failures without fallback.
+  surface missing dataset scope, skipped core checks, fake live proofs, memory
+  search failures, or retrieval/Ask/export failures without fallback. Skipping
+  memory or closed-loop checks now returns `incomplete` so partial probes are
+  not mistaken for full component proof. The component-check CLI also reports
+  startup configuration failures as structured JSON with a nonzero exit.
 - Product API startup validates both workflow providers and the configured KB
   gateway before serving the frontend. Missing provider env and unauthorized
   fake mode fail explicitly instead of starting a partially wired Product API.
@@ -387,7 +390,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 171 tests pass.
+- `make test`: 173 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
   startup provider gates, controls, governance payloads, and resumable
   processing uploads, scoped Ask, Review, memory apply/update/delete, audit
@@ -445,7 +448,10 @@ Expected result:
 - Product API/MCP/diagnostics tests cover live closed-loop probes, including
   explicit fake-provider rejection and non-fake sourced Ask/export success.
 - Component-check tests cover the combined diagnostics/probe/closed-loop
-  acceptance path and the missing-dataset-scope failure.
+  acceptance path, the missing-dataset-scope failure, and skipped core checks
+  returning `incomplete` instead of full success.
+- Env-file/component-check CLI tests cover structured startup configuration
+  errors for missing live provider env.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
 - Governance/runtime context tests cover explicit default workspace, derived
   memory namespace, and audit workspace/tenant metadata.

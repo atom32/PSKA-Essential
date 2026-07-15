@@ -804,7 +804,7 @@ class ProductApiTests(unittest.TestCase):
                 },
             )["component_check"]
 
-        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["status"], "incomplete")
         self.assertEqual(result["retrieval_probe"]["status"], "ok")
         self.assertIsNone(result["closed_loop_probe"])
         audit = self._get_json("/api/audit?limit=5&action=retrieval.probe")
