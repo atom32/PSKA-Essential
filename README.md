@@ -101,6 +101,10 @@ agentic Ask, source inspection, and explicit export.
 If the result reports `configure_embedding_provider`, configure the selected
 dataset embedding model/provider in RAGFlow and re-parse/re-index the affected
 documents before running Ask.
+When creating a new RAGFlow-backed dataset through PSKA, `pska_kb_create`,
+`pska_kb_ingest_files`, and the Product API accept optional `embedding_model`.
+Leave it empty to use the RAGFlow tenant default, or set it to an embedding
+model/provider that RAGFlow already has configured.
 
 Graphiti memory:
 
@@ -183,6 +187,7 @@ Operational loop tools:
 
 - `pska_kb_list`
 - `pska_kb_create`
+- `pska_kb_delete`
 - `pska_kb_ingest_files`
 - `pska_kb_document_status`
 - `pska_kb_readiness`
@@ -222,6 +227,12 @@ providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live
 providers. Durable memory or graph changes still use the normal review/apply
 workflow.
+Dataset creation and ingest tools accept optional `embedding_model` so the
+PSKA product layer can request a configured RAGFlow embedding model without
+exposing RAGFlow-internal fields.
+`pska_kb_delete` is the explicit development/operations cleanup path for bad
+datasets; it deletes through the KB adapter and records audit instead of
+touching provider databases directly.
 
 ```text
 upload files -> RAGFlow dataset/documents/chunks -> inspect workspace policy
@@ -267,6 +278,8 @@ Implemented Alpha routes:
 - `POST /api/runtime/closed-loop-probe`
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`
+- `DELETE /api/kb/datasets`
+- `DELETE /api/kb/datasets/{dataset_id}`
 - `POST /api/kb/ingest`
 - `POST /api/kb/readiness`
 - `POST /api/kb/ingestion-status`

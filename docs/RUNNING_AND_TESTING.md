@@ -289,7 +289,8 @@ require a RAGFlow API key.
 RAGFlow upload/parse operations use the same API key through PSKA MCP tools:
 
 ```text
-pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_ingestion_status
+pska_kb_delete if a bad development dataset should be removed
+  -> pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_ingestion_status
   -> pska_kb_readiness
   -> pska_agentic_question_start
   -> pska_agentic_question_resumable to find blocked Ask runs
@@ -370,6 +371,14 @@ readiness failure to `failure_code=embedding_provider_missing` and
 `next_actions=["configure_embedding_provider"]`. Configure the embedding
 provider or choose an available embedding model in the KB backend, then
 re-parse/re-index the affected documents before running Ask again.
+For new RAGFlow-backed datasets, `pska_kb_create`, `pska_kb_ingest_files`, and
+the Product API accept optional `embedding_model`. Leave it empty to use the
+RAGFlow tenant default, or pass a model/provider name that RAGFlow has already
+configured. PSKA does not validate provider credentials itself; RAGFlow remains
+the authority for model availability.
+If a development dataset is already bound to a bad embedding model, delete it
+through `pska_kb_delete` or `DELETE /api/kb/datasets/{dataset_id}`, then recreate
+and re-ingest. Do not rely on fake adapters or silent provider fallback.
 
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow

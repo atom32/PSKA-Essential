@@ -21,6 +21,7 @@ from pska_essential.diagnostics import (
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
+    add_kb_dataset_delete_audit,
     add_kb_graph_read_audit,
     add_kb_ingest_audit,
     add_kb_parse_audit,
@@ -186,14 +187,29 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_kb_list(name: str | None = None, page_size: int = 30):
         return build_kb_gateway_from_env().list_datasets(name=name, page_size=page_size)
 
-    def pska_kb_create(name: str, description: str = "", chunk_method: str = "naive"):
+    def pska_kb_create(
+        name: str,
+        description: str = "",
+        chunk_method: str = "naive",
+        embedding_model: str = "",
+    ):
         dataset = build_kb_gateway_from_env().create_dataset(
             name=name,
             description=description,
             chunk_method=chunk_method,
+            embedding_model=embedding_model,
         )
         add_kb_dataset_create_audit(service.store, dataset)
         return dataset
+
+    def pska_kb_delete(dataset_ids: list[str] | None = None, delete_all: bool = False):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids") if not delete_all else []
+        result = build_kb_gateway_from_env().delete_datasets(
+            dataset_ids=selected_dataset_ids,
+            delete_all=delete_all,
+        )
+        add_kb_dataset_delete_audit(service.store, result)
+        return result
 
     def pska_kb_ingest_files(
         file_paths: list[str],
@@ -201,6 +217,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         dataset_id: str | None = None,
         description: str = "",
         chunk_method: str = "naive",
+        embedding_model: str = "",
         parse: bool = True,
         wait: bool = False,
         timeout_seconds: float = 300.0,
@@ -213,6 +230,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             dataset_id=dataset_id,
             description=description,
             chunk_method=chunk_method,
+            embedding_model=embedding_model,
             parse=parse,
             wait=wait,
             timeout_seconds=timeout_seconds,
@@ -398,6 +416,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,
         "pska_kb_create": pska_kb_create,
+        "pska_kb_delete": pska_kb_delete,
         "pska_kb_ingest_files": pska_kb_ingest_files,
         "pska_kb_document_status": pska_kb_document_status,
         "pska_kb_readiness": pska_kb_readiness,

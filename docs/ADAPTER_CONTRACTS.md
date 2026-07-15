@@ -84,6 +84,7 @@ The public tool surface is:
 - `pska_eval_run`
 - `pska_kb_list`
 - `pska_kb_create`
+- `pska_kb_delete`
 - `pska_kb_ingest_files`
 - `pska_kb_document_status`
 - `pska_kb_readiness`
@@ -119,9 +120,14 @@ Rules:
 
 - PSKA-Essential may create datasets, upload files, start parsing, poll document
   status, and read optional structure graph data through provider APIs.
+- PSKA-Essential may delete selected datasets through adapter APIs for explicit
+  cleanup and development reset flows.
 - PSKA-Essential must not persist raw documents or build its own index.
 - Public tools return normalized dataset/document IDs and status fields, not
   raw provider responses.
+- Dataset creation and ingest may carry optional `embedding_model`; adapters
+  translate it to provider-native configuration while PSKA keeps the public
+  contract provider-independent.
 - Readiness checks return PSKA status language and must not leak provider-native
   task or document payloads outside the gateway.
 - Ingestion status is the product-facing job summary for upload, parse,

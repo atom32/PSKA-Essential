@@ -21,6 +21,8 @@ class _FakeGateway:
     def __init__(self) -> None:
         self.uploaded: list[dict[str, str]] = []
         self.parse_calls: list[dict[str, object]] = []
+        self.last_created: dict[str, object] | None = None
+        self.last_ingest: dict[str, object] | None = None
         self.ready = True
         self.extra_datasets: dict[str, dict[str, object]] = {}
 
@@ -39,13 +41,36 @@ class _FakeGateway:
             return [item for item in datasets if item["name"] == name]
         return datasets
 
-    def create_dataset(self, *, name, description="", chunk_method="naive"):
+    def create_dataset(self, *, name, description="", chunk_method="naive", embedding_model=""):
+        self.last_created = {
+            "name": name,
+            "description": description,
+            "chunk_method": chunk_method,
+            "embedding_model": embedding_model,
+        }
         return {
             "backend": "fake-kb",
             "dataset_id": "created",
             "name": name,
             "description": description,
             "chunk_method": chunk_method,
+            "embedding_model": embedding_model,
+        }
+
+    def delete_datasets(self, *, dataset_ids=None, delete_all=False):
+        ids = [str(dataset_id) for dataset_id in dataset_ids or []]
+        deleted_ids = list(self.extra_datasets.keys()) if delete_all else [dataset_id for dataset_id in ids if dataset_id in self.extra_datasets or dataset_id == "demo"]
+        if delete_all:
+            self.extra_datasets.clear()
+        else:
+            for dataset_id in ids:
+                self.extra_datasets.pop(dataset_id, None)
+        return {
+            "backend": "fake-kb",
+            "dataset_ids": ids,
+            "deleted_dataset_ids": deleted_ids,
+            "delete_all": bool(delete_all),
+            "deleted": True,
         }
 
     def ingest_files(
@@ -56,10 +81,20 @@ class _FakeGateway:
         dataset_id=None,
         description="",
         chunk_method="naive",
+        embedding_model="",
         parse=True,
         wait=False,
         timeout_seconds=300.0,
     ):
+        self.last_ingest = {
+            "dataset_name": dataset_name,
+            "dataset_id": dataset_id,
+            "description": description,
+            "chunk_method": chunk_method,
+            "embedding_model": embedding_model,
+            "parse": parse,
+            "wait": wait,
+        }
         self.uploaded = [
             {"name": Path(path).name, "text": Path(path).read_text(encoding="utf-8")} for path in file_paths
         ]
@@ -70,11 +105,16 @@ class _FakeGateway:
             "name": dataset_name or "Existing",
             "document_count": len(file_paths),
             "chunk_count": len(file_paths) if self.ready else 0,
+            "embedding_model": embedding_model,
         }
         return {
             "backend": "fake-kb",
             "dataset_created": not bool(dataset_id),
-            "dataset": {"dataset_id": target_dataset_id, "name": dataset_name or "Existing"},
+            "dataset": {
+                "dataset_id": target_dataset_id,
+                "name": dataset_name or "Existing",
+                "embedding_model": embedding_model,
+            },
             "documents": [
                 {
                     "dataset_id": target_dataset_id,
@@ -778,6 +818,9 @@ class ProductApiTests(unittest.TestCase):
             'Content-Disposition: form-data; name="dataset_name"\r\n\r\n'
             "Uploaded KB\r\n"
             f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="embedding_model"\r\n\r\n'
+            "text-embedding-3-small@OpenAI\r\n"
+            f"--{boundary}\r\n"
             'Content-Disposition: form-data; name="file"; filename="note.txt"\r\n'
             "Content-Type: text/plain\r\n\r\n"
             "trusted workspace notes\r\n"
@@ -793,6 +836,8 @@ class ProductApiTests(unittest.TestCase):
             payload = json.loads(response.read().decode("utf-8"))
         self.assertTrue(payload["ok"])
         self.assertEqual(self.gateway.uploaded, [{"name": "note.txt", "text": "trusted workspace notes"}])
+        self.assertEqual(self.gateway.last_ingest["embedding_model"], "text-embedding-3-small@OpenAI")
+        self.assertEqual(payload["ingest"]["dataset"]["embedding_model"], "text-embedding-3-small@OpenAI")
         self.assertEqual(payload["ingestion_status"]["status"], "ready")
         self.assertEqual(payload["readiness"]["datasets"][0]["documents"][0]["next_action"], "available_for_retrieval")
         audit = self._get_json("/api/audit?limit=5")
@@ -803,14 +848,31 @@ class ProductApiTests(unittest.TestCase):
     def test_dataset_create_writes_kb_audit_record(self):
         created = self._post_json(
             "/api/kb/datasets",
-            {"name": "New Dataset", "description": "notes", "chunk_method": "naive"},
+            {
+                "name": "New Dataset",
+                "description": "notes",
+                "chunk_method": "naive",
+                "embedding_model": "text-embedding-3-small@OpenAI",
+            },
         )
 
         self.assertEqual(created["dataset"]["dataset_id"], "created")
+        self.assertEqual(created["dataset"]["embedding_model"], "text-embedding-3-small@OpenAI")
+        self.assertEqual(self.gateway.last_created["embedding_model"], "text-embedding-3-small@OpenAI")
         audit = self._get_json("/api/audit?limit=5")
         self.assertEqual(audit["events"][0]["action"], "kb.dataset.create")
         self.assertEqual(audit["events"][0]["target_id"], "created")
         self.assertEqual(audit["events"][0]["metadata"]["dataset_name"], "New Dataset")
+
+    def test_dataset_delete_writes_kb_audit_record(self):
+        deleted = self._delete_json("/api/kb/datasets/demo")
+
+        self.assertTrue(deleted["delete"]["deleted"])
+        self.assertEqual(deleted["delete"]["dataset_ids"], ["demo"])
+        audit = self._get_json("/api/audit?limit=5")
+        self.assertEqual(audit["events"][0]["action"], "kb.dataset.delete")
+        self.assertEqual(audit["events"][0]["target_id"], "demo")
+        self.assertEqual(audit["events"][0]["metadata"]["dataset_ids"], ["demo"])
 
     def test_audit_route_filters_by_action(self):
         self._post_json(
@@ -876,6 +938,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("configure_embedding_provider", script)
         self.assertIn("upload-dataset-picker", html)
         self.assertIn("upload-use-dataset", html)
+        self.assertIn("Embedding Model", html)
+        self.assertIn("embedding_model", html)
+        self.assertIn("embedding_model: form.get(\"embedding_model\")", script)
+        self.assertIn('payload.append("embedding_model", form.get("embedding_model") || "");', script)
+        self.assertIn("deleteDataset(dataset.dataset_id)", script)
+        self.assertIn("/api/kb/datasets/${encodeURIComponent(datasetId)}", script)
+        self.assertIn("kb.dataset.delete", script)
         self.assertIn("retrieval.probe", html)
         self.assertIn("create-memory-review", html)
         self.assertIn("Memory Review", html)
@@ -1159,6 +1228,20 @@ class ProductApiTests(unittest.TestCase):
                 "status": exc.code,
                 "body": json.loads(exc.read().decode("utf-8")),
             }
+
+    def _delete_json(self, path: str, payload: dict | None = None) -> dict:
+        data = json.dumps(payload or {}).encode("utf-8")
+        request = Request(
+            f"{self.base_url}{path}",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="DELETE",
+        )
+        try:
+            with urlopen(request, timeout=5) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            self.fail(exc.read().decode("utf-8"))
 
 
 class ProductApiFakeUploadLoopTests(unittest.TestCase):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,7 @@ class _Gateway(RagflowKnowledgeGateway):
     def __init__(self):
         super().__init__(base_url="http://ragflow.local", api_key="test")
         self.parse_calls = []
+        self.create_calls = []
 
     def list_datasets(self, *, name=None, page_size=30):
         if name == "existing":
@@ -34,7 +36,24 @@ class _Gateway(RagflowKnowledgeGateway):
             ]
         return []
 
-    def create_dataset(self, *, name, description="", chunk_method="naive", permission="me", parser_config=None):
+    def create_dataset(
+        self,
+        *,
+        name,
+        description="",
+        chunk_method="naive",
+        embedding_model="",
+        permission="me",
+        parser_config=None,
+    ):
+        self.create_calls.append(
+            {
+                "name": name,
+                "description": description,
+                "chunk_method": chunk_method,
+                "embedding_model": embedding_model,
+            }
+        )
         return {
             "backend": "ragflow",
             "dataset_id": "dataset-new",
@@ -43,6 +62,7 @@ class _Gateway(RagflowKnowledgeGateway):
             "document_count": 0,
             "chunk_count": 0,
             "chunk_method": chunk_method,
+            "embedding_model": embedding_model,
         }
 
     def upload_documents(self, *, dataset_id, file_paths):
@@ -75,7 +95,14 @@ class _RequestRecordingRagflowGateway(RagflowKnowledgeGateway):
         self.calls = []
 
     def _request(self, method, path, *, body=None, headers=None, params=None):
-        self.calls.append({"method": method, "path": path, "params": dict(params or {})})
+        self.calls.append({"method": method, "path": path, "params": dict(params or {}), "body": body})
+        if method == "POST" and path == "/datasets":
+            payload = json.loads((body or b"{}").decode("utf-8"))
+            return {
+                "id": "dataset-created",
+                "name": payload.get("name", ""),
+                "embedding_model": payload.get("embedding_model", ""),
+            }
         return []
 
 
@@ -88,6 +115,28 @@ class KbGatewayTests(unittest.TestCase):
 
         self.assertEqual(gateway.calls[0]["params"]["page_size"], 100)
         self.assertEqual(gateway.calls[1]["params"]["page_size"], 100)
+
+    def test_ragflow_create_dataset_sends_embedding_model_contract(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        dataset = gateway.create_dataset(name="Reports", embedding_model="text-embedding-3-small@OpenAI")
+
+        sent = json.loads(gateway.calls[0]["body"].decode("utf-8"))
+        self.assertEqual(sent["embedding_model"], "text-embedding-3-small@OpenAI")
+        self.assertNotIn("embd_id", sent)
+        self.assertEqual(dataset["embedding_model"], "text-embedding-3-small@OpenAI")
+
+    def test_ragflow_delete_dataset_uses_public_delete_contract(self):
+        gateway = _RequestRecordingRagflowGateway()
+
+        result = gateway.delete_datasets(dataset_ids=["0876c5b87f4a11f189366f73247a116f"])
+
+        sent = json.loads(gateway.calls[0]["body"].decode("utf-8"))
+        self.assertEqual(gateway.calls[0]["method"], "DELETE")
+        self.assertEqual(gateway.calls[0]["path"], "/datasets")
+        self.assertEqual(sent["ids"], ["0876c5b87f4a11f189366f73247a116f"])
+        self.assertFalse(sent["delete_all"])
+        self.assertTrue(result["deleted"])
 
     def test_ingest_files_reuses_existing_dataset_and_starts_parse(self):
         gateway = _Gateway()
@@ -106,10 +155,16 @@ class KbGatewayTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "brief.txt"
             path.write_text("new kb", encoding="utf-8")
-            result = gateway.ingest_files(file_paths=[str(path)], dataset_name="new-kb")
+            result = gateway.ingest_files(
+                file_paths=[str(path)],
+                dataset_name="new-kb",
+                embedding_model="text-embedding-3-small@OpenAI",
+            )
 
         self.assertTrue(result["dataset_created"])
         self.assertEqual(result["dataset"]["dataset_id"], "dataset-new")
+        self.assertEqual(result["dataset"]["embedding_model"], "text-embedding-3-small@OpenAI")
+        self.assertEqual(gateway.create_calls[0]["embedding_model"], "text-embedding-3-small@OpenAI")
 
     def test_fake_kb_provider_requires_explicit_dev_mode(self):
         with patch.dict("os.environ", {"PSKA_KB_PROVIDER": "fake"}, clear=True):

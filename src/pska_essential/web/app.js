@@ -73,6 +73,7 @@ function bindForms() {
         name: form.get("name"),
         description: form.get("description"),
         chunk_method: form.get("chunk_method"),
+        embedding_model: form.get("embedding_model"),
       },
     });
     event.currentTarget.reset();
@@ -96,6 +97,7 @@ function bindForms() {
     }
     payload.append("dataset_id", form.get("dataset_id") || "");
     payload.append("dataset_name", form.get("dataset_name") || "");
+    payload.append("embedding_model", form.get("embedding_model") || "");
     payload.append("parse", form.get("parse") ? "true" : "false");
     payload.append("wait", form.get("wait") ? "true" : "false");
     const result = await api("/api/kb/ingest", { method: "POST", formData: payload });
@@ -1711,6 +1713,7 @@ function datasetCard(dataset) {
         el("button", { className: "secondary-button", onclick: () => setAskDataset(dataset.dataset_id) }, "Ask"),
         el("button", { className: "secondary-button", onclick: () => openDatasetUpload(dataset.dataset_id) }, "Upload"),
         el("button", { className: "secondary-button", onclick: () => openDatasetStatus(dataset.dataset_id) }, "Status"),
+        el("button", { className: "secondary-button danger-button", onclick: () => deleteDataset(dataset.dataset_id) }, "Delete"),
       ]),
     ]),
     el("div", { className: "meta-row" }, [
@@ -2455,6 +2458,24 @@ async function readDocumentGraph(datasetId, documentId) {
   await loadAuditEvents("kb.graph.read");
   document.querySelector('.nav-item[data-view="reader"]').click();
   showToast("Graph loaded.");
+}
+
+async function deleteDataset(datasetId) {
+  if (!datasetId) return;
+  if (!window.confirm(`Delete knowledge base ${shortId(datasetId)}?`)) return;
+  await api(`/api/kb/datasets/${encodeURIComponent(datasetId)}`, { method: "DELETE", body: {} });
+  if (state.activeDocumentDatasetId === datasetId) {
+    state.activeDocumentDatasetId = null;
+    state.activeDocuments = [];
+    renderDocuments([]);
+  }
+  state.datasets = state.datasets.filter((dataset) => dataset.dataset_id !== datasetId);
+  renderDatasets();
+  renderDatasetPickers();
+  showToast("Knowledge base deleted.");
+  await loadDatasets();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("kb.dataset.delete");
 }
 
 function renderReader() {

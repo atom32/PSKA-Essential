@@ -54,6 +54,7 @@ class RagflowKnowledgeGateway:
         name: str,
         description: str = "",
         chunk_method: str = "naive",
+        embedding_model: str = "",
         permission: str = "me",
         parser_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -63,16 +64,44 @@ class RagflowKnowledgeGateway:
             "chunk_method": chunk_method,
             "permission": permission,
         }
+        if embedding_model:
+            payload["embedding_model"] = embedding_model
         if parser_config:
             payload["parser_config"] = parser_config
         return _dataset_summary(self._json("POST", "/datasets", payload=payload))
 
-    def ensure_dataset(self, *, name: str, description: str = "", chunk_method: str = "naive") -> dict[str, Any]:
+    def delete_datasets(self, *, dataset_ids: list[str] | None = None, delete_all: bool = False) -> dict[str, Any]:
+        ids = [str(dataset_id) for dataset_id in dataset_ids or [] if str(dataset_id).strip()]
+        if not ids and not delete_all:
+            raise KbGatewayError("dataset_ids is required unless delete_all is true")
+        data = self._json("DELETE", "/datasets", payload={"ids": ids or None, "delete_all": bool(delete_all)})
+        return {
+            "backend": self.backend_name,
+            "dataset_ids": ids,
+            "delete_all": bool(delete_all),
+            "deleted": True,
+            "result": data,
+        }
+
+    def ensure_dataset(
+        self,
+        *,
+        name: str,
+        description: str = "",
+        chunk_method: str = "naive",
+        embedding_model: str = "",
+    ) -> dict[str, Any]:
         matches = self.list_datasets(name=name, page_size=50)
         for dataset in matches:
             if dataset.get("name") == name:
+                _ensure_embedding_model_compatible(dataset, embedding_model)
                 return {"created": False, "dataset": dataset}
-        dataset = self.create_dataset(name=name, description=description, chunk_method=chunk_method)
+        dataset = self.create_dataset(
+            name=name,
+            description=description,
+            chunk_method=chunk_method,
+            embedding_model=embedding_model,
+        )
         return {"created": True, "dataset": dataset}
 
     def upload_documents(self, *, dataset_id: str, file_paths: list[str]) -> list[dict[str, Any]]:
@@ -176,6 +205,7 @@ class RagflowKnowledgeGateway:
         dataset_name: str | None = None,
         description: str = "",
         chunk_method: str = "naive",
+        embedding_model: str = "",
         parse: bool = True,
         wait: bool = False,
         timeout_seconds: float = 300.0,
@@ -188,7 +218,12 @@ class RagflowKnowledgeGateway:
         else:
             if not dataset_name:
                 raise KbGatewayError("dataset_name is required when dataset_id is not provided")
-            ensured = self.ensure_dataset(name=dataset_name, description=description, chunk_method=chunk_method)
+            ensured = self.ensure_dataset(
+                name=dataset_name,
+                description=description,
+                chunk_method=chunk_method,
+                embedding_model=embedding_model,
+            )
             created = bool(ensured["created"])
             dataset = ensured["dataset"]
             dataset_id = str(dataset["dataset_id"])
@@ -313,7 +348,14 @@ class FakeKnowledgeGateway:
             datasets = [dataset for dataset in datasets if dataset.get("name") == name]
         return [dict(dataset) for dataset in datasets[:page_size]]
 
-    def create_dataset(self, *, name: str, description: str = "", chunk_method: str = "naive") -> dict[str, Any]:
+    def create_dataset(
+        self,
+        *,
+        name: str,
+        description: str = "",
+        chunk_method: str = "naive",
+        embedding_model: str = "",
+    ) -> dict[str, Any]:
         dataset_id = f"fake_ds_{uuid4().hex[:12]}"
         dataset = {
             "backend": self.backend_name,
@@ -323,20 +365,60 @@ class FakeKnowledgeGateway:
             "document_count": 0,
             "chunk_count": 0,
             "chunk_method": chunk_method,
-            "embedding_model": "fake",
+            "embedding_model": embedding_model or "fake",
             "permission": "me",
         }
         self.datasets[dataset_id] = dataset
         self.documents[dataset_id] = []
         return dict(dataset)
 
-    def ensure_dataset(self, *, name: str, description: str = "", chunk_method: str = "naive") -> dict[str, Any]:
+    def delete_datasets(self, *, dataset_ids: list[str] | None = None, delete_all: bool = False) -> dict[str, Any]:
+        ids = [str(dataset_id) for dataset_id in dataset_ids or [] if str(dataset_id).strip()]
+        if not ids and not delete_all:
+            raise KbGatewayError("dataset_ids is required unless delete_all is true")
+        if delete_all:
+            deleted_ids = list(self.datasets.keys())
+            self.datasets.clear()
+            self.documents.clear()
+            self.document_text.clear()
+            self.document_parse_errors.clear()
+        else:
+            deleted_ids = [dataset_id for dataset_id in ids if dataset_id in self.datasets]
+            for dataset_id in ids:
+                docs = self.documents.pop(dataset_id, [])
+                for doc in docs:
+                    document_id = str(doc.get("document_id") or "")
+                    self.document_text.pop(document_id, None)
+                    self.document_parse_errors.pop(document_id, None)
+                self.datasets.pop(dataset_id, None)
+        return {
+            "backend": self.backend_name,
+            "dataset_ids": ids,
+            "deleted_dataset_ids": deleted_ids,
+            "delete_all": bool(delete_all),
+            "deleted": True,
+        }
+
+    def ensure_dataset(
+        self,
+        *,
+        name: str,
+        description: str = "",
+        chunk_method: str = "naive",
+        embedding_model: str = "",
+    ) -> dict[str, Any]:
         for dataset in self.datasets.values():
             if dataset.get("name") == name:
+                _ensure_embedding_model_compatible(dataset, embedding_model)
                 return {"created": False, "dataset": dict(dataset)}
         return {
             "created": True,
-            "dataset": self.create_dataset(name=name, description=description, chunk_method=chunk_method),
+            "dataset": self.create_dataset(
+                name=name,
+                description=description,
+                chunk_method=chunk_method,
+                embedding_model=embedding_model,
+            ),
         }
 
     def list_documents(
@@ -475,6 +557,7 @@ class FakeKnowledgeGateway:
         dataset_name: str | None = None,
         description: str = "",
         chunk_method: str = "naive",
+        embedding_model: str = "",
         parse: bool = True,
         wait: bool = False,
         timeout_seconds: float = 300.0,
@@ -485,7 +568,12 @@ class FakeKnowledgeGateway:
         else:
             if not dataset_name:
                 raise KbGatewayError("dataset_name is required when dataset_id is not provided")
-            ensured = self.ensure_dataset(name=dataset_name, description=description, chunk_method=chunk_method)
+            ensured = self.ensure_dataset(
+                name=dataset_name,
+                description=description,
+                chunk_method=chunk_method,
+                embedding_model=embedding_model,
+            )
             created = bool(ensured["created"])
             dataset = ensured["dataset"]
             dataset_id = str(dataset["dataset_id"])
@@ -550,6 +638,17 @@ def _dataset_summary(row: dict[str, Any]) -> dict[str, Any]:
         "embedding_model": row.get("embedding_model") or row.get("embd_id") or "",
         "permission": row.get("permission") or "",
     }
+
+
+def _ensure_embedding_model_compatible(dataset: dict[str, Any], requested_embedding_model: str) -> None:
+    requested = str(requested_embedding_model or "").strip()
+    existing = str(dataset.get("embedding_model") or "").strip()
+    if requested and existing and requested != existing:
+        raise KbGatewayError(
+            "existing dataset uses a different embedding_model; delete/recreate the dataset "
+            f"or omit embedding_model to reuse it: dataset_id={dataset.get('dataset_id')}, "
+            f"existing={existing}, requested={requested}"
+        )
 
 
 def _document_summary(row: dict[str, Any], *, dataset_id: str) -> dict[str, Any]:

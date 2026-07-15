@@ -42,6 +42,7 @@ EXPECTED_TOOLS = {
     "pska_live_closed_loop_probe",
     "pska_eval_run",
     "pska_kb_create",
+    "pska_kb_delete",
     "pska_kb_document_status",
     "pska_kb_graph_read",
     "pska_kb_ingest_files",
@@ -356,7 +357,10 @@ class McpContractTests(unittest.TestCase):
             path = Path(temp_dir) / "note.txt"
             path.write_text("PSKA source material", encoding="utf-8")
             with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
-                created = tools["pska_kb_create"]("MCP Dataset")
+                created = tools["pska_kb_create"](
+                    "MCP Dataset",
+                    embedding_model="text-embedding-3-small@OpenAI",
+                )
                 ingested = tools["pska_kb_ingest_files"]([str(path)], dataset_name="MCP Dataset", parse=True)
                 ingestion_status = tools["pska_kb_ingestion_status"](
                     [ingested["dataset"]["dataset_id"]],
@@ -364,8 +368,11 @@ class McpContractTests(unittest.TestCase):
                 )
                 parsed = tools["pska_kb_parse_documents"]("demo", ["demo-1"])
                 graph = tools["pska_kb_graph_read"]("demo", "demo-1")
+                deleted = tools["pska_kb_delete"]([created["dataset_id"]])
 
         self.assertTrue(created["dataset_id"].startswith("fake_ds_"))
+        self.assertEqual(created["embedding_model"], "text-embedding-3-small@OpenAI")
+        self.assertEqual(ingested["dataset"]["embedding_model"], "text-embedding-3-small@OpenAI")
         self.assertEqual(ingested["documents"][0]["name"], "note.txt")
         self.assertEqual(ingested["ingestion_status"]["status"], "ready")
         self.assertTrue(ingested["readiness"]["ready"])
@@ -376,9 +383,12 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(parsed["ingestion_status"]["status"], "ready")
         self.assertIn("Parse started", parsed["note"])
         self.assertEqual(graph["document_id"], "demo-1")
+        self.assertTrue(deleted["deleted"])
+        self.assertEqual(deleted["dataset_ids"], [created["dataset_id"]])
         events = service.store.list_audit_events()
         actions = [event.action for event in events]
         self.assertIn("kb.dataset.create", actions)
+        self.assertIn("kb.dataset.delete", actions)
         self.assertIn("kb.ingest", actions)
         self.assertIn("kb.parse", actions)
         self.assertIn("kb.graph.read", actions)
@@ -389,6 +399,8 @@ class McpContractTests(unittest.TestCase):
         graph_event = next(event for event in events if event.action == "kb.graph.read")
         self.assertEqual(graph_event.metadata["dataset_id"], "demo")
         self.assertEqual(graph_event.metadata["document_id"], "demo-1")
+        delete_event = next(event for event in events if event.action == "kb.dataset.delete")
+        self.assertEqual(delete_event.target_id, created["dataset_id"])
 
 
 if __name__ == "__main__":

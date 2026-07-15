@@ -245,6 +245,9 @@ Implemented:
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
   provider logs through Product API, MCP, or CLI output.
+- KB creation/ingest accepts optional `embedding_model`, and KB deletion is now
+  an explicit adapter-backed cleanup operation for bad development datasets. No
+  fake provider or silent fallback is used to hide embedding/model failures.
 - Runtime workspace/tenant context, including derived PSKA `memory_namespace`,
   surfaced in health, diagnostics, Settings, and audit metadata.
 - The SQLite review store indexes workflows, proposals, reviews, memory apply
@@ -388,6 +391,7 @@ New operational loop tools:
 
 ```text
 pska_kb_ingest_files
+pska_kb_delete
 pska_kb_document_status
 pska_kb_readiness
 pska_kb_ingestion_status
@@ -788,8 +792,10 @@ make list-tools
 - Current live probe against the existing "海康威视年报测试" dataset reaches
   RAGFlow readiness but stops at `configure_embedding_provider`: the dataset
   uses `bge-m3@xxxx`, and RAGFlow reports that provider `xxxx` is not configured.
-  Configure a real embedding provider/model in RAGFlow and re-parse/re-index the
-  document before expecting retrieval/Ask/export to complete.
+  Since this is development data, delete the bad dataset through `pska_kb_delete`
+  or `DELETE /api/kb/datasets/{dataset_id}`, then recreate/re-ingest with a
+  RAGFlow-configured embedding model before expecting retrieval/Ask/export to
+  complete.
 - RAGFlow ingestion can be slow because parsing, chunking, embedding, and
   indexing are long-running jobs. Check document status before asking.
 - Graphiti needs `OPENAI_API_KEY` in `.env.pska` before real memory extraction.

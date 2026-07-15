@@ -32,6 +32,7 @@ from pska_essential.diagnostics import (
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
+    add_kb_dataset_delete_audit,
     add_kb_graph_read_audit,
     add_kb_ingest_audit,
     add_kb_parse_audit,
@@ -97,6 +98,9 @@ def _handler_class(state: ProductApiState):
 
         def do_POST(self) -> None:
             self._dispatch("POST")
+
+        def do_DELETE(self) -> None:
+            self._dispatch("DELETE")
 
         def log_message(self, format: str, *args: Any) -> None:
             if os.getenv("PSKA_API_LOG_REQUESTS"):
@@ -226,12 +230,24 @@ def _handler_class(state: ProductApiState):
                     name=_required_str(payload, "name"),
                     description=str(payload.get("description") or ""),
                     chunk_method=str(payload.get("chunk_method") or "naive"),
+                    embedding_model=str(payload.get("embedding_model") or ""),
                 )
                 add_kb_dataset_create_audit(state.service.store, dataset)
                 self._send_json(
                     {"ok": True, "dataset": dataset},
                     HTTPStatus.CREATED,
                 )
+                return
+
+            if method == "DELETE" and path == "/api/kb/datasets":
+                payload = self._read_json()
+                gateway = state.kb_gateway_factory()
+                result = gateway.delete_datasets(
+                    dataset_ids=[str(item) for item in payload.get("dataset_ids") or []],
+                    delete_all=bool(payload.get("delete_all", False)),
+                )
+                add_kb_dataset_delete_audit(state.service.store, result)
+                self._send_json({"ok": True, "delete": result})
                 return
 
             if method == "POST" and path == "/api/kb/ingest":
@@ -278,6 +294,14 @@ def _handler_class(state: ProductApiState):
                     document_ids=document_ids,
                 )
                 self._send_json({"ok": True, **status_payload})
+                return
+
+            dataset_delete = _match(path, "/api/kb/datasets/", "")
+            if method == "DELETE" and dataset_delete and "/" not in dataset_delete:
+                gateway = state.kb_gateway_factory()
+                result = gateway.delete_datasets(dataset_ids=[dataset_delete])
+                add_kb_dataset_delete_audit(state.service.store, result)
+                self._send_json({"ok": True, "delete": result})
                 return
 
             dataset_documents = _match(path, "/api/kb/datasets/", "/documents")
@@ -512,6 +536,7 @@ def _handler_class(state: ProductApiState):
                         dataset_id=fields.get("dataset_id") or None,
                         description=fields.get("description") or "",
                         chunk_method=fields.get("chunk_method") or "naive",
+                        embedding_model=fields.get("embedding_model") or "",
                         parse=_bool_value(fields.get("parse"), True),
                         wait=_bool_value(fields.get("wait"), False),
                         timeout_seconds=float(fields.get("timeout_seconds") or 300.0),
@@ -531,6 +556,7 @@ def _handler_class(state: ProductApiState):
                 dataset_id=payload.get("dataset_id") or None,
                 description=str(payload.get("description") or ""),
                 chunk_method=str(payload.get("chunk_method") or "naive"),
+                embedding_model=str(payload.get("embedding_model") or ""),
                 parse=bool(payload.get("parse", True)),
                 wait=bool(payload.get("wait", False)),
                 timeout_seconds=float(payload.get("timeout_seconds") or 300.0),
