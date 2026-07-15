@@ -308,6 +308,9 @@ See:
 The Product API is the frontend-facing boundary. The frontend must call PSKA
 Product API routes only; it must not call RAGFlow, Graphiti, embedding services,
 LLM providers, databases, or queues directly.
+Product API startup validates both workflow providers and the KB gateway before
+serving; missing provider env or unauthorized fake mode fails explicitly instead
+of starting a partially wired frontend.
 
 Default local URL:
 

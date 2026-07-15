@@ -155,6 +155,33 @@ class _FakeGateway:
 
 
 class ProductApiStartupTests(unittest.TestCase):
+    def test_build_server_requires_workflow_provider_configuration(self):
+        with tempfile.TemporaryDirectory() as static_dir, patch.dict(os.environ, {}, clear=True):
+            Path(static_dir, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "PSKA_RETRIEVAL_PROVIDER is required"):
+                build_server(host="127.0.0.1", port=0, static_dir=static_dir)
+
+    def test_build_server_rejects_fake_workflow_provider_without_dev_mode(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+        }
+        with tempfile.TemporaryDirectory() as static_dir, patch.dict(os.environ, env, clear=True):
+            Path(static_dir, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "PSKA_RETRIEVAL_PROVIDER=fake"):
+                build_server(host="127.0.0.1", port=0, static_dir=static_dir)
+
+    def test_build_server_allows_explicit_dev_fake_mode(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as static_dir, patch.dict(os.environ, env, clear=True):
+            Path(static_dir, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
+            server = build_server(host="127.0.0.1", port=0, static_dir=static_dir)
+            server.server_close()
+
     def test_build_server_validates_kb_gateway_configuration(self):
         env = {"PSKA_KB_PROVIDER": "ragflow"}
         with tempfile.TemporaryDirectory() as static_dir, patch.dict(os.environ, env, clear=True):

@@ -264,12 +264,15 @@ Implemented:
   closed-loop probe into one structured component acceptance result. They
   surface missing dataset scope, fake live proofs, memory search failures, or
   retrieval/Ask/export failures without fallback.
+- Product API startup validates both workflow providers and the configured KB
+  gateway before serving the frontend. Missing provider env and unauthorized
+  fake mode fail explicitly instead of starting a partially wired Product API.
 - `POST /api/ingest-loop`, MCP `pska_ingest_loop`, `make live-ingest-loop`,
   and `pska-essential-ingest-loop` run the file-first operational loop through
   configured PSKA adapters: ingest local files, poll KB readiness, run the
   PSKA-controlled agentic Ask loop, and export a sourced transient work
   product. Processing ingestion records a resumable blocked Ask before stopping
-  short of retrieval/export; `POST /api/workflows/{run_id}/resume-ingest-loop`
+  short of retrieval/export; `POST /api/workflows/{run_id}/resume-ingest-loop`,
   MCP `pska_ingest_loop_resume`, `pska-essential-ingest-loop-resume <run_id>`,
   and `PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume` resume that same
   upload -> Ask -> export intent after readiness is achieved. Failed or
@@ -374,10 +377,11 @@ make smoke
 
 Expected result:
 
-- `make test`: 159 tests pass.
+- `make test`: 162 tests pass.
 - Product API tests cover health, static frontend serving, frontend ingest-loop
-  controls, governance payloads, and resumable processing uploads, scoped Ask,
-  Review, memory apply/update/delete, audit records, KB readiness blocking,
+  startup provider gates, controls, governance payloads, and resumable
+  processing uploads, scoped Ask, Review, memory apply/update/delete, audit
+  records, KB readiness blocking,
   diagnostics, document graph read, dataset creation, parsing audit, multipart
   document upload, fake upload-to-Ask source reads, fake PDF-like upload failure
   before Ask, and export refusal for unsourced/empty workflows.
