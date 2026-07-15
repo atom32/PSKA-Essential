@@ -812,7 +812,7 @@ async function runIngestLoopFromUploadForm() {
   payload.append("dataset_name", form.get("dataset_name") || "");
   payload.append("embedding_model", form.get("embedding_model") || "");
   payload.append("parse", form.get("parse") ? "true" : "false");
-  payload.append("wait_ready", "true");
+  payload.append("wait_ready", form.get("wait") ? "true" : "false");
   payload.append("question", form.get("loop_question") || "Summarize the uploaded documents with sources.");
   payload.append("export_format", form.get("loop_export_format") || "markdown");
   appendIngestLoopControls(form, payload);

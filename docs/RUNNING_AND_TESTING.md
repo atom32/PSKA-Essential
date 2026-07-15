@@ -110,15 +110,17 @@ workflows, open pending reviews, and apply already accepted durable memory
 through Product API routes. The Knowledge Bases upload form can either upload
 documents for later Ask or run the file-first ingest loop through
 `POST /api/ingest-loop`; the loop uses the configured KB/retrieval/memory
-adapters, waits for PSKA readiness, and opens Writing only after a sourced
-transient work product is exported. If parsing, embedding, indexing, retrieval,
-or export is not ready, the UI keeps the explicit failure/not-ready state and
-does not substitute fake context. The upload loop exposes the same PSKA loop
-controls as Ask for limit, max iterations, minimum context, additional retrieval
-queries, source inspection, proposal kind, optional review, and graph-aware
-retrieval. Its Product API result exposes proposal, review, review-decision,
-memory-apply, loop, and export fields, so the frontend can continue the Review
-workflow directly after a file-first run. If the uploaded scope is still
+adapters and opens Writing only after a sourced transient work product is
+exported. The form's Wait checkbox controls whether Run Loop waits for PSKA
+readiness or quickly returns a resumable not-ready workflow for long parsing,
+embedding, and indexing jobs. If parsing, embedding, indexing, retrieval, or
+export is not ready, the UI keeps the explicit failure/not-ready state and does
+not substitute fake context. The upload loop exposes the same PSKA loop controls
+as Ask for limit, max iterations, minimum context, additional retrieval queries,
+source inspection, proposal kind, optional review, and graph-aware retrieval.
+Its Product API result exposes proposal, review, review-decision, memory-apply,
+loop, and export fields, so the frontend can continue the Review workflow
+directly after a file-first run. If the uploaded scope is still
 processing, the frontend opens a resumable blocked Ask with Track & Resume
 actions; failed or cancelled ingestion remains an explicit status/cleanup
 condition. Ask displays explicit PSKA-controlled loop steps,

@@ -277,7 +277,9 @@ Implemented:
   frontend calling RAGFlow, Graphiti, embedding services, or fake providers
   directly. The upload loop exposes PSKA loop controls for limit, iterations,
   minimum context, additional retrieval queries, source inspection, proposal
-  kind, optional review, and graph-aware retrieval.
+  kind, optional review, graph-aware retrieval, and a Wait checkbox. When Wait
+  is unchecked, Run Loop returns a resumable not-ready workflow instead of
+  holding the browser request open through long parsing/embedding/indexing jobs.
 - Frontend Run Loop opens the blocked Ask result with Track & Resume actions
   when uploaded documents are still processing, and resumes ingest-loop runs as
   Resume Loop so the eventual Ask/export path remains intact. Failed/cancelled

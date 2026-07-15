@@ -1125,6 +1125,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('await loadAuditEvents(auditActionForIngestLoop(result));', script)
         self.assertIn('result.status === "not_ready" && result.run && result.run.run_id', script)
         self.assertIn('await applyAskResult(result, { toast: result.message || "Ingest loop is waiting on readiness." });', script)
+        self.assertIn('payload.append("wait_ready", form.get("wait") ? "true" : "false");', script)
         self.assertIn('payload.append("retrieval_queries", form.get("loop_retrieval_queries") || "");', script)
         self.assertIn('payload.append("use_kg", form.get("loop_use_kg") ? "true" : "false");', script)
         self.assertIn('payload.append("create_review", "true");', script)

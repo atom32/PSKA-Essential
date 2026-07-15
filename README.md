@@ -360,14 +360,17 @@ same-origin `/api/...` calls. Ask responses include explicit loop steps so users
 and agents can see scope checks, KB readiness, retrieval, context inspection,
 proposal creation, review creation or skipping, and transient brief preparation.
 Knowledge Bases can also run the file-first ingest loop from the upload form:
-the frontend posts files to `POST /api/ingest-loop`, waits on the same PSKA KB
+the frontend posts files to `POST /api/ingest-loop`, uses the same PSKA KB
 readiness gate, and opens Writing with the exported sourced work product only
-when the configured adapters complete successfully. Processing or failed
-ingestion remains visible as not-ready status instead of falling back to fake
-data or an unsourced answer. The same form exposes PSKA-owned loop controls for
-limit, max iterations, minimum context, additional retrieval queries, source
-inspection, proposal kind, optional review, and graph-aware retrieval; these are
-Product API fields, not provider-native calls. When the loop creates a durable
+when the configured adapters complete successfully. The form's Wait checkbox
+controls whether Run Loop blocks for readiness or quickly returns a resumable
+not-ready workflow for long parsing, embedding, and indexing jobs. Processing
+or failed ingestion remains visible as not-ready status instead of falling back
+to fake data or an unsourced answer. The same form exposes PSKA-owned loop
+controls for limit, max iterations, minimum context, additional retrieval
+queries, source inspection, proposal kind, optional review, and graph-aware
+retrieval; these are Product API fields, not provider-native calls. When the
+loop creates a durable
 knowledge candidate, the response includes the proposal, review decision, and
 memory-apply state so the frontend can continue the Review workflow without
 inspecting workflow internals. When the uploaded scope is still processing, the
