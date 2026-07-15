@@ -401,14 +401,15 @@ record and reports the exact stage that failed, such as `not_ready`,
 `retrieval_error`, `agentic_error`, or `export_error`. Successful probes include
 context, source, and source-inspection counts.
 
-Use `make live-ingest-loop` or `pska-essential-ingest-loop` when the proof
-should start from local files instead of an already-ready dataset. The loop
-calls the configured KB gateway to create or select a dataset, upload files,
-start parsing, poll PSKA readiness, run the agentic Ask loop, and export a
-sourced transient work product. It writes normal `kb.ingest`,
-`agentic_loop.complete`, and `workflow.export` audit records when the scope is
-ready. If parsing, OCR, embedding, or indexing is still processing or failed,
-the loop returns `status=not_ready` and does not run Ask or export.
+Use `POST /api/ingest-loop`, `pska_ingest_loop`,
+`make live-ingest-loop`, or `pska-essential-ingest-loop` when the proof should
+start from local files instead of an already-ready dataset. The loop calls the
+configured KB gateway to create or select a dataset, upload files, start
+parsing, poll PSKA readiness, run the agentic Ask loop, and export a sourced
+transient work product. It writes normal `kb.ingest`, `agentic_loop.complete`,
+and `workflow.export` audit records when the scope is ready. If parsing, OCR,
+embedding, or indexing is still processing or failed, the loop returns
+`status=not_ready` and does not run Ask or export.
 
 When RAGFlow reports an embedding model binding failure such as a missing
 provider for the selected dataset embedding model, PSKA normalizes the KB

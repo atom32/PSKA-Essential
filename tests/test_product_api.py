@@ -1379,6 +1379,33 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         ingest_audit = self._get_json("/api/audit?limit=10&action=kb.ingest")
         self.assertEqual(ingest_audit["events"][0]["metadata"]["document_names"], ["loop-note.txt"])
 
+    def test_product_api_ingest_loop_uploads_asks_exports_and_audits(self):
+        dataset_name = f"Ingest Loop API {uuid4().hex}"
+        unique_phrase = f"product api ingest loop {uuid4().hex}"
+        payload = self._post_multipart_ingest(
+            {
+                "dataset_name": dataset_name,
+                "question": f"What does the uploaded file say about {unique_phrase}?",
+                "export_format": "json",
+                "poll_interval_seconds": "0.05",
+            },
+            "loop-note.txt",
+            f"The uploaded file says {unique_phrase} inside the PSKA loop.",
+            route="/api/ingest-loop",
+        )
+        result = payload["ingest_loop"]
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["ask_status"], "ready")
+        self.assertTrue(result["readiness"]["ready"])
+        self.assertTrue(result["run_id"].startswith("run_"))
+        self.assertEqual(result["export"]["traceability"]["source_count"], 1)
+        self.assertIn(unique_phrase, result["export"]["context_packets"][0]["text"])
+        ingest_audit = self._get_json("/api/audit?limit=10&action=kb.ingest")
+        self.assertEqual(ingest_audit["events"][0]["metadata"]["document_names"], ["loop-note.txt"])
+        export_audit = self._get_json("/api/audit?limit=10&action=workflow.export")
+        self.assertEqual(export_audit["events"][0]["target_id"], result["run_id"])
+
     def test_product_api_fake_pdf_upload_reports_ingestion_failure_before_ask(self):
         dataset_name = f"Unsupported Fake PDF {uuid4().hex}"
         ingested = self._post_multipart_ingest(
@@ -1412,6 +1439,30 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.assertEqual(asked["context_packets"], [])
         self.assertIsNone(asked["proposal"])
 
+    def test_product_api_ingest_loop_stops_before_ask_when_upload_is_not_ready(self):
+        dataset_name = f"Unsupported Loop PDF {uuid4().hex}"
+        payload = self._post_multipart_ingest(
+            {
+                "dataset_name": dataset_name,
+                "question": "What is in the unsupported PDF?",
+                "poll_interval_seconds": "0.05",
+            },
+            "annual-report.pdf",
+            b"%PDF-1.5\n%\xe2\xe3\xcf\xd3\nbinary fake pdf",
+            content_type="application/pdf",
+            route="/api/ingest-loop",
+        )
+        result = payload["ingest_loop"]
+
+        self.assertEqual(result["status"], "not_ready")
+        self.assertEqual(result["readiness"]["status"], "failed")
+        self.assertIsNone(result["ask_status"])
+        self.assertIsNone(result["export"])
+        actions = [event["action"] for event in self._get_json("/api/audit?limit=20")["events"]]
+        self.assertIn("kb.ingest", actions)
+        self.assertNotIn("workflow.export", actions)
+        self.assertNotIn("agentic_loop.complete", actions)
+
     def _post_multipart_ingest(
         self,
         fields: dict[str, str],
@@ -1419,6 +1470,7 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         content: str | bytes,
         *,
         content_type: str = "text/plain",
+        route: str = "/api/kb/ingest",
     ) -> dict:
         boundary = f"pska-test-{uuid4().hex}"
         file_content = content.encode("utf-8") if isinstance(content, str) else content
@@ -1443,7 +1495,7 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
             ]
         )
         request = Request(
-            f"{self.base_url}/api/kb/ingest",
+            f"{self.base_url}{route}",
             data=b"".join(parts),
             headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
             method="POST",

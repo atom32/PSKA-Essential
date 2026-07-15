@@ -316,6 +316,7 @@ Implemented Alpha routes:
 - `POST /api/runtime/retrieval-probe`
 - `POST /api/runtime/memory-probe`
 - `POST /api/runtime/closed-loop-probe`
+- `POST /api/ingest-loop`
 - `GET /api/kb/datasets`
 - `POST /api/kb/datasets`
 - `DELETE /api/kb/datasets`

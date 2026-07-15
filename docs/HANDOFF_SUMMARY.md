@@ -263,10 +263,11 @@ Implemented:
   closed-loop probe into one structured component acceptance result. They
   surface missing dataset scope, fake live proofs, memory search failures, or
   retrieval/Ask/export failures without fallback.
-- `make live-ingest-loop` and `pska-essential-ingest-loop` run the file-first
-  operational loop through configured PSKA adapters: ingest local files, poll
-  KB readiness, run the PSKA-controlled agentic Ask loop, and export a sourced
-  transient work product. Not-ready or failed ingestion stops before Ask/export.
+- `POST /api/ingest-loop`, MCP `pska_ingest_loop`, `make live-ingest-loop`,
+  and `pska-essential-ingest-loop` run the file-first operational loop through
+  configured PSKA adapters: ingest local files, poll KB readiness, run the
+  PSKA-controlled agentic Ask loop, and export a sourced transient work
+  product. Not-ready or failed ingestion stops before Ask/export.
 - KB readiness normalizes repeated RAGFlow embedding provider failures into a
   stable PSKA `failure_code=embedding_provider_missing` and
   `configure_embedding_provider` next action instead of leaking page-by-page
@@ -345,7 +346,7 @@ make smoke
 
 Expected result:
 
-- `make test`: 147 tests pass.
+- `make test`: 149 tests pass.
 - Product API tests cover health, static frontend serving, scoped Ask, Review,
   memory apply/update/delete, audit records, KB readiness blocking, diagnostics, document
   graph read, dataset creation, parsing audit, multipart document upload, and
@@ -354,8 +355,8 @@ Expected result:
 - Config/KB gateway tests cover explicit provider selection, fake dev gating,
   and live RAGFlow/Graphiti startup failure when required connection env is
   missing.
-- Ingest-loop tests cover file upload -> readiness -> Ask -> export and the
-  not-ready stop condition before Ask/export.
+- Ingest-loop tests cover CLI/MCP/Product API file upload -> readiness -> Ask
+  -> export and the not-ready stop condition before Ask/export.
 - Product API/static frontend tests cover Review status filtering, pending
   review summaries, review source trace display, component check UI, and
   focused probe UI.

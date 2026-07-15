@@ -33,6 +33,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.governance import build_workspace_policy_from_env
+from pska_essential.ingest_loop import run_ingest_loop
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -292,6 +293,10 @@ def _handler_class(state: ProductApiState):
 
             if method == "POST" and path == "/api/kb/ingest":
                 self._handle_ingest()
+                return
+
+            if method == "POST" and path == "/api/ingest-loop":
+                self._handle_ingest_loop()
                 return
 
             if method == "POST" and path == "/api/kb/readiness":
@@ -607,6 +612,73 @@ def _handler_class(state: ProductApiState):
                 HTTPStatus.CREATED,
             )
 
+        def _handle_ingest_loop(self) -> None:
+            content_type = self.headers.get("Content-Type", "")
+            if content_type.startswith("multipart/form-data"):
+                fields, files = self._read_multipart()
+                if not files:
+                    raise ApiError("at least one file is required", HTTPStatus.BAD_REQUEST)
+                with tempfile.TemporaryDirectory(prefix="pska-loop-upload-") as temp_dir:
+                    paths: list[str] = []
+                    for file_item in files:
+                        safe_name = _safe_filename(file_item["filename"])
+                        path = Path(temp_dir) / safe_name
+                        path.write_bytes(file_item["content"])
+                        paths.append(str(path))
+                    result = run_ingest_loop(
+                        state.service,
+                        state.kb_gateway_factory(),
+                        file_paths=paths,
+                        dataset_name=fields.get("dataset_name") or "",
+                        dataset_id=fields.get("dataset_id") or "",
+                        description=fields.get("description") or "",
+                        chunk_method=fields.get("chunk_method") or "naive",
+                        embedding_model=fields.get("embedding_model") or "",
+                        parse=_bool_value(fields.get("parse"), True),
+                        wait_ready=_bool_value(fields.get("wait_ready"), True),
+                        timeout_seconds=float(fields.get("timeout_seconds") or 600.0),
+                        poll_interval_seconds=float(fields.get("poll_interval_seconds") or 2.0),
+                        question=fields.get("question") or "Summarize the uploaded documents with sources.",
+                        limit=int(fields.get("limit") or 5),
+                        proposal_kind=fields.get("proposal_kind") or "writing_brief",
+                        create_review=_optional_bool_field(fields, "create_review"),
+                        use_kg=_bool_value(fields.get("use_kg"), False),
+                        max_iterations=int(fields.get("max_iterations") or 2),
+                        min_context_packets=int(fields.get("min_context_packets") or 1),
+                        retrieval_queries=_lines_or_csv_values(fields.get("retrieval_queries") or ""),
+                        source_inspection_limit=int(fields.get("source_inspection_limit") or 3),
+                        export_format=fields.get("export_format") or "markdown",
+                    )
+                self._send_json({"ok": True, "ingest_loop": result}, HTTPStatus.CREATED)
+                return
+
+            payload = self._read_json()
+            result = run_ingest_loop(
+                state.service,
+                state.kb_gateway_factory(),
+                file_paths=_required_list(payload, "file_paths"),
+                dataset_name=str(payload.get("dataset_name") or ""),
+                dataset_id=str(payload.get("dataset_id") or ""),
+                description=str(payload.get("description") or ""),
+                chunk_method=str(payload.get("chunk_method") or "naive"),
+                embedding_model=str(payload.get("embedding_model") or ""),
+                parse=bool(payload.get("parse", True)),
+                wait_ready=bool(payload.get("wait_ready", True)),
+                timeout_seconds=float(payload.get("timeout_seconds") or 600.0),
+                poll_interval_seconds=float(payload.get("poll_interval_seconds") or 2.0),
+                question=str(payload.get("question") or "Summarize the uploaded documents with sources."),
+                limit=int(payload.get("limit") or 5),
+                proposal_kind=str(payload.get("proposal_kind") or "writing_brief"),
+                create_review=payload.get("create_review") if "create_review" in payload else None,
+                use_kg=bool(payload.get("use_kg", False)),
+                max_iterations=int(payload.get("max_iterations") or 2),
+                min_context_packets=int(payload.get("min_context_packets") or 1),
+                retrieval_queries=_optional_str_list(payload, "retrieval_queries"),
+                source_inspection_limit=int(payload.get("source_inspection_limit") or 3),
+                export_format=str(payload.get("export_format") or "markdown"),
+            )
+            self._send_json({"ok": True, "ingest_loop": result}, HTTPStatus.CREATED)
+
         def _read_json(self) -> dict[str, Any]:
             raw = self._read_body()
             if not raw:
@@ -745,8 +817,20 @@ def _bool_value(value: str | None, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _optional_bool_field(fields: dict[str, str], key: str) -> bool | None:
+    if key not in fields:
+        return None
+    return _bool_value(fields.get(key), False)
+
+
 def _csv_values(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _lines_or_csv_values(value: str) -> list[str]:
+    if "\n" in value:
+        return [item.strip() for item in value.splitlines() if item.strip()]
+    return _csv_values(value)
 
 
 def _kb_status_payload(
