@@ -227,6 +227,35 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["tool"], "pska_kb_ingestion_status")
         self.assertEqual(status["next_actions"][0]["view"], "kb")
 
+    def test_workspace_status_routes_resumable_ingest_loop_to_loop_resume_tool(self):
+        service = build_fake_service()
+        run = service.start("Resume upload loop", {"dataset_ids": ["demo"], "document_ids": ["doc-1"], "use_kg": False})
+        run.status = "blocked"
+        run.metadata["blocked_reason"] = "kb_not_ready"
+        run.metadata["ask_request"] = {
+            "question": "Resume upload loop",
+            "dataset_ids": ["demo"],
+            "document_ids": ["doc-1"],
+            "use_kg": False,
+            "limit": 1,
+            "proposal_kind": "writing_brief",
+            "create_review": None,
+            "max_iterations": 1,
+            "min_context_packets": 1,
+            "retrieval_queries": [],
+            "source_inspection_limit": 0,
+        }
+        run.metadata["ingest_loop"] = {"kind": "ingest_loop", "export_format": "json"}
+        service.store.save_workflow(run)
+
+        status = build_workspace_status(service=service, gateway=_Gateway())
+        action = next(item for item in status["next_actions"] if item["action"] == "resume_blocked_ask")
+
+        self.assertEqual(action["tool"], "pska_ingest_loop_resume")
+        self.assertEqual(action["api"], f"POST /api/workflows/{run.run_id}/resume-ingest-loop")
+        self.assertEqual(action["label"], "Resume blocked upload loop")
+        self.assertEqual(action["params"]["run_id"], run.run_id)
+
     def test_uploaded_workspace_normalizes_parse_next_action(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_UploadedGateway())
 

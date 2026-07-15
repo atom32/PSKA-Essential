@@ -519,7 +519,7 @@ async function openWorkspaceAction(action) {
     return;
   }
   if (action.action === "resume_blocked_ask" && params.run_id) {
-    await resumeAskRun(params.run_id);
+    await resumeBlockedRun(params.run_id);
     return;
   }
   if (action.action === "apply_accepted_memory" && params.review_id) {
@@ -1641,6 +1641,7 @@ function askResultActions(result) {
     }
     if (result.status === "not_ready") {
       const fresh = resumableAskFor(result.run.run_id);
+      const runForResume = (fresh && fresh.run) || result.run;
       const askRequest = (fresh && fresh.ask_request) || (result.run.metadata && result.run.metadata.ask_request) || {};
       const readiness = (fresh && fresh.readiness) || result.readiness || {};
       const canResume = fresh ? Boolean(fresh.can_resume) : Boolean(result.readiness && result.readiness.ready);
@@ -1673,10 +1674,10 @@ function askResultActions(result) {
           "button",
           {
             className: "primary-button",
-            onclick: () => resumeAskRun(result.run.run_id),
+            onclick: () => resumeBlockedRun(result.run.run_id),
             ...(canResume ? {} : { disabled: true }),
           },
-          "Resume Ask",
+          hasIngestLoopResume(runForResume) ? "Resume Loop" : "Resume Ask",
         ),
       );
     }
@@ -2223,10 +2224,10 @@ function workflowCard(workflow) {
               "button",
               {
                 className: "primary-button",
-                onclick: () => resumeAskRun(workflow.run_id),
+                onclick: () => resumeBlockedRun(workflow.run_id),
                 ...(canResume ? {} : { disabled: true }),
               },
-              "Resume Ask",
+              hasIngestLoopResume((resumable && resumable.run) || workflow) ? "Resume Loop" : "Resume Ask",
             )
           : null,
         el("button", { className: "secondary-button", onclick: () => openWorkflowRun(workflow.run_id) }, "Open"),
@@ -2267,10 +2268,10 @@ function resumableAskCard(record) {
         "button",
         {
           className: "primary-button",
-          onclick: () => resumeAskRun(run.run_id),
+          onclick: () => resumeBlockedRun(run.run_id),
           ...(record.can_resume ? {} : { disabled: true }),
         },
-        "Resume Ask",
+        hasIngestLoopResume(run) ? "Resume Loop" : "Resume Ask",
       ),
       el("button", { className: "secondary-button", onclick: () => openWorkflowRun(run.run_id) }, "Open"),
     ]),
@@ -2279,6 +2280,15 @@ function resumableAskCard(record) {
 
 function resumableAskFor(runId) {
   return state.resumableAsks.find((record) => record.run && record.run.run_id === runId) || null;
+}
+
+function ingestLoopResumeMetadata(run) {
+  const metadata = run && run.metadata && run.metadata.ingest_loop;
+  return metadata && typeof metadata === "object" ? metadata : null;
+}
+
+function hasIngestLoopResume(run) {
+  return Boolean(ingestLoopResumeMetadata(run));
 }
 
 function diagnosticCard(check) {
@@ -2507,6 +2517,53 @@ async function openWorkflowRun(runId) {
   document.querySelector('.nav-item[data-view="writing"]').click();
 }
 
+async function resumeBlockedRun(runId) {
+  const record = resumableAskFor(runId);
+  const run =
+    (record && record.run) ||
+    (state.currentAskResult && state.currentAskResult.run && state.currentAskResult.run.run_id === runId
+      ? state.currentAskResult.run
+      : null) ||
+    state.workflows.find((workflow) => workflow.run_id === runId) ||
+    {};
+  const metadata = ingestLoopResumeMetadata(run);
+  if (metadata) {
+    await resumeIngestLoopRun(runId, metadata.export_format || "");
+    return;
+  }
+  await resumeAskRun(runId);
+}
+
+async function resumeIngestLoopRun(runId, exportFormat = "") {
+  stopBlockedAskTracking(runId);
+  const payload = await api(`/api/workflows/${encodeURIComponent(runId)}/resume-ingest-loop`, {
+    method: "POST",
+    body: { export_format: exportFormat || "" },
+  });
+  const result = payload.ingest_loop || {};
+  await loadWorkflows();
+  if (result.review) {
+    syncReviewRecord(result.review);
+    await loadReviews();
+    await loadPendingReviews();
+  }
+  if (result.review && result.memory_apply) {
+    syncMemoryApply(result.review.review_id, result.memory_apply);
+  }
+  await loadResumableAsks();
+  await loadWorkspaceStatus();
+  await loadAuditEvents(auditActionForIngestLoop(result));
+  if (result.status === "ok" && result.run_id) {
+    openLoopWorkProduct(result);
+    showToast("Ingest loop resumed and exported.");
+    return;
+  }
+  await applyAskResult(result, {
+    toast: result.status === "ready" ? "Ingest loop resumed." : "Knowledge scope is still not ready.",
+  });
+  document.querySelector('.nav-item[data-view="ask"]').click();
+}
+
 async function resumeAskRun(runId) {
   stopBlockedAskTracking(runId);
   const result = await api(`/api/workflows/${encodeURIComponent(runId)}/resume-ask`, { method: "POST", body: {} });
@@ -2546,8 +2603,8 @@ function startBlockedAskTracking(runId) {
       const record = await refreshBlockedAskReadiness(runId);
       if (record && record.can_resume) {
         stopBlockedAskTracking(runId);
-        showToast("Knowledge scope is ready; resuming Ask.");
-        await resumeAskRun(runId);
+        showToast("Knowledge scope is ready; resuming workflow.");
+        await resumeBlockedRun(runId);
       } else if (state.blockedAskPoll && state.blockedAskPoll.attempts >= state.blockedAskPoll.maxAttempts) {
         stopBlockedAskTracking(runId);
         showToast("Readiness tracking paused.");

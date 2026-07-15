@@ -23,7 +23,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.governance import build_workspace_policy_from_env
-from pska_essential.ingest_loop import run_ingest_loop
+from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -287,6 +287,14 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             export_format=export_format,
         )
 
+    def pska_ingest_loop_resume(run_id: str, export_format: str = ""):
+        return resume_ingest_loop(
+            service,
+            build_kb_gateway_from_env(),
+            run_id=run_id,
+            export_format=export_format,
+        )
+
     def pska_eval_run(suite: str = "smoke"):
         return service.eval_run(suite)
 
@@ -523,6 +531,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_component_check": pska_component_check,
         "pska_live_closed_loop_probe": pska_live_closed_loop_probe,
         "pska_ingest_loop": pska_ingest_loop,
+        "pska_ingest_loop_resume": pska_ingest_loop_resume,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,
         "pska_kb_create": pska_kb_create,

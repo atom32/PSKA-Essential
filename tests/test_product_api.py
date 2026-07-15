@@ -1053,12 +1053,17 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('auditActionForAskResult', script)
         self.assertIn('result.status === "not_ready"', script)
         self.assertIn('resumeAskRun', script)
+        self.assertIn('resumeBlockedRun', script)
+        self.assertIn('resumeIngestLoopRun', script)
+        self.assertIn('/resume-ingest-loop', script)
+        self.assertIn('hasIngestLoopResume', script)
+        self.assertIn('Resume Loop', script)
         self.assertIn('refreshBlockedAskReadiness', script)
         self.assertIn('Check Readiness', script)
         self.assertIn('startBlockedAskTracking', script)
         self.assertIn('stopBlockedAskTracking', script)
         self.assertIn('Track & Resume', script)
-        self.assertIn('Knowledge scope is ready; resuming Ask.', script)
+        self.assertIn('Knowledge scope is ready; resuming workflow.', script)
         self.assertIn('Knowledge scope is ready to resume.', script)
         self.assertIn('Knowledge base is ready. Ask scope updated.', script)
         self.assertIn('/resume-ask', script)
@@ -1504,6 +1509,7 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.assertEqual(result["run"]["status"], "blocked")
         self.assertEqual(result["run"]["metadata"]["blocked_reason"], "kb_not_ready")
         self.assertEqual(result["run"]["metadata"]["ask_request"]["question"], question)
+        self.assertEqual(result["run"]["metadata"]["ingest_loop"]["export_format"], "markdown")
         self.assertEqual(result["loop"]["status"], "not_ready")
         self.assertIsNone(result["proposal"])
         self.assertIsNone(result["review"])
@@ -1518,6 +1524,26 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
         self.assertIn("agentic_loop.not_ready", actions)
         self.assertIn("kb.readiness.blocked", actions)
         self.assertNotIn("workflow.export", actions)
+
+        dataset_id = result["dataset"]["dataset_id"]
+        document_ids = [document["document_id"] for document in result["documents"]]
+        parsed = self._post_json(f"/api/kb/datasets/{dataset_id}/parse", {"document_ids": document_ids})
+        self.assertEqual(parsed["ingestion_status"]["status"], "ready")
+
+        resumed_payload = self._post_json(f"/api/workflows/{result['run_id']}/resume-ingest-loop", {})
+        resumed = resumed_payload["ingest_loop"]
+
+        self.assertEqual(resumed["kind"], "ingest_loop_resume")
+        self.assertEqual(resumed["status"], "ok")
+        self.assertEqual(resumed["ask_status"], "ready")
+        self.assertEqual(resumed["export_format"], "markdown")
+        self.assertEqual(resumed["ingest"]["resumed_from_run_id"], result["run_id"])
+        self.assertIn("This uploaded source is intentionally left unparsed", resumed["brief"])
+        self.assertIsInstance(resumed["export"], str)
+        resumed_audit = self._get_json("/api/audit?limit=30")
+        resumed_actions = [event["action"] for event in resumed_audit["events"]]
+        self.assertIn("agentic_loop.resume", resumed_actions)
+        self.assertIn("workflow.export", resumed_actions)
 
     def test_product_api_fake_pdf_upload_reports_ingestion_failure_before_ask(self):
         dataset_name = f"Unsupported Fake PDF {uuid4().hex}"

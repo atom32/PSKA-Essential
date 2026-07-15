@@ -15,6 +15,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_runtime_diagnostics", text)
         self.assertIn("pska_component_check", text)
         self.assertIn("pska_ingest_loop", text)
+        self.assertIn("pska_ingest_loop_resume", text)
         self.assertIn("pska_capabilities_get", text)
         self.assertIn("workspace.memory_namespace", text)
         self.assertIn("provider-native", text)
@@ -34,6 +35,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_audit_list",
             "pska_component_check",
             "pska_ingest_loop",
+            "pska_ingest_loop_resume",
             "pska_memory_probe",
             "pska_live_closed_loop_probe",
         ]:

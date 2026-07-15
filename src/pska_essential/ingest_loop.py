@@ -6,7 +6,11 @@ import os
 import time
 from typing import Any
 
-from pska_essential.agentic_loop import record_not_ready_agentic_question, run_agentic_question_with_readiness
+from pska_essential.agentic_loop import (
+    record_not_ready_agentic_question,
+    resume_agentic_question,
+    run_agentic_question_with_readiness,
+)
 from pska_essential.audit import audit_event
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
@@ -91,6 +95,12 @@ def run_ingest_loop(
                 retrieval_queries=retrieval_queries or [],
                 source_inspection_limit=source_inspection_limit,
             )
+            _attach_ingest_loop_resume_metadata(
+                service,
+                ask_result,
+                ingest=ingest,
+                export_format=export_format,
+            )
             service.store.add_audit_event(
                 audit_event(
                     "kb.readiness.blocked",
@@ -151,6 +161,60 @@ def run_ingest_loop(
         ask_result=ask_result,
         export=export,
         export_format=export_format,
+    )
+
+
+def resume_ingest_loop(
+    service: Any,
+    gateway: Any,
+    *,
+    run_id: str,
+    export_format: str = "",
+) -> dict[str, Any]:
+    previous_run = service.state(run_id)
+    metadata = previous_run.metadata.get("ingest_loop")
+    if not isinstance(metadata, dict):
+        raise ValueError("workflow does not contain a resumable ingest_loop request")
+    selected_format = (
+        export_format or str(metadata.get("export_format") or "") or "markdown"
+    ).strip().lower()
+    ask_result = resume_agentic_question(service, gateway, run_id=run_id)
+    readiness = ask_result.get("readiness") or {}
+    ingest = {
+        "backend": "pska",
+        "dataset": metadata.get("dataset") or {},
+        "documents": metadata.get("documents") or [],
+        "resumed_from_run_id": run_id,
+    }
+    if ask_result.get("status") != "ready":
+        _attach_ingest_loop_resume_metadata(
+            service,
+            ask_result,
+            ingest=ingest,
+            export_format=selected_format,
+        )
+        return _loop_result(
+            kind="ingest_loop_resume",
+            status=str(ask_result.get("status") or "not_ready"),
+            message=str(ask_result.get("message") or "Ingest loop resume did not produce an exportable work product."),
+            ingest=ingest,
+            readiness=readiness,
+            ask_result=ask_result,
+            export=None,
+            export_format=selected_format,
+        )
+
+    resumed_run_id = str((ask_result.get("run") or {}).get("run_id") or "")
+    export = service.export_brief(resumed_run_id, selected_format)
+    return _loop_result(
+        kind="ingest_loop_resume",
+        status="ok",
+        message="Resumed upload loop reached a sourced Ask/export work product.",
+        ingest=ingest,
+        readiness=readiness,
+        ask_result=ask_result,
+        export=export,
+        export_format=selected_format,
     )
 
 
@@ -246,8 +310,31 @@ def _should_record_resumable_ask(readiness: dict[str, Any]) -> bool:
     return bool(readiness.get("dataset_ids"))
 
 
+def _attach_ingest_loop_resume_metadata(
+    service: Any,
+    ask_result: dict[str, Any],
+    *,
+    ingest: dict[str, Any],
+    export_format: str,
+) -> None:
+    run_id = str((ask_result.get("run") or {}).get("run_id") or "")
+    if not run_id:
+        return
+    run = service.state(run_id)
+    run.metadata["ingest_loop"] = {
+        "kind": "ingest_loop",
+        "export_format": export_format,
+        "dataset": ingest.get("dataset") or {},
+        "documents": ingest.get("documents") or [],
+    }
+    service.store.save_workflow(run)
+    ask_result["run"] = to_jsonable(run)
+    ask_result["artifact"] = service.workflow_artifact(run_id)
+
+
 def _loop_result(
     *,
+    kind: str = "ingest_loop",
     status: str,
     message: str,
     ingest: dict[str, Any],
@@ -258,7 +345,7 @@ def _loop_result(
 ) -> dict[str, Any]:
     run = (ask_result or {}).get("run") or {}
     return {
-        "kind": "ingest_loop",
+        "kind": kind,
         "status": status,
         "message": message,
         "dataset": ingest.get("dataset") or {},

@@ -138,7 +138,7 @@ Implemented:
   readiness checks so users or Hermes can see which saved Ask requests are ready
   to resume.
 - The frontend Ask result can refresh a readiness-blocked workflow in place and
-  enable Resume Ask once the selected KB scope becomes ready.
+  enable Resume Ask or Resume Loop once the selected KB scope becomes ready.
 - The frontend Ask result also supports user-started `Track & Resume`, polling
   readiness and automatically resuming the stored Ask when the scope becomes
   ready.
@@ -238,8 +238,8 @@ Implemented:
 - Ask exposes a selected-scope readiness check using the same Product API
   readiness gate that protects retrieval, with explicit Run Ask, Parse Scope,
   Track Status, and Open Status actions for the checked scope. Blocked Ask
-  result actions reuse the same scope bridge while Resume Ask preserves the
-  original request.
+  result actions reuse the same scope bridge while Resume Ask or Resume Loop
+  preserves the original request.
 - Product API, MCP, and frontend Settings expose an explicit retrieval probe
   for selected ready scopes; it writes `retrieval.probe` audit records and
   reports provider/model errors without falling back.
@@ -268,8 +268,10 @@ Implemented:
   configured PSKA adapters: ingest local files, poll KB readiness, run the
   PSKA-controlled agentic Ask loop, and export a sourced transient work
   product. Processing ingestion records a resumable blocked Ask before stopping
-  short of retrieval/export; failed or cancelled ingestion stops without
-  creating a resumable Ask.
+  short of retrieval/export; `POST /api/workflows/{run_id}/resume-ingest-loop`
+  and MCP `pska_ingest_loop_resume` resume that same upload -> Ask -> export
+  intent after readiness is achieved. Failed or cancelled ingestion stops
+  without creating a resumable Ask.
 - Frontend Knowledge Bases upload can call the same Product API ingest loop, so
   users can go from selected files to sourced Writing output without the
   frontend calling RAGFlow, Graphiti, embedding services, or fake providers
@@ -277,8 +279,9 @@ Implemented:
   minimum context, additional retrieval queries, source inspection, proposal
   kind, optional review, and graph-aware retrieval.
 - Frontend Run Loop opens the blocked Ask result with Track & Resume actions
-  when uploaded documents are still processing, while failed/cancelled ingestion
-  remains a KB status/cleanup path.
+  when uploaded documents are still processing, and resumes ingest-loop runs as
+  Resume Loop so the eventual Ask/export path remains intact. Failed/cancelled
+  ingestion remains a KB status/cleanup path.
 - The file-first ingest loop returns proposal, review, review-decision,
   memory-apply, memory context, loop, and export payloads as a single PSKA
   contract. Frontend Run Loop syncs Review and Activity from that contract, so
@@ -422,7 +425,8 @@ Expected result:
 - Governance/adapter tests cover durable memory backend scoping through the
   PSKA `memory_namespace`, including fake memory search and Graphiti group ID
   mapping.
-- `make list-tools`: lists 43 PSKA MCP tools, including `pska_ingest_loop`.
+- `make list-tools`: lists 44 PSKA MCP tools, including `pska_ingest_loop`
+  and `pska_ingest_loop_resume`.
 - `make smoke`: fake adapter workflow succeeds.
 
 Key env example:
@@ -448,6 +452,7 @@ New operational loop tools:
 ```text
 pska_kb_ingest_files
 pska_ingest_loop
+pska_ingest_loop_resume
 pska_kb_delete
 pska_kb_document_status
 pska_kb_readiness
@@ -480,10 +485,11 @@ pska_audit_list
 ```
 
 This loop lets Hermes upload local documents into a RAGFlow-backed dataset,
-wait for parsing/readiness, run a KB-scoped PSKA workflow, propose reviewed
-memory or writing artifacts, inspect the transient artifact/brief without
-export side effects, and explicitly export a brief. PSKA-Essential still does
-not own the KB/index; RAGFlow remains the KB backend.
+wait for parsing/readiness, resume the same upload loop after asynchronous
+embedding finishes, run a KB-scoped PSKA workflow, propose reviewed memory or
+writing artifacts, inspect the transient artifact/brief without export side
+effects, and explicitly export a brief. PSKA-Essential still does not own the
+KB/index; RAGFlow remains the KB backend.
 
 `fake` adapters are now explicit development/test adapters only. Product runtime
 must set providers intentionally. Use `PSKA_DEV_FAKE=1` only for local tests or

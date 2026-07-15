@@ -27,6 +27,7 @@ EXPECTED_TOOLS = {
     "pska_capabilities_get",
     "pska_component_check",
     "pska_ingest_loop",
+    "pska_ingest_loop_resume",
     "pska_propose",
     "pska_runtime_diagnostics",
     "pska_review_create",
@@ -157,6 +158,45 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("kb.ingest", actions)
         self.assertNotIn("agentic_loop.complete", actions)
         self.assertNotIn("workflow.export", actions)
+
+    def test_ingest_loop_resume_tool_exports_after_processing_completes(self):
+        env = {
+            "PSKA_DEV_FAKE": "1",
+            "PSKA_RETRIEVAL_PROVIDER": "fake",
+            "PSKA_KB_PROVIDER": "fake",
+            "PSKA_MEMORY_PROVIDER": "fake",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", env, clear=True):
+            reset_fake_kb_gateway()
+            path = Path(temp_dir) / "slow-loop.txt"
+            path.write_text("Resumable MCP ingest loops should export after parsing completes.", encoding="utf-8")
+            service = build_service_from_env()
+            tools = tool_registry(service)
+
+            blocked = tools["pska_ingest_loop"](
+                [str(path)],
+                dataset_name="MCP Slow Loop",
+                question="What should the resumable MCP loop do?",
+                parse=False,
+                wait_ready=False,
+                export_format="json",
+                poll_interval_seconds=0.05,
+            )
+            document_ids = [document["document_id"] for document in blocked["documents"]]
+            tools["pska_kb_parse_documents"](blocked["dataset"]["dataset_id"], document_ids, wait=True)
+            resumed = tools["pska_ingest_loop_resume"](blocked["run_id"])
+
+        self.assertEqual(blocked["status"], "not_ready")
+        self.assertEqual(blocked["run"]["metadata"]["ingest_loop"]["export_format"], "json")
+        self.assertEqual(resumed["kind"], "ingest_loop_resume")
+        self.assertEqual(resumed["status"], "ok")
+        self.assertEqual(resumed["ask_status"], "ready")
+        self.assertEqual(resumed["export_format"], "json")
+        self.assertEqual(resumed["export"]["traceability"]["source_count"], 1)
+        actions = {event.action for event in service.store.list_audit_events(limit=80)}
+        self.assertIn("agentic_loop.resume", actions)
+        self.assertIn("workflow.export", actions)
 
     def test_mcp_tools_reject_blank_required_scope_lists_before_backend_calls(self):
         tools = tool_registry(build_fake_service())

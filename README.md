@@ -217,6 +217,7 @@ Operational loop tools:
 - `pska_kb_delete`
 - `pska_kb_ingest_files`
 - `pska_ingest_loop`
+- `pska_ingest_loop_resume`
 - `pska_kb_document_status`
 - `pska_kb_readiness`
 - `pska_kb_ingestion_status`
@@ -257,7 +258,9 @@ files through the configured KB adapter, waits for PSKA readiness, runs the
 agentic Ask loop, and exports a sourced transient work product. If ingestion is
 still processing, it records a resumable blocked Ask before stopping short of
 retrieval/export; failed or cancelled ingestion stops without creating a
-resumable Ask.
+resumable Ask. `pska_ingest_loop_resume` resumes those blocked upload loops
+after parsing, embedding, and indexing finish, preserving the original Ask and
+export intent.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
@@ -474,8 +477,8 @@ Ask can check selected scope readiness before running the agentic loop,
 using the same Product API readiness gate that protects retrieval, and then
 offers readiness actions such as Run Ask, Parse Scope, Track Status, and Open
 Status without leaving the selected scope. Blocked Ask results reuse those
-readiness actions while keeping Resume Ask as the path that preserves the
-original workflow request. It can also open optional document
+readiness actions while keeping Resume Ask or Resume Loop as the path that
+preserves the original workflow request. It can also open optional document
 structure graph data through Product API when the KB backend exposes it. Writing
 opens workflow state, work product, source manifest, and context without
 creating an export, then exports traceable Markdown or JSON work products

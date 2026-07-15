@@ -33,7 +33,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.governance import build_workspace_policy_from_env
-from pska_essential.ingest_loop import run_ingest_loop
+from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -460,6 +460,18 @@ def _handler_class(state: ProductApiState):
                     run_id=workflow_resume,
                 )
                 self._send_json({"ok": True, **result})
+                return
+
+            workflow_ingest_resume = _match(path, "/api/workflows/", "/resume-ingest-loop")
+            if method == "POST" and workflow_ingest_resume:
+                payload = self._read_json()
+                result = resume_ingest_loop(
+                    state.service,
+                    state.kb_gateway_factory(),
+                    run_id=workflow_ingest_resume,
+                    export_format=str(payload.get("export_format") or ""),
+                )
+                self._send_json({"ok": True, "ingest_loop": result})
                 return
 
             workflow_memory_review = _match(path, "/api/workflows/", "/memory-review")

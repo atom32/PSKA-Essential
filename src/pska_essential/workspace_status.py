@@ -192,15 +192,21 @@ def _next_actions(
 
     ready_resumable = [item for item in resumable if item.get("can_resume")]
     if ready_resumable:
+        resumable_run = ready_resumable[0]["run"]
+        run_id = resumable_run["run_id"]
+        is_ingest_loop = isinstance((resumable_run.get("metadata") or {}).get("ingest_loop"), dict)
+        resume_path = "resume-ingest-loop" if is_ingest_loop else "resume-ask"
+        resume_api = f"POST /api/workflows/{run_id}/{resume_path}"
+        resume_tool = "pska_ingest_loop_resume" if is_ingest_loop else "pska_agentic_question_resume"
         actions.append(
             _action(
                 "resume_blocked_ask",
-                "Resume blocked Ask",
+                "Resume blocked upload loop" if is_ingest_loop else "Resume blocked Ask",
                 f"{len(ready_resumable)} blocked Ask workflow(s) can resume.",
-                api=f"POST /api/workflows/{ready_resumable[0]['run']['run_id']}/resume-ask",
-                tool="pska_agentic_question_resume",
+                api=resume_api,
+                tool=resume_tool,
                 view="ask",
-                params={"run_id": ready_resumable[0]["run"]["run_id"]},
+                params={"run_id": run_id},
             )
         )
     elif resumable:

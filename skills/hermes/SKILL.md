@@ -35,6 +35,9 @@ candidate memory, review, and durable export.
   loop in one PSKA-controlled tool call. Treat `status=not_ready` as a stop:
   inspect readiness or ingestion status instead of answering from missing
   context.
+- Use `pska_ingest_loop_resume` for a readiness-blocked run that came from
+  `pska_ingest_loop`, so the upload -> Ask -> export intent is preserved after
+  parsing, embedding, or indexing finishes.
 - Treat upload, parsing, embedding, and indexing as asynchronous. Check document
   readiness and `pska_kb_ingestion_status` before asking over a dataset.
 - Do not use case-specific shortcuts or hardcoded domains.
@@ -84,7 +87,7 @@ Common next actions:
 - `run_agentic_question`: ask for the question if needed, then call
   `pska_agentic_question_start` with the provided scope params.
 - `resume_blocked_ask`: call `pska_agentic_question_resume` with the provided
-  `run_id`.
+  `run_id`, unless the action tool is `pska_ingest_loop_resume`.
 - `review_pending_durable_knowledge`: open the provided review with
   `pska_review_get`.
 - `apply_accepted_memory`: call `pska_memory_apply` only if the review is
@@ -118,7 +121,9 @@ For a new document:
    user's question when the user wants the normal upload -> Ask -> export loop.
 2. If `pska_ingest_loop` returns `status=ok`, answer from its exported sourced
    work product and artifact. If it returns `status=not_ready`, report the
-   readiness or ingestion failure and stop before answering.
+   readiness or ingestion failure and stop before answering; after the selected
+   scope becomes ready, call `pska_ingest_loop_resume` with the blocked
+   `run_id`.
 3. Use the lower-level path when the user wants step-by-step control or the
    ingestion job needs long polling: call `pska_kb_ingest_files` with absolute
    file paths, a dataset name, and

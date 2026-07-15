@@ -320,6 +320,7 @@ RAGFlow upload/parse operations use the same API key through PSKA MCP tools:
 ```text
 pska_kb_delete if a bad development dataset should be removed
   -> pska_ingest_loop for the one-call file-to-work-product path
+  -> pska_ingest_loop_resume if that loop stopped on processing ingestion
   -> or pska_kb_ingest_files -> pska_kb_document_status -> pska_kb_ingestion_status
   -> pska_kb_readiness
   -> pska_agentic_question_start
@@ -339,7 +340,10 @@ must check readiness before assuming retrieval will work. Readiness-blocked
 Ask calls are persisted as blocked workflows with audit records rather than
 discarded one-off errors. Use `pska_agentic_question_resume` or
 `POST /api/workflows/{run_id}/resume-ask` to retry the stored Ask request after
-the selected scope becomes ready. Use `pska_agentic_question_resumable` or
+the selected scope becomes ready. For a blocked `pska_ingest_loop` run, use
+`pska_ingest_loop_resume` or
+`POST /api/workflows/{run_id}/resume-ingest-loop` so the original upload -> Ask
+-> export intent is preserved. Use `pska_agentic_question_resumable` or
 `GET /api/workflows/resumable-asks` to list readiness-blocked Ask runs with a
 fresh readiness check. The frontend Ask result can refresh a blocked run's
 readiness in place and enable resume when the stored scope becomes ready; the
@@ -361,8 +365,8 @@ gate before the agentic loop starts; submitting Ask still performs the backend
 readiness gate and returns a resumable blocked workflow when needed. The Ask
 readiness preview renders explicit actions for the checked scope, including Run
 Ask, Parse Scope, Track Status, and Open Status. Blocked Ask results reuse the
-same scope actions and keep Resume Ask as the preserved-request path once the
-scope becomes ready.
+same scope actions and keep Resume Ask or Resume Loop as the preserved-request
+path once the scope becomes ready.
 Use `pska_capabilities_get` or `GET /api/capabilities` for the stable product
 operation capability contract. Use `pska_runtime_diagnostics` or
 `GET /api/runtime/diagnostics` for read-only provider and adapter contract
@@ -424,7 +428,10 @@ transient work product. It writes normal `kb.ingest`, `agentic_loop.complete`,
 and `workflow.export` audit records when the scope is ready. If parsing, OCR,
 embedding, or indexing is still processing, the loop records a resumable blocked
 Ask and returns `status=not_ready` without retrieval/export. Failed or cancelled
-ingestion returns `status=not_ready` without creating a resumable Ask.
+ingestion returns `status=not_ready` without creating a resumable Ask. Resume a
+processing-blocked upload loop with `pska_ingest_loop_resume` or
+`POST /api/workflows/{run_id}/resume-ingest-loop` after readiness reports the
+selected scope is ready.
 
 When RAGFlow reports an embedding model binding failure such as a missing
 provider for the selected dataset embedding model, PSKA normalizes the KB
