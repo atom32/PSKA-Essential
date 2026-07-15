@@ -114,6 +114,20 @@ When creating a new RAGFlow-backed dataset through PSKA, `pska_kb_create`,
 Leave it empty to use the RAGFlow tenant default, or set it to an embedding
 model/provider that RAGFlow already has configured.
 
+Run the file-to-work-product loop when you want PSKA to create/populate the KB
+scope first, wait for readiness, ask, and export a sourced transient artifact:
+
+```bash
+export PSKA_LOOP_DATASET_NAME="annual-report-test"
+export PSKA_LOOP_FILE_PATHS="/path/to/document.pdf"
+export PSKA_LOOP_QUESTION="Summarize the uploaded documents with sources."
+make live-ingest-loop
+```
+
+This path still uses the configured KB/retrieval/memory adapters and the same
+readiness gate. If ingestion or embedding is not ready, it stops before Ask
+instead of producing an unsourced answer.
+
 Graphiti memory:
 
 ```bash

@@ -17,6 +17,7 @@ dev = ["pytest>=8.0.0"]
 pska-essential-mcp = "pska_essential.mcp_server:main"
 pska-essential-api = "pska_essential.product_api:main"
 pska-essential-component-check = "pska_essential.component_check:main"
+pska-essential-ingest-loop = "pska_essential.ingest_loop:main"
 
 [build-system]
 requires = ["hatchling"]
