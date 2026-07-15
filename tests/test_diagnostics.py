@@ -9,6 +9,7 @@ from pska_essential.diagnostics import (
     add_live_closed_loop_probe_audit,
     add_memory_probe_audit,
     add_retrieval_probe_audit,
+    build_runtime_diagnostics,
     run_live_closed_loop_probe,
     run_memory_probe,
     run_retrieval_probe,
@@ -94,6 +95,22 @@ class _LiveRetrieval:
 
 
 class DiagnosticsTests(unittest.TestCase):
+    def test_runtime_diagnostics_checks_memory_search_without_search_audit(self):
+        service = WorkflowService(_LiveRetrieval(), _BrokenMemory(), SQLiteReviewStore(":memory:"))
+
+        diagnostics = build_runtime_diagnostics(
+            service=service,
+            kb_gateway_factory=lambda: _ReadyGateway(),
+        )
+
+        checks = {item["name"]: item for item in diagnostics["checks"]}
+        self.assertEqual(diagnostics["status"], "error")
+        self.assertEqual(checks["memory_search_contract"]["status"], "error")
+        self.assertTrue(checks["memory_search_contract"]["metadata"]["semantic_checked"])
+        self.assertEqual(checks["memory_search_contract"]["metadata"]["provider"], "graphiti")
+        self.assertIn("LLM or embedding provider", checks["memory_search_contract"]["message"])
+        self.assertEqual(service.store.list_audit_events(action="memory.search"), [])
+
     def test_memory_probe_rejects_fake_as_live_proof(self):
         service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
 

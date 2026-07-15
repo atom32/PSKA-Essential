@@ -195,6 +195,9 @@ Implemented:
 - Frontend/Product API optional document structure graph read.
 - Product API runtime diagnostics and Settings diagnostics view for provider
   connectivity without frontend provider direct calls.
+- Runtime diagnostics include a read-only memory search contract check, so a
+  healthy Graphiti `/healthcheck` does not mask missing LLM/embedding provider
+  configuration.
 - Frontend Settings exposes retrieval, memory, and live closed-loop probes
   through Product API routes; probe audit records remain scoped to PSKA
   workspace/tenant context.
@@ -242,6 +245,9 @@ Implemented:
   verifies configured memory search through the PSKA adapter contract, rejects
   fake memory by default for live component verification, writes `memory.probe`
   audit records, and reports provider errors without fallback.
+- Product API runtime diagnostics verify the same memory search contract through
+  a read-only check without writing `memory.search` or `memory.probe` audit
+  records.
 - Product API and MCP expose a live closed-loop probe that rejects fake KB and
   fake retrieval providers, then runs readiness, retrieval, agentic Ask, source
   inspection, and explicit export for a transient work product against the
@@ -364,9 +370,10 @@ Expected result:
   review candidates.
 - Product API/MCP/frontend tests cover workspace policy visibility.
 - Product API/MCP tests cover explicit retrieval probes and their audit records.
-- Product API/MCP/frontend/diagnostics tests cover explicit memory probes and
-  their audit records, including fake-memory rejection for live verification
-  and actionable Graphiti provider errors.
+- Product API/MCP/frontend/diagnostics tests cover explicit memory probes,
+  read-only runtime memory search checks, and their audit boundaries, including
+  fake-memory rejection for live verification and actionable Graphiti provider
+  errors.
 - Product API/MCP/diagnostics tests cover live closed-loop probes, including
   explicit fake-provider rejection and non-fake sourced Ask/export success.
 - RAGFlow adapter tests cover actionable model-provider retrieval errors.
@@ -596,8 +603,9 @@ Important:
 - Add `OPENAI_API_KEY` to `.env.pska` before doing real Graphiti memory
   extraction/search.
 - Graphiti `/healthcheck` can pass while LLM or embedding provider
-  configuration is still missing. Use `pska_memory_probe` or
-  `POST /api/runtime/memory-probe` to prove memory search is actually wired.
+  configuration is still missing. Runtime diagnostics now perform a read-only
+  memory search contract check, and `pska_memory_probe` /
+  `POST /api/runtime/memory-probe` records an explicit audited probe.
 - PSKA-Essential should call Graphiti only through `GraphitiMemoryAdapter`.
 - Do not expose Graphiti MCP directly to Hermes.
 
@@ -813,8 +821,9 @@ make list-tools
 - RAGFlow ingestion can be slow because parsing, chunking, embedding, and
   indexing are long-running jobs. Check document status before asking.
 - Graphiti needs `OPENAI_API_KEY` in `.env.pska` before real memory extraction.
-  A healthy Graphiti container is not enough; run `pska_memory_probe` to verify
-  the configured memory adapter can search through its LLM/embedding provider.
+  A healthy Graphiti container is not enough; use runtime diagnostics or run
+  `pska_memory_probe` to verify the configured memory adapter can search
+  through its LLM/embedding provider.
 - Docker Desktop is currently configured around 8 GB RAM. This is enough for the
   current source-run setup, but heavy RAGFlow ingestion can still be slow.
 - The third-party image `0xgkd/ragflow-arm64:v0.20.3` is not ARM64 despite its

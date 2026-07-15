@@ -26,7 +26,7 @@ from pska_essential.contracts import (
 from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
-from pska_essential.runtime_context import build_runtime_workspace_context
+from pska_essential.runtime_context import build_runtime_memory_scope
 
 
 class WorkflowError(RuntimeError):
@@ -817,15 +817,7 @@ def build_fake_service(db_path: str = ":memory:") -> WorkflowService:
 
 
 def _memory_runtime_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]:
-    context = build_runtime_workspace_context()
-    payload = dict(scope or {})
-    payload.setdefault("workspace_id", context.workspace_id)
-    payload.setdefault("tenant_id", context.tenant_id)
-    payload.setdefault("workspace_configured", context.workspace_configured)
-    payload.setdefault("tenant_configured", context.tenant_configured)
-    if context.memory_namespace:
-        payload.setdefault("memory_namespace", context.memory_namespace)
-    return payload
+    return build_runtime_memory_scope(scope)
 
 
 def _attach_memory_runtime_metadata(metadata: dict[str, Any], proposal: Proposal) -> None:

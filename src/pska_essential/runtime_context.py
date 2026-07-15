@@ -42,6 +42,18 @@ def build_runtime_workspace_context() -> RuntimeWorkspaceContext:
     )
 
 
+def build_runtime_memory_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]:
+    context = build_runtime_workspace_context()
+    payload = dict(scope or {})
+    payload.setdefault("workspace_id", context.workspace_id)
+    payload.setdefault("tenant_id", context.tenant_id)
+    payload.setdefault("workspace_configured", context.workspace_configured)
+    payload.setdefault("tenant_configured", context.tenant_configured)
+    if context.memory_namespace:
+        payload.setdefault("memory_namespace", context.memory_namespace)
+    return payload
+
+
 def build_memory_namespace(
     *,
     workspace_id: str,

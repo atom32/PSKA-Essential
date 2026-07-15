@@ -183,13 +183,14 @@ Settings shows runtime provider configuration and Product API diagnostics for
 review store, KB gateway, retrieval, and memory connectivity. It also loads
 `/api/capabilities` as the explicit product capability contract; Review and
 Writing durable-memory controls stay disabled until the selected operation is
-reported as supported. Settings exposes retrieval, memory, and live closed-loop
-probes through Product API routes so component checks stay inside PSKA
-boundaries. Product API health, diagnostics, and audit records include the
-runtime workspace/tenant context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`,
-including the derived PSKA `memory_namespace` shown in Settings. Workflow,
-review, memory-apply, and audit reads are scoped by the same workspace/tenant
-context in the review store. Durable memory search and
+reported as supported. Runtime diagnostics include a read-only memory search
+contract check, while Settings exposes retrieval, memory, and live closed-loop
+probes through Product API routes for explicit user-triggered checks. Product
+API health, diagnostics, and audit records include the runtime workspace/tenant
+context from `PSKA_WORKSPACE_ID` and `PSKA_TENANT_ID`, including the derived
+PSKA `memory_namespace` shown in Settings. Workflow, review, memory-apply, and
+audit reads are scoped by the same workspace/tenant context in the review
+store. Durable memory search and
 reviewed writes receive the same context as a PSKA `memory_namespace`; fake,
 company-stub, and Graphiti adapters use it to keep backend memory scoped to the
 same workspace boundary.
@@ -251,10 +252,11 @@ The local Graphiti container needs `OPENAI_API_KEY` in
 `/Users/xudawei/PSKA-Components/graphiti/.env.pska` before real memory
 extraction/search should be used.
 The `/healthcheck` endpoint only proves the Graphiti service is running. Use
-`pska_memory_probe` or `POST /api/runtime/memory-probe` to prove that the
-configured Graphiti memory adapter can complete search through its LLM and
-embedding provider configuration. The probe rejects fake memory by default and
-surfaces provider errors explicitly.
+runtime diagnostics, `pska_memory_probe`, or `POST /api/runtime/memory-probe`
+to prove that the configured Graphiti memory adapter can complete search
+through its LLM and embedding provider configuration. The explicit probe
+rejects fake memory by default, writes `memory.probe` audit, and surfaces
+provider errors explicitly.
 
 This is the normal development setup. Do not make PSKA-Essential own those
 processes unless the test explicitly targets orchestration.
@@ -362,13 +364,15 @@ retrieval through the configured retrieval adapter, records a `retrieval.probe`
 audit event, and surfaces provider errors such as missing embedding model
 providers explicitly.
 
-Use `pska_memory_probe` or `POST /api/runtime/memory-probe` when Graphiti is
-reachable but memory search or governed memory workflows fail. The probe calls
-the configured memory adapter through PSKA, records a `memory.probe` audit
-event, and rejects fake memory by default so it cannot be mistaken for a live
-component proof. A Graphiti health check can pass while LLM or embedding
-provider configuration is still missing; the probe reports that condition as a
-provider error instead of using fallback data.
+Use runtime diagnostics for a read-only memory search contract check when
+Graphiti is reachable but memory search or governed memory workflows fail. Use
+`pska_memory_probe` or `POST /api/runtime/memory-probe` when that check should
+be recorded as an explicit operation. The probe calls the configured memory
+adapter through PSKA, records a `memory.probe` audit event, and rejects fake
+memory by default so it cannot be mistaken for a live component proof. A
+Graphiti health check can pass while LLM or embedding provider configuration
+is still missing; diagnostics and the probe report that condition as a provider
+error instead of using fallback data.
 
 Use `pska_live_closed_loop_probe`, `POST /api/runtime/closed-loop-probe`, or
 `make live-closed-loop` when the question is whether the real configured

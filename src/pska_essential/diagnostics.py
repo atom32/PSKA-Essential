@@ -12,7 +12,7 @@ from pska_essential.capabilities import memory_capabilities
 from pska_essential.contracts import to_jsonable
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.readiness import evaluate_kb_readiness
-from pska_essential.runtime_context import build_runtime_workspace_context
+from pska_essential.runtime_context import build_runtime_memory_scope, build_runtime_workspace_context
 
 
 KbGatewayFactory = Callable[[], Any]
@@ -25,6 +25,7 @@ def build_runtime_diagnostics(*, service: Any, kb_gateway_factory: KbGatewayFact
         _kb_gateway_check(kb_gateway_factory),
         _retrieval_check(service),
         _memory_check(service),
+        _memory_search_contract_check(service),
     ]
     return {
         "status": _overall_status(checks),
@@ -586,6 +587,36 @@ def _memory_check(service: Any) -> dict[str, Any]:
     if provider in {"company", "company_graphrag_stub"}:
         return _ok("memory_provider", "Company GraphRAG memory stub is configured.", provider=provider)
     return _warning("memory_provider", f"Memory provider is configured through an injected adapter: {provider}")
+
+
+def _memory_search_contract_check(service: Any) -> dict[str, Any]:
+    provider = _provider_name("PSKA_MEMORY_PROVIDER", getattr(service, "memory", None))
+    if provider == "fake":
+        check = _fake_check("memory_search_contract")
+        check["metadata"]["semantic_checked"] = False
+        return check
+    try:
+        facts = service.memory.search(
+            "PSKA diagnostics memory probe",
+            build_runtime_memory_scope({}),
+            1,
+        )
+    except Exception as exc:  # noqa: BLE001 - diagnostics must report semantic provider failures.
+        return _error(
+            "memory_search_contract",
+            _memory_probe_error_message(exc),
+            provider=provider,
+            semantic_checked=True,
+            error_type=exc.__class__.__name__,
+            error_message=str(exc),
+        )
+    return _ok(
+        "memory_search_contract",
+        "Memory provider search contract is available.",
+        provider=provider,
+        semantic_checked=True,
+        fact_sample_count=len(facts),
+    )
 
 
 def _http_json_or_text_check(name: str, url: str, *, provider: str, ok_message: str) -> dict[str, Any]:

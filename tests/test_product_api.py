@@ -704,6 +704,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(checks["kb_gateway"]["metadata"]["dataset_sample_count"], 1)
         self.assertEqual(checks["retrieval_provider"]["metadata"]["provider"], "fake")
         self.assertEqual(checks["memory_provider"]["metadata"]["provider"], "fake")
+        self.assertEqual(checks["memory_search_contract"]["metadata"]["provider"], "fake")
+        self.assertFalse(checks["memory_search_contract"]["metadata"]["semantic_checked"])
 
     def test_retrieval_probe_route_checks_ready_scope_and_writes_audit(self):
         probe = self._post_json(
