@@ -195,10 +195,15 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["status"], "empty")
         self.assertEqual(status["kb"]["dataset_count"], 0)
         self.assertIsNone(status["kb"]["readiness"])
-        self.assertEqual(status["next_actions"][0]["action"], "create_or_upload_knowledge_base")
-        self.assertEqual(status["next_actions"][0]["tool"], "pska_kb_ingest_files")
+        self.assertEqual(status["next_actions"][0]["action"], "run_file_to_work_product_loop")
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_ingest_loop")
+        self.assertEqual(status["next_actions"][0]["api"], "POST /api/ingest-loop")
         self.assertEqual(status["next_actions"][0]["view"], "kb")
-        self.assertEqual(status["next_actions"][0]["requires_input"], ["files", "dataset_name_or_id"])
+        self.assertEqual(status["next_actions"][0]["requires_input"], ["files", "dataset_name", "question"])
+        self.assertEqual(status["next_actions"][0]["params"]["wait_ready"], False)
+        self.assertEqual(status["next_actions"][1]["action"], "create_or_upload_knowledge_base")
+        self.assertEqual(status["next_actions"][1]["tool"], "pska_kb_ingest_files")
+        self.assertEqual(status["next_actions"][1]["requires_input"], ["files", "dataset_name_or_id"])
 
     def test_ready_workspace_suggests_agentic_question(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway())

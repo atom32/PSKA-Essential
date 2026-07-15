@@ -142,9 +142,21 @@ def _next_actions(
     elif not datasets:
         actions.append(
             _action(
+                "run_file_to_work_product_loop",
+                "Upload and ask",
+                "No knowledge base datasets are available; start by uploading source material through the PSKA loop.",
+                api="POST /api/ingest-loop",
+                tool="pska_ingest_loop",
+                view="kb",
+                params={"parse": True, "wait_ready": False, "proposal_kind": "writing_brief", "export_format": "markdown"},
+                requires_input=["files", "dataset_name", "question"],
+            )
+        )
+        actions.append(
+            _action(
                 "create_or_upload_knowledge_base",
                 "Create or upload knowledge",
-                "No knowledge base datasets are available.",
+                "Use this for manual KB setup when the full upload-to-work-product loop is not needed.",
                 api="POST /api/kb/ingest",
                 tool="pska_kb_ingest_files",
                 view="kb",
@@ -348,7 +360,7 @@ def _workspace_status(
         return "action_required"
     if {"wait_for_ingestion", "wait_for_resumable_ask"} & action_names:
         return "processing"
-    if {"create_or_upload_knowledge_base", "upload_documents"} & action_names:
+    if {"run_file_to_work_product_loop", "create_or_upload_knowledge_base", "upload_documents"} & action_names:
         return "empty"
     return "ok"
 

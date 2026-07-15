@@ -16,6 +16,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_component_check", text)
         self.assertIn("pska_ingest_loop", text)
         self.assertIn("pska_ingest_loop_resume", text)
+        self.assertIn("run_file_to_work_product_loop", text)
         self.assertIn("wait_for_resumable_ask", text)
         self.assertIn("wait_ready=false", text)
         self.assertIn("pska_capabilities_get", text)

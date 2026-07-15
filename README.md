@@ -414,7 +414,10 @@ Home loads `/api/workspace/status` to show product-level next actions, including
 ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
 and accepted durable memory awaiting apply. Each next action includes stable
 PSKA tool/API/view hints and safe parameters, so Hermes and the frontend can
-navigate the workflow without inspecting provider internals. Mutating frontend
+navigate the workflow without inspecting provider internals. In an empty
+workspace, the first action points to the full file-to-work-product loop
+(`pska_ingest_loop` / `POST /api/ingest-loop`) rather than a provider-native
+setup step. Mutating frontend
 actions refresh this status after completion so the Home guidance follows the
 current workflow state. Workspace status reports both aggregate KB readiness and
 per-dataset readiness, so a newly uploaded processing dataset does not hide

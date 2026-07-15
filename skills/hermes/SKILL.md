@@ -81,8 +81,12 @@ Default loop:
 
 Common next actions:
 
+- `run_file_to_work_product_loop`: ask for files, dataset name, and question,
+  then call `pska_ingest_loop` with the provided safe params. This is the
+  preferred fresh-workspace path.
 - `create_or_upload_knowledge_base`: ask for files or dataset details, then use
-  `pska_kb_ingest_files`.
+  `pska_kb_ingest_files` only when manual KB setup is needed without the full
+  upload-to-work-product loop.
 - `wait_for_ingestion`: use `pska_kb_ingestion_status` or wait before asking.
 - `run_agentic_question`: ask for the question if needed, then call
   `pska_agentic_question_start` with the provided scope params.

@@ -374,9 +374,11 @@ Implemented:
   provider state. It also exposes `pska_runtime_diagnostics` and
   `pska_capabilities_get`, and treats `workspace.memory_namespace` as PSKA
   runtime context instead of passing provider-native memory group IDs. Hermes
-  and OpenClaw skill docs now prefer `pska_ingest_loop` /
-  `pska_ingest_loop_resume` for file-first workflows, with lower-level KB tools
-  reserved for manual dataset control. The Hermes config example starts
+  now treats fresh empty workspaces as `run_file_to_work_product_loop`, using
+  `pska_ingest_loop` as the preferred upload -> Ask/export path. Hermes and
+  OpenClaw skill docs prefer `pska_ingest_loop` / `pska_ingest_loop_resume` for
+  file-first workflows, with lower-level KB tools reserved for manual dataset
+  control. The Hermes config example starts
   PSKA-Essential MCP with `--env-file .env.pska` and no longer embeds fake
   provider env directly.
 - Docs and runbook.
