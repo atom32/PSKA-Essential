@@ -1,0 +1,7 @@
+{
+  "id": "pska-mini",
+  "name": "PSKA Mini",
+  "description": "Thin Hermes-WebUI controls for PSKA turn context.",
+  "scripts": ["pska-mini.js"],
+  "stylesheets": ["pska-mini.css"]
+}

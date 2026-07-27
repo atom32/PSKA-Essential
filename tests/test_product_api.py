@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from pska_essential.config import build_service_from_env
+from pska_essential.contracts import MemoryFact, SourceRef
 from pska_essential.kb_gateway import KbGatewayError, build_kb_gateway_from_env, reset_fake_kb_gateway
 from pska_essential.product_api import build_server
 from pska_essential.workflow import build_fake_service
@@ -448,6 +449,55 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["api"], "POST /api/ask")
         self.assertEqual(status["next_actions"][0]["view"], "ask")
         self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["demo"])
+
+    def test_turn_context_route_assembles_evidence_and_memory_without_ask(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-pska-mini",
+                text="PSKA-mini keeps long-term memory behind governance.",
+                source_refs=[SourceRef(adapter="conversation", source_id="msg-1", title="Conversation")],
+                metadata={"confidence": 0.91},
+            )
+        )
+
+        payload = self._post_json(
+            "/api/turn-context",
+            {
+                "caller": "hermes-webui",
+                "workspace": "eidolia",
+                "project_id": "novel-x",
+                "user_message": "How should PSKA-mini provide memory and evidence?",
+                "mode": "project",
+                "scope": {"dataset_ids": ["demo"]},
+                "budget": {"max_evidence_blocks": 1, "max_memory_notes": 2},
+                "requirements": {"need_citations": True},
+            },
+        )
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["schema"], "pska.turn_context_response.v1")
+        self.assertTrue(payload["run_id"].startswith("run_"))
+        self.assertEqual(payload["mode"], "project")
+        self.assertEqual(payload["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(payload["scope"]["workspace"], "eidolia")
+        self.assertEqual(payload["scope"]["project_id"], "novel-x")
+        self.assertEqual(payload["requirements"]["need_citations"], True)
+        self.assertFalse(payload["requirements"]["allow_memory_write"])
+        self.assertNotIn("proposal", payload)
+        self.assertNotIn("review", payload)
+
+        turn_context = payload["turn_context"]
+        evidence_blocks = turn_context["evidence_blocks"]
+        memory_notes = turn_context["memory_notes"]
+        self.assertEqual(len(evidence_blocks), 1)
+        self.assertEqual(evidence_blocks[0]["type"], "evidence")
+        self.assertEqual(evidence_blocks[0]["source_ref"]["adapter"], "fake")
+        self.assertEqual(len(memory_notes), 1)
+        self.assertEqual(memory_notes[0]["type"], "memory")
+        self.assertEqual(memory_notes[0]["fact_id"], "mem-pska-mini")
+        self.assertGreaterEqual(len(turn_context["citations"]), 2)
+        self.assertEqual(turn_context["warnings"], [])
+        self.assertEqual(self._get_json("/api/reviews?status=pending")["reviews"], [])
 
     def test_workflow_open_does_not_export_until_explicit_export(self):
         asked = self._post_json(
