@@ -22,7 +22,7 @@
           <button class="nav-item" data-view="ask">提问</button>
           <button class="nav-item" data-view="reader">来源</button>
           <button class="nav-item" data-view="writing">写作</button>
-          <button class="nav-item" data-view="review">审核</button>
+          <button class="nav-item" data-view="review">异常审核</button>
           <button class="nav-item" data-view="activity">活动</button>
           <button class="nav-item" data-view="settings">设置</button>
         </nav>
@@ -47,7 +47,7 @@
               <strong id="metric-datasets">0</strong>
             </div>
             <div class="metric-card">
-              <span>待审核</span>
+              <span>待处理异常</span>
               <strong id="metric-reviews">0</strong>
             </div>
             <div class="metric-card">
@@ -66,8 +66,8 @@
               <div id="home-datasets" class="list empty-list">尚未加载知识库。</div>
             </div>
             <div>
-              <h2>审核队列</h2>
-              <div id="home-reviews" class="list empty-list">没有待审核项。</div>
+              <h2>异常审核</h2>
+              <div id="home-reviews" class="list empty-list">没有异常审核项。</div>
             </div>
             <div>
               <h2>可恢复提问</h2>
@@ -166,12 +166,11 @@
                   <select name="loop_proposal_kind">
                     <option value="writing_brief">writing_brief</option>
                     <option value="digest">digest</option>
-                    <option value="memory_patch">memory_patch</option>
                   </select>
                 </label>
                 <label class="check-row side-check">
                   <input name="loop_create_review" type="checkbox" />
-                  <span>强制审核</span>
+                  <span>进入异常审核</span>
                 </label>
                 <label class="check-row side-check">
                   <input name="loop_use_kg" type="checkbox" />
@@ -277,12 +276,11 @@
                 <select name="proposal_kind">
                   <option value="writing_brief">writing_brief</option>
                   <option value="digest">digest</option>
-                  <option value="memory_patch">memory_patch</option>
                 </select>
               </label>
               <label class="check-row side-check">
                 <input name="create_review" type="checkbox" />
-                <span>强制审核</span>
+                <span>进入异常审核</span>
               </label>
               <label class="check-row side-check">
                 <input name="use_kg" type="checkbox" />
@@ -298,7 +296,7 @@
         <section id="review" class="view">
           <div class="panel">
             <div class="panel-header">
-              <h2>审核队列</h2>
+              <h2>异常审核</h2>
               <div class="status-strip">
                 <label class="inline-control">
                   <span>状态</span>
@@ -313,7 +311,7 @@
                 <button id="reload-reviews" class="secondary-button" type="button">重新加载</button>
               </div>
             </div>
-            <div id="reviews-list" class="list empty-list">尚未加载审核项。</div>
+            <div id="reviews-list" class="list empty-list">尚未加载异常审核项。</div>
           </div>
         </section>
 
@@ -324,7 +322,7 @@
                 <h2>写作工作区</h2>
                 <div class="status-strip">
                   <button id="reload-workflows" class="secondary-button" type="button">重新加载运行</button>
-                  <button id="create-memory-review" class="primary-button" type="button">记忆审核</button>
+                  <button id="create-memory-review" class="primary-button" type="button">创建异常审核</button>
                   <button id="export-markdown" class="secondary-button" type="button">Markdown</button>
                   <button id="export-json" class="secondary-button" type="button">JSON</button>
                 </div>

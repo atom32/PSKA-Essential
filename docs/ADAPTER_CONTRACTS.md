@@ -5,6 +5,18 @@ Adapters are the only place where external backend shapes are allowed.
 Adapters must fail explicitly. They must not silently switch providers, return
 fake data, answer from model memory, or hide backend failures.
 
+## Metadata-First Bridge Rule
+
+The detailed design is in
+[Metadata-First Bridge Design](METADATA_FIRST_BRIDGE_DESIGN.md).
+
+PSKA owns public contracts and workflow control records, not provider data.
+Durable documents, chunks, embeddings, episodes, facts, entities, and graph
+edges must live in their owning provider. Cross-component lineage must travel
+with the provider object that was created, using PSKA provenance metadata.
+Derived PSKA caches or diagnostic indexes are allowed only as rebuildable,
+non-authoritative optimizations.
+
 ## RetrievalPort
 
 ```python
@@ -17,6 +29,9 @@ Rules:
 - Return PSKA `ContextPacket`, never backend-native chunk objects.
 - Every `ContextPacket` must have a `SourceRef`.
 - Preserve enough backend coordinates in `SourceRef` to read or debug the source.
+- Preserve upstream lineage metadata, including stable provider coordinates and
+  content hashes when available, so downstream memory episodes can point back to
+  source evidence without a PSKA-side provider mapping table.
 - Store short excerpts in metadata only when useful for citation inspection.
 - Retrieval adapters must not broaden dataset/document scope unless the caller
   explicitly passes that broader scope.
@@ -42,14 +57,46 @@ Rules:
 - If a backend cannot provide a transactional reviewed update, its adapter must
   fail explicitly instead of approximating update with hidden delete/add side
   effects.
+- Conversation-native corrections may use an explicit core workflow strategy
+  when the backend is temporal rather than transactional. For example, with
+  Graphiti, PSKA may keep the user semantic operation as `memory_update` while
+  creating a reviewed `memory_patch` correction episode carrying
+  `memory_update_strategy="append_correction_episode"`, `target_fact_id`, and
+  provenance. The episode body should include current text, previous text, and
+  target coordinates so provider search can retrieve the correction via old or
+  new terms. The metadata should also carry `current_text`/`display_text` for
+  agent-facing views. This strategy belongs in PSKA workflow metadata and
+  tests, not as hidden adapter-side fallback behavior. Adapters must advertise
+  this through `memory_capabilities["conversation_update_strategies"]`; PSKA
+  must not infer it merely because `update` is unsupported and `apply` is
+  supported.
 - Memory adapters should expose PSKA memory capabilities. The Product API
   capabilities contract, diagnostics, workspace status, MCP tools, and
   frontend controls use those capabilities to avoid creating durable review
   items that the selected backend cannot apply.
+- `capabilities.memory.inflow` is the public flow contract for memory-provider
+  ingestion. It must say that source uploads target the KB provider only and
+  that Graphiti or another memory provider receives only governed projections
+  from conversation memory, digest job review/application, or workflow memory
+  promotion.
 - Memory adapters must honor PSKA `memory_namespace` / workspace metadata on
   search and reviewed writes. Provider-specific isolation, such as Graphiti
   group IDs, belongs inside adapters and must not leak into core workflow code
   or public tool contracts.
+- Reviewed memory writes must carry provenance into the memory provider. For
+  Graphiti, the durable linkage should be `fact -> episode -> PSKA provenance
+  envelope -> upstream SourceRef`, not a PSKA-owned fact/source ledger.
+- Memory search must preserve provider-carried provenance on the returned
+  `MemoryFact`. Graphiti search should resolve episode provenance back into
+  `source_refs` and expose useful envelope metadata, such as
+  `target_fact_id`, `previous_text`, `memory_update_strategy`, process, and
+  timestamps, in `MemoryFact.metadata`.
+- PSKA may interpret returned memory metadata at query time. If a returned fact
+  carries `semantic_operation="memory_update"` or
+  `memory_update_strategy="append_correction_episode"` and points to
+  `target_fact_id`, default `pska_memory_search` filters the targeted older fact
+  from that result set. This is a non-authoritative view over provider-owned
+  data; callers can request `include_superseded_memory=true` for diagnostics.
 
 ## Public MCP Contract
 
@@ -74,6 +121,7 @@ The public tool surface is:
 - `pska_review_revise`
 - `pska_memory_search`
 - `pska_memory_apply`
+- `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
 - `pska_memory_delete_review`
@@ -91,6 +139,10 @@ The public tool surface is:
 - `pska_kb_ingest_files`
 - `pska_ingest_loop`
 - `pska_ingest_loop_resume`
+- `pska_digest_scope`
+- `pska_digest_job_enqueue`
+- `pska_digest_job_list`
+- `pska_digest_job_run`
 - `pska_kb_document_status`
 - `pska_kb_readiness`
 - `pska_kb_ingestion_status`
@@ -106,7 +158,15 @@ for product policy awareness instead of inferring review behavior from backend
 capabilities.
 `pska_capabilities_get` returns PSKA-level operation capabilities; agents must
 use it to check durable-operation support instead of probing provider-native
-APIs or creating known-dead review items.
+APIs or creating known-dead review items. The memory capability payload also
+contains `search_view`, which declares default superseded-fact filtering,
+diagnostic scope keys such as `include_superseded_memory`, and agent-facing text
+metadata keys such as `display_text` and `current_text`.
+It also contains `lineage` (`pska.memory_lineage.v1`), which declares that
+authoritative fact-to-source lineage belongs in memory-provider object metadata,
+not in a PSKA authoritative mapping table. Adapters should resolve provenance
+from episode metadata, fact/edge metadata, or compatible `source_description`
+fields.
 `pska_workspace_status` returns PSKA-level operational status and next actions;
 agents must use it for workflow navigation instead of inspecting provider state
 directly. Next actions may include PSKA tool/API/view hints and safe parameters,
@@ -183,6 +243,10 @@ Rules:
 - Ingestion status is the product-facing job summary for upload, parse,
   embedding, and indexing readiness. It must expose phase, progress, counts,
   next actions, and failure reasons in PSKA language.
+- Provider job status is the workspace-facing inventory across current KB
+  ingestion/readiness, digest jobs, and recent provider-level audit events. It
+  is exposed through `pska_provider_jobs` and `GET /api/provider/jobs`, but
+  provider-native queues remain authoritative.
 - Agentic questions should carry explicit `dataset_ids` and optional
   `document_ids` into the normal retrieval workflow.
 - Upload, parsing, embedding, indexing, and optional graph extraction are
@@ -247,5 +311,11 @@ Durable memory review creation, review acceptance, and memory apply must fail
 when the durable proposal has no PSKA `SourceRef` trace.
 Once reviewed memory has been applied, the review decision is immutable; later
 changes require a new governed proposal rather than rewriting the old decision.
-Lifecycle history is derived from PSKA audit records and must not require direct
-provider history APIs.
+Lifecycle history here means the PSKA decision lifecycle: review, apply, update,
+delete, and audit events. It is not the authoritative fact-to-source lineage.
+Provider fact lineage must be resolved from provider-carried provenance, such as
+Graphiti episode metadata pointing back to upstream `SourceRef`s.
+For temporal correction episodes, lifecycle inspection also follows
+provider-carried semantic target metadata such as `target_fact_id`; this lets
+`pska_memory_lifecycle(old_fact_id)` show a later correction episode without
+requiring a PSKA fact/source ledger.

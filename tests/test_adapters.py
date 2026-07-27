@@ -9,7 +9,7 @@ from urllib.error import HTTPError
 from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAdapter
 from pska_essential.adapters.graphiti import GraphitiAdapterError, GraphitiMemoryAdapter
 from pska_essential.adapters.ragflow import RagflowAdapterError, RagflowRetrievalAdapter
-from pska_essential.contracts import MemoryDelete, MemoryPatch, MemoryUpdate, SourceRef
+from pska_essential.contracts import MemoryDelete, MemoryPatch, MemoryUpdate, ProvenanceEnvelope, SourceRef
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowService
 
@@ -44,6 +44,12 @@ class _HttpResponse:
         return json.dumps(self.payload).encode("utf-8")
 
 
+def _provenance_description(source_ref: SourceRef, metadata=None) -> str:
+    envelope = ProvenanceEnvelope.from_source_refs([source_ref], metadata=metadata or {})
+    payload = json.dumps(envelope.wrapped(), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return f"PSKA-Essential reviewed memory patch\nPSKA_PROVENANCE_JSON: {payload}"
+
+
 class AdapterTests(unittest.TestCase):
     def test_ragflow_chunks_are_mapped_to_pska_contract(self):
         client = _RagflowClient()
@@ -53,6 +59,8 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(packets[0].source_ref.adapter, "ragflow")
         self.assertEqual(packets[0].source_ref.document_id, "doc-1")
         self.assertEqual(packets[0].source_ref.metadata["positions"], [{"page": 1}])
+        self.assertTrue(packets[0].source_ref.metadata["content_hash"].startswith("sha256:"))
+        self.assertEqual(packets[0].metadata["content_hash"], packets[0].source_ref.metadata["content_hash"])
 
     def test_ragflow_client_receives_scope_use_kg(self):
         client = _RagflowClient()
@@ -127,6 +135,216 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(result.metadata["operation"], "delete")
         self.assertEqual(captured["method"], "DELETE")
         self.assertEqual(captured["url"], "http://graphiti.local/entity-edge/edge%201")
+
+    def test_graphiti_http_apply_uses_valid_message_role_type(self):
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["method"] = request.get_method()
+            captured["url"] = request.full_url
+            captured["timeout"] = timeout
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return _HttpResponse({"message": "Messages added to processing queue", "success": True})
+
+        adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local", timeout=42)
+        reviewed_patch = MemoryPatch(
+            text="reviewed fact",
+            source_refs=[SourceRef(adapter="fake", dataset_id="demo", document_id="doc-1")],
+        )
+        with patch("pska_essential.adapters.graphiti.memory.urlopen", fake_urlopen):
+            result = adapter.apply(reviewed_patch)
+
+        self.assertTrue(result.applied)
+        self.assertEqual(captured["method"], "POST")
+        self.assertEqual(captured["url"], "http://graphiti.local/messages")
+        self.assertEqual(captured["timeout"], 42)
+        message = captured["payload"]["messages"][0]
+        self.assertEqual(message["role_type"], "system")
+        self.assertEqual(message["role"], "memory")
+        self.assertIn("PSKA_PROVENANCE_JSON:", message["source_description"])
+        self.assertEqual(result.metadata["provenance"]["upstreams"][0]["source_ref"]["adapter"], "fake")
+
+    def test_graphiti_http_search_marks_missing_episode_lineage_unresolved(self):
+        def fake_urlopen(request, timeout):
+            return _HttpResponse(
+                {
+                    "facts": [
+                        {
+                            "uuid": "edge-1",
+                            "fact": "Lin Daiyu first appears in the Rongguo household context.",
+                        }
+                    ]
+                }
+            )
+
+        adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local")
+        with patch("pska_essential.adapters.graphiti.memory.urlopen", fake_urlopen):
+            facts = adapter.search("Lin Daiyu", {}, 1)
+
+        self.assertEqual(facts[0].fact_id, "edge-1")
+        self.assertEqual(facts[0].source_refs, [])
+        self.assertEqual(facts[0].metadata["lineage_status"], "unresolved")
+
+    def test_graphiti_http_search_resolves_direct_fact_provenance_to_source_refs(self):
+        def fake_urlopen(request, timeout):
+            return _HttpResponse(
+                {
+                    "facts": [
+                        {
+                            "uuid": "edge-direct",
+                            "fact": "Baoyu once wore a jade in the selected source.",
+                            "source_description": _provenance_description(
+                                SourceRef(
+                                    adapter="ragflow",
+                                    dataset_id="honglou",
+                                    document_id="doc-1",
+                                    chunk_id="chunk-7",
+                                    metadata={"content_hash": "sha256:direct"},
+                                ),
+                                metadata={
+                                    "semantic_operation": "memory_patch",
+                                    "origin": "digest",
+                                },
+                            ),
+                        }
+                    ]
+                }
+            )
+
+        adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local")
+        with patch("pska_essential.adapters.graphiti.memory.urlopen", fake_urlopen):
+            facts = adapter.search("Baoyu", {}, 1)
+
+        self.assertEqual(facts[0].metadata["lineage_status"], "resolved")
+        self.assertEqual(facts[0].metadata["semantic_operation"], "memory_patch")
+        self.assertEqual(facts[0].metadata["origin"], "digest")
+        self.assertEqual(facts[0].metadata["pska_direct_provenance"]["carrier"], "fact")
+        self.assertEqual(facts[0].source_refs[0].adapter, "ragflow")
+        self.assertEqual(facts[0].source_refs[0].dataset_id, "honglou")
+        self.assertEqual(facts[0].source_refs[0].chunk_id, "chunk-7")
+
+    def test_graphiti_client_search_resolves_direct_edge_provenance_to_source_refs(self):
+        class Edge:
+            uuid = "edge-direct"
+            fact = "The user's shell is zsh."
+            source_description = _provenance_description(
+                SourceRef(
+                    adapter="hermes",
+                    source_id="msg-direct",
+                    metadata={"session_id": "sess-direct"},
+                ),
+                metadata={"origin": "conversation"},
+            )
+
+        class Client:
+            episodes = []
+
+            def search(self, **kwargs):
+                return [Edge()]
+
+        adapter = GraphitiMemoryAdapter(client=Client())
+        facts = adapter.search("shell", {}, 1)
+
+        self.assertEqual(facts[0].metadata["lineage_status"], "resolved")
+        self.assertEqual(facts[0].metadata["origin"], "conversation")
+        self.assertEqual(facts[0].metadata["pska_direct_provenance"]["carrier"], "edge")
+        self.assertEqual(facts[0].source_refs[0].adapter, "hermes")
+        self.assertEqual(facts[0].source_refs[0].source_id, "msg-direct")
+
+    def test_graphiti_client_search_resolves_episode_provenance_to_source_refs(self):
+        class Edge:
+            uuid = "edge-1"
+            fact = "Lin Daiyu entered the Jia household."
+            episodes = ["episode-1"]
+
+        class Client:
+            episodes = [
+                {
+                    "uuid": "episode-1",
+                    "source_description": _provenance_description(
+                        SourceRef(
+                            adapter="ragflow",
+                            dataset_id="honglou",
+                            document_id="doc-1",
+                            chunk_id="chunk-9",
+                            metadata={"content_hash": "sha256:abc"},
+                        )
+                    ),
+                }
+            ]
+
+            def search(self, **kwargs):
+                self.kwargs = kwargs
+                return [Edge()]
+
+        client = Client()
+        adapter = GraphitiMemoryAdapter(client=client)
+        facts = adapter.search("Daiyu", {"memory_group_ids": ["literature"]}, 3)
+
+        self.assertEqual(client.kwargs["group_ids"], ["literature"])
+        self.assertEqual(facts[0].metadata["lineage_status"], "resolved")
+        self.assertEqual(facts[0].source_refs[0].adapter, "ragflow")
+        self.assertEqual(facts[0].source_refs[0].dataset_id, "honglou")
+        self.assertEqual(facts[0].source_refs[0].chunk_id, "chunk-9")
+        self.assertEqual(facts[0].metadata["pska_provenance"]["episode_count"], 1)
+
+    def test_graphiti_client_search_preserves_correction_episode_metadata(self):
+        class Edge:
+            uuid = "edge-new"
+            fact = "The user's editor is VS Code."
+            episodes = ["episode-correction"]
+
+        class Client:
+            episodes = [
+                {
+                    "uuid": "episode-correction",
+                    "source_description": _provenance_description(
+                        SourceRef(
+                            adapter="hermes",
+                            source_id="msg-1",
+                            metadata={"session_id": "sess-1"},
+                        ),
+                        metadata={
+                            "semantic_operation": "memory_update",
+                            "memory_update_strategy": "append_correction_episode",
+                            "target_fact_id": "edge-old",
+                            "previous_text": "The user's editor is Vim.",
+                        },
+                    ),
+                }
+            ]
+
+            def search(self, **kwargs):
+                return [Edge()]
+
+        adapter = GraphitiMemoryAdapter(client=Client())
+        facts = adapter.search("editor", {}, 1)
+
+        self.assertEqual(facts[0].metadata["semantic_operation"], "memory_update")
+        self.assertEqual(facts[0].metadata["memory_update_strategy"], "append_correction_episode")
+        self.assertEqual(facts[0].metadata["target_fact_id"], "edge-old")
+        self.assertEqual(facts[0].metadata["previous_text"], "The user's editor is Vim.")
+        self.assertEqual(facts[0].metadata["pska_provenance"]["episodes"][0]["episode_id"], "episode-correction")
+        self.assertEqual(facts[0].source_refs[0].adapter, "hermes")
+        self.assertEqual(facts[0].source_refs[0].source_id, "msg-1")
+
+    def test_graphiti_http_apply_timeout_is_actionable(self):
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["timeout"] = timeout
+            raise TimeoutError("timed out")
+
+        adapter = GraphitiMemoryAdapter(base_url="http://graphiti.local", timeout=123)
+        reviewed_patch = MemoryPatch(
+            text="reviewed fact",
+            source_refs=[SourceRef(adapter="fake", dataset_id="demo", document_id="doc-1")],
+        )
+        with patch("pska_essential.adapters.graphiti.memory.urlopen", fake_urlopen):
+            with self.assertRaisesRegex(GraphitiAdapterError, "timed out after 123s"):
+                adapter.apply(reviewed_patch)
+
+        self.assertEqual(captured["timeout"], 123)
 
     def test_graphiti_http_search_error_is_actionable(self):
         def fake_urlopen(request, timeout):

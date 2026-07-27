@@ -50,6 +50,8 @@ class GraphitiGateTests(unittest.TestCase):
         self.assertTrue(result.applied)
         self.assertEqual(len(graphiti.episodes), 1)
         self.assertEqual(graphiti.episodes[0]["group_id"], "test-group")
+        self.assertIn("PSKA_PROVENANCE_JSON:", graphiti.episodes[0]["source_description"])
+        self.assertEqual(result.metadata["provenance"]["upstreams"][0]["source_ref"]["adapter"], "fake")
 
     def test_graphiti_group_id_uses_runtime_memory_namespace_when_configured(self):
         graphiti = _GraphitiClient()
@@ -72,7 +74,7 @@ class GraphitiGateTests(unittest.TestCase):
             result = service.memory_apply(review.review_id)
             service.memory_search("graphiti scoped patch", {}, 10)
 
-        expected_group_id = "test-group:workspace:workspace-a:tenant:tenant-a"
+        expected_group_id = "test-group_workspace_workspace-a_tenant_tenant-a"
         self.assertTrue(result.applied)
         self.assertEqual(graphiti.episodes[0]["group_id"], expected_group_id)
         self.assertEqual(result.metadata["group_id"], expected_group_id)
@@ -104,6 +106,62 @@ class GraphitiGateTests(unittest.TestCase):
         self.assertEqual(deleted.target_id, "edge-1")
         self.assertEqual(deleted.metadata["operation"], "delete")
         self.assertEqual(graphiti.deleted_edges, ["edge-1"])
+
+    def test_conversation_correction_appends_graphiti_episode_when_update_is_unsupported(self):
+        class Edge:
+            uuid = "edge-1"
+            fact = "The user's editor is Vim."
+            episodes = []
+
+        class SearchableGraphitiClient(_GraphitiClient):
+            def search(self, **kwargs):
+                self.searches.append(kwargs)
+                return [Edge()]
+
+        graphiti = SearchableGraphitiClient()
+        service = WorkflowService(
+            retrieval=FakeRetrievalAdapter(),
+            memory=GraphitiMemoryAdapter(client=graphiti, group_id="test-group"),
+            store=SQLiteReviewStore(":memory:"),
+        )
+
+        with patch.dict(os.environ, {}, clear=True):
+            result = service.memory_change_from_conversation(
+                user_message="Correction: my editor is VS Code, not Vim.",
+                operation="auto",
+                text="The user's editor is VS Code.",
+                session_id="sess-graphiti",
+                message_id="msg-graphiti-correction",
+            )
+
+        self.assertEqual(result["status"], "applied")
+        self.assertEqual(result["operation"], "memory_update")
+        self.assertEqual(result["proposal_operation"], "memory_patch")
+        self.assertEqual(result["memory_update_strategy"], "append_correction_episode")
+        self.assertEqual(result["target_resolution"]["status"], "resolved")
+        self.assertEqual(result["target_resolution"]["selected_fact_id"], "edge-1")
+        self.assertEqual(result["proposal"]["metadata"]["semantic_operation"], "memory_update")
+        self.assertEqual(result["proposal"]["metadata"]["target_fact_id"], "edge-1")
+        self.assertEqual(result["proposal"]["metadata"]["current_text"], "The user's editor is VS Code.")
+        self.assertEqual(result["proposal"]["metadata"]["display_text"], "The user's editor is VS Code.")
+        self.assertIn("Current fact: The user's editor is VS Code.", result["proposal"]["memory_patch"]["text"])
+        self.assertIn("Previous fact: The user's editor is Vim.", result["proposal"]["memory_patch"]["text"])
+        self.assertEqual(len(graphiti.episodes), 1)
+        self.assertIn("Current fact: The user's editor is VS Code.", graphiti.episodes[0]["episode_body"])
+        self.assertIn("Previous fact: The user's editor is Vim.", graphiti.episodes[0]["episode_body"])
+        self.assertEqual(graphiti.episodes[0]["group_id"], "test-group")
+        self.assertIn("PSKA_PROVENANCE_JSON:", graphiti.episodes[0]["source_description"])
+        self.assertEqual(graphiti.searches[0]["group_ids"], ["test-group"])
+        self.assertEqual(service.store.list_reviews(status="pending"), [])
+        self.assertNotEqual(result["memory_apply"]["target_id"], "edge-1")
+        old_lifecycle = service.memory_lifecycle("edge-1")
+        self.assertEqual(old_lifecycle["change_count"], 1)
+        self.assertEqual(old_lifecycle["events"][0]["action"], "memory.apply")
+        self.assertEqual(old_lifecycle["events"][0]["metadata"]["semantic_operation"], "memory_update")
+        self.assertEqual(old_lifecycle["events"][0]["metadata"]["semantic_target_ids"], ["edge-1"])
+        new_lifecycle = service.memory_lifecycle(result["memory_apply"]["target_id"])
+        self.assertEqual(new_lifecycle["change_count"], 1)
+        self.assertEqual(new_lifecycle["events"][0]["metadata"]["memory_target_id"], result["memory_apply"]["target_id"])
 
     def test_graphiti_update_review_fails_before_creating_dead_review(self):
         graphiti = _GraphitiClient()

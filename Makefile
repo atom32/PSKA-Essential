@@ -1,7 +1,8 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace clean
 
 PYTHON ?= python3
 ENV_FILE ?=
+START_WORKSPACE_ARGS ?=
 ENV_FILE_ARG = $(if $(ENV_FILE),--env-file $(ENV_FILE),)
 
 test:
@@ -36,6 +37,9 @@ serve-api:
 
 serve-dev:
 	PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake PSKA_REVIEW_DB=.pska-essential/dev.sqlite3 PYTHONPATH=src $(PYTHON) -m pska_essential.product_api
+
+start-workspace:
+	scripts/start_pska_workspace.sh $(START_WORKSPACE_ARGS)
 
 clean:
 	find . -type d \( -name __pycache__ -o -name .pytest_cache \) -prune -exec rm -rf {} +

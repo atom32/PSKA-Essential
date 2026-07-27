@@ -79,6 +79,27 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("wait_ready=false", text)
         self.assertIn("do not answer from missing context", text)
 
+    def test_frontend_redesign_is_hermes_webui_first(self):
+        text = Path("docs/FRONTEND_REDESIGN.md").read_text(encoding="utf-8")
+
+        self.assertIn("Hermes WebUI is the user workspace", text)
+        self.assertIn("PSKA should not maintain a second full conversation frontend", text)
+        self.assertIn("upload once through PSKA Product API", text)
+        self.assertIn("Configure Hermes MCP to expose PSKA tools only", text)
+        self.assertIn("Use `memory.search_view`", text)
+        self.assertNotIn("### Conversation\n\nNative page.", text)
+        self.assertNotIn("Make conversation the default landing page.", text)
+
+    def test_product_design_keeps_review_as_exception_inbox(self):
+        text = Path("docs/PRODUCT_DESIGN.md").read_text(encoding="utf-8")
+
+        self.assertIn("Hermes-based frontend", text)
+        self.assertIn("conversation-native memory is the primary user path", text.lower())
+        self.assertIn("Review is an exception inbox", text)
+        self.assertIn("auto-apply clear user-driven remember/correct/forget", text)
+        self.assertIn("PSKA may auto-accept and auto-apply", text)
+        self.assertNotIn("Review is the primary user-facing action", text)
+
 
 if __name__ == "__main__":
     unittest.main()

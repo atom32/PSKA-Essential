@@ -24,6 +24,15 @@ candidate memory, review, and durable export.
 - Use `pska_capabilities_get` as the stable PSKA operation capability contract
   before durable memory apply, update, or delete work. If an operation is not
   supported, report that PSKA cannot perform it with the current memory adapter.
+- Use `pska_capabilities_get.memory.search_view` to understand memory search
+  display and filtering semantics. Prefer the declared agent-facing metadata
+  keys, such as `display_text` or `current_text`, over raw correction episode
+  text when explaining memory to the user.
+- Use `pska_migration_manifest` when the user asks how to migrate, back up, or
+  inspect component ownership. Treat it as an inventory, not a raw provider data
+  export.
+- Use `pska_provider_jobs` when the user asks what is still processing, queued,
+  failed, or ready across KB ingestion and PSKA digest jobs.
 - Refresh `pska_workspace_status` after KB, Ask, review, or memory actions that
   change workspace state.
 - Treat `workspace.memory_namespace` from `pska_workspace_status` as PSKA
@@ -38,6 +47,13 @@ candidate memory, review, and durable export.
 - Use `pska_ingest_loop_resume` for a readiness-blocked run that came from
   `pska_ingest_loop`, so the upload -> Ask -> export intent is preserved after
   parsing, embedding, or indexing finishes.
+- Use `pska_digest_scope` for an explicit low-frequency digest over a ready
+  dataset or document scope. It creates a sourced digest and only creates a
+  durable memory review when `create_memory_review=true`; it must not be used
+  as an automatic write path into Graphiti.
+- Use `pska_digest_job_enqueue`, `pska_digest_job_list`, and
+  `pska_digest_job_run` when digest work should be queued or run by a scheduler.
+  A waiting job means KB readiness is still controlled by the provider.
 - Treat upload, parsing, embedding, and indexing as asynchronous. Check document
   readiness and `pska_kb_ingestion_status` before asking over a dataset.
 - For retrieval, component, and live closed-loop probes, prefer canonical
@@ -52,14 +68,23 @@ candidate memory, review, and durable export.
 - Do not call `pska_memory_apply` until a review has status `accepted`.
 - Use `pska_workflow_artifact` or `pska_workflow_brief` to inspect transient
   work products without export side effects.
+- If the user says to remember, correct, clarify, or forget something in chat,
+  call `pska_memory_change_from_conversation`; do not send them to Review for
+  ordinary corrections.
+- If `pska_memory_change_from_conversation` returns `status="needs_target"`,
+  call `pska_memory_search` with the returned `next_actions` query, ask the user
+  to disambiguate when needed, then retry with the selected `memory_fact`.
+- If a conversation correction returns
+  `memory_update_strategy="append_correction_episode"`, tell the user the
+  correction was recorded; do not claim the backend fact was rewritten in place.
 - If a user wants an existing transient workflow to become durable memory, call
   `pska_memory_review_from_workflow`; do not write memory directly.
-- If a user wants an existing durable memory changed, start from a
-  `pska_memory_search` result and call `pska_memory_update_review`; do not call
-  backend update tools directly.
-- If a user wants an existing durable memory removed, start from a
-  `pska_memory_search` result and call `pska_memory_delete_review`; do not call
-  backend delete tools directly.
+- If an existing durable memory must be changed outside the normal conversation
+  flow, start from a `pska_memory_search` result and call
+  `pska_memory_update_review`; do not call backend update tools directly.
+- If an existing durable memory must be removed outside the normal conversation
+  flow, start from a `pska_memory_search` result and call
+  `pska_memory_delete_review`; do not call backend delete tools directly.
 - If a review is marked `needs_edit`, use `pska_review_revise` to create a new
   candidate review instead of mutating the old review.
 - Use `pska_memory_lifecycle` to inspect a durable memory's reviewed

@@ -1,17 +1,33 @@
-# PSKA Frontend Redesign
+# Hermes WebUI Frontend Integration
 
-This document defines the intended PSKA frontend model after the first working
-closed loop exposed a product mismatch: the current frontend behaves too much
-like an engineering console. PSKA should be a conversation-first knowledge
-workspace that wraps mature components instead of replacing them.
+Status: historical design note. The current v1 decision is that PSKA does not
+own a separate daily conversation frontend. Hermes WebUI is the user workspace;
+PSKA contributes Product API, MCP tools, proxy-backed panels, review/audit
+contracts, and optional local diagnostics.
+
+This document records the frontend model after the first working closed loop
+exposed a product mismatch: the old local UI behaved too much like an
+engineering console. The product should be a conversation-first knowledge
+workspace through a Hermes WebUI-derived shell instead of replacing mature
+components.
+
+## V1 Implementation Choice
+
+The preferred v1 implementation is to use a Hermes WebUI-derived frontend as the
+Agent Workspace substrate, then add PSKA-specific panels and proxy routes inside
+that shell. PSKA should not maintain a second full conversation frontend in
+parallel with Hermes WebUI.
+
+The detailed integration plan is in `docs/HERMES_WEBUI_INTEGRATION.md`.
 
 ## Core Principle
 
 PSKA does not reimplement mature frontend or backend components when an existing
 component already owns the job well.
 
-PSKA builds native frontend only for product responsibilities that existing
-components do not provide:
+PSKA builds native UI only inside the Hermes WebUI shell, or as local operator
+diagnostics, for product responsibilities that existing components do not
+provide:
 
 - PSKA-controlled agentic question workflows
 - scoped source-aware work products
@@ -24,12 +40,12 @@ components do not provide:
 Everything else should be linked, embedded, or surfaced through the component
 that already owns it.
 
-## Definition: "PSKA Wraps Components"
+## Definition: "Hermes WebUI Wraps Components Through PSKA"
 
-"PSKA wraps components" means PSKA provides a unified product shell around
-specialized systems.
+"Hermes WebUI wraps components through PSKA" means the user sees one workspace,
+while PSKA provides the governed API/tool boundary around specialized systems.
 
-The shell owns:
+The Hermes shell owns:
 
 - global navigation
 - workspace identity
@@ -37,7 +53,7 @@ The shell owns:
 - component health/status
 - selected workspace/dataset/document context
 - links or embeds to external component UIs
-- PSKA-native workflow pages
+- PSKA-backed workflow panels
 - audit, review, and product policy
 
 The shell does not own:
@@ -46,7 +62,7 @@ The shell does not own:
 - the internal UI state of Hermes
 - the internal UI state of Graphiti or future memory systems
 - provider-native forms, dashboards, and configuration screens
-- direct calls from PSKA frontend to provider APIs
+- direct calls from Hermes WebUI PSKA panels to provider APIs
 
 If a component is embedded by iframe, the embedded app may call its own backend
 inside the iframe. The PSKA shell must not depend on provider DOM structure,
@@ -57,155 +73,149 @@ If a component blocks iframe embedding through browser security policy, PSKA
 opens it in a new tab or separate window and keeps a visible "refresh status"
 action in the shell.
 
-## Conversation-First Product Model
+## Hermes-First Product Model
 
-The primary PSKA experience should be a conversation workspace, not a form
-dashboard.
+The primary PSKA experience appears inside a Hermes WebUI conversation
+workspace, not inside a second PSKA-owned chat frontend.
 
-The main screen should center on:
+The daily user-facing screen should center on Hermes chat and sessions, with
+PSKA-backed panels or tool cards for:
 
-- a conversation thread
-- selected knowledge scope
-- current workflow state
-- retrieved sources
-- generated work product
-- proposed durable knowledge changes
-- review actions when persistence is requested
+- selected knowledge scope;
+- ingestion/readiness state;
+- retrieved sources;
+- generated work products;
+- proposed durable knowledge changes;
+- conversation-native memory changes;
+- review actions when persistence is uncertain, risky, conflicting, or
+  batch-derived.
 
-The user should be able to say or type:
+The user should be able to say or type in Hermes:
 
 - "Use this knowledge base."
 - "Ask over the selected annual reports."
 - "Compare 2024 and 2025."
 - "Create a brief."
-- "Turn this into governed memory."
+- "Remember this."
+- "That is wrong, change it to X."
 - "Show why this answer is supported."
 - "Resume when ingestion is ready."
 
 Advanced controls such as embedding model, chunk method, wait flags, and parse
 flags should not be first-class user decisions in the normal conversation flow.
-They belong in component-native configuration or advanced settings.
+They belong in component-native configuration, advanced PSKA settings, or
+operator diagnostics.
 
 ## Component Reuse Matrix
 
 | Product Area | Primary Owner | PSKA Treatment |
 | --- | --- | --- |
-| KB creation | RAGFlow | Embed/link RAGFlow page |
-| PDF/document upload | RAGFlow | Embed/link RAGFlow page; PSKA syncs status |
+| Chat, sessions, streaming | Hermes WebUI | Keep as daily entry |
+| Tool-call display | Hermes WebUI | Reuse; expose PSKA MCP tools only |
+| KB creation | PSKA Product API -> RAGFlow adapter | Hermes PSKA panel; RAGFlow UI remains admin fallback |
+| PDF/document upload | PSKA Product API -> RAGFlow adapter | Upload once through Hermes/PSKA; RAGFlow owns parsing/indexing |
 | OCR/parsing/chunking/embedding/indexing | RAGFlow | RAGFlow owns execution; PSKA shows readiness |
-| Chunk inspection | RAGFlow | Embed/link for full inspection |
+| Chunk inspection | RAGFlow | Link/admin view for deep inspection |
 | Dataset/document readiness | PSKA | Native thin status from Product API |
-| Agentic question loop | PSKA | Native conversation workflow |
-| Source-aware answer/work product | PSKA | Native conversation + writing surface |
-| Export Markdown/JSON | PSKA | Native |
-| Durable memory proposal | PSKA | Native |
-| Review/approval | PSKA | Native |
+| Agentic question loop | Hermes + PSKA | Hermes conversation drives PSKA ask/resume tools |
+| Source-aware answer/work product | PSKA | Hermes artifact/panel backed by Product API |
+| Export Markdown/JSON | PSKA | Hermes action/panel |
+| Conversation memory correction | Hermes + PSKA | `pska_memory_change_from_conversation` |
+| Durable memory proposal | PSKA | Product API/MCP; Review only for exception queue |
+| Review/approval | PSKA | Hermes panel for pending exception items |
 | Durable memory apply/update/delete | PSKA | Native workflow through adapters |
-| Audit trail | PSKA | Native |
-| Hermes run UI | Hermes or borrowed OSS patterns | Embed/link if available; PSKA shows workflow summary |
+| Audit trail | PSKA | Hermes panel or local diagnostics |
+| Hermes run UI | Hermes WebUI | Keep |
 | Graphiti memory internals | Graphiti | Do not expose directly to agents; optional admin link only |
 | Provider diagnostics | PSKA | Native normalized status |
 
-## Revised Navigation
+## Hermes WebUI Navigation
 
-Recommended top-level navigation:
+Recommended PSKA additions inside Hermes WebUI:
 
-1. **对话**
-   - Primary PSKA screen.
-   - Conversation-first Ask loop.
-   - Scope chips, readiness, retrieved sources, work product, review prompts.
+1. **Chat**
+   - Remains Hermes-native.
+   - Shows PSKA tool calls, selected scope, readiness, retrieved sources, work
+     product, and memory changes in the transcript.
 
-2. **工作产物**
+2. **Knowledge**
+   - Hermes/PSKA panel for datasets, upload, ingestion status, readiness, and
+     ready-to-ask scopes.
+   - Calls PSKA Product API only; PSKA routes to RAGFlow through adapters.
+
+3. **Work Products**
    - Briefs, exports, source manifests, workflow artifacts.
-   - Can be opened from conversation.
+   - Opened from conversation or workflow history.
 
-3. **审核**
-   - Durable knowledge review queue.
-   - Accept, request changes, reject, apply.
+4. **Review**
+   - Exception inbox for uncertain, risky, conflicting, or batch-derived
+     durable knowledge.
+   - Ordinary user corrections stay in chat.
 
-4. **活动**
-   - Cross-component audit trail.
-   - Workflow, retrieval, export, review, memory events.
+5. **Activity**
+   - Cross-component PSKA audit trail.
+   - Workflow, retrieval, source read, export, review, memory
+     apply/update/delete, and component probe events.
 
-5. **知识库**
-   - PSKA status summary plus embedded/linked RAGFlow KB console.
-   - Not a reimplementation of RAGFlow upload/config screens.
-
-6. **组件**
+6. **Components**
    - RAGFlow, Hermes, Graphiti, embedding provider, LLM provider status.
    - Links to native component consoles.
-   - Product diagnostics and capability contract.
+   - Product diagnostics, provider jobs, migration manifest, and capability
+     contract.
 
-7. **设置**
+7. **Settings**
    - Workspace policy, tenant/workspace context, provider configuration hints.
    - Not provider-native configuration when the provider already has UI.
 
-## Native PSKA Pages
+## PSKA Panels And Diagnostics
 
-PSKA should implement these pages because they express PSKA-only product
-semantics.
+PSKA should implement product panels inside Hermes WebUI, plus local diagnostics
+for development and operators. These are not a second daily conversation
+frontend.
 
-### Conversation
-
-Native page.
-
-Required behavior:
-
-- select or inherit knowledge scope
-- show readiness before retrieval
-- start and resume agentic question workflows
-- show loop state without exposing provider internals
-- show retrieved sources and insufficient-context states
-- generate transient sourced work products
-- offer review creation only when user wants durable knowledge
-- keep conversation history tied to workflow runs
-
-### Work Products
-
-Native page.
+### Knowledge Panel
 
 Required behavior:
 
-- show generated brief/artifact
-- show source manifest
-- export Markdown/JSON
-- show matched durable memory facts
-- create durable memory review from selected transient result
+- create/list datasets through PSKA;
+- upload files once through PSKA;
+- show asynchronous ingestion, parsing, embedding, indexing, readiness, and
+  failure reasons;
+- start or resume Ask only when the selected scope is ready, or preserve the
+  blocked workflow for later resume.
 
-### Review
-
-Native page.
-
-Required behavior:
-
-- show pending durable semantic objects
-- show supporting sources
-- accept, request changes, reject
-- apply accepted memory/graph/profile changes when supported
-- show lifecycle history
-
-### Activity
-
-Native page.
+### Work Product Panel
 
 Required behavior:
 
-- show normalized audit across PSKA workflows
-- include retrieval, source read, export, review, memory apply/update/delete,
-  and component probe events
-- filter by action/workflow/review when needed
+- show generated brief/artifact;
+- show source manifest;
+- export Markdown/JSON;
+- show matched durable memory facts using PSKA `memory.search_view`;
+- create durable memory review from selected transient result only when the user
+  requests durable knowledge.
 
-### Component Status
-
-Native thin page.
+### Review Panel
 
 Required behavior:
 
-- show configured providers
-- show RAGFlow KB readiness summary
-- show memory capability contract
-- show diagnostics and probes
-- provide links/embeds to component-native consoles
+- show pending exception items;
+- show supporting sources and traceability;
+- accept, request changes, reject;
+- apply accepted memory/graph/profile changes when supported;
+- show lifecycle history.
+
+### Activity And Component Panels
+
+Required behavior:
+
+- show normalized audit across PSKA workflows;
+- show configured providers;
+- show RAGFlow KB readiness summary;
+- show provider jobs;
+- show memory capability and search-view contract;
+- show diagnostics and probes;
+- provide links to component-native consoles.
 
 ## Embedded Or Linked Component Pages
 
@@ -215,17 +225,15 @@ PSKA should prefer component-native UI for these areas.
 
 Use RAGFlow for:
 
-- creating datasets
-- uploading PDFs and documents
 - configuring embedding model
 - parsing and chunking controls
 - inspecting document progress
 - inspecting chunks
 - debugging RAGFlow-native retrieval
 
-PSKA shell should provide:
+Hermes/PSKA should provide:
 
-- "Open RAGFlow" or embedded RAGFlow frame
+- "Open RAGFlow" admin link when needed
 - current PSKA-known dataset readiness
 - refresh/sync button
 - selected dataset/document context
@@ -241,8 +249,9 @@ without product design. PSKA may embed or link it for:
 - logs
 - resume/continue controls
 
-PSKA-native pages still own the product result: conversation state, work
-product, review, audit, and durable knowledge governance.
+Hermes-native pages own chat/session experience. PSKA-backed panels own product
+results: work products, review, audit, readiness, and durable knowledge
+governance.
 
 ## Upload Flow After Redesign
 
@@ -251,20 +260,12 @@ The normal user flow should not ask for provider-specific fields first.
 Preferred flow:
 
 ```text
-Knowledge page
-  -> open/embedded RAGFlow console
-  -> user creates dataset or uploads files in RAGFlow
-  -> return to PSKA shell
-  -> click refresh/sync
-  -> PSKA shows dataset readiness
-  -> Conversation page uses ready dataset scope
+Hermes WebUI Knowledge panel
+  -> upload once through PSKA Product API
+  -> PSKA RAGFlow adapter creates dataset/documents and starts provider jobs
+  -> PSKA shows ingestion/readiness status
+  -> Hermes chat uses ready dataset scope through PSKA Ask/MCP
 ```
-
-Optional PSKA quick-upload can exist, but it must be simplified:
-
-- select existing knowledge base
-- choose files
-- upload
 
 Advanced fields are hidden by default:
 
@@ -287,54 +288,60 @@ Frontend code must still follow PSKA layer rules.
 
 Allowed:
 
-- PSKA shell calls Product API
-- PSKA shell embeds or links component-native UIs
+- Hermes WebUI PSKA panels call Hermes backend proxy routes or PSKA Product API
+- Hermes WebUI links component-native UIs for admin/debug paths
 - Embedded component UI calls its own backend inside its own app context
 - PSKA Product API reads provider state through adapters
 
 Not allowed:
 
-- PSKA frontend directly calling RAGFlow APIs
-- PSKA frontend directly calling Graphiti APIs
-- PSKA frontend scraping iframe DOM
+- Hermes WebUI PSKA panels directly calling RAGFlow APIs
+- Hermes WebUI PSKA panels directly calling Graphiti APIs
+- Hermes WebUI PSKA panels scraping iframe DOM
 - hardcoding RAGFlow response shapes into PSKA UI
 - implementing provider configuration UI before checking whether provider UI
   already owns it
 
 ## Redesign Phases
 
-### Phase 1: Product Shell
+### Phase 1: Hermes Shell Integration
 
-- Replace current engineering-console navigation with a unified shell.
-- Add component links/embeds page.
-- Move RAGFlow-heavy KB operations out of the primary PSKA form.
-- Keep PSKA readiness status visible.
+- Keep Hermes chat, sessions, streaming, tool cards, and workspace surfaces.
+- Add Hermes backend proxy routes to PSKA Product API.
+- Configure Hermes MCP to expose PSKA tools only.
+- Show PSKA health, capabilities, workspace status, and provider jobs.
 
-### Phase 2: Conversation-First Ask
+### Phase 2: Knowledge And Ask Panels
 
-- Make conversation the default landing page.
-- Convert current Ask form into contextual controls around a thread.
-- Show scope, readiness, loop state, sources, and work product in one flow.
+- Add PSKA Knowledge panel for dataset creation, upload, ingestion status, and
+  readiness.
+- Start Ask from a selected ready scope.
+- Preserve blocked Ask workflows and resume them after provider readiness.
+- Show retrieved sources, inspected sources, memory facts, work products, and
+  insufficient-context states without exposing provider-native payloads.
 
-### Phase 3: Review And Work Product Polish
+### Phase 3: Conversation Memory And Exception Review
 
-- Keep Review and Work Products native.
-- Make durable knowledge governance clear but not obstructive.
-- Make source traceability visible without making every transient output feel
-  like a compliance form.
+- Route "remember/correct/forget" chat turns through
+  `pska_memory_change_from_conversation`.
+- Use `memory.search_view` for display text and superseded-fact behavior.
+- Keep Review as an exception inbox for uncertain, risky, conflicting,
+  ambiguous destructive, broad destructive, or batch-derived durable knowledge.
 
-### Phase 4: Component Console Integration
+### Phase 4: Component Links And Operator Diagnostics
 
-- Add RAGFlow iframe/link with fallback to new tab.
-- Add Hermes console link/embed when available.
-- Add component health and sync status.
+- Add RAGFlow and Graphiti admin links with fallback to new tab.
+- Add component diagnostics, provider jobs, migration manifest, and audit views.
+- Keep local PSKA diagnostic UI available for development smoke tests, not as
+  the primary product workspace.
 
 ## Product Test
 
 A redesigned frontend is successful when a user can understand PSKA as:
 
-> A conversation-first knowledge workspace that uses RAGFlow for knowledge base
-> operations, Hermes for agent execution, and PSKA for workflow closure,
-> governance, review, audit, and sourced work products.
+> A Hermes WebUI-based agent workspace that uses PSKA for governed knowledge
+> workflows, RAGFlow for source evidence, Graphiti for temporal memory, and
+> PSKA contracts for workflow closure, review, audit, and sourced work products.
 
-It should not feel like a replacement RAGFlow UI.
+It should not feel like a replacement RAGFlow UI or a second PSKA-owned chat
+application.

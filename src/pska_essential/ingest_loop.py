@@ -43,6 +43,8 @@ def run_ingest_loop(
     min_context_packets: int = 1,
     retrieval_queries: list[str] | None = None,
     source_inspection_limit: int = 3,
+    model_context_tokens: int | None = None,
+    model_profile: str = "",
     export_format: str = "markdown",
 ) -> dict[str, Any]:
     selected_files = _normalized_ids(file_paths)
@@ -95,6 +97,8 @@ def run_ingest_loop(
                 min_context_packets=min_context_packets,
                 retrieval_queries=retrieval_queries or [],
                 source_inspection_limit=source_inspection_limit,
+                model_context_tokens=model_context_tokens,
+                model_profile=model_profile,
             )
             _attach_ingest_loop_resume_metadata(
                 service,
@@ -140,6 +144,8 @@ def run_ingest_loop(
         min_context_packets=min_context_packets,
         retrieval_queries=retrieval_queries or [],
         source_inspection_limit=source_inspection_limit,
+        model_context_tokens=model_context_tokens,
+        model_profile=model_profile,
     )
     if ask_result.get("status") != "ready":
         return _loop_result(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import uuid4
 
 from pska_essential.contracts import (
@@ -73,7 +74,7 @@ class CompanyGraphRagStubAdapter:
             and not fact.invalid_at
             and (not words or any(word in fact.text.lower() for word in words))
         ]
-        return matches[:limit]
+        return _rank_memory_facts(matches)[:limit]
 
     def apply(self, reviewed_patch: MemoryPatch) -> MemoryApplyResult:
         fact = MemoryFact(
@@ -105,6 +106,7 @@ class CompanyGraphRagStubAdapter:
                 )
                 fact.text = reviewed_update.text
                 fact.source_refs = reviewed_update.source_refs
+                fact.metadata.update(reviewed_update.metadata)
                 fact.metadata["update_reason"] = reviewed_update.reason
                 fact.metadata["version"] = version
                 return MemoryApplyResult(
@@ -120,6 +122,7 @@ class CompanyGraphRagStubAdapter:
         for fact in self.memory:
             if fact.fact_id == reviewed_delete.target_id and _metadata_in_scope(fact.metadata, reviewed_delete.metadata):
                 fact.invalid_at = utc_now_iso()
+                fact.metadata.update(reviewed_delete.metadata)
                 fact.metadata["delete_reason"] = reviewed_delete.reason
                 return MemoryApplyResult(
                     applied=True,
@@ -141,3 +144,25 @@ def _metadata_in_scope(metadata: dict, scope: dict) -> bool:
     if expected:
         return actual == expected
     return actual == ""
+
+
+def _rank_memory_facts(facts: list[MemoryFact]) -> list[MemoryFact]:
+    return sorted(facts, key=_memory_fact_sort_key, reverse=True)
+
+
+def _memory_fact_sort_key(fact: MemoryFact) -> tuple[str, str]:
+    metadata = fact.metadata or {}
+    timestamp = (
+        fact.valid_at
+        or _metadata_timestamp(metadata, "applied_at")
+        or _metadata_timestamp(metadata, "updated_at")
+        or _metadata_timestamp(metadata, "created_at")
+        or _metadata_timestamp(metadata, "observed_at")
+        or ""
+    )
+    return (timestamp, fact.fact_id)
+
+
+def _metadata_timestamp(metadata: dict[str, Any], key: str) -> str:
+    value = metadata.get(key)
+    return value.strip() if isinstance(value, str) else ""

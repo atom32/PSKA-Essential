@@ -79,12 +79,13 @@ class _Gateway(RagflowKnowledgeGateway):
             }
         ]
 
-    def parse_documents(self, *, dataset_id, document_ids, wait=False, timeout_seconds=300.0):
-        self.parse_calls.append((dataset_id, document_ids, wait))
+    def parse_documents(self, *, dataset_id, document_ids, priority=0, wait=False, timeout_seconds=300.0):
+        self.parse_calls.append((dataset_id, document_ids, priority, wait))
         return {
             "backend": "ragflow",
             "dataset_id": dataset_id,
             "document_ids": document_ids,
+            "priority": priority,
             "parse_started": True,
         }
 
@@ -282,7 +283,10 @@ class KbGatewayTests(unittest.TestCase):
         self.assertTrue(result["parse_started"])
         self.assertEqual(gateway.calls[0]["method"], "POST")
         self.assertEqual(gateway.calls[0]["path"], "/datasets/dataset-1/documents/parse")
-        self.assertEqual(json.loads(gateway.calls[0]["body"].decode("utf-8")), {"document_ids": ["doc-1"]})
+        self.assertEqual(
+            json.loads(gateway.calls[0]["body"].decode("utf-8")),
+            {"document_ids": ["doc-1"], "priority": 0},
+        )
 
     def test_ragflow_upload_requests_raw_document_rows(self):
         gateway = _RequestRecordingRagflowGateway()
@@ -342,7 +346,7 @@ class KbGatewayTests(unittest.TestCase):
         self.assertFalse(result["dataset_created"])
         self.assertEqual(result["dataset"]["dataset_id"], "dataset-1")
         self.assertEqual(result["documents"][0]["document_id"], "doc-1")
-        self.assertEqual(gateway.parse_calls, [("dataset-1", ["doc-1"], False)])
+        self.assertEqual(gateway.parse_calls, [("dataset-1", ["doc-1"], 0, False)])
 
     def test_ingest_files_can_create_dataset(self):
         gateway = _Gateway()

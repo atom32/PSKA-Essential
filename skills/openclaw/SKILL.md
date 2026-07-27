@@ -22,7 +22,12 @@ external KB, GraphRAG, or memory systems.
 - Do not use case-specific shortcuts, hardcoded domains, or fallback answers.
 - Use `pska_policy_get` to inspect the current workspace governance policy
   instead of inferring policy from provider capabilities.
-- Memory writes require accepted review.
+- Daily chat-driven memory changes should use `pska_memory_change_from_conversation`;
+  pending Review is for uncertain, risky, conflicting, or batch-derived changes.
+- Use `pska_digest_scope` for explicit low-frequency digest over a ready scope;
+  it creates a sourced digest and only creates memory review when requested.
+- Use digest job tools for queued digest work; waiting jobs mean KB readiness
+  should be checked before rerunning.
 - Use workflow artifacts or transient briefs for inspection; explicit exports
   must come from workflow context.
 - Use `pska_memory_review_from_workflow` when an existing transient workflow

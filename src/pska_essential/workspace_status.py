@@ -6,6 +6,7 @@ from typing import Any
 from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.capabilities import memory_capabilities, memory_operation_for_proposal_kind
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
+from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
 
@@ -37,6 +38,7 @@ def build_workspace_status(
     ]
     workflows = service.store.list_workflows(limit=workflow_limit)
     resumable, resumable_error = _resumable_state(service, gateway, limit=workflow_limit)
+    provider_jobs, provider_jobs_error = _provider_jobs_state(service, gateway, dataset_page_size=dataset_page_size)
     memory_caps = memory_capabilities(service.memory)
     next_actions = _next_actions(
         datasets=datasets,
@@ -48,6 +50,13 @@ def build_workspace_status(
         memory_caps=memory_caps,
         resumable=resumable,
         resumable_error=resumable_error,
+        provider_jobs=provider_jobs,
+    )
+    ready_dataset_ids = _dataset_ids_for_scopes(
+        [scope for scope in dataset_readiness if scope.get("ready")]
+    )
+    blocked_dataset_ids = _dataset_ids_for_scopes(
+        [scope for scope in dataset_readiness if not scope.get("ready")]
     )
 
     return {
@@ -70,6 +79,11 @@ def build_workspace_status(
         "kb": {
             "status": "error" if kb_error else (readiness or {}).get("status", "empty"),
             "dataset_count": len(datasets),
+            "ready_dataset_count": len(ready_dataset_ids),
+            "blocked_dataset_count": len(blocked_dataset_ids),
+            "ready_dataset_ids": ready_dataset_ids,
+            "blocked_dataset_ids": blocked_dataset_ids,
+            "usable": bool(ready_dataset_ids),
             "datasets": datasets,
             "readiness": readiness,
             "dataset_readiness": dataset_readiness,
@@ -87,6 +101,12 @@ def build_workspace_status(
             "resumable_ask_count": len(resumable),
             "resumable_asks": resumable[:10],
             "resumable_error": resumable_error,
+        },
+        "jobs": {
+            "status": "error" if provider_jobs_error else (provider_jobs or {}).get("status", "empty"),
+            "summary": (provider_jobs or {}).get("summary") or {},
+            "recent": (provider_jobs or {}).get("jobs", [])[:10],
+            "error": provider_jobs_error,
         },
         "next_actions": next_actions,
     }
@@ -117,6 +137,19 @@ def _resumable_state(service: Any, gateway: Any, *, limit: int) -> tuple[list[di
         return [], {"type": exc.__class__.__name__, "message": str(exc)}
 
 
+def _provider_jobs_state(service: Any, gateway: Any, *, dataset_page_size: int) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
+    try:
+        jobs = build_provider_job_status(
+            service,
+            gateway,
+            dataset_page_size=dataset_page_size,
+            include_ready=False,
+        )
+        return jobs, None
+    except Exception as exc:  # noqa: BLE001 - status must surface explicit backend errors.
+        return None, {"type": exc.__class__.__name__, "message": str(exc)}
+
+
 def _next_actions(
     *,
     datasets: list[dict[str, Any]],
@@ -128,6 +161,7 @@ def _next_actions(
     memory_caps: dict[str, Any],
     resumable: list[dict[str, Any]],
     resumable_error: dict[str, str] | None,
+    provider_jobs: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     if kb_error:
@@ -298,6 +332,25 @@ def _next_actions(
             )
         )
 
+    digest_jobs = _pending_digest_jobs(provider_jobs)
+    if digest_jobs:
+        job = digest_jobs[0]
+        job_id = str(job.get("job_id") or "")
+        actions.append(
+            _action(
+                "run_digest_job",
+                "Run digest job",
+                (
+                    f"{len(digest_jobs)} digest job(s) are queued or waiting. "
+                    "Digest creates a sourced artifact and may create an exception Review; it never writes memory directly."
+                ),
+                api=f"POST /api/digest-jobs/{job_id}/run" if job_id else "POST /api/digest-jobs/run-next",
+                tool="pska_digest_job_run",
+                view="activity",
+                params={"run_id": job_id} if job_id else {},
+            )
+        )
+
     if not actions:
         actions.append(
             _action(
@@ -310,6 +363,17 @@ def _next_actions(
             )
         )
     return actions
+
+
+def _pending_digest_jobs(provider_jobs: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not provider_jobs:
+        return []
+    jobs = provider_jobs.get("jobs") or []
+    return [
+        dict(job)
+        for job in jobs
+        if job.get("kind") == "pska_digest_job" and str(job.get("status") or "") in {"queued", "waiting"}
+    ]
 
 
 def _review_memory_operation(review: dict[str, Any]) -> str:
@@ -493,6 +557,18 @@ def _scope_params(readiness: dict[str, Any]) -> dict[str, Any]:
         "dataset_ids": [str(item) for item in readiness.get("dataset_ids") or []],
         "document_ids": [str(item) for item in readiness.get("document_ids") or []],
     }
+
+
+def _dataset_ids_for_scopes(scopes: list[dict[str, Any]]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for scope in scopes:
+        for item in scope.get("dataset_ids") or []:
+            dataset_id = str(item or "").strip()
+            if dataset_id and dataset_id not in seen:
+                seen.add(dataset_id)
+                result.append(dataset_id)
+    return result
 
 
 def _product_readiness_action(action: str) -> str:

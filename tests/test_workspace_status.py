@@ -6,6 +6,7 @@ from unittest.mock import patch
 from pska_essential.adapters.fake import FakeRetrievalAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
 from pska_essential.contracts import MemoryUpdate, Proposal, SourceRef
+from pska_essential.digest_jobs import enqueue_digest_job
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workspace_status import build_workspace_status
 from pska_essential.workflow import WorkflowService, build_fake_service
@@ -212,6 +213,11 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertTrue(status["capabilities"]["memory"]["operations"]["update"]["supported"])
         self.assertEqual(status["kb"]["dataset_count"], 1)
         self.assertEqual(status["kb"]["readiness"]["status"], "ready")
+        self.assertTrue(status["kb"]["usable"])
+        self.assertEqual(status["kb"]["ready_dataset_count"], 1)
+        self.assertEqual(status["kb"]["blocked_dataset_count"], 0)
+        self.assertEqual(status["kb"]["ready_dataset_ids"], ["demo"])
+        self.assertEqual(status["kb"]["blocked_dataset_ids"], [])
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
         self.assertEqual(status["next_actions"][0]["api"], "POST /api/ask")
@@ -237,6 +243,11 @@ class WorkspaceStatusTests(unittest.TestCase):
 
         self.assertEqual(status["status"], "ready")
         self.assertEqual(status["kb"]["readiness"]["status"], "processing")
+        self.assertTrue(status["kb"]["usable"])
+        self.assertEqual(status["kb"]["ready_dataset_count"], 1)
+        self.assertEqual(status["kb"]["blocked_dataset_count"], 1)
+        self.assertEqual(status["kb"]["ready_dataset_ids"], ["ready"])
+        self.assertEqual(status["kb"]["blocked_dataset_ids"], ["processing"])
         self.assertEqual(len(status["kb"]["dataset_readiness"]), 2)
         self.assertEqual(actions["run_agentic_question"]["params"]["dataset_ids"], ["ready"])
         self.assertEqual(actions["wait_for_ingestion"]["params"]["dataset_ids"], ["processing"])
@@ -246,9 +257,15 @@ class WorkspaceStatusTests(unittest.TestCase):
 
         self.assertEqual(status["status"], "processing")
         self.assertEqual(status["kb"]["readiness"]["status"], "processing")
+        self.assertFalse(status["kb"]["usable"])
+        self.assertEqual(status["kb"]["ready_dataset_count"], 0)
+        self.assertEqual(status["kb"]["blocked_dataset_count"], 1)
         self.assertEqual(status["next_actions"][0]["action"], "wait_for_ingestion")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_kb_ingestion_status")
         self.assertEqual(status["next_actions"][0]["view"], "kb")
+        self.assertEqual(status["jobs"]["status"], "processing")
+        self.assertEqual(status["jobs"]["summary"]["processing"], 2)
+        self.assertEqual(status["jobs"]["recent"][0]["kind"], "kb_dataset_ingestion")
 
     def test_workspace_status_routes_resumable_ingest_loop_to_loop_resume_tool(self):
         service = build_fake_service()
@@ -331,6 +348,25 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(apply_action["tool"], "pska_memory_apply")
         self.assertEqual(apply_action["params"]["review_id"], review.review_id)
 
+    def test_workspace_status_exposes_pending_digest_job_next_action(self):
+        service = build_fake_service()
+        queued = enqueue_digest_job(
+            service,
+            dataset_ids=["demo"],
+            document_ids=["doc-1"],
+            question="Digest ready scope",
+            create_memory_review=True,
+        )
+
+        status = build_workspace_status(service=service, gateway=_Gateway())
+        action = next(item for item in status["next_actions"] if item["action"] == "run_digest_job")
+
+        self.assertEqual(action["tool"], "pska_digest_job_run")
+        self.assertEqual(action["api"], f"POST /api/digest-jobs/{queued['job']['run_id']}/run")
+        self.assertEqual(action["view"], "activity")
+        self.assertEqual(action["params"]["run_id"], queued["job"]["run_id"])
+        self.assertIn("never writes memory directly", action["reason"])
+
     def test_workspace_status_reports_graphiti_memory_capabilities(self):
         service = WorkflowService(
             retrieval=FakeRetrievalAdapter(),
@@ -346,6 +382,26 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertFalse(operations["update"]["supported"])
         self.assertIn("transactional fact update", operations["update"]["reason"])
         self.assertTrue(operations["delete"]["supported"])
+        self.assertEqual(
+            status["capabilities"]["memory"]["conversation_update_strategies"],
+            ["append_correction_episode"],
+        )
+        self.assertEqual(
+            status["capabilities"]["memory"]["search_view"]["supersession"]["strategy"],
+            "append_correction_episode",
+        )
+        inflow = status["capabilities"]["memory"]["inflow"]
+        self.assertEqual(inflow["schema"], "pska.memory_inflow.v1")
+        self.assertFalse(inflow["upload_behavior"]["writes_memory_provider"])
+        self.assertFalse(inflow["upload_behavior"]["creates_graph_projection"])
+        self.assertIn("conversation_memory", [path["name"] for path in inflow["paths"]])
+        lineage = status["capabilities"]["memory"]["lineage"]
+        self.assertEqual(lineage["schema"], "pska.memory_lineage.v1")
+        self.assertFalse(lineage["pska_authoritative_mapping_table"])
+        self.assertIn(
+            "current_text",
+            status["capabilities"]["memory"]["search_view"]["agent_facing_text"]["metadata_keys"],
+        )
 
     def test_workspace_status_does_not_apply_unsupported_accepted_memory_review(self):
         service = WorkflowService(

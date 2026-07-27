@@ -19,7 +19,8 @@ The product promise is workflow closure:
 - retrieve context from an external KB;
 - optionally create/populate that external KB through thin MCP glue;
 - let an agent propose digest, memory, or writing artifacts;
-- require review before long-term memory changes;
+- govern and audit long-term memory changes, with pending review reserved for
+  uncertain, risky, conflicting, or batch-derived changes;
 - keep an audit trail;
 - replace RAGFlow/Graphiti later through adapters.
 
@@ -27,6 +28,25 @@ Runtime behavior is universal and explicit: no case-specific shortcuts, no
 hardcoded domains, and no silent fallback to fake data or another backend.
 Document ingestion and embedding are treated as asynchronous jobs whose status
 must be visible to users and agents.
+
+## Product Guides
+
+Read these first when deciding how to use or extend the project:
+
+- [PSKA User Guide](docs/USER_GUIDE.md): daily Hermes WebUI workflow, ingestion,
+  Ask, review, Graphiti memory, and troubleshooting.
+- [Hermes WebUI Integration](docs/HERMES_WEBUI_INTEGRATION.md): plan for using
+  Hermes WebUI as the only v1 user workspace, with PSKA behind proxy/API/MCP
+  boundaries.
+- [Long-Term Stability Design](docs/LONG_TERM_STABILITY_DESIGN.md): temporal
+  knowledge, conflict handling, review triage, context budgets, background
+  jobs, permissions, and migration.
+- [Metadata-First Bridge Design](docs/METADATA_FIRST_BRIDGE_DESIGN.md): the
+  no-central-ledger data ownership model and the Graphiti-to-RAGFlow provenance
+  contract.
+- [Conversation-Native Memory Design](docs/CONVERSATION_NATIVE_MEMORY_DESIGN.md):
+  daily chat-based memory add/correct/delete flow and the reduced role of the
+  Review queue.
 
 ## Quick Start
 
@@ -67,7 +87,24 @@ not-ready upload flow, governed durable memory transition, and audit trail
 without using fake as a live-provider fallback. Successful and failed eval runs
 record `eval.run` audit events.
 
-Run the Product API and frontend in explicit local development mode:
+Run the full local Hermes workspace stack:
+
+```bash
+make start-workspace
+```
+
+This checks RAGFlow, Graphiti, PSKA Product API, and Hermes WebUI; starts the
+missing local services where this machine has a known startup path; then opens
+Hermes WebUI as the v1 product workspace. The PSKA Product API check validates
+the lightweight Product API contract, not just `/api/health`, so a stale local
+8765 process that lacks routes such as `/api/memory/search` is reported as
+`STALE` and restarted. For status without starting services:
+
+```bash
+make start-workspace START_WORKSPACE_ARGS=--status-only
+```
+
+To run only PSKA's legacy local diagnostic UI directly:
 
 ```bash
 PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
@@ -75,11 +112,14 @@ PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_P
   PYTHONPATH=src python3 -m pska_essential.product_api
 ```
 
-Then open:
+For the legacy diagnostic UI only, open:
 
 ```bash
 open http://127.0.0.1:8765
 ```
+
+For the v1 product experience, open the Hermes WebUI fork and let it call PSKA
+through `/api/pska/*` and PSKA MCP tools.
 
 ## External Backends
 
@@ -173,6 +213,16 @@ export GRAPHITI_GROUP_ID=pska-essential
 The Graphiti adapter keeps writes review-gated. It supports reviewed memory
 apply and reviewed entity-edge delete through Graphiti; reviewed update fails
 explicitly until the backend exposes a transactional fact update contract.
+Conversation-native corrections can still work with Graphiti: PSKA keeps the
+user-facing operation as `memory_update`, but records
+`proposal_operation=memory_patch` and
+`memory_update_strategy=append_correction_episode`, then appends a reviewed
+correction episode with current text, previous text, target/provenance metadata,
+and stable target coordinates. This is an explicit temporal memory strategy, not
+a hidden adapter fallback; Graphiti advertises it through
+`conversation_update_strategies` in the PSKA capabilities contract. Agent-facing
+briefs and proposals prefer `display_text`/`current_text` over the raw correction
+episode body.
 Memory operation capabilities are exposed through the explicit capabilities
 contract, health, diagnostics, and workspace status so the frontend and Hermes
 can avoid unsupported durable actions before creating review items. Historical
@@ -181,6 +231,9 @@ unsupported backend operations remain visible as inspect actions instead of
 being offered as apply actions. When a workspace or tenant is configured,
 Graphiti memory search/apply uses a derived PSKA memory namespace under the
 configured `GRAPHITI_GROUP_ID`.
+The capabilities contract also includes a soft tool-policy manifest that labels
+read/write tools, readiness requirements, durable actions, provider writes, and
+review gates for Hermes and UI controls. It is product guidance, not auth.
 Use `pska_memory_probe` or `POST /api/runtime/memory-probe` to verify that the
 configured memory backend can actually serve search requests. Graphiti
 `/healthcheck` only proves the service is running; the probe surfaces LLM or
@@ -192,6 +245,8 @@ Workspace governance policy:
 ```bash
 # manual_review | auto_accept | auto_apply
 export PSKA_GOVERNANCE_DURABLE_MEMORY=manual_review
+export PSKA_GOVERNANCE_DIGEST_MEMORY=manual_review
+export PSKA_GOVERNANCE_CONVERSATION_MEMORY=auto_apply
 export PSKA_WORKSPACE_ID=default
 export PSKA_TENANT_ID=
 ```
@@ -256,6 +311,10 @@ Operational loop tools:
 - `pska_kb_ingest_files`
 - `pska_ingest_loop`
 - `pska_ingest_loop_resume`
+- `pska_digest_scope`
+- `pska_digest_job_enqueue`
+- `pska_digest_job_list`
+- `pska_digest_job_run`
 - `pska_kb_document_status`
 - `pska_kb_readiness`
 - `pska_kb_ingestion_status`
@@ -276,6 +335,7 @@ Operational loop tools:
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
+- `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
 - `pska_memory_delete_review`
@@ -305,7 +365,26 @@ finish, preserving the original Ask and export intent. The same resume path is
 available from the CLI as
 `pska-essential-ingest-loop-resume <run_id>` or
 `PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume`.
+`pska_digest_scope` runs an explicit low-frequency digest over a ready
+dataset/document scope. It creates a sourced digest work product and, only when
+requested with `create_memory_review=true`, turns that digest into a governed
+memory candidate; it does not write Graphiti memory directly.
+`pska_digest_job_enqueue`, `pska_digest_job_list`, and `pska_digest_job_run`
+provide an explicit lightweight scheduler surface for digest work. Jobs live as
+PSKA workflow metadata, respect KB readiness before running, and still route any
+durable memory through Review. Provider job status reports each digest job with
+its selected `dataset_ids`, `document_ids`, `priority`, `attempt_count`,
+readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
+operators can see that document digestion is not a hidden Graphiti write.
+Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
+card queues the job, and the Jobs card can run queued or waiting digest jobs.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
+`pska_memory_change_from_conversation` is the daily Hermes path for user-driven
+memory add, correction, clarification, or deletion. It still creates proposal,
+review decision, memory apply, and audit records, but conversation policy
+defaults to auto-apply so ordinary corrections do not leave a pending Review
+queue item. Use `force_review=true` for uncertain, risky, destructive, or
+ambiguous memory changes.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.
@@ -352,14 +431,15 @@ See:
 - `skills/hermes/SKILL.md`
 - `skills/openclaw/SKILL.md`
 
-## Product API And Frontend
+## Product API And Hermes WebUI
 
-The Product API is the frontend-facing boundary. The frontend must call PSKA
-Product API routes only; it must not call RAGFlow, Graphiti, embedding services,
-LLM providers, databases, or queues directly.
+The Product API is the Hermes WebUI-facing boundary. Hermes WebUI calls PSKA
+through its backend proxy routes, and those proxy routes call PSKA Product API
+routes only. Browser code and Hermes agents must not call RAGFlow, Graphiti,
+embedding services, LLM providers, databases, or queues directly.
 Product API startup validates both workflow providers and the KB gateway before
 serving; missing provider env or unauthorized fake mode fails explicitly instead
-of starting a partially wired frontend.
+of starting a partially wired integration.
 
 Default local URL:
 
@@ -393,6 +473,11 @@ Implemented Alpha routes:
 - `POST /api/kb/datasets/{dataset_id}/parse`
 - `GET /api/kb/datasets/{dataset_id}/documents/{document_id}/graph`
 - `POST /api/ask`
+- `POST /api/digest`
+- `POST /api/digest-jobs`
+- `GET /api/digest-jobs`
+- `POST /api/digest-jobs/run-next`
+- `POST /api/digest-jobs/{run_id}/run`
 - `GET /api/workflows`
 - `GET /api/workflows/resumable-asks`
 - `GET /api/workflows/{run_id}`
@@ -400,6 +485,8 @@ Implemented Alpha routes:
 - `POST /api/workflows/{run_id}/memory-review`
 - `GET /api/workflows/{run_id}/export`
 - `POST /api/sources/read`
+- `POST /api/memory/search`
+- `POST /api/memory/conversation-change`
 - `POST /api/memory/update-review`
 - `POST /api/memory/delete-review`
 - `GET /api/memory/{memory_target_id}/lifecycle`
@@ -412,11 +499,18 @@ Implemented Alpha routes:
 - `GET /api/audit`
 - `GET /api/audit?action={action}`
 
-The bundled frontend exposes Home, Knowledge Bases, Ask, Reader, Writing,
-Review, Activity, and Settings. It is served by the Product API and uses only
-same-origin `/api/...` calls. Ask responses include explicit loop steps so users
-and agents can see scope checks, KB readiness, retrieval, context inspection,
-proposal creation, review creation or skipping, and transient brief preparation.
+The repository still contains a bundled local UI for development diagnostics and
+smoke testing. It is not the v1 product workspace. The v1 user-facing workspace
+is the Hermes WebUI fork, with PSKA-specific panels calling Hermes backend proxy
+routes under `/api/pska/*`.
+
+The diagnostic UI exposes Home, Knowledge Bases, Ask, Reader, Writing, Review,
+Activity, and Settings. It is served by the Product API and uses only
+same-origin `/api/...` calls. The same workflow contracts are intended to be
+consumed by Hermes WebUI through its PSKA proxy. Ask responses include explicit
+loop steps so users and agents can see scope checks, KB readiness, retrieval,
+context inspection, proposal creation, review creation or skipping, and
+transient brief preparation.
 Knowledge Bases can also run the file-first ingest loop from an empty
 workspace: the upload form posts files to `POST /api/ingest-loop`, uses the
 same PSKA KB readiness gate, and opens Writing with the exported sourced work
@@ -462,27 +556,48 @@ Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,
 and cancelled scopes.
+`pska_provider_jobs` and `GET /api/provider/jobs` expose a workspace-level job
+inventory across KB ingestion/readiness, PSKA digest jobs, and recent provider
+audit events. Workspace status includes a compact `jobs` summary for Home and
+Activity views and exposes queued/waiting digest work as a `run_digest_job`
+next action.
 Settings loads `/api/policy` as the product-level workspace governance surface,
 including durable proposal kinds, configured durable-memory action, available
 modes, and the fact that transient results skip durable governance. Settings
 also loads `/api/capabilities` as the product-level capability contract, and
 Writing/Review durable-memory controls stay disabled until the selected memory
 operation is explicitly reported as supported.
+The same capability response exposes the soft tool-policy manifest so Hermes
+WebUI can label read-only, provider-writing, readiness-gated, and
+review-required actions without learning provider-native APIs.
+It also exposes `memory.search_view`, the stable contract for superseded-memory
+filtering and agent-facing text fields such as `display_text` and
+`current_text`.
+`pska_migration_manifest` and `GET /api/migration/manifest` expose a scoped
+component migration inventory: PSKA control records, provider source refs,
+memory targets, agent-host refs, exclusions, and migration steps. It is a map
+for provider-owned exports, not a raw document/chunk/graph dump.
 Ask persists the loop summary on the workflow so Writing can reopen governance
 state, durable/transient status, review requirements, and steps later. Ask
 includes a dataset/document picker that syncs to explicit scope IDs and result
 actions for Writing, Review, and accepted memory application. Ask can tune loop
 depth with max iterations, required context count, explicit additional
 retrieval queries, bounded source inspection, and optional graph retrieval
-inside the selected scope.
+inside the selected scope. Ask, Digest, MCP, Product API, and upload-to-Ask
+loops can also accept `model_context_tokens` and `model_profile`; when a model
+context size is provided, PSKA records `loop.context_budget` and uses effective
+Top-N limits for retrieval, memory search, and source inspection.
 Additional retrieval queries come from the user or agent and are recorded in the
 PSKA loop; runtime code does not add case-specific query expansion. Source
 inspection reads unique retrieved source refs through PSKA adapters, records
 `source.inspect` loop metadata, and writes `source.read` audit records. Graph retrieval is passed as a PSKA retrieval hint,
 recorded in loop steps and audit metadata, and remains behind adapters. Ask also
 searches governed durable memory and keeps memory facts separate from external
-source retrieval, so memory can inform later work without acting as a source
-fallback. If the required context count is not met, Ask returns
+source retrieval. When a memory fact carries readable upstream source refs, Ask
+can federate those refs back through the retrieval adapter, append missing KB
+evidence as context, and record `memory.source_federate`; this is not a provider
+fallback and it does not create a PSKA-side fact ledger. If the required context
+count is not met, Ask returns
 `insufficient_context`, shows any retrieved partial context, and does not create
 a proposal, review, or export.
 If the selected dataset or document scope is not ready, Ask records a blocked
@@ -503,8 +618,13 @@ workspace policy for manual review, auto accept, or auto apply. The frontend
 opens the resulting Review record and focuses Activity on the actual governance
 event.
 Review links open exact Review API records by ID.
-The Review queue can filter by status while Home keeps an independent pending
-review summary. Review records expose source trace fields, and Review cards can
+The Review queue is an exception inbox for uncertain, risky, conflicting, or
+batch-derived memory changes. Ordinary user corrections should go through the
+conversation-native memory API/tool and usually auto-apply under workspace
+policy. Non-conversation memory candidates probe existing scoped memory before
+durable write; possible conflicts are recorded in proposal metadata and can
+downgrade `auto_apply` to pending Review. The Review queue can filter by status while Home keeps an independent
+pending review summary. Review records expose source trace fields, and Review cards can
 open cited sources through the Product API Reader before a durable decision is
 made, and can open the originating Writing workflow context. Review cards show
 status-specific actions: pending reviews can be decided,
@@ -519,6 +639,9 @@ Writing shows the applied durable knowledge result and links to its lifecycle.
 Locked/applied Review cards can also open the durable memory lifecycle directly.
 Applied memory can be found by later Ask runs through the memory adapter and is
 shown in Writing as durable workspace context with its supporting source trace.
+When Graphiti fact provenance resolves to KB source refs, Ask may read those
+sources and include them as federated supporting context so the answer can cite
+evidence rather than relying on the memory text alone.
 Writing can create a governed update review from an explicit MemoryFact when
 the selected memory backend reports update support; the update applies only
 after the review is accepted and records version metadata in the memory apply
@@ -526,8 +649,14 @@ result and `memory.update` audit record.
 Writing can create a governed deletion review from an explicit MemoryFact; the
 delete applies only after the review is accepted and produces a `memory.delete`
 audit record.
-Writing can inspect a MemoryFact lifecycle from PSKA audit records, showing the
-reviewed apply/update/delete chain without calling a memory backend directly.
+Writing can inspect a MemoryFact's PSKA decision lifecycle from PSKA audit
+records, showing the reviewed apply/update/delete chain without calling a memory
+backend directly. This audit lifecycle is governance history, not the
+authoritative provider data lineage; fact-to-source lineage should be resolved
+from provider-carried provenance such as Graphiti episode metadata.
+For temporal correction episodes, lifecycle lookup also follows semantic target
+metadata such as `target_fact_id`, so inspecting the old fact can show the later
+correction episode that superseded it.
 Once durable memory has been applied, the accepted review decision is locked;
 future changes require a new proposal and review. Activity
 shows the recent audit trail with action filtering, including workflow

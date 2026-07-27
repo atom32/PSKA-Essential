@@ -6,7 +6,7 @@ const messages = {
   "view.ask": "提问",
   "view.reader": "来源",
   "view.writing": "写作",
-  "view.review": "审核",
+  "view.review": "异常审核",
   "view.activity": "活动",
   "view.settings": "设置",
   "status.none": "无",
@@ -40,14 +40,14 @@ const messages = {
   "empty.datasetsUnavailable": "知识库不可用。",
   "empty.datasets": "尚未加载知识库。",
   "empty.documents": "尚未加载文档。",
-  "empty.reviewsUnavailable": "审核项不可用。",
-  "empty.reviews": "尚未加载审核项。",
+  "empty.reviewsUnavailable": "异常审核项不可用。",
+  "empty.reviews": "尚未加载异常审核项。",
   "empty.runsUnavailable": "运行记录不可用。",
   "empty.runs": "尚未加载运行记录。",
   "empty.auditUnavailable": "审计记录不可用。",
   "empty.audit": "尚未加载审计记录。",
   "empty.noNextActions": "尚未加载下一步操作。",
-  "empty.noReviews": "没有待审核项。",
+  "empty.noReviews": "没有异常审核项。",
   "empty.noResumableAsks": "没有可恢复提问。",
   "empty.noScope": "尚未选择范围。",
   "empty.noAskScopeChecked": "尚未检查提问范围。",
@@ -72,7 +72,7 @@ const messages = {
   "button.resume": "恢复",
   "button.resumeLoop": "恢复闭环",
   "button.resumeAsk": "恢复提问",
-  "button.review": "审核",
+  "button.review": "异常审核",
   "button.start": "开始",
   "button.ask": "提问",
   "button.askThisKb": "提问此知识库",
@@ -88,13 +88,13 @@ const messages = {
   "button.runAsk": "运行提问",
   "button.openWriting": "打开写作",
   "button.openAsk": "打开提问",
-  "button.openReview": "打开审核",
-  "button.memoryReview": "创建记忆审核",
+  "button.openReview": "打开异常审核",
+  "button.memoryReview": "创建异常审核",
   "button.applyMemory": "应用记忆",
   "button.applyMemoryUpdate": "应用记忆更新",
   "button.applyMemoryDelete": "应用记忆删除",
-  "button.createUpdateReview": "创建更新审核",
-  "button.createDeleteReview": "创建删除审核",
+  "button.createUpdateReview": "创建异常更新审核",
+  "button.createDeleteReview": "创建异常删除审核",
   "button.accept": "接受",
   "button.edit": "需修改",
   "button.reject": "拒绝",
@@ -1842,7 +1842,7 @@ function renderAskResult(result) {
     el("div", { className: "panel" }, [
       el("div", { className: "panel-header" }, [
         el("h2", {}, t("heading.sourcedBrief")),
-        el("span", { className: "tag ready" }, result.review ? "已创建审核" : "临时结果"),
+        el("span", { className: "tag ready" }, result.review ? "已创建异常审核" : "临时结果"),
       ]),
       el("pre", {}, result.brief || ""),
     ]),
@@ -3061,13 +3061,13 @@ async function openReview(reviewId) {
   state.focusReviewId = reviewId;
   const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}`);
   if (!syncReviewRecord(payload.review)) {
-    throw new Error("未找到审核项。");
+    throw new Error("未找到异常审核项。");
   }
   state.reviewView = [payload.review, ...state.reviewView.filter((review) => review.review_id !== reviewId)];
   renderReviews();
   renderHome();
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast("审核已打开。");
+  showToast("异常审核已打开。");
 }
 
 async function exportCurrent(format) {
@@ -3138,7 +3138,7 @@ async function createMemoryReviewFromRun(runId = "") {
   await loadAuditEvents(payload.memory_apply ? memoryApplyAction(payload.memory_apply) : "review.create");
   renderCurrentResultSurfaces();
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : "记忆审核已创建。");
+  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : "异常审核已创建。");
 }
 
 async function readSource(sourceRef) {
@@ -3277,7 +3277,7 @@ async function decideReview(reviewId, decision, reason) {
     setReviewStatusFilter("");
   }
   syncReviewDecision(payload.decision);
-  showToast(`审核已${reviewDecisionLabel(decision)}。`);
+  showToast(`异常审核已${reviewDecisionLabel(decision)}。`);
   await loadReviews();
   await loadPendingReviews();
   await loadWorkspaceStatus();
@@ -3300,7 +3300,7 @@ async function reviseReview(reviewId, intent) {
   await loadWorkspaceStatus();
   await loadAuditEvents("review.revise");
   renderCurrentResultSurfaces();
-  showToast("审核修改已创建。");
+  showToast("异常审核修改已创建。");
 }
 
 async function applyMemory(reviewId) {
@@ -3328,7 +3328,7 @@ async function createMemoryUpdateReview(fact, text, reason) {
   await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast("记忆更新审核已创建。");
+  showToast("异常记忆更新审核已创建。");
 }
 
 async function createMemoryDeleteReview(fact, reason) {
@@ -3344,7 +3344,7 @@ async function createMemoryDeleteReview(fact, reason) {
   await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
-  showToast("记忆删除审核已创建。");
+  showToast("异常记忆删除审核已创建。");
 }
 
 async function openMemoryLifecycle(memoryTargetId) {

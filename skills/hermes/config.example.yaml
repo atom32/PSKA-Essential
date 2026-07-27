@@ -21,6 +21,8 @@ mcp_servers:
         - pska_workspace_status
         - pska_runtime_diagnostics
         - pska_capabilities_get
+        - pska_migration_manifest
+        - pska_provider_jobs
         - pska_propose
         - pska_review_create
         - pska_review_list
@@ -29,6 +31,7 @@ mcp_servers:
         - pska_review_revise
         - pska_memory_search
         - pska_memory_apply
+        - pska_memory_change_from_conversation
         - pska_memory_review_from_workflow
         - pska_memory_update_review
         - pska_memory_delete_review
@@ -42,6 +45,10 @@ mcp_servers:
         - pska_kb_ingest_files
         - pska_ingest_loop
         - pska_ingest_loop_resume
+        - pska_digest_scope
+        - pska_digest_job_enqueue
+        - pska_digest_job_list
+        - pska_digest_job_run
         - pska_kb_document_status
         - pska_kb_readiness
         - pska_kb_ingestion_status

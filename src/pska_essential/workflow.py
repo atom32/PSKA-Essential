@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 from uuid import uuid4
 
 from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
 from pska_essential.audit import audit_event
-from pska_essential.capabilities import memory_capabilities, memory_operation_capability
+from pska_essential.capabilities import (
+    APPEND_CORRECTION_EPISODE,
+    MEMORY_DISPLAY_TEXT_KEYS,
+    MEMORY_INCLUDE_SUPERSEDED_SCOPE_KEYS,
+    MEMORY_SUPERSESSION_TARGET_KEYS,
+    memory_capabilities,
+    memory_conversation_update_strategy_supported,
+    memory_operation_capability,
+)
 from pska_essential.contracts import (
     ContextPacket,
     MemoryApplyResult,
@@ -23,7 +32,16 @@ from pska_essential.contracts import (
     to_jsonable,
     utc_now_iso,
 )
-from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
+from pska_essential.governance import (
+    AUTO_ACCEPT,
+    AUTO_APPLY,
+    CONVERSATION_ORIGIN,
+    DIGEST_ORIGIN,
+    DURABLE_ORIGIN,
+    DURABLE_PROPOSAL_KINDS,
+    MANUAL_REVIEW,
+    build_workspace_policy_from_env,
+)
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.runtime_context import build_runtime_memory_scope
@@ -119,16 +137,19 @@ class WorkflowService:
         source_refs = _unique_source_refs([*source_refs, *_memory_source_refs(run)])
         if not source_refs:
             raise WorkflowError("cannot propose without source refs")
-        proposal_id = f"prop_{uuid4().hex}"
         body = _compose_body(normalized, run, intent)
-        memory_patch = None
         if normalized == "memory_patch":
-            memory_patch = MemoryPatch(
-                text=body,
-                source_refs=source_refs,
-                confidence=0.8,
-                metadata={"run_id": run.run_id, "intent": intent or run.intent},
+            return self._create_memory_patch_proposal(
+                run,
+                intent=intent or run.intent,
+                memory_patch=MemoryPatch(
+                    text=body,
+                    source_refs=source_refs,
+                    confidence=0.8,
+                    metadata={"run_id": run.run_id, "intent": intent or run.intent},
+                ),
             )
+        proposal_id = f"prop_{uuid4().hex}"
         proposal = Proposal(
             proposal_id=proposal_id,
             run_id=run.run_id,
@@ -137,7 +158,6 @@ class WorkflowService:
             title=_proposal_title(normalized, intent or run.intent),
             body=body,
             source_refs=source_refs,
-            memory_patch=memory_patch,
         )
         self.store.save_proposal(proposal)
         run.proposal_ids.append(proposal.proposal_id)
@@ -176,8 +196,17 @@ class WorkflowService:
         self._ensure_memory_operation_supported("apply")
         run = self.store.get_workflow(run_id)
         policy = build_workspace_policy_from_env()
-        governance_action = policy.action_for("memory_patch")
+        origin = self._workflow_memory_origin(run)
+        requested_governance_action = policy.action_for("memory_patch", origin=origin)
+        governance_action = requested_governance_action
         proposal = self.propose(run_id, "memory_patch", intent or run.intent)
+        if origin == DIGEST_ORIGIN:
+            proposal.metadata["origin"] = DIGEST_ORIGIN
+            if proposal.memory_patch is not None:
+                proposal.memory_patch.metadata["origin"] = DIGEST_ORIGIN
+            self.store.save_proposal(proposal)
+        if _proposal_triage_review_recommended(proposal):
+            governance_action = MANUAL_REVIEW
         review = self.review_create(proposal.proposal_id)
         review_decision = None
         memory_apply = None
@@ -195,7 +224,10 @@ class WorkflowService:
             "review_decision": to_jsonable(review_decision),
             "memory_apply": to_jsonable(memory_apply),
             "governance": {
+                "origin": origin,
                 "action": governance_action,
+                "requested_action": requested_governance_action,
+                "triage_override": governance_action != requested_governance_action,
                 "durable_proposal": True,
                 "policy": policy.to_dict(),
             },
@@ -212,23 +244,27 @@ class WorkflowService:
         if not fact.source_refs:
             raise WorkflowError("memory delete review requires source refs")
         policy = build_workspace_policy_from_env()
-        governance_action = policy.action_for("memory_delete")
+        requested_governance_action = policy.action_for("memory_delete")
+        governance_action = requested_governance_action
         run = self.start(
             f"delete durable memory {fact.fact_id}",
             {"memory_fact_id": fact.fact_id, "operation": "memory_delete"},
         )
         run.metadata["memory_delete_candidate"] = to_jsonable(
-            MemoryDelete(
+            _annotated_memory_delete(
                 target_id=fact.fact_id,
                 reason=reason,
                 text=fact.text,
                 source_refs=fact.source_refs,
                 metadata={"fact_id": fact.fact_id},
+                origin=DURABLE_ORIGIN,
             )
         )
         run.updated_at = utc_now_iso()
         self.store.save_workflow(run)
         proposal = self.propose(run.run_id, "memory_delete", reason)
+        if _proposal_triage_review_recommended(proposal):
+            governance_action = MANUAL_REVIEW
         review = self.review_create(proposal.proposal_id)
         review_decision = None
         memory_apply = None
@@ -247,6 +283,8 @@ class WorkflowService:
             "memory_apply": to_jsonable(memory_apply),
             "governance": {
                 "action": governance_action,
+                "requested_action": requested_governance_action,
+                "triage_override": governance_action != requested_governance_action,
                 "durable_proposal": True,
                 "policy": policy.to_dict(),
             },
@@ -271,24 +309,28 @@ class WorkflowService:
         if not fact.source_refs:
             raise WorkflowError("memory update review requires source refs")
         policy = build_workspace_policy_from_env()
-        governance_action = policy.action_for("memory_update")
+        requested_governance_action = policy.action_for("memory_update")
+        governance_action = requested_governance_action
         run = self.start(
             f"update durable memory {fact.fact_id}",
             {"memory_fact_id": fact.fact_id, "operation": "memory_update"},
         )
         run.metadata["memory_update_candidate"] = to_jsonable(
-            MemoryUpdate(
+            _annotated_memory_update(
                 target_id=fact.fact_id,
                 text=updated_text,
                 previous_text=fact.text,
                 reason=reason,
                 source_refs=fact.source_refs,
                 metadata={"fact_id": fact.fact_id},
+                origin=DURABLE_ORIGIN,
             )
         )
         run.updated_at = utc_now_iso()
         self.store.save_workflow(run)
         proposal = self.propose(run.run_id, "memory_update", reason)
+        if _proposal_triage_review_recommended(proposal):
+            governance_action = MANUAL_REVIEW
         review = self.review_create(proposal.proposal_id)
         review_decision = None
         memory_apply = None
@@ -307,9 +349,290 @@ class WorkflowService:
             "memory_apply": to_jsonable(memory_apply),
             "governance": {
                 "action": governance_action,
+                "requested_action": requested_governance_action,
+                "triage_override": governance_action != requested_governance_action,
                 "durable_proposal": True,
                 "policy": policy.to_dict(),
             },
+            "artifact": self.workflow_artifact(run.run_id),
+        }
+
+    def memory_change_from_conversation(
+        self,
+        *,
+        user_message: str,
+        operation: str = "auto",
+        text: str = "",
+        memory_fact: MemoryFact | dict[str, Any] | None = None,
+        source_refs: list[SourceRef | dict[str, Any]] | None = None,
+        session_id: str = "",
+        message_id: str = "",
+        reason: str = "",
+        scope: dict[str, Any] | None = None,
+        force_review: bool = False,
+        confidence: float = 0.95,
+    ) -> dict[str, Any]:
+        """Govern normal memory changes expressed inside conversation."""
+
+        message = user_message.strip()
+        if not message:
+            raise WorkflowError("conversation memory change requires user_message")
+        fact = _optional_memory_fact_from_input(memory_fact)
+        normalized_operation = _normalize_conversation_memory_operation(
+            operation=operation,
+            memory_fact=fact,
+            text=text,
+            user_message=message,
+        )
+        proposal_operation = normalized_operation
+        backend_operation = {
+            "memory_patch": "apply",
+            "memory_update": "update",
+            "memory_delete": "delete",
+        }[normalized_operation]
+        memory_update_strategy = ""
+        if normalized_operation == "memory_update" and not memory_operation_capability(
+            self.memory, "update"
+        ).get("supported", False):
+            if memory_conversation_update_strategy_supported(self.memory, APPEND_CORRECTION_EPISODE):
+                proposal_operation = "memory_patch"
+                backend_operation = "apply"
+                memory_update_strategy = APPEND_CORRECTION_EPISODE
+        self._ensure_memory_operation_supported(backend_operation)
+
+        policy = build_workspace_policy_from_env()
+        target_resolution: dict[str, Any] | None = None
+        if fact is None and normalized_operation in {"memory_update", "memory_delete"}:
+            fact, target_resolution = _resolve_conversation_memory_target(
+                self.memory,
+                user_message=message,
+                text=text,
+                reason=reason,
+                operation=normalized_operation,
+                scope=scope or {},
+            )
+            self.store.add_audit_event(
+                audit_event(
+                    "memory.conversation_target_resolution",
+                    "memory_scope",
+                    _conversation_scope_target_id(scope or {}),
+                    operation=normalized_operation,
+                    status=target_resolution["status"],
+                    query=target_resolution["query"],
+                    candidate_count=target_resolution["candidate_count"],
+                    selected_fact_id=target_resolution.get("selected_fact_id", ""),
+                    session_id=session_id,
+                    message_id=message_id,
+                )
+            )
+            if fact is None:
+                return _conversation_memory_needs_target_response(
+                    operation=normalized_operation,
+                    requested_operation=operation,
+                    user_message=message,
+                    text=text,
+                    reason=reason,
+                    session_id=session_id,
+                    message_id=message_id,
+                    scope=scope or {},
+                    force_review=force_review,
+                    policy=policy.to_dict(),
+                    target_resolution=target_resolution,
+                )
+        elif fact is not None and normalized_operation in {"memory_update", "memory_delete"}:
+            target_resolution = _provided_conversation_memory_target_resolution(fact)
+        governance_action = policy.action_for(
+            normalized_operation,
+            origin=CONVERSATION_ORIGIN,
+            force_review=force_review,
+        )
+        run = self.start(
+            f"conversation memory {normalized_operation}",
+            {
+                **dict(scope or {}),
+                "operation": normalized_operation,
+                "origin": CONVERSATION_ORIGIN,
+                "session_id": session_id,
+                "message_id": message_id,
+            },
+        )
+        conversation_source_refs = _conversation_source_refs(
+            run_id=run.run_id,
+            user_message=message,
+            source_refs=source_refs or [],
+            session_id=session_id,
+            message_id=message_id,
+            scope=scope or {},
+        )
+        run.metadata["conversation_memory_request"] = {
+            "operation": normalized_operation,
+            "requested_operation": operation,
+            "user_message": message,
+            "text": text,
+            "reason": reason,
+            "session_id": session_id,
+            "message_id": message_id,
+            "force_review": force_review,
+            "target_resolution": target_resolution,
+            "proposal_operation": proposal_operation,
+            "backend_operation": backend_operation,
+            "memory_update_strategy": memory_update_strategy,
+        }
+        run.updated_at = utc_now_iso()
+        self.store.save_workflow(run)
+
+        intent = reason or _conversation_intent(normalized_operation, message)
+        if proposal_operation == "memory_patch":
+            patch_text = _conversation_memory_text(text=text, user_message=message)
+            patch_source_refs = conversation_source_refs
+            patch_metadata = {
+                "origin": CONVERSATION_ORIGIN,
+                "user_message": message,
+                "session_id": session_id,
+                "message_id": message_id,
+            }
+            if memory_update_strategy == APPEND_CORRECTION_EPISODE:
+                if fact is None:
+                    raise WorkflowError("conversation memory update requires memory_fact")
+                if not text.strip():
+                    raise WorkflowError("conversation memory update requires text")
+                patch_text = _conversation_correction_episode_text(
+                    current_text=text.strip(),
+                    previous_text=fact.text,
+                    target_fact_id=fact.fact_id,
+                )
+                patch_source_refs = _unique_source_refs([*fact.source_refs, *conversation_source_refs])
+                patch_metadata.update(
+                    {
+                        "semantic_operation": normalized_operation,
+                        "memory_update_strategy": memory_update_strategy,
+                        "target_fact_id": fact.fact_id,
+                        "current_text": text.strip(),
+                        "display_text": text.strip(),
+                        "previous_text": fact.text,
+                    }
+                )
+            proposal = self._create_memory_patch_proposal(
+                run,
+                intent=intent,
+                memory_patch=_annotated_memory_patch(
+                    text=patch_text,
+                    source_refs=patch_source_refs,
+                    confidence=float(confidence),
+                    metadata=patch_metadata,
+                    operation="memory_patch",
+                    origin=CONVERSATION_ORIGIN,
+                ),
+            )
+        elif proposal_operation == "memory_update":
+            if fact is None:
+                raise WorkflowError("conversation memory update requires memory_fact")
+            updated_text = text.strip()
+            if not updated_text:
+                raise WorkflowError("conversation memory update requires text")
+            run.metadata["memory_update_candidate"] = to_jsonable(
+                _annotated_memory_update(
+                    target_id=fact.fact_id,
+                    text=updated_text,
+                    previous_text=fact.text,
+                    reason=reason or message,
+                    source_refs=_unique_source_refs([*fact.source_refs, *conversation_source_refs]),
+                    metadata={
+                        "fact_id": fact.fact_id,
+                        "origin": CONVERSATION_ORIGIN,
+                        "user_message": message,
+                        "session_id": session_id,
+                        "message_id": message_id,
+                    },
+                    origin=CONVERSATION_ORIGIN,
+                    confidence=float(confidence),
+                )
+            )
+            run.updated_at = utc_now_iso()
+            self.store.save_workflow(run)
+            proposal = self.propose(run.run_id, "memory_update", intent)
+        else:
+            if fact is None:
+                raise WorkflowError("conversation memory delete requires memory_fact")
+            run.metadata["memory_delete_candidate"] = to_jsonable(
+                _annotated_memory_delete(
+                    target_id=fact.fact_id,
+                    reason=reason or message,
+                    text=fact.text,
+                    source_refs=_unique_source_refs([*fact.source_refs, *conversation_source_refs]),
+                    metadata={
+                        "fact_id": fact.fact_id,
+                        "origin": CONVERSATION_ORIGIN,
+                        "user_message": message,
+                        "session_id": session_id,
+                        "message_id": message_id,
+                    },
+                    origin=CONVERSATION_ORIGIN,
+                    confidence=float(confidence),
+                )
+            )
+            run.updated_at = utc_now_iso()
+            self.store.save_workflow(run)
+            proposal = self.propose(run.run_id, "memory_delete", intent)
+
+        review = self.review_create(proposal.proposal_id)
+        review_decision = None
+        memory_apply = None
+        if governance_action in {AUTO_ACCEPT, AUTO_APPLY}:
+            review_decision = self.review_decide(
+                review.review_id,
+                "accept",
+                f"accepted by conversation memory policy: {governance_action}",
+            )
+            if governance_action == AUTO_APPLY:
+                memory_apply = self.memory_apply(review.review_id)
+
+        status = "review_required"
+        if review_decision and not memory_apply:
+            status = "accepted"
+        if memory_apply:
+            status = "applied"
+        self.store.add_audit_event(
+            audit_event(
+                "memory.conversation_change",
+                "review",
+                review.review_id,
+                operation=normalized_operation,
+                proposal_operation=proposal.kind,
+                status=status,
+                governance_action=governance_action,
+                run_id=run.run_id,
+                proposal_id=proposal.proposal_id,
+                memory_target_id=memory_apply.target_id if memory_apply else "",
+                source_count=len(proposal.source_refs),
+                session_id=session_id,
+                message_id=message_id,
+                target_resolution_status=(target_resolution or {}).get("status", ""),
+            )
+        )
+        return {
+            "status": status,
+            "operation": normalized_operation,
+            "proposal_operation": proposal.kind,
+            "memory_update_strategy": memory_update_strategy,
+            "proposal": to_jsonable(proposal),
+            "review": self.store.get_review_record(review.review_id),
+            "review_decision": to_jsonable(review_decision),
+            "memory_apply": to_jsonable(memory_apply),
+            "governance": {
+                "origin": CONVERSATION_ORIGIN,
+                "action": governance_action,
+                "durable_proposal": True,
+                "force_review": force_review,
+                "policy": policy.to_dict(),
+            },
+            "conversation": {
+                "user_message": message,
+                "session_id": session_id,
+                "message_id": message_id,
+                "source_refs": to_jsonable(conversation_source_refs),
+            },
+            "target_resolution": target_resolution,
             "artifact": self.workflow_artifact(run.run_id),
         }
 
@@ -367,7 +690,15 @@ class WorkflowService:
 
     def memory_search(self, query: str, scope: dict[str, Any] | None = None, limit: int = 10) -> list[MemoryFact]:
         search_scope = _memory_runtime_scope(scope)
-        facts = self.memory.search(query, search_scope, limit)
+        requested_limit = max(0, int(limit))
+        include_superseded = any(bool(search_scope.get(key)) for key in MEMORY_INCLUDE_SUPERSEDED_SCOPE_KEYS)
+        facts, raw_facts, superseded = _memory_search_view(
+            self.memory,
+            query,
+            search_scope,
+            requested_limit,
+            include_superseded=include_superseded,
+        )
         self.store.add_audit_event(
             audit_event(
                 "memory.search",
@@ -375,6 +706,10 @@ class WorkflowService:
                 ",".join(str(item) for item in search_scope.get("dataset_ids", [])) or "workspace",
                 query=query,
                 count=len(facts),
+                raw_count=len(raw_facts),
+                superseded_count=len(superseded),
+                superseded_fact_ids=[item["fact_id"] for item in superseded],
+                include_superseded=include_superseded,
                 scope=search_scope,
             )
         )
@@ -396,6 +731,7 @@ class WorkflowService:
             if not proposal.memory_patch.source_refs:
                 raise WorkflowError("memory patch requires source refs before apply")
             _attach_memory_runtime_metadata(proposal.memory_patch.metadata, proposal)
+            proposal.memory_patch.metadata.setdefault("review_id", review_id)
             result = self.memory.apply(proposal.memory_patch)
             self.store.save_memory_apply(review_id, to_jsonable(result))
             self.store.add_audit_event(
@@ -413,6 +749,11 @@ class WorkflowService:
                     confidence=proposal.memory_patch.confidence,
                     source_count=len(proposal.memory_patch.source_refs),
                     source_refs=to_jsonable(proposal.memory_patch.source_refs),
+                    semantic_operation=proposal.memory_patch.metadata.get("semantic_operation") or "",
+                    memory_update_strategy=proposal.memory_patch.metadata.get("memory_update_strategy") or "",
+                    semantic_target_ids=_memory_fact_superseded_target_ids_from_metadata(
+                        proposal.memory_patch.metadata
+                    ),
                 )
             )
             return result
@@ -423,6 +764,7 @@ class WorkflowService:
             if not proposal.memory_update.source_refs:
                 raise WorkflowError("memory update requires source refs before apply")
             _attach_memory_runtime_metadata(proposal.memory_update.metadata, proposal)
+            proposal.memory_update.metadata.setdefault("review_id", review_id)
             result = self.memory.update(proposal.memory_update)
             self.store.save_memory_apply(review_id, to_jsonable(result))
             self.store.add_audit_event(
@@ -450,6 +792,7 @@ class WorkflowService:
             if not proposal.memory_delete.source_refs:
                 raise WorkflowError("memory delete requires source refs before apply")
             _attach_memory_runtime_metadata(proposal.memory_delete.metadata, proposal)
+            proposal.memory_delete.metadata.setdefault("review_id", review_id)
             result = self.memory.delete(proposal.memory_delete)
             self.store.save_memory_apply(review_id, to_jsonable(result))
             self.store.add_audit_event(
@@ -479,6 +822,18 @@ class WorkflowService:
         reason = str(capability.get("reason") or "operation is not supported")
         raise WorkflowError(f"memory {operation} is not supported by {backend}: {reason}")
 
+    def _workflow_memory_origin(self, run: WorkflowRun) -> str:
+        if isinstance(run.metadata.get("digest_scope"), dict):
+            return DIGEST_ORIGIN
+        for proposal_id in run.proposal_ids:
+            try:
+                proposal = self.store.get_proposal(proposal_id)
+            except Exception:
+                continue
+            if proposal.kind == "digest":
+                return DIGEST_ORIGIN
+        return DURABLE_ORIGIN
+
     def memory_lifecycle(self, memory_target_id: str, limit: int = 50) -> dict[str, Any]:
         target_id = str(memory_target_id or "").strip()
         if not target_id:
@@ -490,7 +845,7 @@ class WorkflowService:
         events = [
             event
             for event in self.store.list_audit_events(descending=False)
-            if event.action in lifecycle_actions and str(event.metadata.get("memory_target_id") or "") == target_id
+            if event.action in lifecycle_actions and self._memory_lifecycle_event_matches(event, target_id)
         ]
         returned_events = events[-limit:]
         return {
@@ -500,6 +855,21 @@ class WorkflowService:
             "latest_event": to_jsonable(events[-1]) if events else None,
             "events": to_jsonable(returned_events),
         }
+
+    def _memory_lifecycle_event_matches(self, event: Any, target_id: str) -> bool:
+        metadata = getattr(event, "metadata", {}) or {}
+        if str(metadata.get("memory_target_id") or "") == target_id:
+            return True
+        if target_id in _memory_lifecycle_semantic_target_ids(metadata):
+            return True
+        proposal_id = str(metadata.get("proposal_id") or "")
+        if not proposal_id:
+            return False
+        try:
+            proposal = self.store.get_proposal(proposal_id)
+        except Exception:
+            return False
+        return target_id in _proposal_semantic_target_ids(proposal)
 
     def workflow_artifact(self, run_id: str) -> dict[str, Any]:
         run = self.store.get_workflow(run_id)
@@ -635,7 +1005,14 @@ class WorkflowService:
         if memory_facts:
             lines.extend(["## Durable Workspace Memory", ""])
             for index, fact in enumerate(memory_facts, start=1):
-                lines.extend([f"### Memory [{index}] `{fact.get('fact_id') or ''}`", "", str(fact.get("text") or ""), ""])
+                lines.extend(
+                    [
+                        f"### Memory [{index}] `{fact.get('fact_id') or ''}`",
+                        "",
+                        _memory_fact_display_text(fact),
+                        "",
+                    ]
+                )
                 memory_sources = [source for source in memory_source_manifest if source["memory_index"] == index]
                 if memory_sources:
                     lines.extend(
@@ -705,6 +1082,92 @@ class WorkflowService:
             },
         }
 
+    def _create_memory_patch_proposal(
+        self,
+        run: WorkflowRun,
+        *,
+        intent: str,
+        memory_patch: MemoryPatch,
+    ) -> Proposal:
+        if not memory_patch.text.strip():
+            raise WorkflowError("memory_patch proposal requires text")
+        if not memory_patch.source_refs:
+            raise WorkflowError("memory_patch proposal requires source refs")
+        _annotate_memory_candidate(
+            memory_patch.metadata,
+            operation="memory_patch",
+            origin=str(memory_patch.metadata.get("origin") or self._workflow_memory_origin(run)),
+            text=memory_patch.text,
+            source_refs=memory_patch.source_refs,
+            confidence=memory_patch.confidence,
+        )
+        origin = str(memory_patch.metadata.get("origin") or self._workflow_memory_origin(run))
+        if origin != CONVERSATION_ORIGIN:
+            probe = self._memory_conflict_probe(run, memory_patch.text, origin=origin)
+            _attach_memory_conflict_probe(memory_patch.metadata, probe)
+        proposal_id = f"prop_{uuid4().hex}"
+        proposal = Proposal(
+            proposal_id=proposal_id,
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent=intent or run.intent,
+            title=_proposal_title("memory_patch", intent or run.intent),
+            body=memory_patch.text,
+            source_refs=memory_patch.source_refs,
+            memory_patch=memory_patch,
+            metadata=dict(memory_patch.metadata),
+        )
+        self.store.save_proposal(proposal)
+        run.proposal_ids.append(proposal.proposal_id)
+        run.updated_at = utc_now_iso()
+        self.store.save_workflow(run)
+        self.store.add_audit_event(
+            audit_event(
+                "proposal.create",
+                "proposal",
+                proposal.proposal_id,
+                kind=proposal.kind,
+                run_id=run.run_id,
+                origin=proposal.metadata.get("origin") or "",
+            )
+        )
+        return proposal
+
+    def _memory_conflict_probe(self, run: WorkflowRun, candidate_text: str, *, origin: str) -> dict[str, Any]:
+        query = _memory_conflict_query(candidate_text)
+        search_scope = _memory_runtime_scope(run.scope)
+        facts, raw_facts, superseded = _memory_search_view(self.memory, query, search_scope, limit=5)
+        candidates = _memory_conflict_candidates(candidate_text, facts)
+        max_conflict_score = max([candidate["conflict_score"] for candidate in candidates], default=0.0)
+        probe = {
+            "schema": "pska.memory_conflict_probe.v1",
+            "origin": origin,
+            "query": query,
+            "returned_count": len(facts),
+            "raw_count": len(raw_facts),
+            "superseded_count": len(superseded),
+            "superseded_fact_ids": [item["fact_id"] for item in superseded],
+            "related_count": len(candidates),
+            "max_conflict_score": round(max_conflict_score, 3),
+            "candidates": candidates,
+        }
+        self.store.add_audit_event(
+            audit_event(
+                "memory.conflict_probe",
+                "workflow",
+                run.run_id,
+                origin=origin,
+                query=query,
+                returned_count=len(facts),
+                raw_count=len(raw_facts),
+                superseded_count=len(superseded),
+                superseded_fact_ids=[item["fact_id"] for item in superseded],
+                related_count=len(candidates),
+                max_conflict_score=round(max_conflict_score, 3),
+            )
+        )
+        return probe
+
     def _propose_memory_update(self, run: WorkflowRun, intent: str = "") -> Proposal:
         candidate = run.metadata.get("memory_update_candidate") or {}
         if not candidate:
@@ -718,6 +1181,15 @@ class WorkflowService:
             raise WorkflowError("memory_update proposal requires text")
         if not memory_update.source_refs:
             raise WorkflowError("memory_update proposal requires source refs")
+        _annotate_memory_candidate(
+            memory_update.metadata,
+            operation="memory_update",
+            origin=str(memory_update.metadata.get("origin") or self._workflow_memory_origin(run)),
+            text=" ".join(part for part in [memory_update.previous_text, memory_update.text, memory_update.reason] if part),
+            source_refs=memory_update.source_refs,
+            confidence=float(memory_update.metadata.get("confidence") or 0.9),
+            conflict=bool(memory_update.previous_text),
+        )
         proposal_id = f"prop_{uuid4().hex}"
         body = _compose_memory_update_body(memory_update, intent or memory_update.reason)
         proposal = Proposal(
@@ -729,6 +1201,7 @@ class WorkflowService:
             body=body,
             source_refs=memory_update.source_refs,
             memory_update=memory_update,
+            metadata=dict(memory_update.metadata),
         )
         self.store.save_proposal(proposal)
         run.proposal_ids.append(proposal.proposal_id)
@@ -742,6 +1215,7 @@ class WorkflowService:
                 kind=proposal.kind,
                 run_id=run.run_id,
                 memory_target_id=memory_update.target_id,
+                origin=proposal.metadata.get("origin") or "",
             )
         )
         return proposal
@@ -757,6 +1231,15 @@ class WorkflowService:
             raise WorkflowError("memory_delete proposal requires target_id")
         if not memory_delete.source_refs:
             raise WorkflowError("memory_delete proposal requires source refs")
+        _annotate_memory_candidate(
+            memory_delete.metadata,
+            operation="memory_delete",
+            origin=str(memory_delete.metadata.get("origin") or self._workflow_memory_origin(run)),
+            text=" ".join(part for part in [memory_delete.text, memory_delete.reason] if part),
+            source_refs=memory_delete.source_refs,
+            confidence=float(memory_delete.metadata.get("confidence") or 0.9),
+            conflict=True,
+        )
         proposal_id = f"prop_{uuid4().hex}"
         body = _compose_memory_delete_body(memory_delete, intent or memory_delete.reason)
         proposal = Proposal(
@@ -768,6 +1251,7 @@ class WorkflowService:
             body=body,
             source_refs=memory_delete.source_refs,
             memory_delete=memory_delete,
+            metadata=dict(memory_delete.metadata),
         )
         self.store.save_proposal(proposal)
         run.proposal_ids.append(proposal.proposal_id)
@@ -781,6 +1265,7 @@ class WorkflowService:
                 kind=proposal.kind,
                 run_id=run.run_id,
                 memory_target_id=memory_delete.target_id,
+                origin=proposal.metadata.get("origin") or "",
             )
         )
         return proposal
@@ -827,6 +1312,532 @@ def _attach_memory_runtime_metadata(metadata: dict[str, Any], proposal: Proposal
             metadata.setdefault(key, scope[key])
     metadata.setdefault("proposal_id", proposal.proposal_id)
     metadata.setdefault("run_id", proposal.run_id)
+    metadata.setdefault("applied_at", utc_now_iso())
+
+
+def _annotated_memory_patch(
+    *,
+    text: str,
+    source_refs: list[SourceRef],
+    confidence: float,
+    metadata: dict[str, Any],
+    operation: str,
+    origin: str,
+) -> MemoryPatch:
+    patch = MemoryPatch(
+        text=text,
+        source_refs=source_refs,
+        confidence=confidence,
+        metadata=dict(metadata),
+    )
+    _annotate_memory_candidate(
+        patch.metadata,
+        operation=operation,
+        origin=origin,
+        text=text,
+        source_refs=source_refs,
+        confidence=confidence,
+    )
+    return patch
+
+
+def _annotated_memory_update(
+    *,
+    target_id: str,
+    text: str,
+    source_refs: list[SourceRef],
+    previous_text: str = "",
+    reason: str = "",
+    metadata: dict[str, Any] | None = None,
+    origin: str,
+    confidence: float = 0.9,
+) -> MemoryUpdate:
+    update = MemoryUpdate(
+        target_id=target_id,
+        text=text,
+        previous_text=previous_text,
+        reason=reason,
+        source_refs=source_refs,
+        metadata=dict(metadata or {}),
+    )
+    _annotate_memory_candidate(
+        update.metadata,
+        operation="memory_update",
+        origin=origin,
+        text=" ".join(part for part in [previous_text, text, reason] if part),
+        source_refs=source_refs,
+        confidence=confidence,
+        conflict=bool(previous_text),
+    )
+    return update
+
+
+def _annotated_memory_delete(
+    *,
+    target_id: str,
+    source_refs: list[SourceRef],
+    reason: str = "",
+    text: str = "",
+    metadata: dict[str, Any] | None = None,
+    origin: str,
+    confidence: float = 0.9,
+) -> MemoryDelete:
+    delete = MemoryDelete(
+        target_id=target_id,
+        reason=reason,
+        text=text,
+        source_refs=source_refs,
+        metadata=dict(metadata or {}),
+    )
+    _annotate_memory_candidate(
+        delete.metadata,
+        operation="memory_delete",
+        origin=origin,
+        text=" ".join(part for part in [text, reason] if part),
+        source_refs=source_refs,
+        confidence=confidence,
+        conflict=True,
+    )
+    return delete
+
+
+def _annotate_memory_candidate(
+    metadata: dict[str, Any],
+    *,
+    operation: str,
+    origin: str,
+    text: str,
+    source_refs: list[SourceRef],
+    confidence: float | None = None,
+    conflict: bool = False,
+) -> None:
+    now = utc_now_iso()
+    normalized_origin = (origin or DURABLE_ORIGIN).strip().lower()
+    normalized_operation = operation.strip().lower()
+    metadata.setdefault("origin", normalized_origin)
+    metadata.setdefault("operation", normalized_operation)
+    metadata.setdefault("created_at", now)
+    metadata.setdefault("observed_at", _observed_at_from_sources(source_refs) or now)
+    metadata.setdefault("source_count", len(source_refs))
+    if confidence is not None:
+        metadata.setdefault("confidence", float(confidence))
+    generated = _memory_triage(
+        operation=normalized_operation,
+        origin=normalized_origin,
+        text=text,
+        confidence=float(metadata.get("confidence") or confidence or 0.0),
+        source_count=len(source_refs),
+        conflict=conflict,
+    )
+    existing = dict(metadata.get("triage") or {})
+    for key, value in generated.items():
+        existing.setdefault(key, value)
+    metadata["triage"] = existing
+
+
+def _memory_triage(
+    *,
+    operation: str,
+    origin: str,
+    text: str,
+    confidence: float,
+    source_count: int,
+    conflict: bool,
+) -> dict[str, Any]:
+    uncertainty = max(0.0, min(1.0, 1.0 - confidence))
+    uncertainty_markers = _uncertainty_markers(text)
+    if uncertainty_markers:
+        uncertainty = max(uncertainty, 0.35)
+    risk = _memory_risk_score(text)
+    conflict_score = 0.65 if conflict or operation in {"memory_update", "memory_delete"} else 0.0
+    importance = 0.85 if operation in {"memory_update", "memory_delete"} else 0.75
+    if source_count <= 0:
+        uncertainty = max(uncertainty, 0.5)
+    non_conversation = origin != CONVERSATION_ORIGIN
+    review_recommended = non_conversation and (
+        (importance >= 0.7 and uncertainty >= 0.35)
+        or risk >= 0.7
+        or conflict_score >= 0.6
+    )
+    if origin == CONVERSATION_ORIGIN:
+        route = "conversation_policy"
+        reason = "conversation memory is corrected through later chat unless policy or user explicitly asks for review"
+    elif review_recommended:
+        route = "manual_review"
+        reason = "candidate is important and uncertain, risky, or conflicting"
+    else:
+        route = "workspace_policy"
+        reason = "candidate can follow workspace governance policy"
+    return {
+        "schema": "pska.memory_triage.v1",
+        "importance": round(importance, 3),
+        "uncertainty": round(uncertainty, 3),
+        "risk": round(risk, 3),
+        "conflict": round(conflict_score, 3),
+        "source_count": source_count,
+        "uncertainty_markers": uncertainty_markers,
+        "review_recommended": review_recommended,
+        "route": route,
+        "reason": reason,
+    }
+
+
+def _attach_memory_conflict_probe(metadata: dict[str, Any], probe: dict[str, Any]) -> None:
+    metadata["memory_conflict_probe"] = probe
+    related_count = int(probe.get("related_count") or 0)
+    max_conflict_score = float(probe.get("max_conflict_score") or 0.0)
+    triage = dict(metadata.get("triage") or {})
+    triage["related_memory_count"] = related_count
+    triage["conflict"] = max(float(triage.get("conflict") or 0.0), max_conflict_score)
+    if max_conflict_score >= 0.6:
+        triage["review_recommended"] = metadata.get("origin") != CONVERSATION_ORIGIN
+        triage["route"] = "manual_review" if triage["review_recommended"] else "conversation_policy"
+        triage["reason"] = "candidate may conflict with existing durable memory"
+    elif related_count:
+        triage.setdefault("related_memory_count", related_count)
+    metadata["triage"] = triage
+
+
+def _proposal_triage_review_recommended(proposal: Proposal) -> bool:
+    origin = str(proposal.metadata.get("origin") or "").strip().lower()
+    if origin == CONVERSATION_ORIGIN:
+        return False
+    triage = proposal.metadata.get("triage") or {}
+    return bool(triage.get("review_recommended"))
+
+
+def _memory_conflict_query(text: str) -> str:
+    return " ".join(_significant_tokens(text)[:12])
+
+
+def _memory_conflict_candidates(candidate_text: str, facts: list[MemoryFact]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for fact in facts:
+        relatedness, overlap = _memory_relatedness(candidate_text, fact.text)
+        if relatedness <= 0:
+            continue
+        conflict_score = _memory_conflict_score(candidate_text, fact.text, relatedness=relatedness)
+        candidates.append(
+            {
+                "fact_id": fact.fact_id,
+                "text_excerpt": _compact_text(fact.text, 220),
+                "relatedness": round(relatedness, 3),
+                "conflict_score": round(conflict_score, 3),
+                "overlap_tokens": overlap[:10],
+                "valid_at": fact.valid_at or "",
+                "invalid_at": fact.invalid_at or "",
+                "source_count": len(fact.source_refs),
+                "timestamps": {
+                    key: value
+                    for key in ("created_at", "observed_at", "updated_at", "applied_at")
+                    if isinstance((value := fact.metadata.get(key)), str) and value
+                },
+            }
+        )
+    return sorted(candidates, key=lambda item: (item["conflict_score"], item["relatedness"]), reverse=True)
+
+
+def _memory_relatedness(candidate_text: str, fact_text: str) -> tuple[float, list[str]]:
+    candidate_tokens = set(_significant_tokens(candidate_text))
+    fact_tokens = set(_significant_tokens(fact_text))
+    if not candidate_tokens or not fact_tokens:
+        return 0.0, []
+    overlap = sorted(candidate_tokens & fact_tokens)
+    if len(overlap) < 2:
+        return 0.0, overlap
+    denominator = max(1, min(len(candidate_tokens), len(fact_tokens)))
+    return min(1.0, len(overlap) / denominator), overlap
+
+
+def _memory_conflict_score(candidate_text: str, fact_text: str, *, relatedness: float) -> float:
+    score = 0.35 if relatedness > 0 else 0.0
+    negation_differs = _has_negation(candidate_text) != _has_negation(fact_text)
+    distinct_claim = _distinct_claim_terms(candidate_text, fact_text)
+    if score and negation_differs:
+        score = max(score, 0.75)
+    if score and _has_correction_marker(candidate_text) and (negation_differs or distinct_claim):
+        score = max(score, 0.65)
+    if relatedness >= 0.5 and distinct_claim:
+        score = max(score, 0.6)
+    return min(1.0, score)
+
+
+def _distinct_claim_terms(candidate_text: str, fact_text: str) -> bool:
+    candidate_tokens = set(_significant_tokens(candidate_text))
+    fact_tokens = set(_significant_tokens(fact_text))
+    distinct_candidate = candidate_tokens - fact_tokens
+    distinct_fact = fact_tokens - candidate_tokens
+    return bool(distinct_candidate and distinct_fact)
+
+
+def _significant_tokens(text: str) -> list[str]:
+    seen: set[str] = set()
+    tokens: list[str] = []
+    for token in re.findall(r"[A-Za-z0-9_][A-Za-z0-9_-]{2,}", text.lower()):
+        if token in _MEMORY_PROBE_STOPWORDS or token in seen:
+            continue
+        seen.add(token)
+        tokens.append(token)
+    return tokens
+
+
+def _has_negation(text: str) -> bool:
+    normalized = text.lower()
+    markers = (" not ", " no ", " never ", " without ", "不是", "不再", "不要", "没有", "并非")
+    padded = f" {normalized} "
+    return any(marker in padded for marker in markers)
+
+
+def _has_correction_marker(text: str) -> bool:
+    normalized = text.lower()
+    markers = (
+        "now",
+        "changed",
+        "instead",
+        "rather than",
+        "replaced",
+        "updated",
+        "current",
+        "现在",
+        "改为",
+        "变成",
+        "替代",
+        "而不是",
+    )
+    return any(marker in normalized for marker in markers)
+
+
+_MEMORY_PROBE_STOPWORDS = {
+    "and",
+    "are",
+    "but",
+    "can",
+    "for",
+    "from",
+    "has",
+    "have",
+    "into",
+    "not",
+    "that",
+    "the",
+    "this",
+    "with",
+    "reviewed",
+    "memory",
+    "candidate",
+    "evidence",
+    "source",
+    "count",
+    "summary",
+    "prior",
+    "context",
+    "remember",
+    "forget",
+    "delete",
+    "remove",
+    "correct",
+    "correction",
+    "wrong",
+    "actually",
+    "replace",
+    "instead",
+    "rather",
+    "than",
+    "durable",
+    "workspace",
+    "user",
+    "users",
+    "fact",
+}
+
+
+def _uncertainty_markers(text: str) -> list[str]:
+    normalized = text.lower()
+    markers = [
+        "maybe",
+        "possibly",
+        "probably",
+        "uncertain",
+        "not sure",
+        "might",
+        "可能",
+        "也许",
+        "大概",
+        "不确定",
+        "似乎",
+    ]
+    return [marker for marker in markers if marker in normalized]
+
+
+def _memory_risk_score(text: str) -> float:
+    normalized = text.lower()
+    high_risk_markers = (
+        "password",
+        "secret",
+        "api key",
+        "access token",
+        "private key",
+        "sk-",
+        "密码",
+        "密钥",
+        "令牌",
+        "私钥",
+    )
+    if any(marker in normalized for marker in high_risk_markers):
+        return 0.9
+    sensitive_markers = (
+        "salary",
+        "medical",
+        "legal",
+        "finance",
+        "财务",
+        "薪资",
+        "医疗",
+        "法律",
+    )
+    if any(marker in normalized for marker in sensitive_markers):
+        return 0.6
+    return 0.2
+
+
+def _observed_at_from_sources(source_refs: list[SourceRef]) -> str:
+    candidates: list[str] = []
+    for ref in source_refs:
+        metadata = ref.metadata or {}
+        for key in ("observed_at", "source_published_at", "created_at", "ingested_at"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                candidates.append(value.strip())
+    return max(candidates) if candidates else ""
+
+
+def _rank_memory_facts(facts: list[MemoryFact]) -> list[MemoryFact]:
+    return sorted(facts, key=_memory_fact_sort_key, reverse=True)
+
+
+def _memory_search_raw_limit(limit: int) -> int:
+    if limit <= 0:
+        return 0
+    return min(100, max(limit, limit * 3, limit + 5))
+
+
+def _memory_search_view(
+    memory: MemoryPort,
+    query: str,
+    scope: dict[str, Any],
+    limit: int,
+    *,
+    include_superseded: bool = False,
+) -> tuple[list[MemoryFact], list[MemoryFact], list[dict[str, Any]]]:
+    requested_limit = max(0, int(limit))
+    normalized_query = str(query or "").strip()
+    if not normalized_query or requested_limit <= 0:
+        return [], [], []
+    raw_limit = _memory_search_raw_limit(requested_limit)
+    raw_facts = _rank_memory_facts(memory.search(normalized_query, scope, raw_limit))
+    facts, superseded = _resolve_memory_search_supersession(
+        raw_facts,
+        include_superseded=include_superseded,
+    )
+    return facts[:requested_limit], raw_facts, superseded
+
+
+def _resolve_memory_search_supersession(
+    facts: list[MemoryFact],
+    *,
+    include_superseded: bool = False,
+) -> tuple[list[MemoryFact], list[dict[str, Any]]]:
+    superseded_by: dict[str, MemoryFact] = {}
+    fact_ids = {fact.fact_id for fact in facts}
+    for fact in facts:
+        for target_id in _memory_fact_superseded_target_ids(fact):
+            if target_id and target_id != fact.fact_id and target_id in fact_ids:
+                superseded_by[target_id] = fact
+    if not superseded_by:
+        return facts, []
+    superseded = [
+        {
+            "fact_id": fact_id,
+            "superseded_by_fact_id": newer.fact_id,
+            "strategy": str(newer.metadata.get("memory_update_strategy") or ""),
+            "semantic_operation": str(newer.metadata.get("semantic_operation") or ""),
+        }
+        for fact_id, newer in sorted(superseded_by.items())
+    ]
+    if include_superseded:
+        return facts, superseded
+    return [fact for fact in facts if fact.fact_id not in superseded_by], superseded
+
+
+def _memory_fact_superseded_target_ids(fact: MemoryFact) -> list[str]:
+    metadata = fact.metadata or {}
+    return _memory_fact_superseded_target_ids_from_metadata(metadata)
+
+
+def _memory_fact_superseded_target_ids_from_metadata(metadata: dict[str, Any]) -> list[str]:
+    semantic_operation = str(metadata.get("semantic_operation") or "").strip()
+    strategy = str(metadata.get("memory_update_strategy") or "").strip()
+    target_ids: list[str] = []
+    if semantic_operation == "memory_update" or strategy == "append_correction_episode":
+        for key in MEMORY_SUPERSESSION_TARGET_KEYS:
+            target_ids.extend(_string_list(metadata.get(key)))
+    return _unique_strings(target_ids)
+
+
+def _memory_lifecycle_semantic_target_ids(metadata: dict[str, Any]) -> list[str]:
+    target_ids: list[str] = []
+    target_ids.extend(_string_list(metadata.get("semantic_target_id")))
+    target_ids.extend(_string_list(metadata.get("semantic_target_ids")))
+    target_ids.extend(_memory_fact_superseded_target_ids_from_metadata(metadata))
+    return _unique_strings(target_ids)
+
+
+def _proposal_semantic_target_ids(proposal: Proposal) -> list[str]:
+    if proposal.memory_patch is not None:
+        return _memory_fact_superseded_target_ids_from_metadata(proposal.memory_patch.metadata)
+    if proposal.memory_update is not None:
+        return _unique_strings([proposal.memory_update.target_id])
+    if proposal.memory_delete is not None:
+        return _unique_strings([proposal.memory_delete.target_id])
+    return []
+
+
+def _memory_fact_sort_key(fact: MemoryFact) -> tuple[str, str]:
+    metadata = fact.metadata or {}
+    timestamp = (
+        fact.valid_at
+        or _metadata_timestamp(metadata, "applied_at")
+        or _metadata_timestamp(metadata, "updated_at")
+        or _metadata_timestamp(metadata, "created_at")
+        or _metadata_timestamp(metadata, "observed_at")
+        or ""
+    )
+    return (timestamp, fact.fact_id)
+
+
+def _metadata_timestamp(metadata: dict[str, Any], key: str) -> str:
+    value = metadata.get(key)
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _unique_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        unique.append(value)
+    return unique
 
 
 def _memory_fact_from_input(memory_fact: MemoryFact | dict[str, Any], operation: str) -> MemoryFact:
@@ -836,6 +1847,324 @@ def _memory_fact_from_input(memory_fact: MemoryFact | dict[str, Any], operation:
         return MemoryFact.from_dict(memory_fact)
     except TypeError as exc:
         raise WorkflowError(f"memory {operation} review requires a valid MemoryFact") from exc
+
+
+def _optional_memory_fact_from_input(memory_fact: MemoryFact | dict[str, Any] | None) -> MemoryFact | None:
+    if memory_fact is None:
+        return None
+    if isinstance(memory_fact, dict) and not memory_fact:
+        return None
+    return _memory_fact_from_input(memory_fact, "conversation change")
+
+
+def _resolve_conversation_memory_target(
+    memory: MemoryPort,
+    *,
+    user_message: str,
+    text: str,
+    reason: str,
+    operation: str,
+    scope: dict[str, Any],
+) -> tuple[MemoryFact | None, dict[str, Any]]:
+    query = _conversation_target_query(
+        user_message=user_message,
+        text=text,
+        reason=reason,
+        operation=operation,
+    )
+    search_scope = _memory_runtime_scope(scope)
+    facts, raw_facts, superseded = _memory_search_view(memory, query, search_scope, limit=5)
+    candidates = _conversation_target_candidates(query, facts)
+    resolution = {
+        "schema": "pska.conversation_memory_target_resolution.v1",
+        "status": "not_found",
+        "query": query,
+        "candidate_count": len(facts),
+        "raw_count": len(raw_facts),
+        "superseded_count": len(superseded),
+        "superseded_fact_ids": [item["fact_id"] for item in superseded],
+        "selected_fact_id": "",
+        "candidates": candidates,
+    }
+    if not candidates:
+        return None, resolution
+    top = candidates[0]
+    if len(candidates) > 1 and top["score"] == candidates[1]["score"]:
+        resolution["status"] = "ambiguous"
+        return None, resolution
+    resolution["status"] = "resolved"
+    resolution["selected_fact_id"] = top["fact_id"]
+    selected = next((fact for fact in facts if fact.fact_id == top["fact_id"]), None)
+    return selected, resolution
+
+
+def _conversation_target_query(*, user_message: str, text: str, reason: str, operation: str) -> str:
+    raw = " ".join(part.strip() for part in (user_message, reason, text) if part.strip())
+    tokens = _significant_tokens(raw)
+    if tokens:
+        return " ".join(tokens[:16])
+    return _compact_text(raw, 240)
+
+
+def _conversation_target_candidates(query: str, facts: list[MemoryFact]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for fact in facts:
+        score, overlap = _conversation_target_score(query, fact.text)
+        if score <= 0:
+            continue
+        candidates.append(
+            {
+                "fact_id": fact.fact_id,
+                "text_excerpt": _compact_text(fact.text, 220),
+                "score": round(score, 3),
+                "overlap_tokens": overlap[:10],
+                "valid_at": fact.valid_at or "",
+                "invalid_at": fact.invalid_at or "",
+            }
+        )
+    return sorted(candidates, key=lambda item: (item["score"], item["fact_id"]), reverse=True)
+
+
+def _conversation_target_score(query: str, fact_text: str) -> tuple[float, list[str]]:
+    query_tokens = set(_significant_tokens(query))
+    fact_tokens = set(_significant_tokens(fact_text))
+    if query_tokens and fact_tokens:
+        overlap = sorted(query_tokens & fact_tokens)
+        if overlap:
+            denominator = max(1, min(len(query_tokens), len(fact_tokens)))
+            return min(1.0, len(overlap) / denominator), overlap
+    normalized_query = query.strip().lower()
+    normalized_fact = fact_text.strip().lower()
+    if normalized_query and normalized_query in normalized_fact:
+        return 0.5, [normalized_query]
+    return 0.0, []
+
+
+def _provided_conversation_memory_target_resolution(fact: MemoryFact) -> dict[str, Any]:
+    return {
+        "schema": "pska.conversation_memory_target_resolution.v1",
+        "status": "provided",
+        "query": "",
+        "candidate_count": 1,
+        "selected_fact_id": fact.fact_id,
+        "candidates": [
+            {
+                "fact_id": fact.fact_id,
+                "text_excerpt": _compact_text(fact.text, 220),
+                "score": 1.0,
+                "overlap_tokens": [],
+                "valid_at": fact.valid_at or "",
+                "invalid_at": fact.invalid_at or "",
+            }
+        ],
+    }
+
+
+def _conversation_memory_needs_target_response(
+    *,
+    operation: str,
+    requested_operation: str,
+    user_message: str,
+    text: str,
+    reason: str,
+    session_id: str,
+    message_id: str,
+    scope: dict[str, Any],
+    force_review: bool,
+    policy: dict[str, Any],
+    target_resolution: dict[str, Any],
+) -> dict[str, Any]:
+    query = str(target_resolution.get("query") or "").strip()
+    next_actions: list[dict[str, Any]] = []
+    if query:
+        next_actions.append(
+            {
+                "tool": "pska_memory_search",
+                "params": {"query": query, "scope": scope, "limit": 5},
+            }
+        )
+    next_actions.append(
+        {
+            "instruction": "Ask the user which existing memory should be changed, then retry with memory_fact.",
+        }
+    )
+    return {
+        "status": "needs_target",
+        "operation": operation,
+        "proposal": None,
+        "review": None,
+        "review_decision": None,
+        "memory_apply": None,
+        "governance": {
+            "origin": CONVERSATION_ORIGIN,
+            "action": "needs_target",
+            "durable_proposal": False,
+            "force_review": force_review,
+            "policy": policy,
+        },
+        "conversation": {
+            "user_message": user_message,
+            "session_id": session_id,
+            "message_id": message_id,
+            "source_refs": [],
+        },
+        "target_resolution": target_resolution,
+        "next_actions": next_actions,
+        "artifact": None,
+        "request": {
+            "requested_operation": requested_operation,
+            "text": text,
+            "reason": reason,
+        },
+    }
+
+
+def _conversation_scope_target_id(scope: dict[str, Any]) -> str:
+    runtime_scope = _memory_runtime_scope(scope)
+    dataset_ids = runtime_scope.get("dataset_ids") or []
+    if dataset_ids:
+        return ",".join(str(item) for item in dataset_ids)
+    namespace = str(runtime_scope.get("memory_namespace") or "").strip()
+    return namespace or "workspace"
+
+
+def _normalize_conversation_memory_operation(
+    *,
+    operation: str,
+    memory_fact: MemoryFact | None,
+    text: str,
+    user_message: str,
+) -> str:
+    normalized = operation.strip().lower() or "auto"
+    mapping = {
+        "add": "memory_patch",
+        "append": "memory_patch",
+        "clarify": "memory_patch",
+        "create": "memory_patch",
+        "memory_patch": "memory_patch",
+        "patch": "memory_patch",
+        "remember": "memory_patch",
+        "correct": "memory_update",
+        "memory_update": "memory_update",
+        "replace": "memory_update",
+        "update": "memory_update",
+        "delete": "memory_delete",
+        "forget": "memory_delete",
+        "invalidate": "memory_delete",
+        "memory_delete": "memory_delete",
+        "remove": "memory_delete",
+    }
+    if normalized == "auto":
+        if _conversation_delete_intent(user_message):
+            return "memory_delete"
+        if memory_fact is not None and text.strip():
+            return "memory_update"
+        if text.strip() and _conversation_update_intent(user_message):
+            return "memory_update"
+        return "memory_patch"
+    if normalized not in mapping:
+        raise WorkflowError(
+            "conversation memory operation must be auto, remember, clarify, update, correct, delete, or forget"
+        )
+    return mapping[normalized]
+
+
+def _conversation_delete_intent(user_message: str) -> bool:
+    normalized = user_message.strip().lower()
+    delete_markers = (
+        "delete",
+        "forget",
+        "remove",
+        "invalidate",
+        "do not remember",
+        "don't remember",
+        "删",
+        "删除",
+        "忘",
+        "别记",
+        "不用记",
+        "不要记",
+    )
+    return any(marker in normalized for marker in delete_markers)
+
+
+def _conversation_update_intent(user_message: str) -> bool:
+    normalized = user_message.strip().lower()
+    update_markers = (
+        "correct",
+        "correction",
+        "wrong",
+        "actually",
+        "replace",
+        "instead",
+        "rather than",
+        "更正",
+        "纠正",
+        "错了",
+        "改成",
+        "改为",
+    )
+    return any(marker in normalized for marker in update_markers)
+
+
+def _conversation_memory_text(*, text: str, user_message: str) -> str:
+    return text.strip() or user_message.strip()
+
+
+def _conversation_correction_episode_text(*, current_text: str, previous_text: str, target_fact_id: str) -> str:
+    lines = [
+        "Memory correction episode.",
+        f"Current fact: {current_text.strip()}",
+    ]
+    if previous_text.strip():
+        lines.append(f"Previous fact: {previous_text.strip()}")
+    if target_fact_id.strip():
+        lines.append(f"Supersedes memory fact: {target_fact_id.strip()}")
+    return "\n".join(lines)
+
+
+def _conversation_intent(operation: str, user_message: str) -> str:
+    label = {
+        "memory_patch": "remember from conversation",
+        "memory_update": "correct from conversation",
+        "memory_delete": "forget from conversation",
+    }[operation]
+    return f"{label}: {_compact_text(user_message, 120)}"
+
+
+def _conversation_source_refs(
+    *,
+    run_id: str,
+    user_message: str,
+    source_refs: list[SourceRef | dict[str, Any]],
+    session_id: str,
+    message_id: str,
+    scope: dict[str, Any],
+) -> list[SourceRef]:
+    refs: list[SourceRef] = []
+    for source_ref in source_refs:
+        if isinstance(source_ref, SourceRef):
+            refs.append(source_ref)
+        else:
+            refs.append(SourceRef.from_dict(source_ref))
+    adapter = "hermes" if session_id or message_id else "conversation"
+    refs.append(
+        SourceRef(
+            adapter=adapter,
+            source_id=message_id or run_id,
+            external_id=session_id or run_id,
+            title="Conversation memory instruction",
+            metadata={
+                "origin": CONVERSATION_ORIGIN,
+                "run_id": run_id,
+                "session_id": session_id,
+                "message_id": message_id,
+                "user_message_excerpt": _compact_text(user_message, 1000),
+                "scope": to_jsonable(scope),
+            },
+        )
+    )
+    return _unique_source_refs(refs)
 
 
 def _is_accept_decision(decision: str) -> bool:
@@ -880,18 +2209,81 @@ def _ensure_exportable_work_product(artifact: dict[str, Any]) -> None:
         )
 
 
+_MEMORY_PATCH_MAX_BODY_CHARS = 1600
+_MEMORY_PATCH_MAX_EVIDENCE_SNIPPETS = 3
+_MEMORY_PATCH_SNIPPET_CHARS = 220
+
+
 def _compose_body(kind: str, run: WorkflowRun, intent: str) -> str:
+    purpose = intent or run.intent
+    if kind == "memory_patch":
+        return _compose_memory_patch_body(run, purpose)
     snippets = "\n".join(f"- {packet.text[:500]}" for packet in run.context_packets)
     memory_snippets = "\n".join(
-        f"- {str(fact.get('text') or '')[:500]}" for fact in run.metadata.get("memory_context", [])
+        f"- {_memory_fact_display_text(fact)[:500]}" for fact in run.metadata.get("memory_context", [])
     )
-    purpose = intent or run.intent
     memory_section = f"\n\nDurable workspace memory:\n{memory_snippets}" if memory_snippets else ""
     if kind == "digest":
         return f"Digest candidate for: {purpose}\n\nGrounded points:\n{snippets}{memory_section}"
     if kind == "writing_brief":
         return f"Writing brief for: {purpose}\n\nUse these grounded notes:\n{snippets}{memory_section}"
     return f"Reviewed memory candidate for: {purpose}\n\n{snippets}{memory_section}"
+
+
+def _compose_memory_patch_body(run: WorkflowRun, purpose: str) -> str:
+    source_refs = _unique_source_refs([packet.source_ref for packet in run.context_packets])
+    source_refs = _unique_source_refs([*source_refs, *_memory_source_refs(run)])
+    lines = [
+        f"Reviewed memory candidate for: {purpose}",
+        "",
+        f"Evidence source count: {len(source_refs)}",
+    ]
+    if run.context_packets:
+        lines.extend(["", "Evidence summary:"])
+        for index, packet in enumerate(run.context_packets[:_MEMORY_PATCH_MAX_EVIDENCE_SNIPPETS], start=1):
+            title = packet.title or packet.source_ref.title or _source_display_id(packet.source_ref) or f"source {index}"
+            lines.append(f"- {title}: {_compact_text(packet.text, _MEMORY_PATCH_SNIPPET_CHARS)}")
+    memory_facts = [
+        _compact_text(_memory_fact_display_text(fact), _MEMORY_PATCH_SNIPPET_CHARS)
+        for fact in run.metadata.get("memory_context", [])
+    ]
+    memory_facts = [fact for fact in memory_facts if fact]
+    if memory_facts:
+        lines.extend(["", "Prior memory context:"])
+        for fact in memory_facts[:_MEMORY_PATCH_MAX_EVIDENCE_SNIPPETS]:
+            lines.append(f"- {fact}")
+    return _truncate_text("\n".join(lines).strip(), _MEMORY_PATCH_MAX_BODY_CHARS)
+
+
+def _memory_fact_display_text(fact: Any) -> str:
+    if isinstance(fact, dict):
+        metadata = fact.get("metadata") if isinstance(fact.get("metadata"), dict) else {}
+        for key in MEMORY_DISPLAY_TEXT_KEYS:
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return str(fact.get("text") or "").strip()
+    metadata = getattr(fact, "metadata", {}) or {}
+    if isinstance(metadata, dict):
+        for key in MEMORY_DISPLAY_TEXT_KEYS:
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return str(getattr(fact, "text", "") or "").strip()
+
+
+def _compact_text(value: str, limit: int) -> str:
+    text = re.sub(r"<[^>]+>", " ", value)
+    text = re.sub(r"\s+", " ", text).strip()
+    if limit < 4 or len(text) <= limit:
+        return text
+    return f"{text[: limit - 3].rstrip()}..."
+
+
+def _truncate_text(value: str, limit: int) -> str:
+    if limit < 4 or len(value) <= limit:
+        return value
+    return f"{value[: limit - 3].rstrip()}..."
 
 
 def _proposal_title(kind: str, intent: str) -> str:

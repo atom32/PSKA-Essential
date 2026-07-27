@@ -42,6 +42,7 @@ def build_service_from_env() -> WorkflowService:
         memory = GraphitiMemoryAdapter(
             base_url=os.getenv("GRAPHITI_BASE_URL"),
             group_id=os.getenv("GRAPHITI_GROUP_ID", "pska-essential"),
+            timeout=_positive_float_env("GRAPHITI_TIMEOUT", 120.0),
         )
     elif memory_provider in {"company", "company_graphrag_stub"}:
         memory = company_stub
@@ -80,6 +81,19 @@ def _require_env(*names: str, provider: str) -> None:
 
 def _env_enabled(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _positive_float_env(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive number") from exc
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive number")
+    return value
 
 
 def _kb_provider_is_fake(dev_fake: bool) -> bool:
