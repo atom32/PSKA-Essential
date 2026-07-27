@@ -43,6 +43,162 @@ class SourceRef:
         return cls(**{key: data.get(key) for key in allowed if key in data})
 
 
+PROVENANCE_SCHEMA = "pska.provenance.v1"
+
+
+@dataclass(slots=True)
+class ProvenanceEnvelope:
+    schema: str = PROVENANCE_SCHEMA
+    tenant_id: str = ""
+    workspace_id: str = "default"
+    namespace: str = ""
+    object_role: str = "derived_memory"
+    created_by: dict[str, Any] = field(default_factory=dict)
+    process: dict[str, Any] = field(default_factory=dict)
+    upstreams: list[dict[str, Any]] = field(default_factory=list)
+    timestamps: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_source_refs(
+        cls,
+        source_refs: list[SourceRef],
+        *,
+        metadata: dict[str, Any] | None = None,
+        object_role: str = "derived_memory",
+    ) -> "ProvenanceEnvelope":
+        values = dict(metadata or {})
+        now = utc_now_iso()
+        return cls(
+            tenant_id=str(values.get("tenant_id") or ""),
+            workspace_id=str(values.get("workspace_id") or "default"),
+            namespace=str(values.get("memory_namespace") or values.get("namespace") or ""),
+            object_role=object_role,
+            created_by={
+                "component": "pska",
+                "agent_host": values.get("agent_host") or _agent_host_from_sources(source_refs),
+                "agent_id": values.get("agent_id") or "",
+            },
+            process={
+                "workflow_id": values.get("run_id") or values.get("workflow_id") or "",
+                "proposal_id": values.get("proposal_id") or "",
+                "review_id": values.get("review_id") or "",
+                "policy_version": values.get("policy_version") or values.get("governance_action") or "",
+            },
+            upstreams=[_source_ref_to_upstream(ref) for ref in source_refs],
+            timestamps={
+                "observed_at": values.get("observed_at") or "",
+                "created_at": values.get("created_at") or now,
+                "reviewed_at": values.get("reviewed_at") or "",
+                "applied_at": values.get("applied_at") or now,
+            },
+            metadata={
+                key: value
+                for key, value in values.items()
+                if key
+                not in {
+                    "agent_host",
+                    "agent_id",
+                    "tenant_id",
+                    "workspace_id",
+                    "memory_namespace",
+                    "namespace",
+                    "run_id",
+                    "workflow_id",
+                    "proposal_id",
+                    "review_id",
+                    "policy_version",
+                    "governance_action",
+                    "observed_at",
+                    "created_at",
+                    "reviewed_at",
+                    "applied_at",
+                }
+            },
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ProvenanceEnvelope":
+        payload = dict(data.get("pska") or data)
+        allowed = set(cls.__dataclass_fields__)
+        return cls(**{key: payload.get(key) for key in allowed if key in payload})
+
+    def to_dict(self) -> dict[str, Any]:
+        return to_jsonable(self)
+
+    def wrapped(self) -> dict[str, Any]:
+        return {"pska": self.to_dict()}
+
+    def source_refs(self) -> list[SourceRef]:
+        refs: list[SourceRef] = []
+        for upstream in self.upstreams:
+            source_ref = upstream.get("source_ref")
+            if isinstance(source_ref, dict):
+                refs.append(SourceRef.from_dict(source_ref))
+                continue
+            adapter = str(upstream.get("component") or upstream.get("adapter") or "")
+            if not adapter:
+                continue
+            refs.append(
+                SourceRef(
+                    adapter=adapter,
+                    dataset_id=_optional_text(upstream.get("dataset_id")),
+                    document_id=_optional_text(upstream.get("document_id")),
+                    chunk_id=_optional_text(upstream.get("chunk_id")),
+                    source_id=_optional_text(upstream.get("source_id")),
+                    title=_optional_text(upstream.get("title")),
+                    url=_optional_text(upstream.get("url")),
+                    path=_optional_text(upstream.get("path")),
+                    external_id=_optional_text(upstream.get("external_id")),
+                    metadata=dict(upstream.get("metadata") or {}),
+                )
+            )
+        return refs
+
+
+def _source_ref_to_upstream(ref: SourceRef) -> dict[str, Any]:
+    if ref.chunk_id:
+        object_type = "chunk"
+    elif ref.document_id:
+        object_type = "document"
+    elif ref.adapter in {"conversation", "hermes"}:
+        object_type = "message"
+    else:
+        object_type = "source"
+    metadata = dict(ref.metadata or {})
+    content_hash = metadata.get("content_hash") or metadata.get("excerpt_hash") or ""
+    return {
+        "component": ref.adapter,
+        "object_type": object_type,
+        "dataset_id": ref.dataset_id or "",
+        "document_id": ref.document_id or "",
+        "chunk_id": ref.chunk_id or "",
+        "source_id": ref.source_id or "",
+        "external_id": ref.external_id or "",
+        "title": ref.title or "",
+        "url": ref.url or "",
+        "path": ref.path or "",
+        "content_hash": content_hash,
+        "metadata": metadata,
+        "source_ref": to_jsonable(ref),
+    }
+
+
+def _agent_host_from_sources(source_refs: list[SourceRef]) -> str:
+    if any(ref.adapter == "hermes" for ref in source_refs):
+        return "hermes"
+    if any(ref.adapter == "conversation" for ref in source_refs):
+        return "conversation"
+    return ""
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    return text or None
+
+
 @dataclass(slots=True)
 class ContextPacket:
     context_id: str

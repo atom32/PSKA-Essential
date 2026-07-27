@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 from urllib.error import URLError
@@ -114,6 +115,7 @@ class RagflowRetrievalAdapter:
         chunk_id = _optional_str(data.get("id") or data.get("chunk_id"))
         dataset_id = _optional_str(data.get("dataset_id") or data.get("kb_id"))
         title = _optional_str(data.get("document_name") or data.get("document_keyword") or data.get("title"))
+        content_hash = _content_hash(text)
         source_ref = SourceRef(
             adapter=self.backend_name,
             dataset_id=dataset_id,
@@ -124,6 +126,7 @@ class RagflowRetrievalAdapter:
             metadata={
                 "positions": data.get("positions") or [],
                 "content_excerpt": text[:1000],
+                "content_hash": content_hash,
             },
         )
         return ContextPacket(
@@ -136,6 +139,7 @@ class RagflowRetrievalAdapter:
                 "vector_similarity": data.get("vector_similarity"),
                 "term_similarity": data.get("term_similarity"),
                 "doc_type": data.get("doc_type"),
+                "content_hash": content_hash,
             },
         )
 
@@ -183,6 +187,10 @@ def _optional_str(value: Any) -> str | None:
         return None
     text = str(value)
     return text or None
+
+
+def _content_hash(text: str) -> str:
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _ragflow_error_message(message: str) -> str:

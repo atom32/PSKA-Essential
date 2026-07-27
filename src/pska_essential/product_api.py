@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from pska_essential.agentic_loop import (
     list_resumable_agentic_questions,
     resume_agentic_question,
+    run_digest_scope,
     run_agentic_question_with_readiness,
 )
 from pska_essential.capabilities import product_capabilities
@@ -32,6 +33,7 @@ from pska_essential.diagnostics import (
     run_memory_probe,
     run_retrieval_probe,
 )
+from pska_essential.digest_jobs import enqueue_digest_job, list_digest_jobs, run_digest_job
 from pska_essential.env_file import preload_env_file
 from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
@@ -44,6 +46,8 @@ from pska_essential.kb_audit import (
     add_kb_parse_audit,
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.migration_manifest import build_migration_manifest
+from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
 from pska_essential.workflow import WorkflowError, WorkflowService
@@ -51,6 +55,25 @@ from pska_essential.workspace_status import build_workspace_status
 
 
 KbGatewayFactory = Callable[[], Any]
+
+
+PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
+    {"method": "GET", "path": "/api/health"},
+    {"method": "GET", "path": "/api/capabilities"},
+    {"method": "GET", "path": "/api/workspace/status"},
+    {"method": "GET", "path": "/api/provider/jobs"},
+    {"method": "POST", "path": "/api/turn-context"},
+    {"method": "POST", "path": "/api/ask"},
+    {"method": "POST", "path": "/api/digest"},
+    {"method": "POST", "path": "/api/digest-jobs"},
+    {"method": "GET", "path": "/api/digest-jobs"},
+    {"method": "POST", "path": "/api/digest-jobs/run-next"},
+    {"method": "POST", "path": "/api/digest-jobs/{run_id}/run"},
+    {"method": "POST", "path": "/api/workflows/{run_id}/memory-review"},
+    {"method": "POST", "path": "/api/memory/search"},
+    {"method": "POST", "path": "/api/memory/conversation-change"},
+    {"method": "POST", "path": "/api/kb/ingest"},
+)
 
 
 @dataclass(slots=True)
@@ -154,6 +177,7 @@ def _handler_class(state: ProductApiState):
                         "workspace": build_runtime_workspace_context().to_dict(),
                         "governance": build_workspace_policy_from_env().to_dict(),
                         "capabilities": product_capabilities(memory_adapter=state.service.memory),
+                        "product_api_contract": _product_api_contract(),
                     }
                 )
                 return
@@ -163,6 +187,35 @@ def _handler_class(state: ProductApiState):
                     {
                         "ok": True,
                         "capabilities": product_capabilities(memory_adapter=state.service.memory),
+                        "product_api_contract": _product_api_contract(),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/migration/manifest":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "migration_manifest": build_migration_manifest(
+                            state.service,
+                            limit=_int_param(query.get("limit"), 200),
+                        ),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/provider/jobs":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "provider_jobs": build_provider_job_status(
+                            state.service,
+                            state.kb_gateway_factory(),
+                            dataset_page_size=_int_param(query.get("dataset_page_size"), 50),
+                            digest_limit=_int_param(query.get("digest_limit"), 50),
+                            audit_limit=_int_param(query.get("audit_limit"), 50),
+                            include_ready=_bool_value(query.get("include_ready"), True),
+                        ),
                     }
                 )
                 return
@@ -440,6 +493,98 @@ def _handler_class(state: ProductApiState):
                     source_inspection_limit=(
                         int(payload["source_inspection_limit"]) if "source_inspection_limit" in payload else 3
                     ),
+                    model_context_tokens=_optional_int(payload, "model_context_tokens"),
+                    model_profile=str(payload.get("model_profile") or ""),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "POST" and path == "/api/turn-context":
+                payload = self._read_json()
+                result = _assemble_turn_context(state.service, payload)
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "POST" and path == "/api/digest":
+                payload = self._read_json()
+                dataset_ids = _required_list(payload, "dataset_ids")
+                document_ids = [str(item) for item in payload.get("document_ids") or []]
+                retrieval_queries = _optional_str_list(payload, "retrieval_queries")
+                result = run_digest_scope(
+                    state.service,
+                    state.kb_gateway_factory(),
+                    dataset_ids=dataset_ids,
+                    document_ids=document_ids,
+                    question=str(
+                        payload.get("question")
+                        or "Digest the selected ready knowledge into concise candidate knowledge."
+                    ),
+                    limit=int(payload.get("limit") or 5),
+                    use_kg=bool(payload.get("use_kg", False)),
+                    max_iterations=int(payload.get("max_iterations") or 2),
+                    min_context_packets=int(payload.get("min_context_packets") or 1),
+                    retrieval_queries=retrieval_queries,
+                    source_inspection_limit=(
+                        int(payload["source_inspection_limit"]) if "source_inspection_limit" in payload else 3
+                    ),
+                    model_context_tokens=_optional_int(payload, "model_context_tokens"),
+                    model_profile=str(payload.get("model_profile") or ""),
+                    create_memory_review=_bool_value(payload.get("create_memory_review"), False),
+                    memory_intent=str(payload.get("memory_intent") or ""),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "POST" and path == "/api/digest-jobs":
+                payload = self._read_json()
+                dataset_ids = _required_list(payload, "dataset_ids")
+                document_ids = [str(item) for item in payload.get("document_ids") or []]
+                retrieval_queries = _optional_str_list(payload, "retrieval_queries")
+                result = enqueue_digest_job(
+                    state.service,
+                    dataset_ids=dataset_ids,
+                    document_ids=document_ids,
+                    question=str(
+                        payload.get("question")
+                        or "Digest the selected ready knowledge into concise candidate knowledge."
+                    ),
+                    priority=int(payload.get("priority") or 0),
+                    limit=int(payload.get("limit") or 5),
+                    use_kg=bool(payload.get("use_kg", False)),
+                    max_iterations=int(payload.get("max_iterations") or 2),
+                    min_context_packets=int(payload.get("min_context_packets") or 1),
+                    retrieval_queries=retrieval_queries,
+                    source_inspection_limit=(
+                        int(payload["source_inspection_limit"]) if "source_inspection_limit" in payload else 3
+                    ),
+                    create_memory_review=_bool_value(payload.get("create_memory_review"), False),
+                    memory_intent=str(payload.get("memory_intent") or ""),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "GET" and path == "/api/digest-jobs":
+                status = str(query.get("status") or "")
+                limit = _int_param(query.get("limit"), 50)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "digest_jobs": list_digest_jobs(state.service, status=status or None, limit=limit),
+                    }
+                )
+                return
+
+            if method == "POST" and path == "/api/digest-jobs/run-next":
+                result = run_digest_job(state.service, state.kb_gateway_factory())
+                self._send_json({"ok": True, **result})
+                return
+
+            digest_job_run = _match(path, "/api/digest-jobs/", "/run")
+            if method == "POST" and digest_job_run:
+                result = run_digest_job(
+                    state.service,
+                    state.kb_gateway_factory(),
+                    run_id=digest_job_run,
                 )
                 self._send_json({"ok": True, **result})
                 return
@@ -514,6 +659,45 @@ def _handler_class(state: ProductApiState):
                 payload = self._read_json()
                 source = state.service.source_read(SourceRef.from_dict(payload.get("source_ref") or payload))
                 self._send_json({"ok": True, "source": to_jsonable(source)})
+                return
+
+            if method == "POST" and path == "/api/memory/search":
+                payload = self._read_json()
+                facts = state.service.memory_search(
+                    _required_str(payload, "query"),
+                    _optional_dict(payload, "scope"),
+                    limit=int(payload.get("limit") or 10),
+                )
+                capabilities = product_capabilities(memory_adapter=state.service.memory)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "memory_facts": to_jsonable(facts),
+                        "count": len(facts),
+                        "search_view": capabilities["memory"]["search_view"],
+                    }
+                )
+                return
+
+            if method == "POST" and path == "/api/memory/conversation-change":
+                payload = self._read_json()
+                source_refs = payload.get("source_refs") or []
+                if not isinstance(source_refs, list):
+                    raise ApiError("source_refs must be a list", HTTPStatus.BAD_REQUEST)
+                result = state.service.memory_change_from_conversation(
+                    user_message=_required_str(payload, "user_message"),
+                    operation=str(payload.get("operation") or "auto"),
+                    text=str(payload.get("text") or ""),
+                    memory_fact=payload.get("memory_fact") or payload.get("fact"),
+                    source_refs=source_refs,
+                    session_id=str(payload.get("session_id") or ""),
+                    message_id=str(payload.get("message_id") or ""),
+                    reason=str(payload.get("reason") or ""),
+                    scope=dict(payload.get("scope") or {}),
+                    force_review=_bool_value(payload.get("force_review"), False),
+                    confidence=float(payload.get("confidence") or 0.95),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/memory/delete-review":
@@ -614,6 +798,7 @@ def _handler_class(state: ProductApiState):
                         description=fields.get("description") or "",
                         chunk_method=fields.get("chunk_method") or "naive",
                         embedding_model=fields.get("embedding_model") or "",
+                        priority=int(fields.get("priority") or 0),
                         parse=_bool_value(fields.get("parse"), True),
                         wait=_bool_value(fields.get("wait"), False),
                         timeout_seconds=float(fields.get("timeout_seconds") or 300.0),
@@ -634,6 +819,7 @@ def _handler_class(state: ProductApiState):
                 description=str(payload.get("description") or ""),
                 chunk_method=str(payload.get("chunk_method") or "naive"),
                 embedding_model=str(payload.get("embedding_model") or ""),
+                priority=int(payload.get("priority") or 0),
                 parse=bool(payload.get("parse", True)),
                 wait=bool(payload.get("wait", False)),
                 timeout_seconds=float(payload.get("timeout_seconds") or 300.0),
@@ -679,6 +865,8 @@ def _handler_class(state: ProductApiState):
                         min_context_packets=int(fields.get("min_context_packets") or 1),
                         retrieval_queries=_lines_or_csv_values(fields.get("retrieval_queries") or ""),
                         source_inspection_limit=int(fields.get("source_inspection_limit") or 3),
+                        model_context_tokens=_optional_int(fields, "model_context_tokens"),
+                        model_profile=fields.get("model_profile") or "",
                         export_format=fields.get("export_format") or "markdown",
                     )
                 self._send_json({"ok": True, "ingest_loop": result}, HTTPStatus.CREATED)
@@ -707,6 +895,8 @@ def _handler_class(state: ProductApiState):
                 min_context_packets=int(payload.get("min_context_packets") or 1),
                 retrieval_queries=_optional_str_list(payload, "retrieval_queries"),
                 source_inspection_limit=int(payload.get("source_inspection_limit") or 3),
+                model_context_tokens=_optional_int(payload, "model_context_tokens"),
+                model_profile=str(payload.get("model_profile") or ""),
                 export_format=str(payload.get("export_format") or "markdown"),
             )
             self._send_json({"ok": True, "ingest_loop": result}, HTTPStatus.CREATED)
@@ -796,6 +986,180 @@ def _match(path: str, prefix: str, suffix: str) -> str | None:
     return unquote(value.strip("/")) or None
 
 
+def _assemble_turn_context(service: WorkflowService, payload: dict[str, Any]) -> dict[str, Any]:
+    user_message = (
+        str(payload.get("user_message") or payload.get("query") or payload.get("task") or "")
+        .strip()
+    )
+    if not user_message:
+        raise ApiError("user_message is required", HTTPStatus.BAD_REQUEST)
+
+    mode = str(payload.get("mode") or "auto").strip().lower() or "auto"
+    scope = _turn_context_scope(payload)
+    budget = _optional_dict(payload, "budget")
+    requirements = _optional_dict(payload, "requirements")
+    max_evidence_blocks = _bounded_int(
+        budget.get("max_evidence_blocks", payload.get("limit", payload.get("max_evidence_blocks"))),
+        default=5,
+        minimum=0,
+        maximum=20,
+        field_name="budget.max_evidence_blocks",
+    )
+    max_memory_notes = _bounded_int(
+        budget.get("max_memory_notes", payload.get("max_memory_notes")),
+        default=5,
+        minimum=0,
+        maximum=20,
+        field_name="budget.max_memory_notes",
+    )
+
+    warnings: list[dict[str, Any]] = []
+    if mode != "memory-only" and max_evidence_blocks > 0:
+        run = service.start(
+            f"turn context: {user_message[:120]}",
+            {
+                **scope,
+                "turn_context": True,
+                "caller": str(payload.get("caller") or ""),
+                "workspace": str(payload.get("workspace") or scope.get("workspace") or ""),
+                "project_id": str(payload.get("project_id") or scope.get("project_id") or ""),
+            },
+        )
+        packets = service.context_retrieve(run.run_id, user_message, max_evidence_blocks)
+    else:
+        run = service.start(
+            f"turn context: {user_message[:120]}",
+            {**scope, "turn_context": True, "evidence_disabled": True},
+        )
+        packets = []
+
+    memory_facts = []
+    if mode != "evidence-only" and max_memory_notes > 0:
+        capabilities = product_capabilities(memory_adapter=service.memory)
+        search_capability = capabilities["memory"]["operations"].get("search", {})
+        if search_capability.get("supported") is False:
+            warnings.append(
+                {
+                    "code": "memory_search_unsupported",
+                    "message": "Configured PSKA memory backend does not support memory search.",
+                }
+            )
+        else:
+            memory_facts = service.memory_search(user_message, scope, max_memory_notes)
+
+    evidence_blocks = [_turn_context_evidence_block(packet) for packet in packets]
+    memory_blocks = [_turn_context_memory_block(fact) for fact in memory_facts]
+    return {
+        "schema": "pska.turn_context_response.v1",
+        "run_id": run.run_id,
+        "mode": mode,
+        "scope": scope,
+        "budget": {
+            "max_evidence_blocks": max_evidence_blocks,
+            "max_memory_notes": max_memory_notes,
+        },
+        "requirements": requirements,
+        "turn_context": {
+            "summary": (
+                f"Retrieved {len(evidence_blocks)} evidence block(s) and "
+                f"{len(memory_blocks)} memory note(s)."
+            ),
+            "blocks": [*evidence_blocks, *memory_blocks],
+            "evidence_blocks": evidence_blocks,
+            "memory_notes": memory_blocks,
+            "citations": _turn_context_citations(packets, memory_facts),
+            "warnings": warnings,
+        },
+    }
+
+
+def _turn_context_scope(payload: dict[str, Any]) -> dict[str, Any]:
+    scope = _optional_dict(payload, "scope")
+    for key in ("dataset_ids", "document_ids", "memory_namespaces"):
+        values = _optional_str_list(payload, key)
+        if values:
+            scope[key] = values
+    for key in ("workspace", "project_id", "memory_namespace"):
+        value = str(payload.get(key) or "").strip()
+        if value:
+            scope[key] = value
+    return scope
+
+
+def _bounded_int(
+    value: Any,
+    *,
+    default: int,
+    minimum: int,
+    maximum: int,
+    field_name: str,
+) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ApiError(f"{field_name} must be an integer", HTTPStatus.BAD_REQUEST) from None
+    if parsed < minimum or parsed > maximum:
+        raise ApiError(f"{field_name} must be between {minimum} and {maximum}", HTTPStatus.BAD_REQUEST)
+    return parsed
+
+
+def _turn_context_evidence_block(packet: Any) -> dict[str, Any]:
+    return {
+        "type": "evidence",
+        "context_id": packet.context_id,
+        "text": packet.text,
+        "title": packet.title or "",
+        "score": packet.score,
+        "source_ref": to_jsonable(packet.source_ref),
+        "metadata": to_jsonable(packet.metadata),
+    }
+
+
+def _turn_context_memory_block(fact: Any) -> dict[str, Any]:
+    metadata = dict(getattr(fact, "metadata", {}) or {})
+    return {
+        "type": "memory",
+        "fact_id": fact.fact_id,
+        "text": fact.text,
+        "confidence": metadata.get("confidence"),
+        "valid_at": fact.valid_at or "",
+        "source_refs": to_jsonable(fact.source_refs),
+        "metadata": to_jsonable(metadata),
+    }
+
+
+def _turn_context_citations(packets: list[Any], memory_facts: list[Any]) -> list[dict[str, Any]]:
+    citations = [
+        {
+            "type": "evidence",
+            "source_ref": to_jsonable(packet.source_ref),
+            "title": packet.title or packet.source_ref.title or "",
+        }
+        for packet in packets
+    ]
+    for fact in memory_facts:
+        for source_ref in fact.source_refs:
+            citations.append(
+                {
+                    "type": "memory",
+                    "fact_id": fact.fact_id,
+                    "source_ref": to_jsonable(source_ref),
+                    "title": source_ref.title or "",
+                }
+            )
+    return citations
+
+
+def _product_api_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.product_api_contract.v1",
+        "required_routes": [dict(route) for route in PRODUCT_API_REQUIRED_ROUTES],
+        "frontend": "hermes_webui_proxy",
+    }
+
+
 def _match_document_graph(path: str) -> tuple[str, str] | None:
     value = _match(path, "/api/kb/datasets/", "/graph")
     if not value:
@@ -837,16 +1201,36 @@ def _optional_str_list(payload: dict[str, Any], key: str) -> list[str]:
     return [str(item).strip() for item in candidates if str(item).strip()]
 
 
+def _optional_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    value = payload.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ApiError(f"{key} must be an object", HTTPStatus.BAD_REQUEST)
+    return dict(value)
+
+
 def _int_param(value: str | None, default: int) -> int:
     if not value:
         return default
     return int(value)
 
 
-def _bool_value(value: str | None, default: bool) -> bool:
+def _optional_int(payload: dict[str, Any], key: str) -> int | None:
+    if key not in payload:
+        return None
+    value = payload.get(key)
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
+def _bool_value(value: Any, default: bool) -> bool:
     if value is None or value == "":
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _optional_bool_field(fields: dict[str, str], key: str) -> bool | None:

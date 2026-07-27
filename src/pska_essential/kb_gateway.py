@@ -216,17 +216,19 @@ class RagflowKnowledgeGateway:
         *,
         dataset_id: str,
         document_ids: list[str],
+        priority: int = 0,
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ) -> dict[str, Any]:
         ids = [str(doc_id) for doc_id in document_ids if doc_id]
         if not ids:
             raise KbGatewayError("document_ids is required")
-        self._json("POST", f"/datasets/{dataset_id}/documents/parse", payload={"document_ids": ids})
+        self._json("POST", f"/datasets/{dataset_id}/documents/parse", payload={"document_ids": ids, "priority": priority})
         result: dict[str, Any] = {
             "backend": self.backend_name,
             "dataset_id": dataset_id,
             "document_ids": ids,
+            "priority": priority,
             "parse_started": True,
         }
         if wait:
@@ -282,6 +284,7 @@ class RagflowKnowledgeGateway:
         description: str = "",
         chunk_method: str = "naive",
         embedding_model: str = "",
+        priority: int = 0,
         parse: bool = True,
         wait: bool = False,
         timeout_seconds: float = 300.0,
@@ -314,6 +317,7 @@ class RagflowKnowledgeGateway:
             parse_result = self.parse_documents(
                 dataset_id=dataset_id,
                 document_ids=[doc["document_id"] for doc in documents],
+                priority=priority,
                 wait=wait,
                 timeout_seconds=timeout_seconds,
             )
@@ -578,6 +582,7 @@ class FakeKnowledgeGateway:
         *,
         dataset_id: str,
         document_ids: list[str],
+        priority: int = 0,
         wait: bool = False,
         timeout_seconds: float = 300.0,
     ) -> dict[str, Any]:
@@ -605,6 +610,7 @@ class FakeKnowledgeGateway:
             "backend": self.backend_name,
             "dataset_id": dataset_id,
             "document_ids": document_ids,
+            "priority": priority,
             "parse_started": True,
         }
         if wait:
@@ -655,6 +661,7 @@ class FakeKnowledgeGateway:
         description: str = "",
         chunk_method: str = "naive",
         embedding_model: str = "",
+        priority: int = 0,
         parse: bool = True,
         wait: bool = False,
         timeout_seconds: float = 300.0,
@@ -685,6 +692,7 @@ class FakeKnowledgeGateway:
             result["parse"] = self.parse_documents(
                 dataset_id=dataset_id,
                 document_ids=[doc["document_id"] for doc in documents],
+                priority=priority,
                 wait=wait,
                 timeout_seconds=timeout_seconds,
             )

@@ -506,7 +506,7 @@ Expected result:
 - Governance/adapter tests cover durable memory backend scoping through the
   PSKA `memory_namespace`, including fake memory search and Graphiti group ID
   mapping.
-- `make list-tools`: lists 44 PSKA MCP tools, including `pska_ingest_loop`
+- `make list-tools`: lists 45 PSKA MCP tools, including `pska_ingest_loop`
   and `pska_ingest_loop_resume`.
 - `make smoke`: fake adapter workflow succeeds.
 - `make eval` with explicit fake dev env runs the 6-step

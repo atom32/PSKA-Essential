@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from pska_essential.adapters.fake import FakeMemoryAdapter
-from pska_essential.agentic_loop import run_agentic_question
-from pska_essential.contracts import ContextPacket, SourceContext, SourceRef
+from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
+from pska_essential.agentic_loop import run_agentic_question, run_digest_scope
+from pska_essential.contracts import ContextPacket, MemoryFact, SourceContext, SourceRef
 from pska_essential.governance import AUTO_ACCEPT, AUTO_APPLY, WorkspaceGovernancePolicy
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowService, build_fake_service
@@ -42,6 +42,87 @@ class _QueryRecordingRetrieval:
     def read_source(self, source_ref):
         self.source_reads.append(source_ref)
         return SourceContext(source_ref=source_ref, text=f"Recorded query source for {source_ref.document_id}")
+
+
+class _FederatedRetrieval:
+    backend_name = "federated"
+
+    def __init__(self) -> None:
+        self.source_reads: list[SourceRef] = []
+
+    def retrieve(self, query, scope, limit, options=None):
+        return [
+            ContextPacket(
+                context_id="ctx-direct",
+                text="Direct retrieval only returned a general note.",
+                source_ref=SourceRef(
+                    adapter=self.backend_name,
+                    dataset_id="demo",
+                    document_id="doc-direct",
+                    chunk_id="chunk-direct",
+                    title="Direct Source",
+                ),
+                title="Direct Source",
+            )
+        ][:limit]
+
+    def read_source(self, source_ref):
+        self.source_reads.append(source_ref)
+        return SourceContext(
+            source_ref=source_ref,
+            text=f"Federated source evidence from {source_ref.document_id}.",
+            metadata={"title": "Federated Memory Source"},
+        )
+
+
+class _FederatedMemory:
+    backend_name = "graphiti"
+    memory_capabilities = {"search": True, "apply": False, "update": False, "delete": False}
+
+    def search(self, query, scope, limit):
+        return [
+            MemoryFact(
+                fact_id="mem-graphiti-1",
+                text="Graphiti says a related source exists.",
+                source_refs=[
+                    SourceRef(
+                        adapter="federated",
+                        dataset_id="demo",
+                        document_id="doc-memory",
+                        chunk_id="chunk-memory",
+                        title="Memory Evidence",
+                        metadata={"content_hash": "sha256:memory-source"},
+                    )
+                ],
+                metadata={"lineage_status": "resolved"},
+            )
+        ][:limit]
+
+    def apply(self, reviewed_patch):
+        raise NotImplementedError
+
+    def update(self, reviewed_update):
+        raise NotImplementedError
+
+    def delete(self, reviewed_delete):
+        raise NotImplementedError
+
+
+class _ReadyGateway:
+    def list_datasets(self, *, page_size=200, name=None):
+        return [{"dataset_id": "demo", "name": "Demo", "document_count": 1, "chunk_count": 1}]
+
+    def list_documents(self, *, dataset_id, document_id=None, name=None, page_size=30):
+        return [
+            {
+                "dataset_id": dataset_id,
+                "document_id": document_id or "doc-1",
+                "name": name or "doc.txt",
+                "chunk_count": 1,
+                "progress": 1.0,
+                "run": "DONE",
+            }
+        ]
 
 
 class AgenticLoopTests(unittest.TestCase):
@@ -123,6 +204,81 @@ class AgenticLoopTests(unittest.TestCase):
         context_events = service.store.list_audit_events(action="context.retrieve")
         self.assertEqual([event.metadata["query"] for event in context_events], retrieval.queries)
         self.assertEqual(len(service.store.list_audit_events(action="source.read")), 2)
+
+    def test_agentic_loop_federates_graphiti_memory_sources_into_context(self):
+        retrieval = _FederatedRetrieval()
+        service = WorkflowService(
+            retrieval=retrieval,
+            memory=_FederatedMemory(),
+            store=SQLiteReviewStore(":memory:"),
+        )
+
+        result = run_agentic_question(
+            service,
+            question="Use memory-linked evidence",
+            dataset_ids=["demo"],
+            limit=1,
+            max_iterations=1,
+            min_context_packets=2,
+            source_inspection_limit=0,
+            proposal_kind="writing_brief",
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(len(result["context_packets"]), 2)
+        self.assertEqual(result["context_packets"][1]["metadata"]["origin"], "memory_source_federation")
+        self.assertEqual(result["context_packets"][1]["source_ref"]["document_id"], "doc-memory")
+        self.assertIn("Federated source evidence", result["proposal"]["body"])
+        self.assertEqual([ref.document_id for ref in retrieval.source_reads], ["doc-memory"])
+        federation_step = next(step for step in result["loop"]["steps"] if step["name"] == "memory.source_federation")
+        self.assertEqual(federation_step["status"], "complete")
+        self.assertEqual(federation_step["metadata"]["candidate_source_count"], 1)
+        self.assertEqual(federation_step["metadata"]["added_count"], 1)
+        event = service.store.list_audit_events(action="memory.source_federate")[0]
+        self.assertEqual(event.metadata["added_count"], 1)
+
+    def test_digest_scope_creates_sourced_digest_without_memory_write_by_default(self):
+        service = build_fake_service()
+
+        result = run_digest_scope(
+            service,
+            _ReadyGateway(),
+            dataset_ids=["demo"],
+            question="Digest ready demo scope",
+            limit=1,
+            source_inspection_limit=0,
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["kind"], "digest_scope")
+        self.assertEqual(result["digest"]["kind"], "digest")
+        self.assertIsNone(result["memory_review"])
+        self.assertEqual(service.state(result["run"]["run_id"]).metadata["digest_scope"]["kind"], "digest_scope")
+        self.assertEqual(service.store.list_reviews(), [])
+        event = service.store.list_audit_events(action="digest.scope")[0]
+        self.assertFalse(event.metadata["create_memory_review"])
+
+    def test_digest_scope_can_create_digest_origin_memory_review(self):
+        service = build_fake_service()
+
+        result = run_digest_scope(
+            service,
+            _ReadyGateway(),
+            dataset_ids=["demo"],
+            question="Digest durable candidates",
+            limit=1,
+            source_inspection_limit=0,
+            create_memory_review=True,
+            memory_intent="Remember digest candidate",
+        )
+
+        self.assertEqual(result["status"], "ready")
+        memory_review = result["memory_review"]
+        self.assertEqual(memory_review["review"]["status"], "pending")
+        self.assertEqual(memory_review["governance"]["origin"], "digest")
+        self.assertEqual(memory_review["governance"]["action"], "manual_review")
+        self.assertEqual(memory_review["proposal"]["metadata"]["origin"], "digest")
+        self.assertEqual(len(service.store.list_reviews(status="pending")), 1)
 
     def test_durable_memory_patch_creates_review_even_when_caller_does_not_force_it(self):
         service = build_fake_service()
@@ -234,6 +390,47 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertTrue(result["memory_apply"]["applied"])
         self.assertEqual(len(service.memory_search("automatic governed memory")), 1)
 
+    def test_model_context_budget_caps_retrieval_and_source_inspection(self):
+        corpus = [
+            {
+                "id": f"budget-doc-{index}",
+                "title": f"Budget Doc {index}",
+                "text": f"Budget scoped context packet {index}.",
+            }
+            for index in range(1, 6)
+        ]
+        service = WorkflowService(
+            FakeRetrievalAdapter(corpus=corpus),
+            FakeMemoryAdapter(),
+            SQLiteReviewStore(":memory:"),
+        )
+
+        result = run_agentic_question(
+            service,
+            question="Budget scoped context",
+            dataset_ids=["demo"],
+            limit=5,
+            max_iterations=1,
+            min_context_packets=1,
+            source_inspection_limit=3,
+            model_context_tokens=2048,
+            model_profile="small-test-model",
+        )
+
+        budget = result["loop"]["context_budget"]
+        self.assertEqual(budget["mode"], "model_context")
+        self.assertEqual(budget["model_context_tokens"], 2048)
+        self.assertEqual(budget["model_profile"], "small-test-model")
+        self.assertEqual(budget["requested_limit"], 5)
+        self.assertEqual(budget["effective_retrieval_limit"], 1)
+        self.assertEqual(budget["effective_source_inspection_limit"], 0)
+        self.assertEqual(len(result["context_packets"]), 1)
+        self.assertEqual(result["loop"]["source_inspection_count"], 0)
+        retrieve_step = next(step for step in result["loop"]["steps"] if step["name"] == "context.retrieve")
+        self.assertEqual(retrieve_step["metadata"]["requested_limit"], 1)
+        ask_request = service.state(result["run"]["run_id"]).metadata["ask_request"]
+        self.assertEqual(ask_request["context_budget"]["effective_retrieval_limit"], 1)
+
     def test_reviewed_memory_influences_later_agentic_questions(self):
         service = build_fake_service()
         run_agentic_question(
@@ -282,6 +479,47 @@ class AgenticLoopTests(unittest.TestCase):
         ]
         self.assertGreaterEqual(len(memory_search_events), 2)
         self.assertEqual(memory_search_events[-1].metadata["count"], 1)
+
+    def test_correction_episode_memory_uses_display_text_in_agent_facing_outputs(self):
+        memory = FakeMemoryAdapter()
+        memory.facts.append(
+            MemoryFact(
+                fact_id="editor-correction",
+                text=(
+                    "Memory correction episode.\n"
+                    "Current fact: The user's editor is VS Code.\n"
+                    "Previous fact: The user's editor is Vim.\n"
+                    "Supersedes memory fact: editor-old"
+                ),
+                source_refs=[SourceRef(adapter="fake", dataset_id="demo", document_id="memory-doc")],
+                metadata={
+                    "display_text": "The user's editor is VS Code.",
+                    "current_text": "The user's editor is VS Code.",
+                    "previous_text": "The user's editor is Vim.",
+                    "semantic_operation": "memory_update",
+                    "memory_update_strategy": "append_correction_episode",
+                    "target_fact_id": "editor-old",
+                },
+            )
+        )
+        service = WorkflowService(FakeRetrievalAdapter(), memory, SQLiteReviewStore(":memory:"))
+
+        result = run_agentic_question(
+            service,
+            question="Use editor preference",
+            dataset_ids=["demo"],
+            proposal_kind="writing_brief",
+        )
+
+        self.assertEqual(result["status"], "ready")
+        self.assertIn("Memory correction episode.", result["memory_facts"][0]["text"])
+        self.assertEqual(result["memory_facts"][0]["metadata"]["display_text"], "The user's editor is VS Code.")
+        self.assertIn("- The user's editor is VS Code.", result["proposal"]["body"])
+        self.assertNotIn("Memory correction episode.", result["proposal"]["body"])
+        self.assertNotIn("Previous fact: The user's editor is Vim.", result["proposal"]["body"])
+        exported = service.export_brief(result["run"]["run_id"], "markdown")
+        self.assertIn("The user's editor is VS Code.", exported)
+        self.assertNotIn("Memory correction episode.", exported)
 
 
 if __name__ == "__main__":

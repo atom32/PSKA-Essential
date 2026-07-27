@@ -203,7 +203,10 @@ Writing can create a deletion review from an explicit MemoryFact; deletion is
 applied only after review acceptance and produces a `memory.delete` audit record.
 Writing can inspect a durable MemoryFact lifecycle from PSKA audit records,
 showing reviewed apply/update/delete history without calling backend memory
-history APIs.
+history APIs. For temporal correction episodes, lifecycle lookup follows
+semantic target metadata such as `target_fact_id`, so the old memory fact can
+show a later correction episode even when the provider target is the new
+episode.
 Reader inspects sources through Product API only. Writing opens workflow state,
 work product, source manifest, and context without creating an export, then
 exports Markdown or JSON through explicit Product API actions. Ready Ask results
@@ -396,7 +399,10 @@ Ask, Parse Scope, Track Status, and Open Status. Blocked Ask results reuse the
 same scope actions and keep Resume Ask or Resume Loop as the preserved-request
 path once the scope becomes ready.
 Use `pska_capabilities_get` or `GET /api/capabilities` for the stable product
-operation capability contract. Use `pska_runtime_diagnostics` or
+operation capability contract. The same response includes
+`memory.search_view`, which tells Hermes/UI how to display correction episodes
+and how default memory search filters superseded facts. Use
+`pska_runtime_diagnostics` or
 `GET /api/runtime/diagnostics` for read-only provider and adapter contract
 diagnostics. Use `pska_workspace_status` or `GET /api/workspace/status` for the
 same product-level next-action summary from Hermes or the frontend without
@@ -603,3 +609,10 @@ PSKA-Essential. If you are proving the product demo, use the full yaml stack.
 
 Never rely on implicit provider defaults. Set providers intentionally for every
 runtime mode.
+
+`make start-workspace` checks more than whether ports are open. For PSKA Product
+API it reads `/api/capabilities` and verifies the
+`pska.product_api_contract.v1` route contract, including
+`POST /api/memory/search` and `POST /api/memory/conversation-change`. A local
+PSKA API process that is alive but missing those routes is reported as `STALE`
+and restarted before Hermes WebUI is opened.

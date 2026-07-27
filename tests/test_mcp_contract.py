@@ -25,7 +25,13 @@ EXPECTED_TOOLS = {
     "pska_source_read",
     "pska_policy_get",
     "pska_capabilities_get",
+    "pska_migration_manifest",
+    "pska_provider_jobs",
     "pska_component_check",
+    "pska_digest_scope",
+    "pska_digest_job_enqueue",
+    "pska_digest_job_list",
+    "pska_digest_job_run",
     "pska_ingest_loop",
     "pska_ingest_loop_resume",
     "pska_propose",
@@ -37,6 +43,7 @@ EXPECTED_TOOLS = {
     "pska_review_revise",
     "pska_memory_search",
     "pska_memory_apply",
+    "pska_memory_change_from_conversation",
     "pska_memory_delete_review",
     "pska_memory_lifecycle",
     "pska_memory_probe",
@@ -63,6 +70,8 @@ class McpContractTests(unittest.TestCase):
     def test_tool_registry_contains_public_contract(self):
         tools = tool_registry(build_fake_service())
         self.assertEqual(set(tools), EXPECTED_TOOLS)
+        capabilities = tools["pska_capabilities_get"]()
+        self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -76,6 +85,24 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(checks["memory_search_contract"]["metadata"]["provider"], "fake")
         self.assertFalse(checks["memory_search_contract"]["metadata"]["semantic_checked"])
         self.assertEqual(service.store.list_audit_events(action="memory.search"), [])
+
+    def test_migration_manifest_tool_reports_provider_owned_boundaries(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        run = tools["pska_workflow_start"]("mcp migration manifest", {"dataset_ids": ["demo"]})
+        tools["pska_context_retrieve"]("workflow gate", run_id=run["run_id"], limit=1)
+        proposal = tools["pska_propose"](run["run_id"], "memory_patch", "manifest memory")
+        review = tools["pska_review_create"](proposal["proposal_id"])
+        tools["pska_review_decide"](review["review_id"], "accept", "manifest accepted")
+        applied = tools["pska_memory_apply"](review["review_id"])
+
+        manifest = tools["pska_migration_manifest"]()
+
+        self.assertEqual(manifest["kind"], "migration_manifest")
+        self.assertIn("fake", manifest["components"]["retrieval_providers"])
+        self.assertIn("fake", manifest["components"]["memory_providers"])
+        self.assertIn(applied["target_id"], manifest["components"]["memory_providers"]["fake"]["target_ids"])
+        self.assertFalse(any("content_excerpt" in ref.get("metadata", {}) for ref in manifest["provider_source_refs"]))
 
     def test_component_check_tool_returns_structured_acceptance_result(self):
         env = {
@@ -255,6 +282,20 @@ class McpContractTests(unittest.TestCase):
         self.assertTrue(capabilities["memory"]["operations"]["apply"]["supported"])
         self.assertTrue(capabilities["memory"]["operations"]["update"]["supported"])
         self.assertTrue(capabilities["memory"]["operations"]["delete"]["supported"])
+        self.assertEqual(capabilities["memory"]["search_view"]["schema"], "pska.memory_search_view.v1")
+        self.assertTrue(capabilities["memory"]["search_view"]["default_filters_superseded"])
+        self.assertIn(
+            "include_superseded_memory",
+            capabilities["memory"]["search_view"]["include_superseded_scope_keys"],
+        )
+        self.assertIn("display_text", capabilities["memory"]["search_view"]["agent_facing_text"]["metadata_keys"])
+        self.assertEqual(capabilities["memory"]["lineage"]["schema"], "pska.memory_lineage.v1")
+        self.assertFalse(capabilities["memory"]["lineage"]["pska_authoritative_mapping_table"])
+        self.assertEqual(capabilities["tool_policy"]["mode"], "soft_constraints")
+        policy = capabilities["tool_policy"]["tools"]
+        self.assertTrue(policy["pska_memory_apply"]["requires_accepted_review"])
+        self.assertTrue(policy["pska_digest_job_run"]["requires_ready_scope"])
+        self.assertEqual(policy["pska_kb_ingest_files"]["access"], "write")
         proposal = tools["pska_propose"](run["run_id"], "memory_patch", "mcp memory")
         artifact = tools["pska_workflow_artifact"](run["run_id"])
         brief = tools["pska_workflow_brief"](run["run_id"], "markdown")
@@ -416,6 +457,43 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("proposal.create", actions)
         self.assertIn("review.create", actions)
 
+    def test_memory_change_from_conversation_tool_auto_applies(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        with patch.dict("os.environ", {}, clear=True):
+            result = tools["pska_memory_change_from_conversation"](
+                user_message="Remember that my editor is Vim.",
+                text="The user's editor is Vim.",
+                session_id="sess-tool",
+                message_id="msg-tool",
+            )
+
+        self.assertEqual(result["status"], "applied")
+        self.assertEqual(result["operation"], "memory_patch")
+        self.assertEqual(result["governance"]["origin"], "conversation")
+        self.assertEqual(result["conversation"]["source_refs"][0]["adapter"], "hermes")
+        self.assertEqual(len(service.memory_search("Vim", {}, 10)), 1)
+
+    def test_memory_change_from_conversation_tool_returns_needs_target(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        with patch.dict("os.environ", {}, clear=True):
+            result = tools["pska_memory_change_from_conversation"](
+                user_message="Forget that my favorite tea is oolong.",
+                operation="forget",
+                session_id="sess-tool",
+                message_id="msg-tool-missing-target",
+            )
+
+        self.assertEqual(result["status"], "needs_target")
+        self.assertEqual(result["operation"], "memory_delete")
+        self.assertEqual(result["target_resolution"]["status"], "not_found")
+        self.assertEqual(result["next_actions"][0]["tool"], "pska_memory_search")
+        self.assertIsNone(result["proposal"])
+        self.assertEqual(service.store.list_reviews(status="pending"), [])
+
     def test_review_revise_creates_new_pending_review_from_needs_edit(self):
         service = build_fake_service()
         tools = tool_registry(service)
@@ -474,7 +552,103 @@ class McpContractTests(unittest.TestCase):
         source_step = next(step for step in result["loop"]["steps"] if step["name"] == "source.inspect")
         self.assertEqual(source_step["metadata"]["inspected_count"], 1)
         self.assertIn("kb.readiness", [step["name"] for step in result["loop"]["steps"]])
-        self.assertIn("Memory changes still require", result["note"])
+        self.assertIn("pska_memory_change_from_conversation", result["note"])
+
+    def test_agentic_question_start_accepts_model_context_budget(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            tools = tool_registry(build_service_from_env())
+            ingested = _ingest_texts(
+                tools,
+                temp_dir,
+                files={
+                    "budget-a.txt": "Budget tool context A.",
+                    "budget-b.txt": "Budget tool context B.",
+                    "budget-c.txt": "Budget tool context C.",
+                },
+                dataset_name="MCP Budget Question",
+            )
+            dataset_id = ingested["dataset"]["dataset_id"]
+
+            result = tools["pska_agentic_question_start"](
+                question="Budget tool context",
+                dataset_ids=[dataset_id],
+                limit=5,
+                max_iterations=1,
+                min_context_packets=1,
+                source_inspection_limit=2,
+                model_context_tokens=2048,
+                model_profile="mcp-small",
+            )
+
+        budget = result["loop"]["context_budget"]
+        self.assertEqual(budget["mode"], "model_context")
+        self.assertEqual(budget["model_profile"], "mcp-small")
+        self.assertEqual(budget["effective_retrieval_limit"], 1)
+        self.assertEqual(result["run"]["metadata"]["ask_request"]["model_context_tokens"], 2048)
+
+    def test_digest_scope_tool_creates_digest_and_optional_memory_review(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            service = build_service_from_env()
+            tools = tool_registry(service)
+            ingested = _ingest_text(
+                tools,
+                temp_dir,
+                name="digest-note.txt",
+                text="Digestable source says durable summaries should remain governed.",
+                dataset_name="MCP Digest Scope",
+            )
+
+            result = tools["pska_digest_scope"](
+                dataset_ids=[ingested["dataset"]["dataset_id"]],
+                question="Digest the uploaded source",
+                limit=1,
+                source_inspection_limit=0,
+                create_memory_review=True,
+            )
+
+        self.assertEqual(result["kind"], "digest_scope")
+        self.assertEqual(result["digest"]["kind"], "digest")
+        self.assertEqual(result["memory_review"]["review"]["status"], "pending")
+        self.assertEqual(result["memory_review"]["governance"]["origin"], "digest")
+        self.assertIn("does not write Graphiti memory directly", result["note"])
+        actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("digest.scope", actions)
+
+    def test_digest_job_tools_queue_and_run_ready_digest(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            service = build_service_from_env()
+            tools = tool_registry(service)
+            ingested = _ingest_text(
+                tools,
+                temp_dir,
+                name="digest-job-note.txt",
+                text="Queued digest source says background digest must remain governed.",
+                dataset_name="MCP Digest Job",
+            )
+            dataset_id = ingested["dataset"]["dataset_id"]
+
+            queued = tools["pska_digest_job_enqueue"](
+                dataset_ids=[dataset_id],
+                question="Digest queued source",
+                priority=5,
+                limit=1,
+                source_inspection_limit=0,
+                create_memory_review=True,
+            )
+            jobs = tools["pska_digest_job_list"](status="queued", limit=5)
+            result = tools["pska_digest_job_run"]()
+
+        self.assertEqual(queued["status"], "queued")
+        self.assertEqual(jobs[0]["job"]["run_id"], queued["job"]["run_id"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["digest_result"]["memory_review"]["governance"]["origin"], "digest")
+        self.assertIn("respects KB readiness", result["note"])
+        actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("digest.job.enqueue", actions)
+        self.assertIn("digest.job.run", actions)
 
     def test_agentic_question_start_blocks_unready_scope(self):
         service = build_fake_service()

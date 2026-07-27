@@ -10,15 +10,19 @@ Product promise:
 
 ## V1 Position
 
-PSKA v1 should ship as two product surfaces:
+PSKA v1 should ship as two coordinated product surfaces:
 
-- A mature frontend for human workflows: knowledge bases, ingestion progress,
-  scoped questions, source reading, writing briefs, review, and settings.
+- A mature Hermes-based frontend for human workflows: conversation, selected
+  knowledge scope, ingestion/readiness status, source reading, work products,
+  conversation-native memory changes, exception review, activity, and settings.
 - A glue/control layer for backend orchestration: normalized contracts,
   adapters, governance policy, audit, and MCP tools.
 
 RAGFlow, Graphiti, local embedding services, LLM providers, and future company
 GraphRAG systems are not the product surface. They are replaceable substrates.
+RAGFlow may still provide its own native operator console for detailed knowledge
+base, parser, chunk, and embedding management. PSKA should not reimplement that
+surface unless it is simplifying a cross-component workflow.
 
 ## Agent Strategy
 
@@ -118,8 +122,8 @@ influence future reasoning, creating or modifying them requires governance.
 
 Governance is the overall mechanism that controls how transient results become
 durable workspace knowledge. Review, approval, workspace policy, and audit are
-possible governance mechanisms. Review is the primary user-facing action;
-governance is the broader product model.
+possible governance mechanisms. Review is an exception inbox, not the normal
+daily memory-management experience. Governance is the broader product model.
 
 Agents may freely produce transient results during normal workflows. Governance
 applies when an agent or user attempts to create or modify durable workspace
@@ -127,17 +131,30 @@ knowledge. The object may be a memory, graph relationship, profile preference,
 durable summary, or another persistent semantic object intended to shape future
 reasoning.
 
-Governance may be implemented through explicit human review or through
-workspace policy. The product should support different policies for different
-workspaces, such as:
+Governance may be implemented through explicit human review, conversation
+policy, or workspace policy. The product should support different policies for
+different origins and workspaces, such as:
 
 - auto-approve entity or graph extraction
-- manual approval for memory or profile changes
+- auto-apply clear user-driven remember/correct/forget requests from
+  conversation while preserving audit records
+- manual approval for uncertain, risky, broad destructive, ambiguous
+  destructive, conflicting, or batch-derived memory/profile changes
 - enterprise approval workflows
 - fully automatic personal workspaces
 
 The point is to protect future knowledge quality without blocking normal
 question answering, writing, retrieval, or ingestion workflows.
+
+Conversation-native memory is the primary user path. If the user says "remember
+this", "that is wrong", or "forget that", Hermes should call PSKA conversation
+memory through MCP/Product API. PSKA may auto-accept and auto-apply clear,
+low-risk user instructions under workspace policy, but it still records the
+proposal, decision, apply result, and audit trail. Pending Review items should
+be created only when the change is uncertain, important, risky, conflicting,
+broad destructive, ambiguous destructive, batch-derived, or explicitly forced
+by policy or user intent. A clear user-requested correction or forget action
+stays in the conversation memory path by default.
 
 ## Universal Product Rule
 
@@ -180,22 +197,26 @@ an engineering console or a replacement RAGFlow UI.
 PSKA should not reimplement mature component frontends when those components
 already own the workflow well. RAGFlow should remain the primary UI for
 knowledge-base creation, document upload, parsing, chunking, embedding,
-indexing, and chunk inspection. Hermes may provide or later gain its own agent
-run UI. PSKA may link or embed those component pages inside a unified shell.
+indexing, and chunk inspection when deep operator control is needed. Hermes
+WebUI is the daily conversation workspace and first user entry. PSKA may link or
+embed component pages inside that shell, but normal user workflows should not
+depend on provider-native screens.
 
-"PSKA wraps components" means PSKA owns the global product shell: navigation,
-workspace identity, theme, selected context, component status, PSKA-native
-workflow pages, review, audit, and policy. It does not mean PSKA rewrites or
-scrapes provider-native screens. The PSKA frontend calls PSKA Product APIs; an
-embedded component page may call its own backend inside its own app context.
+"PSKA wraps components" means PSKA owns the product contract: workspace
+identity, selected context, component status, PSKA-native workflow APIs,
+conversation memory, exception review, audit, and policy. It does not mean PSKA
+rewrites or scrapes provider-native screens. Browser code in the integrated
+workspace calls Hermes WebUI routes and PSKA proxy/Product APIs; provider-native
+details stay behind adapters or inside embedded provider consoles.
 
 V1 frontend should focus on:
 
 - Conversation: the default surface for scoped agentic questions, readiness,
-  sources, work products, and resumable workflows.
+  sources, work products, conversation memory, and resumable workflows.
 - Work Products: sourced briefs, source manifests, exports, and durable-review
   creation from selected transient results.
-- Review: durable knowledge governance according to workspace policy.
+- Review: exception inbox for uncertain, risky, conflicting, broad destructive,
+  ambiguous destructive, or batch-derived durable knowledge changes.
 - Activity: audit trail across workflow, review, memory, and export events.
 - Knowledge: a PSKA readiness/status summary plus embedded or linked RAGFlow
   knowledge-base console.

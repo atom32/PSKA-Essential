@@ -11,7 +11,13 @@ from unittest.mock import patch
 from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
 from pska_essential.audit import audit_event
 from pska_essential.contracts import WorkflowRun, to_jsonable
-from pska_essential.governance import AUTO_APPLY, MANUAL_REVIEW, build_workspace_policy_from_env
+from pska_essential.governance import (
+    AUTO_APPLY,
+    CONVERSATION_ORIGIN,
+    DIGEST_ORIGIN,
+    MANUAL_REVIEW,
+    build_workspace_policy_from_env,
+)
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.runtime_context import build_runtime_workspace_context
 from pska_essential.workflow import WorkflowService
@@ -22,15 +28,31 @@ class GovernancePolicyTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             policy = build_workspace_policy_from_env()
         self.assertEqual(policy.durable_memory, MANUAL_REVIEW)
+        self.assertEqual(policy.conversation_memory, AUTO_APPLY)
+        self.assertEqual(policy.digest_memory, MANUAL_REVIEW)
         self.assertEqual(policy.action_for("memory_patch"), MANUAL_REVIEW)
         self.assertEqual(policy.action_for("memory_delete"), MANUAL_REVIEW)
         self.assertEqual(policy.action_for("memory_update"), MANUAL_REVIEW)
+        self.assertEqual(policy.action_for("memory_patch", origin=CONVERSATION_ORIGIN), AUTO_APPLY)
+        self.assertEqual(policy.action_for("memory_patch", origin=DIGEST_ORIGIN), MANUAL_REVIEW)
         self.assertEqual(policy.action_for("writing_brief"), "skip")
         snapshot = policy.to_dict()
         self.assertEqual(snapshot["actions"]["memory_patch"], MANUAL_REVIEW)
         self.assertEqual(snapshot["actions"]["memory_update"], MANUAL_REVIEW)
         self.assertEqual(snapshot["actions"]["memory_delete"], MANUAL_REVIEW)
+        self.assertEqual(snapshot["conversation_actions"]["memory_patch"], AUTO_APPLY)
+        self.assertEqual(snapshot["digest_actions"]["memory_patch"], MANUAL_REVIEW)
         self.assertEqual(snapshot["transient_results"], "skip")
+        self.assertEqual(snapshot["memory_primary_user_path"], "conversation")
+        self.assertEqual(snapshot["review_queue_role"], "exception_inbox")
+        self.assertEqual(snapshot["visible_memory_editor"], "conversation")
+        self.assertEqual(snapshot["visible_review_role"], "exception_only")
+        self.assertIn("proposal", snapshot["internal_governance_records"])
+        self.assertIn("conflicting", snapshot["review_queue_triggers"])
+        self.assertIn("ambiguous_destructive", snapshot["review_queue_triggers"])
+        self.assertIn("broad_destructive", snapshot["review_queue_triggers"])
+        self.assertNotIn("destructive", snapshot["review_queue_triggers"])
+        self.assertIn("force_review", snapshot["review_queue_triggers"])
         self.assertIn("memory_patch", snapshot["durable_proposal_kinds"])
 
     def test_env_can_configure_auto_apply(self):
@@ -44,6 +66,9 @@ class GovernancePolicyTests(unittest.TestCase):
     def test_invalid_policy_fails_explicitly(self):
         with patch.dict(os.environ, {"PSKA_GOVERNANCE_DURABLE_MEMORY": "silent_magic"}, clear=True):
             with self.assertRaisesRegex(ValueError, "PSKA_GOVERNANCE_DURABLE_MEMORY"):
+                build_workspace_policy_from_env()
+        with patch.dict(os.environ, {"PSKA_GOVERNANCE_CONVERSATION_MEMORY": "silent_magic"}, clear=True):
+            with self.assertRaisesRegex(ValueError, "PSKA_GOVERNANCE_CONVERSATION_MEMORY"):
                 build_workspace_policy_from_env()
 
     def test_runtime_workspace_context_is_explicit_when_unconfigured(self):

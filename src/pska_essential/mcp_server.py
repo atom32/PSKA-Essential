@@ -7,6 +7,7 @@ from typing import Any, Callable
 from pska_essential.agentic_loop import (
     list_resumable_agentic_questions,
     resume_agentic_question,
+    run_digest_scope,
     run_agentic_question_with_readiness,
 )
 from pska_essential.capabilities import product_capabilities
@@ -22,6 +23,7 @@ from pska_essential.diagnostics import (
     run_memory_probe,
     run_retrieval_probe,
 )
+from pska_essential.digest_jobs import enqueue_digest_job, list_digest_jobs, run_digest_job
 from pska_essential.env_file import env_file_arg_parser, load_env_file
 from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
@@ -34,6 +36,8 @@ from pska_essential.kb_audit import (
     add_kb_parse_audit,
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.migration_manifest import build_migration_manifest
+from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.workspace_status import build_workspace_status
 
@@ -78,6 +82,24 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_capabilities_get():
         return product_capabilities(memory_adapter=service.memory)
+
+    def pska_migration_manifest(limit: int = 200):
+        return build_migration_manifest(service, limit=limit)
+
+    def pska_provider_jobs(
+        dataset_page_size: int = 50,
+        digest_limit: int = 50,
+        audit_limit: int = 50,
+        include_ready: bool = True,
+    ):
+        return build_provider_job_status(
+            service,
+            build_kb_gateway_from_env(),
+            dataset_page_size=dataset_page_size,
+            digest_limit=digest_limit,
+            audit_limit=audit_limit,
+            include_ready=include_ready,
+        )
 
     def pska_workspace_status(
         dataset_page_size: int = 30,
@@ -124,6 +146,33 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_memory_review_from_workflow(run_id: str, intent: str = ""):
         return service.memory_review_from_workflow(run_id, intent)
+
+    def pska_memory_change_from_conversation(
+        user_message: str,
+        operation: str = "auto",
+        text: str = "",
+        memory_fact: dict[str, Any] | None = None,
+        source_refs: list[dict[str, Any]] | None = None,
+        session_id: str = "",
+        message_id: str = "",
+        reason: str = "",
+        scope: dict[str, Any] | None = None,
+        force_review: bool = False,
+        confidence: float = 0.95,
+    ):
+        return service.memory_change_from_conversation(
+            user_message=user_message,
+            operation=operation,
+            text=text,
+            memory_fact=memory_fact,
+            source_refs=source_refs or [],
+            session_id=session_id,
+            message_id=message_id,
+            reason=reason,
+            scope=scope or {},
+            force_review=force_review,
+            confidence=confidence,
+        )
 
     def pska_memory_delete_review(memory_fact: dict[str, Any], reason: str = ""):
         return service.memory_delete_review(memory_fact, reason)
@@ -462,6 +511,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         min_context_packets: int = 1,
         retrieval_queries: list[str] | None = None,
         source_inspection_limit: int = 3,
+        model_context_tokens: int | None = None,
+        model_profile: str = "",
     ):
         selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
         selected_document_ids = _optional_strings(document_ids)
@@ -479,6 +530,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             min_context_packets=min_context_packets,
             retrieval_queries=retrieval_queries or [],
             source_inspection_limit=source_inspection_limit,
+            model_context_tokens=model_context_tokens,
+            model_profile=model_profile,
         )
         if result["status"] == "not_ready":
             result["note"] = (
@@ -489,7 +542,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         result["note"] = (
             "Agent should answer from returned context and brief. "
             "Transient work products do not require review by default. "
-            "Memory changes still require an accepted review before pska_memory_apply."
+            "Use pska_memory_change_from_conversation for normal user-driven memory corrections; "
+            "explicit pska_memory_apply still requires an accepted review."
         )
         return result
 
@@ -519,6 +573,97 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             limit=limit,
         )
 
+    def pska_digest_scope(
+        dataset_ids: list[str],
+        document_ids: list[str] | None = None,
+        question: str = "Digest the selected ready knowledge into concise candidate knowledge.",
+        limit: int = 5,
+        use_kg: bool = False,
+        max_iterations: int = 2,
+        min_context_packets: int = 1,
+        retrieval_queries: list[str] | None = None,
+        source_inspection_limit: int = 3,
+        model_context_tokens: int | None = None,
+        model_profile: str = "",
+        create_memory_review: bool = False,
+        memory_intent: str = "",
+    ):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_document_ids = _optional_strings(document_ids)
+        result = run_digest_scope(
+            service,
+            build_kb_gateway_from_env(),
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
+            question=question,
+            limit=limit,
+            use_kg=use_kg,
+            max_iterations=max_iterations,
+            min_context_packets=min_context_packets,
+            retrieval_queries=retrieval_queries or [],
+            source_inspection_limit=source_inspection_limit,
+            model_context_tokens=model_context_tokens,
+            model_profile=model_profile,
+            create_memory_review=create_memory_review,
+            memory_intent=memory_intent,
+        )
+        result["note"] = (
+            "Digest is a sourced candidate workflow. It does not write Graphiti memory directly; "
+            "create_memory_review routes the digest through PSKA review/governance."
+        )
+        return result
+
+    def pska_digest_job_enqueue(
+        dataset_ids: list[str],
+        document_ids: list[str] | None = None,
+        question: str = "Digest the selected ready knowledge into concise candidate knowledge.",
+        priority: int = 0,
+        limit: int = 5,
+        use_kg: bool = False,
+        max_iterations: int = 2,
+        min_context_packets: int = 1,
+        retrieval_queries: list[str] | None = None,
+        source_inspection_limit: int = 3,
+        create_memory_review: bool = False,
+        memory_intent: str = "",
+    ):
+        selected_dataset_ids = _required_strings(dataset_ids, "dataset_ids")
+        selected_document_ids = _optional_strings(document_ids)
+        result = enqueue_digest_job(
+            service,
+            dataset_ids=selected_dataset_ids,
+            document_ids=selected_document_ids,
+            question=question,
+            priority=priority,
+            limit=limit,
+            use_kg=use_kg,
+            max_iterations=max_iterations,
+            min_context_packets=min_context_packets,
+            retrieval_queries=retrieval_queries or [],
+            source_inspection_limit=source_inspection_limit,
+            create_memory_review=create_memory_review,
+            memory_intent=memory_intent,
+        )
+        result["note"] = (
+            "Digest job queued inside PSKA workflow metadata. It will not write Graphiti memory "
+            "unless a later run creates and applies a governed memory review."
+        )
+        return result
+
+    def pska_digest_job_list(status: str | None = None, limit: int = 50):
+        return list_digest_jobs(service, status=status or None, limit=limit)
+
+    def pska_digest_job_run(run_id: str = ""):
+        result = run_digest_job(
+            service,
+            build_kb_gateway_from_env(),
+            run_id=run_id,
+        )
+        result["note"] = (
+            "Digest job runner respects KB readiness and review policy; it does not run provider APIs directly."
+        )
+        return result
+
     return {
         "pska_workflow_start": pska_workflow_start,
         "pska_workflow_list": pska_workflow_list,
@@ -529,6 +674,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_read": pska_source_read,
         "pska_policy_get": pska_policy_get,
         "pska_capabilities_get": pska_capabilities_get,
+        "pska_migration_manifest": pska_migration_manifest,
+        "pska_provider_jobs": pska_provider_jobs,
         "pska_workspace_status": pska_workspace_status,
         "pska_runtime_diagnostics": pska_runtime_diagnostics,
         "pska_propose": pska_propose,
@@ -539,6 +686,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_review_revise": pska_review_revise,
         "pska_memory_search": pska_memory_search,
         "pska_memory_apply": pska_memory_apply,
+        "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_memory_delete_review": pska_memory_delete_review,
         "pska_memory_update_review": pska_memory_update_review,
@@ -551,6 +699,10 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_live_closed_loop_probe": pska_live_closed_loop_probe,
         "pska_ingest_loop": pska_ingest_loop,
         "pska_ingest_loop_resume": pska_ingest_loop_resume,
+        "pska_digest_scope": pska_digest_scope,
+        "pska_digest_job_enqueue": pska_digest_job_enqueue,
+        "pska_digest_job_list": pska_digest_job_list,
+        "pska_digest_job_run": pska_digest_job_run,
         "pska_eval_run": pska_eval_run,
         "pska_kb_list": pska_kb_list,
         "pska_kb_create": pska_kb_create,

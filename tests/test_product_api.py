@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from pska_essential.config import build_service_from_env
+from pska_essential.contracts import MemoryFact, SourceRef
 from pska_essential.kb_gateway import KbGatewayError, build_kb_gateway_from_env, reset_fake_kb_gateway
 from pska_essential.product_api import build_server
 from pska_essential.workflow import build_fake_service
@@ -88,6 +89,7 @@ class _FakeGateway:
         description="",
         chunk_method="naive",
         embedding_model="",
+        priority=0,
         parse=True,
         wait=False,
         timeout_seconds=300.0,
@@ -98,6 +100,7 @@ class _FakeGateway:
             "description": description,
             "chunk_method": chunk_method,
             "embedding_model": embedding_model,
+            "priority": priority,
             "parse": parse,
             "wait": wait,
         }
@@ -146,8 +149,10 @@ class _FakeGateway:
             }
         ]
 
-    def parse_documents(self, *, dataset_id, document_ids, wait=False, timeout_seconds=300.0):
-        self.parse_calls.append({"dataset_id": dataset_id, "document_ids": document_ids, "wait": wait})
+    def parse_documents(self, *, dataset_id, document_ids, priority=0, wait=False, timeout_seconds=300.0):
+        self.parse_calls.append(
+            {"dataset_id": dataset_id, "document_ids": document_ids, "priority": priority, "wait": wait}
+        )
         return {"backend": "fake-kb", "dataset_id": dataset_id, "document_ids": document_ids, "parse_started": True}
 
     def document_graph(self, *, dataset_id, document_id):
@@ -238,12 +243,62 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(health["workspace"]["workspace_configured"])
         self.assertTrue(health["capabilities"]["memory"]["operations"]["update"]["supported"])
         self.assertTrue(health["capabilities"]["memory"]["operations"]["delete"]["supported"])
+        self.assertEqual(health["product_api_contract"]["schema"], "pska.product_api_contract.v1")
         capabilities = self._get_json("/api/capabilities")
         self.assertTrue(capabilities["ok"])
         self.assertEqual(capabilities["capabilities"]["memory"]["backend"], "fake")
+        contract_routes = {
+            (route["method"], route["path"])
+            for route in capabilities["product_api_contract"]["required_routes"]
+        }
+        self.assertIn(("POST", "/api/memory/search"), contract_routes)
+        self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
+        self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
+        self.assertIn(("POST", "/api/digest"), contract_routes)
+        self.assertIn(("POST", "/api/digest-jobs"), contract_routes)
+        self.assertIn(("GET", "/api/digest-jobs"), contract_routes)
+        self.assertIn(("POST", "/api/digest-jobs/run-next"), contract_routes)
+        self.assertIn(("POST", "/api/digest-jobs/{run_id}/run"), contract_routes)
+        self.assertIn(("POST", "/api/workflows/{run_id}/memory-review"), contract_routes)
+        self.assertIn(("POST", "/api/turn-context"), contract_routes)
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["apply"]["supported"])
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["update"]["supported"])
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
+        search_view = capabilities["capabilities"]["memory"]["search_view"]
+        self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
+        self.assertTrue(search_view["default_filters_superseded"])
+        self.assertIn("display_text", search_view["agent_facing_text"]["metadata_keys"])
+        interaction_model = capabilities["capabilities"]["memory"]["interaction_model"]
+        self.assertEqual(interaction_model["schema"], "pska.memory_interaction_model.v1")
+        self.assertEqual(interaction_model["primary_user_path"], "conversation")
+        self.assertEqual(interaction_model["review_queue_role"], "exception_inbox")
+        self.assertEqual(interaction_model["visible_memory_editor"], "conversation")
+        self.assertEqual(interaction_model["visible_review_role"], "exception_only")
+        self.assertTrue(interaction_model["agent_decides_operation"])
+        self.assertFalse(interaction_model["target_resolution"]["creates_review_item"])
+        self.assertEqual(interaction_model["conversation_change_tool"], "pska_memory_change_from_conversation")
+        self.assertIn("conflicting", interaction_model["review_queue_triggers"])
+        self.assertIn("ambiguous_destructive", interaction_model["review_queue_triggers"])
+        self.assertNotIn("destructive", interaction_model["review_queue_triggers"])
+        explicit_changes = interaction_model["conversation_explicit_user_changes"]
+        self.assertEqual(explicit_changes["remember"], "conversation_policy")
+        self.assertEqual(explicit_changes["correct_clear_target"], "conversation_policy")
+        self.assertEqual(explicit_changes["forget_specific_fact"], "conversation_policy")
+        self.assertEqual(explicit_changes["missing_or_ambiguous_target"], "needs_target_no_review")
+        self.assertEqual(explicit_changes["force_review"], "exception_review")
+        inflow = capabilities["capabilities"]["memory"]["inflow"]
+        self.assertEqual(inflow["schema"], "pska.memory_inflow.v1")
+        self.assertFalse(inflow["upload_behavior"]["writes_memory_provider"])
+        self.assertFalse(inflow["upload_behavior"]["creates_graph_projection"])
+        self.assertIn("digest_job", [path["name"] for path in inflow["paths"]])
+        lineage = capabilities["capabilities"]["memory"]["lineage"]
+        self.assertEqual(lineage["schema"], "pska.memory_lineage.v1")
+        self.assertFalse(lineage["pska_authoritative_mapping_table"])
+        self.assertIn("fact_or_edge_metadata", lineage["provider_carriers"])
+        self.assertEqual(capabilities["capabilities"]["tool_policy"]["mode"], "soft_constraints")
+        self.assertTrue(
+            capabilities["capabilities"]["tool_policy"]["tools"]["pska_memory_apply"]["requires_accepted_review"]
+        )
         policy = self._get_json("/api/policy")
         self.assertEqual(policy["governance"]["actions"]["memory_patch"], "manual_review")
         self.assertEqual(policy["governance"]["actions"]["memory_update"], "manual_review")
@@ -433,6 +488,234 @@ class ProductApiTests(unittest.TestCase):
         )
         self.assertEqual(lifecycle["lifecycle"]["latest_event"]["action"], "memory.delete")
 
+    def test_turn_context_route_assembles_evidence_and_memory_without_ask(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-pska-mini",
+                text="PSKA-mini keeps long-term memory behind governance.",
+                source_refs=[SourceRef(adapter="conversation", source_id="msg-1", title="Conversation")],
+                metadata={"confidence": 0.91},
+            )
+        )
+
+        payload = self._post_json(
+            "/api/turn-context",
+            {
+                "caller": "hermes-webui",
+                "workspace": "eidolia",
+                "project_id": "novel-x",
+                "user_message": "How should PSKA-mini provide memory and evidence?",
+                "mode": "project",
+                "scope": {"dataset_ids": ["demo"]},
+                "budget": {"max_evidence_blocks": 1, "max_memory_notes": 2},
+                "requirements": {"need_citations": True},
+            },
+        )
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["schema"], "pska.turn_context_response.v1")
+        self.assertTrue(payload["run_id"].startswith("run_"))
+        self.assertEqual(payload["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(payload["scope"]["workspace"], "eidolia")
+        self.assertEqual(payload["scope"]["project_id"], "novel-x")
+        self.assertEqual(payload["requirements"]["need_citations"], True)
+        self.assertNotIn("proposal", payload)
+        self.assertNotIn("review", payload)
+
+        turn_context = payload["turn_context"]
+        evidence_blocks = turn_context["evidence_blocks"]
+        memory_notes = turn_context["memory_notes"]
+        self.assertEqual(len(evidence_blocks), 1)
+        self.assertEqual(evidence_blocks[0]["type"], "evidence")
+        self.assertEqual(evidence_blocks[0]["source_ref"]["adapter"], "fake")
+        self.assertEqual(len(memory_notes), 1)
+        self.assertEqual(memory_notes[0]["type"], "memory")
+        self.assertEqual(memory_notes[0]["fact_id"], "mem-pska-mini")
+        self.assertGreaterEqual(len(turn_context["citations"]), 2)
+        self.assertEqual(turn_context["warnings"], [])
+
+    def test_migration_manifest_endpoint_reports_component_inventory(self):
+        run = self.service.start("api migration manifest", {"dataset_ids": ["demo"]})
+        self.service.context_retrieve(run.run_id, "workflow gate", 1)
+        proposal = self.service.propose(run.run_id, "memory_patch", "manifest memory")
+        review = self.service.review_create(proposal.proposal_id)
+        self.service.review_decide(review.review_id, "accept", "manifest accepted")
+        applied = self.service.memory_apply(review.review_id)
+
+        payload = self._get_json("/api/migration/manifest")
+        manifest = payload["migration_manifest"]
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(manifest["schema"], "pska.migration_manifest.v1")
+        self.assertIn("fake", manifest["components"]["retrieval_providers"])
+        self.assertIn("fake", manifest["components"]["memory_providers"])
+        self.assertIn(applied.target_id, manifest["components"]["memory_providers"]["fake"]["target_ids"])
+        self.assertFalse(any("content_excerpt" in ref.get("metadata", {}) for ref in manifest["provider_source_refs"]))
+
+    def test_conversation_memory_change_route_auto_applies(self):
+        with patch.dict(os.environ, {"PSKA_GOVERNANCE_CONVERSATION_MEMORY": "auto_apply"}, clear=False):
+            changed = self._post_json(
+                "/api/memory/conversation-change",
+                {
+                    "user_message": "Remember that my shell is zsh.",
+                    "text": "The user's shell is zsh.",
+                    "session_id": "sess-api",
+                    "message_id": "msg-api",
+                },
+            )
+
+        self.assertEqual(changed["status"], "applied")
+        self.assertEqual(changed["operation"], "memory_patch")
+        self.assertEqual(changed["governance"]["origin"], "conversation")
+        self.assertEqual(changed["governance"]["action"], "auto_apply")
+        self.assertEqual(changed["review"]["status"], "accepted")
+        self.assertEqual(changed["proposal"]["source_refs"][0]["adapter"], "hermes")
+        self.assertEqual(changed["memory_apply"]["backend"], "fake")
+        pending = self._get_json("/api/reviews?status=pending")
+        self.assertEqual(pending["reviews"], [])
+        audit = self._get_json("/api/audit?limit=10&action=memory.conversation_change")
+        self.assertEqual(audit["events"][0]["metadata"]["status"], "applied")
+
+    def test_conversation_memory_change_route_returns_needs_target(self):
+        with patch.dict(os.environ, {"PSKA_GOVERNANCE_CONVERSATION_MEMORY": "auto_apply"}, clear=False):
+            changed = self._post_json(
+                "/api/memory/conversation-change",
+                {
+                    "user_message": "Forget that my favorite tea is oolong.",
+                    "operation": "forget",
+                    "session_id": "sess-api",
+                    "message_id": "msg-api-missing-target",
+                },
+            )
+
+        self.assertEqual(changed["status"], "needs_target")
+        self.assertEqual(changed["operation"], "memory_delete")
+        self.assertEqual(changed["governance"]["action"], "needs_target")
+        self.assertEqual(changed["target_resolution"]["status"], "not_found")
+        self.assertEqual(changed["next_actions"][0]["tool"], "pska_memory_search")
+        self.assertIsNone(changed["proposal"])
+        pending = self._get_json("/api/reviews?status=pending")
+        self.assertEqual(pending["reviews"], [])
+
+    def test_memory_search_route_returns_search_view_and_display_metadata(self):
+        self.service.memory.facts.extend(
+            [
+                MemoryFact(
+                    fact_id="old-editor",
+                    text="The user's editor is Vim.",
+                    source_refs=[SourceRef(adapter="fake", source_id="old-editor")],
+                    metadata={"created_at": "2025-01-01T00:00:00+00:00"},
+                ),
+                MemoryFact(
+                    fact_id="new-editor",
+                    text=(
+                        "Memory correction episode.\n"
+                        "Current fact: The user's editor is VS Code.\n"
+                        "Previous fact: The user's editor is Vim.\n"
+                        "Supersedes memory fact: old-editor"
+                    ),
+                    source_refs=[SourceRef(adapter="fake", source_id="new-editor")],
+                    metadata={
+                        "created_at": "2026-01-01T00:00:00+00:00",
+                        "display_text": "The user's editor is VS Code.",
+                        "current_text": "The user's editor is VS Code.",
+                        "semantic_operation": "memory_update",
+                        "memory_update_strategy": "append_correction_episode",
+                        "target_fact_id": "old-editor",
+                    },
+                ),
+            ]
+        )
+
+        result = self._post_json("/api/memory/search", {"query": "Vim", "limit": 10})
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["memory_facts"][0]["fact_id"], "new-editor")
+        self.assertEqual(result["memory_facts"][0]["metadata"]["display_text"], "The user's editor is VS Code.")
+        self.assertEqual(result["search_view"]["schema"], "pska.memory_search_view.v1")
+        self.assertTrue(result["search_view"]["default_filters_superseded"])
+        audit = self._get_json("/api/audit?limit=10&action=memory.search")
+        self.assertEqual(audit["events"][0]["metadata"]["superseded_fact_ids"], ["old-editor"])
+
+    def test_memory_search_route_can_include_superseded_for_diagnostics(self):
+        self.service.memory.facts.extend(
+            [
+                MemoryFact(
+                    fact_id="old-editor",
+                    text="The user's editor is Vim.",
+                    source_refs=[SourceRef(adapter="fake", source_id="old-editor")],
+                    metadata={"created_at": "2025-01-01T00:00:00+00:00"},
+                ),
+                MemoryFact(
+                    fact_id="new-editor",
+                    text="The user's editor is VS Code. Previous fact: The user's editor is Vim.",
+                    source_refs=[SourceRef(adapter="fake", source_id="new-editor")],
+                    metadata={
+                        "created_at": "2026-01-01T00:00:00+00:00",
+                        "semantic_operation": "memory_update",
+                        "memory_update_strategy": "append_correction_episode",
+                        "target_fact_id": "old-editor",
+                    },
+                ),
+            ]
+        )
+
+        result = self._post_json(
+            "/api/memory/search",
+            {
+                "query": "editor",
+                "scope": {"include_superseded_memory": True},
+                "limit": 10,
+            },
+        )
+
+        self.assertEqual([fact["fact_id"] for fact in result["memory_facts"]], ["new-editor", "old-editor"])
+        audit = self._get_json("/api/audit?limit=10&action=memory.search")
+        self.assertTrue(audit["events"][0]["metadata"]["include_superseded"])
+
+    def test_digest_route_creates_digest_origin_memory_review(self):
+        result = self._post_json(
+            "/api/digest",
+            {
+                "dataset_ids": ["demo"],
+                "question": "Digest the demo scope",
+                "limit": 1,
+                "source_inspection_limit": 0,
+                "create_memory_review": True,
+            },
+        )
+
+        self.assertEqual(result["kind"], "digest_scope")
+        self.assertEqual(result["digest"]["kind"], "digest")
+        self.assertEqual(result["memory_review"]["review"]["status"], "pending")
+        self.assertEqual(result["memory_review"]["governance"]["origin"], "digest")
+        audit = self._get_json("/api/audit?limit=10&action=digest.scope")
+        self.assertEqual(audit["events"][0]["metadata"]["create_memory_review"], True)
+
+    def test_digest_job_routes_queue_list_and_run_next(self):
+        queued = self._post_json(
+            "/api/digest-jobs",
+            {
+                "dataset_ids": ["demo"],
+                "question": "Queue demo digest",
+                "priority": 4,
+                "limit": 1,
+                "source_inspection_limit": 0,
+                "create_memory_review": True,
+            },
+        )
+        jobs = self._get_json("/api/digest-jobs?status=queued")
+        result = self._post_json("/api/digest-jobs/run-next", {})
+
+        self.assertEqual(queued["status"], "queued")
+        self.assertEqual(jobs["digest_jobs"][0]["job"]["run_id"], queued["job"]["run_id"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["digest_result"]["memory_review"]["governance"]["origin"], "digest")
+        self.assertEqual(result["digest_job"]["result_run_id"], result["digest_result"]["run"]["run_id"])
+        audit = self._get_json("/api/audit?limit=10&action=digest.job.run")
+        self.assertEqual(audit["events"][0]["metadata"]["status"], "completed")
+
     def test_workspace_status_route_reports_next_actions(self):
         status = self._get_json("/api/workspace/status")["workspace_status"]
 
@@ -529,6 +812,30 @@ class ProductApiTests(unittest.TestCase):
         context_audit = self._get_json("/api/audit?limit=10&action=context.retrieve")
         self.assertTrue(context_audit["events"][0]["metadata"]["use_kg"])
 
+    def test_ask_accepts_model_context_budget(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a budgeted sourced brief",
+                "dataset_ids": ["demo"],
+                "limit": 5,
+                "max_iterations": 1,
+                "min_context_packets": 1,
+                "source_inspection_limit": 2,
+                "proposal_kind": "writing_brief",
+                "model_context_tokens": 2048,
+                "model_profile": "api-small",
+            },
+        )
+
+        budget = asked["loop"]["context_budget"]
+        self.assertEqual(budget["mode"], "model_context")
+        self.assertEqual(budget["model_profile"], "api-small")
+        self.assertEqual(budget["effective_retrieval_limit"], 1)
+        self.assertEqual(budget["effective_source_inspection_limit"], 0)
+        self.assertEqual(len(asked["context_packets"]), 1)
+        self.assertEqual(asked["run"]["metadata"]["ask_request"]["model_context_tokens"], 2048)
+
     def test_transient_workflow_can_create_memory_review_later(self):
         asked = self._post_json(
             "/api/ask",
@@ -550,6 +857,8 @@ class ProductApiTests(unittest.TestCase):
 
         self.assertEqual(created["proposal"]["kind"], "memory_patch")
         self.assertEqual(created["proposal"]["run_id"], asked["run"]["run_id"])
+        self.assertLessEqual(len(created["proposal"]["memory_patch"]["text"]), 1600)
+        self.assertIn("Evidence source count:", created["proposal"]["memory_patch"]["text"])
         self.assertEqual(created["governance"]["action"], "manual_review")
         self.assertEqual(created["review"]["status"], "pending")
         self.assertIsNone(created["review_decision"])
@@ -713,6 +1022,19 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(payload["ingestion_status"]["progress"], 0.1)
         self.assertEqual(payload["ingestion_status"]["next_actions"], ["wait_for_ingestion"])
 
+    def test_provider_jobs_route_reports_workspace_job_inventory(self):
+        self.gateway.ready = False
+
+        payload = self._get_json("/api/provider/jobs?include_ready=false")
+        jobs = payload["provider_jobs"]
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(jobs["schema"], "pska.provider_jobs.v1")
+        self.assertEqual(jobs["status"], "processing")
+        self.assertEqual(jobs["summary"]["processing"], 2)
+        self.assertEqual(jobs["jobs"][0]["kind"], "kb_dataset_ingestion")
+        self.assertEqual(jobs["jobs"][0]["next_actions"], ["wait_for_ingestion"])
+
     def test_parse_documents_route_uses_product_api_boundary(self):
         parsed = self._post_json(
             "/api/kb/datasets/demo/parse",
@@ -721,7 +1043,10 @@ class ProductApiTests(unittest.TestCase):
 
         self.assertTrue(parsed["parse"]["parse_started"])
         self.assertEqual(parsed["ingestion_status"]["status"], "ready")
-        self.assertEqual(self.gateway.parse_calls, [{"dataset_id": "demo", "document_ids": ["doc-1"], "wait": False}])
+        self.assertEqual(
+            self.gateway.parse_calls,
+            [{"dataset_id": "demo", "document_ids": ["doc-1"], "priority": 0, "wait": False}],
+        )
         audit = self._get_json("/api/audit?limit=5")
         self.assertEqual(audit["events"][0]["action"], "kb.parse")
         self.assertEqual(audit["events"][0]["metadata"]["document_ids"], ["doc-1"])
@@ -1096,6 +1421,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("loop_min_context_packets", html)
         self.assertIn("loop_source_inspection_limit", html)
         self.assertIn("loop_proposal_kind", html)
+        self.assertNotIn('<option value="memory_patch">memory_patch</option>', html)
         self.assertIn("loop_create_review", html)
         self.assertIn("loop_use_kg", html)
         self.assertIn("Embedding 模型", html)
@@ -1113,7 +1439,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("retrieval.probe", html)
         self.assertIn("memory.probe", html)
         self.assertIn("create-memory-review", html)
-        self.assertIn("记忆审核", html)
+        self.assertIn("创建异常审核", html)
         self.assertIn("home-next-actions", html)
         self.assertIn("下一步", html)
         self.assertIn("home-resumable-asks", html)
@@ -1261,7 +1587,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/memory-review', script)
         self.assertIn('setReviewStatusFilter("");\n  syncReviewRecord(payload.review);', script)
         self.assertIn('await loadAuditEvents(payload.memory_apply ? memoryApplyAction(payload.memory_apply) : "review.create");', script)
-        self.assertIn("document.querySelector('.nav-item[data-view=\"review\"]').click();\n  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : \"记忆审核已创建。\");", script)
+        self.assertIn("document.querySelector('.nav-item[data-view=\"review\"]').click();\n  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : \"异常审核已创建。\");", script)
         self.assertIn('/revision', script)
         self.assertIn('/api/workflows/${encodeURIComponent(runId)}', script)
         self.assertIn('/documents/${encodeURIComponent(documentId)}/graph', script)
