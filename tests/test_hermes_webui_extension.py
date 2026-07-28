@@ -16,14 +16,24 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertEqual(manifest["scripts"], ["pska-mini.js"])
         self.assertEqual(manifest["stylesheets"], ["pska-mini.css"])
 
-    def test_extension_uses_hook_and_turn_context_only(self):
+    def test_extension_is_chip_only_and_uses_sidecar_bridge(self):
         script = (EXTENSION_DIR / "pska-mini.js").read_text(encoding="utf-8")
 
-        self.assertIn("HermesChatStartHooks", script)
-        self.assertIn("context_provider", script)
-        self.assertIn('fetch("/api/pska/turn-context"', script)
-        self.assertNotRegex(script, re.compile(r'fetch\(["\']/api/pska/(?!turn-context)'))
+        self.assertIn("sidecarProxyBase(EXT_ID)", script)
+        self.assertIn('const SKILL_NAME = "knowledge-retrieval"', script)
+        self.assertIn("installApiBridge()", script)
+        self.assertIn("installSendBridge()", script)
+        self.assertIn("PSKA-Mini Runtime Scope", script)
+        self.assertIn("pskaMiniDatasetList", script)
+        self.assertIn("RAGFlow Probe", script)
+        self.assertIn('"/api/chat/start"', script)
+        self.assertNotIn("HermesChatStartHooks", script)
+        self.assertNotIn("context_provider", script)
+        self.assertNotRegex(script, re.compile(r'fetch\(["\']/api/pska/'))
         for forbidden in [
+            "panelEidolia",
+            "showing-eidolia",
+            "main-view-header eidolia-header",
             "/api/pska/ask",
             "/api/pska/kb/ingest",
             "/api/pska/digest-jobs",

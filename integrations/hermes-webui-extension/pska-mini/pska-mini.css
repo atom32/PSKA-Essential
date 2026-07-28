@@ -35,11 +35,13 @@
 }
 
 .pska-mini-menu {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  z-index: 80;
-  width: min(340px, calc(100vw - 24px));
+  position: fixed;
+  left: 16px;
+  bottom: 76px;
+  z-index: 10000;
+  width: min(460px, calc(100vw - 24px));
+  max-height: min(680px, calc(100vh - 96px));
+  overflow: auto;
   padding: 12px;
   border: 1px solid var(--border, rgba(127, 127, 127, 0.35));
   border-radius: 8px;
@@ -59,7 +61,8 @@
 }
 
 .pska-mini-menu input,
-.pska-mini-menu select {
+.pska-mini-menu select,
+.pska-mini-menu textarea {
   min-height: 30px;
   border: 1px solid var(--border, rgba(127, 127, 127, 0.35));
   border-radius: 6px;
@@ -69,6 +72,11 @@
   font-size: 12px;
 }
 
+.pska-mini-menu textarea {
+  resize: vertical;
+  padding: 6px;
+}
+
 .pska-mini-row {
   display: flex;
   align-items: center;
@@ -76,9 +84,194 @@
   gap: 8px;
 }
 
+.pska-mini-head {
+  margin-bottom: 8px;
+}
+
+.pska-mini-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 10px;
+}
+
+.pska-mini-status {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+.pska-mini-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pska-mini-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.28));
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.08);
+  font-size: 11px;
+}
+
+.pska-mini-pill.is-ok {
+  border-color: rgba(28, 137, 78, 0.5);
+  background: rgba(28, 137, 78, 0.12);
+}
+
+.pska-mini-pill.is-warn {
+  border-color: rgba(175, 122, 20, 0.55);
+  background: rgba(175, 122, 20, 0.12);
+}
+
+.pska-mini-pill.is-bad {
+  border-color: rgba(185, 56, 56, 0.55);
+  background: rgba(185, 56, 56, 0.12);
+}
+
+.pska-mini-warning {
+  padding: 7px 8px;
+  border: 1px solid rgba(185, 56, 56, 0.35);
+  border-radius: 6px;
+  background: rgba(185, 56, 56, 0.08);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pska-mini-muted {
+  color: var(--muted, #777);
+  font-size: 11px;
+}
+
+.pska-mini-bridge {
+  margin: 8px 0 10px;
+  padding: 7px 8px;
+  border: 1px solid rgba(75, 123, 236, 0.24);
+  border-radius: 6px;
+  background: rgba(75, 123, 236, 0.08);
+  color: var(--muted, #777);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pska-mini-bridge code {
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.pska-mini-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pska-mini-section-head button,
+.pska-mini-dataset-actions button {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.35));
+  border-radius: 6px;
+  background: var(--panel, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pska-mini-dataset-list {
+  display: grid;
+  gap: 6px;
+  max-height: 230px;
+  overflow: auto;
+  margin-top: 8px;
+  padding-right: 2px;
+}
+
+.pska-mini-dataset {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 8px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.26));
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.06);
+  cursor: pointer;
+}
+
+.pska-mini-dataset.is-selected {
+  border-color: var(--accent, #4b7bec);
+  background: rgba(75, 123, 236, 0.1);
+}
+
+.pska-mini-dataset input {
+  margin-top: 2px;
+}
+
+.pska-mini-dataset span {
+  min-width: 0;
+}
+
+.pska-mini-dataset strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.pska-mini-dataset small,
+.pska-mini-dataset code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted, #777);
+  font-size: 11px;
+}
+
+.pska-mini-dataset code {
+  margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.pska-mini-dataset-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pska-mini-empty {
+  padding: 10px;
+  border: 1px dashed var(--border, rgba(127, 127, 127, 0.32));
+  border-radius: 6px;
+  color: var(--muted, #777);
+  font-size: 12px;
+}
+
+.pska-mini-advanced {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.pska-mini-advanced summary {
+  cursor: pointer;
+  color: var(--muted, #777);
+}
+
 .pska-mini-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
 }
@@ -96,7 +289,7 @@
 }
 
 .pska-mini-preview {
-  max-height: 120px;
+  max-height: 210px;
   overflow: auto;
   margin-top: 10px;
   padding: 8px;

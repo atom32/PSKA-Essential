@@ -1,10 +1,11 @@
 # PSKA Mini Hermes-WebUI Extension
 
-Thin local extension for selecting PSKA-mini turn context from Hermes-WebUI.
+Thin local extension for selecting PSKA scope from Hermes-WebUI.
 
 It intentionally does not provide:
 
 - PSKA chat
+- Eidolia panels or pages
 - Ask panel
 - upload UI
 - RAGFlow or Graphiti direct browser calls
@@ -12,41 +13,33 @@ It intentionally does not provide:
 It provides:
 
 - a composer chip
-- local scope settings
-- `/api/pska/turn-context` preview
-- `HermesChatStartHooks` registration with a `context_provider` body extension
+- PSKA enable/disable toggle
+- RAGFlow dataset checkbox selection
+- optional manual dataset/document ID fallback
+- PSKA Product API health/status/diagnostics preview through the WebUI
+  extension sidecar
+- a retrieval probe for quick RAGFlow path verification
+- a per-turn bridge that loads the Hermes `knowledge-retrieval` skill and
+  attaches a `PSKA-Mini Runtime Scope` block to the next chat start request
 
-Development launch:
-
-Start PSKA-Essential Product API with retrieval and memory providers. RAGFlow
-credentials belong here, not in Hermes-WebUI browser code:
+Current local launch uses the normal PSKA workspace script, which populates
+`~/.hermes/webui-local-extensions` and starts Hermes-WebUI with:
 
 ```bash
 cd /Users/xudawei/PSKA-Essential
-PSKA_RETRIEVAL_PROVIDER=ragflow \
-PSKA_KB_PROVIDER=ragflow \
-PSKA_MEMORY_PROVIDER=fake \
-PSKA_DEV_FAKE=1 \
-RAGFLOW_BASE_URL=http://127.0.0.1:9380 \
-RAGFLOW_API_KEY=... \
-PSKA_API_HOST=127.0.0.1 \
-PSKA_API_PORT=8765 \
-python3 -m pska_essential.product_api
+./integrations/hermes-webui-extension/sync-to-hermes.sh
+
+HERMES_WEBUI_EXTENSION_DIR=~/.hermes/webui-local-extensions
+HERMES_WEBUI_EXTENSION_MANIFEST=extensions.json
+PSKA_API_BASE_URL=http://127.0.0.1:8765
 ```
 
-Then start Hermes-WebUI with the extension and same-origin PSKA proxy enabled:
-
-```bash
-cd /Users/xudawei/Documents/Codex/2026-07-27/yi/work/hermes-webui-pska-merge
-HERMES_WEBUI_EXTENSION_DIR=/Users/xudawei/PSKA-Essential/integrations/hermes-webui-extension \
-HERMES_WEBUI_EXTENSION_MANIFEST=pska-mini/manifest.json \
-PSKA_API_BASE_URL=http://127.0.0.1:8765 \
-./start.sh
-```
-
-Use a Hermes-WebUI checkout that contains the PSKA bridge commit
-`3abc31e4` or equivalent.
-
-The browser extension calls only `/api/pska/turn-context`. Hermes-WebUI maps
-that to the PSKA Product API `/api/turn-context`, and PSKA-Essential performs
+The browser extension calls `/api/extensions/pska-mini/sidecar/...` only.
+Hermes-WebUI maps those requests to PSKA Product API. PSKA-Essential performs
 retrieval through its configured RetrievalPort, such as RAGFlow.
+
+Implementation note: the current pure-extension bridge wraps WebUI's
+`/api/chat/start` request because the upstream WebUI checkout does not yet
+expose a first-class ephemeral turn-context hook. Visible user messages are
+cleaned in the transcript, but a future upstream-friendly WebUI hook should
+split hidden agent instructions from persisted/displayed user text.

@@ -429,7 +429,9 @@ See:
 - `docs/DEMO_RUNBOOK.md`
 - `docs/RUNNING_AND_TESTING.md`
 - `skills/hermes/SKILL.md`
+- `skills/hermes/knowledge-retrieval/SKILL.md`
 - `skills/openclaw/SKILL.md`
+- `integrations/hermes-webui-extension/pska-mini/README.md`
 
 ## Product API And Hermes WebUI
 

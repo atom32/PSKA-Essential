@@ -287,9 +287,24 @@ runtime dependencies such as `requests`, `websockets`, and `run_agent`.
 metadata probes during the Hermes model catalog scan when AWS is not part of the
 PSKA test path.
 
-The existing Hermes composer toolset chip can be reused so a session can opt
-into the PSKA toolset. A later branded distribution may enable the PSKA toolset
-by default.
+The local `pska-mini` WebUI extension now adds a composer PSKA chip instead of
+changing Hermes-WebUI core chat code. The chip can enable or disable PSKA for
+the next sends, fetch PSKA Product API status through the WebUI extension
+sidecar, present ready RAGFlow datasets as checkboxes, and attach a
+`PSKA-Mini Runtime Scope` block that forces the Hermes `knowledge-retrieval`
+skill for the turn.
+
+This is intentionally a small bridge rather than a second PSKA chat surface.
+It does not implement upload, Ask panels, Eidolia views, review queues, or
+RAGFlow/Graphiti direct browser calls.
+
+Implementation caveat: the current upstream WebUI checkout does not expose an
+ephemeral hidden-turn-context hook, so the pure-extension bridge wraps
+`/api/chat/start` and cleans the visible transcript afterward. For permanent
+upstream integration, add a small WebUI hook that separates hidden agent
+instructions from persisted/displayed user text.
+
+A later branded distribution may enable the PSKA chip by default.
 
 Current implementation note: the Knowledge panel now consumes both Hermes MCP
 server inventory and MCP tool inventory. This is read-only and follows Hermes

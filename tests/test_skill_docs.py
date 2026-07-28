@@ -30,6 +30,25 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("memory group IDs", text)
         self.assertIn("Do not call RAGFlow or Graphiti MCP servers directly.", text)
 
+    def test_knowledge_retrieval_skill_is_retrieval_first(self):
+        text = Path("skills/hermes/knowledge-retrieval/SKILL.md").read_text(encoding="utf-8")
+        recovery = Path(
+            "skills/hermes/knowledge-retrieval/references/pska-graphiti-failure.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("name: knowledge-retrieval", text)
+        normalized = re.sub(r"\s+", " ", text)
+        self.assertIn("PSKA-Mini Runtime Scope", text)
+        self.assertIn("pska_retrieval_probe", text)
+        self.assertIn("pska_context_retrieve", text)
+        self.assertIn("Memory Candidate Pass", text)
+        self.assertIn("Treat Graphiti as an optional memory backend", text)
+        self.assertIn("Do not let a failed memory service block", text)
+        self.assertIn("Do not invent IDs", text)
+        self.assertIn("Graphiti down means memory is down", normalized)
+        self.assertIn("/api/runtime/retrieval-probe", recovery)
+        self.assertIn("Graphiti is NOT bundled with PSKA-Essential", recovery)
+
     def test_hermes_config_exposes_operational_loop_tools(self):
         text = Path("skills/hermes/config.example.yaml").read_text(encoding="utf-8")
 
