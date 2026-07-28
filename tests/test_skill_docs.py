@@ -42,6 +42,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_retrieval_probe", text)
         self.assertIn("pska_context_retrieve", text)
         self.assertIn("Memory Candidate Pass", text)
+        self.assertIn("force_review=True", text)
+        self.assertIn("local SQLite review store", text)
         self.assertIn("Treat Graphiti as an optional memory backend", text)
         self.assertIn("Do not let a failed memory service block", text)
         self.assertIn("Do not invent IDs", text)

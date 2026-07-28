@@ -148,9 +148,30 @@ pska_memory_change_from_conversation(
 )
 ```
 
-If memory is down, do not block the answer. If the candidate matters, mention
-that it should be saved once memory is available, or use Hermes built-in memory
-only for user preferences and operational rules that should affect Hermes itself.
+If Graphiti or memory apply is down, do not block the answer. For an important
+new add-style candidate, prefer queueing it for review instead of losing it:
+
+```python
+pska_memory_change_from_conversation(
+    user_message="<concise memory-worthy fact or correction>",
+    operation="auto",
+    text="<normalized durable fact>",
+    source_refs=[],
+    scope={"namespace": "workspace:default"},
+    reason="<why this should persist>",
+    confidence=0.9,
+    force_review=True,
+)
+```
+
+`force_review=True` stores the candidate in PSKA's local SQLite review store
+and avoids immediate backend apply. Use it only for compact, high-confidence
+workspace/user-behavior facts. For updates or deletes, memory search/target
+resolution still needs a healthy memory backend or an explicit `memory_fact`.
+If PSKA MCP itself is unavailable, mention the unsaved candidate briefly.
+
+Use Hermes built-in memory only for user preferences and operational rules that
+should affect Hermes itself.
 
 ## Common Pitfalls
 
