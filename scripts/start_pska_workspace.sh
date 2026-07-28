@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PSKA_HOME="${PSKA_HOME:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 ENV_FILE="${ENV_FILE:-${PSKA_HOME}/.env.pska}"
+STACK_ENV_FILE="${PSKA_STACK_ENV_FILE:-${HOME}/.hermes/pska-stack.env}"
 HERMES_WEBUI_HOME="${HERMES_WEBUI_HOME:-${HOME}/hermes-webui}"
 PSKA_COMPONENTS_HOME="${PSKA_COMPONENTS_HOME:-${HOME}/PSKA-Components}"
 RAGFLOW_HOME="${RAGFLOW_HOME:-${PSKA_COMPONENTS_HOME}/ragflow}"
@@ -36,8 +37,11 @@ Options:
 
 Useful overrides:
   ENV_FILE=/path/to/.env.pska
+  PSKA_STACK_ENV_FILE=~/.hermes/pska-stack.env
   PSKA_HOME=/path/to/PSKA-Essential
   HERMES_WEBUI_HOME=/path/to/hermes-webui
+  HERMES_WEBUI_EXTENSION_DIR=~/.hermes/webui-local-extensions
+  HERMES_WEBUI_EXTENSION_MANIFEST=extensions.json
   PSKA_COMPONENTS_HOME=/path/to/PSKA-Components
   PSKA_API_HOST=127.0.0.1
   PSKA_API_PORT=8765
@@ -535,6 +539,14 @@ else:
         "connect_timeout": 120,
     }
 
+stack_env = {
+    key: os.environ[key]
+    for key in ("RAGFLOW_BASE_URL", "GRAPHITI_BASE_URL", "PSKA_API_BASE_URL")
+    if os.environ.get(key)
+}
+if stack_env:
+    pska_entry["env"] = {**pska_entry.get("env", {}), **stack_env}
+
 config_file.parent.mkdir(parents=True, exist_ok=True)
 text = config_file.read_text(encoding="utf-8") if config_file.exists() else ""
 
@@ -663,7 +675,7 @@ start_hermes_launchd() {
   local label="${HERMES_WEBUI_LAUNCH_AGENT_LABEL:-com.pska.hermes-webui}"
   local domain="gui/$(id -u)"
   local command_string escaped_command escaped_workdir escaped_log
-  command_string="cd $(printf '%q' "${HERMES_WEBUI_HOME}") && HERMES_HOME=$(printf '%q' "${HERMES_HOME_EFFECTIVE}") PSKA_API_BASE_URL=$(printf '%q' "${PSKA_API_BASE_URL}") HERMES_WEBUI_HOST=$(printf '%q' "${HERMES_WEBUI_HOST}") HERMES_WEBUI_PORT=$(printf '%q' "${HERMES_WEBUI_PORT}") exec $(printf '%q' "${python_exe}") $(printf '%q' "${HERMES_WEBUI_HOME}/bootstrap.py") --no-browser --foreground --host $(printf '%q' "${HERMES_WEBUI_HOST}") $(printf '%q' "${HERMES_WEBUI_PORT}")"
+  command_string="cd $(printf '%q' "${HERMES_WEBUI_HOME}") && HERMES_HOME=$(printf '%q' "${HERMES_HOME_EFFECTIVE}") PSKA_API_BASE_URL=$(printf '%q' "${PSKA_API_BASE_URL}") HERMES_WEBUI_HOST=$(printf '%q' "${HERMES_WEBUI_HOST}") HERMES_WEBUI_PORT=$(printf '%q' "${HERMES_WEBUI_PORT}") HERMES_WEBUI_EXTENSION_DIR=$(printf '%q' "${HERMES_WEBUI_EXTENSION_DIR}") HERMES_WEBUI_EXTENSION_MANIFEST=$(printf '%q' "${HERMES_WEBUI_EXTENSION_MANIFEST}") exec $(printf '%q' "${python_exe}") $(printf '%q' "${HERMES_WEBUI_HOME}/bootstrap.py") --no-browser --foreground --host $(printf '%q' "${HERMES_WEBUI_HOST}") $(printf '%q' "${HERMES_WEBUI_PORT}")"
   escaped_command="$(printf '%s' "${command_string}" | xml_escape)"
   escaped_workdir="$(printf '%s' "${HERMES_WEBUI_HOME}" | xml_escape)"
   escaped_log="$(printf '%s' "${log_file}" | xml_escape)"
@@ -708,6 +720,8 @@ start_hermes_ctl() {
     PSKA_API_BASE_URL="${PSKA_API_BASE_URL}" \
     HERMES_WEBUI_HOST="${HERMES_WEBUI_HOST}" \
     HERMES_WEBUI_PORT="${HERMES_WEBUI_PORT}" \
+    HERMES_WEBUI_EXTENSION_DIR="${HERMES_WEBUI_EXTENSION_DIR}" \
+    HERMES_WEBUI_EXTENSION_MANIFEST="${HERMES_WEBUI_EXTENSION_MANIFEST}" \
       ./ctl.sh start "${HERMES_WEBUI_PORT}" --host "${HERMES_WEBUI_HOST}"
   )
 }
@@ -725,16 +739,24 @@ process_env_value() {
 }
 
 hermes_running_environment_matches() {
-  local pid found=0 home_value pska_value
+  local pid found=0 home_value pska_value extension_dir_value extension_manifest_value
   while IFS= read -r pid; do
     [[ "${pid}" =~ ^[0-9]+$ ]] || continue
     found=1
     home_value="$(process_env_value "${pid}" HERMES_HOME || true)"
     pska_value="$(process_env_value "${pid}" PSKA_API_BASE_URL || true)"
+    extension_dir_value="$(process_env_value "${pid}" HERMES_WEBUI_EXTENSION_DIR || true)"
+    extension_manifest_value="$(process_env_value "${pid}" HERMES_WEBUI_EXTENSION_MANIFEST || true)"
     if [[ -n "${home_value}" && "${home_value}" != "${HERMES_HOME_EFFECTIVE}" ]]; then
       return 1
     fi
     if [[ -n "${pska_value}" && "$(strip_trailing_slash "${pska_value}")" != "${PSKA_API_BASE_URL}" ]]; then
+      return 1
+    fi
+    if [[ -n "${HERMES_WEBUI_EXTENSION_DIR:-}" && "${extension_dir_value}" != "${HERMES_WEBUI_EXTENSION_DIR}" ]]; then
+      return 1
+    fi
+    if [[ -n "${HERMES_WEBUI_EXTENSION_MANIFEST:-}" && "${extension_manifest_value}" != "${HERMES_WEBUI_EXTENSION_MANIFEST}" ]]; then
       return 1
     fi
   done < <(hermes_port_pids || true)
@@ -762,6 +784,7 @@ open_hermes() {
 }
 
 require_cmd curl
+load_env_file "${STACK_ENV_FILE}"
 load_env_file "${ENV_FILE}"
 
 _pska_host_was_set="${PSKA_API_HOST+x}"
@@ -805,7 +828,10 @@ if [[ "${_hermes_host_port}" == *:* ]]; then
   fi
 fi
 HERMES_HOME_EFFECTIVE="${HERMES_HOME:-${HOME}/.hermes}"
+HERMES_WEBUI_EXTENSION_DIR="${HERMES_WEBUI_EXTENSION_DIR:-${HERMES_HOME_EFFECTIVE}/webui-local-extensions}"
+HERMES_WEBUI_EXTENSION_MANIFEST="${HERMES_WEBUI_EXTENSION_MANIFEST:-extensions.json}"
 
+log "Using stack env file: ${STACK_ENV_FILE}"
 log "Using env file: ${ENV_FILE}"
 log "PSKA API: ${PSKA_API_BASE_URL}"
 log "Hermes WebUI: ${HERMES_WEBUI_BASE_URL}"
@@ -826,11 +852,7 @@ ensure_hermes_pska_mcp_config
 (( SKIP_HERMES )) || start_hermes_if_needed
 
 if (( ! SKIP_HERMES && ! SKIP_PSKA )); then
-  if http_ok "${HERMES_WEBUI_BASE_URL}/api/pska/health"; then
-    log "Hermes PSKA proxy is connected"
-  else
-    warn "Hermes is up, but /api/pska/health is not reachable. If Hermes was already running, restart it with PSKA_API_BASE_URL=${PSKA_API_BASE_URL}."
-  fi
+  log "PSKA-mini is provided through the WebUI local extension sidecar"
 fi
 
 open_hermes
