@@ -633,6 +633,8 @@ def _memory_check(service: Any) -> dict[str, Any]:
         )
     if provider in {"company", "company_graphrag_stub"}:
         return _ok("memory_provider", "Company GraphRAG memory stub is configured.", provider=provider)
+    if provider in {"sqlite", "local", "local_sqlite"}:
+        return _ok("memory_provider", "SQLite memory provider is configured.", provider=provider)
     return _warning("memory_provider", f"Memory provider is configured through an injected adapter: {provider}")
 
 

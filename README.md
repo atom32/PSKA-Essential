@@ -8,7 +8,7 @@ systems through small adapter contracts and keeps the workflow safe:
 Hermes Agent
   -> PSKA-Essential MCP
     -> Retrieval Adapter: RAGFlow / Company GraphRAG
-    -> Memory Adapter: Graphiti / Company GraphRAG
+    -> Memory Adapter: SQLite / Graphiti / Company GraphRAG
     -> Review Store: SQLite
     -> Export: Markdown / JSON
 ```
@@ -47,6 +47,9 @@ Read these first when deciding how to use or extend the project:
 - [Conversation-Native Memory Design](docs/CONVERSATION_NATIVE_MEMORY_DESIGN.md):
   daily chat-based memory add/correct/delete flow and the reduced role of the
   Review queue.
+- [Review And Memory Protocol](docs/REVIEW_MEMORY_PROTOCOL.md): canonical
+  review/memory lifecycle, status model, provider contract, and lightweight
+  SQLite baseline.
 
 ## Quick Start
 
@@ -201,6 +204,19 @@ instead of producing an unsourced answer. When the result includes a blocked
 `run_id`, resume the same upload -> Ask -> export intent after readiness with
 `PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume` or
 `pska-essential-ingest-loop-resume <run_id>`.
+
+SQLite memory:
+
+```bash
+export PSKA_MEMORY_PROVIDER=sqlite
+export PSKA_MEMORY_DB=/Users/xudawei/PSKA-Essential/.pska-essential/memory.sqlite3
+```
+
+The SQLite memory adapter is the lightweight local baseline. It persists only
+reviewed PSKA memory facts, source refs, metadata, and versions. It is useful
+when Graphiti is unavailable or when the workspace needs a small durable memory
+provider without a graph service. It is not a document store, vector index, or
+Review UI.
 
 Graphiti memory:
 

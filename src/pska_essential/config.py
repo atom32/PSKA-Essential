@@ -6,6 +6,7 @@ from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAda
 from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
 from pska_essential.adapters.ragflow import RagflowRetrievalAdapter
+from pska_essential.adapters.sqlite import SQLiteMemoryAdapter
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowService
@@ -37,6 +38,8 @@ def build_service_from_env() -> WorkflowService:
     if memory_provider == "fake":
         _require_dev_fake("PSKA_MEMORY_PROVIDER", dev_fake)
         memory = FakeMemoryAdapter()
+    elif memory_provider in {"sqlite", "local", "local_sqlite"}:
+        memory = SQLiteMemoryAdapter(os.getenv("PSKA_MEMORY_DB", ".pska-essential/memory.sqlite3"))
     elif memory_provider == "graphiti":
         _require_env("GRAPHITI_BASE_URL", provider="Graphiti memory")
         memory = GraphitiMemoryAdapter(

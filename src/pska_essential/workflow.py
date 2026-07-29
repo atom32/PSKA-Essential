@@ -248,7 +248,11 @@ class WorkflowService:
         governance_action = requested_governance_action
         run = self.start(
             f"delete durable memory {fact.fact_id}",
-            {"memory_fact_id": fact.fact_id, "operation": "memory_delete"},
+            {
+                **_memory_fact_scope_metadata(fact),
+                "memory_fact_id": fact.fact_id,
+                "operation": "memory_delete",
+            },
         )
         run.metadata["memory_delete_candidate"] = to_jsonable(
             _annotated_memory_delete(
@@ -256,7 +260,7 @@ class WorkflowService:
                 reason=reason,
                 text=fact.text,
                 source_refs=fact.source_refs,
-                metadata={"fact_id": fact.fact_id},
+                metadata=_memory_fact_scope_metadata(fact),
                 origin=DURABLE_ORIGIN,
             )
         )
@@ -313,7 +317,11 @@ class WorkflowService:
         governance_action = requested_governance_action
         run = self.start(
             f"update durable memory {fact.fact_id}",
-            {"memory_fact_id": fact.fact_id, "operation": "memory_update"},
+            {
+                **_memory_fact_scope_metadata(fact),
+                "memory_fact_id": fact.fact_id,
+                "operation": "memory_update",
+            },
         )
         run.metadata["memory_update_candidate"] = to_jsonable(
             _annotated_memory_update(
@@ -322,7 +330,7 @@ class WorkflowService:
                 previous_text=fact.text,
                 reason=reason,
                 source_refs=fact.source_refs,
-                metadata={"fact_id": fact.fact_id},
+                metadata=_memory_fact_scope_metadata(fact),
                 origin=DURABLE_ORIGIN,
             )
         )
@@ -464,6 +472,7 @@ class WorkflowService:
             message_id=message_id,
             scope=scope or {},
         )
+        memory_scope_metadata = _memory_runtime_scope(scope or {})
         run.metadata["conversation_memory_request"] = {
             "operation": normalized_operation,
             "requested_operation": operation,
@@ -490,6 +499,7 @@ class WorkflowService:
                 "user_message": message,
                 "session_id": session_id,
                 "message_id": message_id,
+                **memory_scope_metadata,
             }
             if memory_update_strategy == APPEND_CORRECTION_EPISODE:
                 if fact is None:
@@ -543,6 +553,7 @@ class WorkflowService:
                         "user_message": message,
                         "session_id": session_id,
                         "message_id": message_id,
+                        **memory_scope_metadata,
                     },
                     origin=CONVERSATION_ORIGIN,
                     confidence=float(confidence),
@@ -566,6 +577,7 @@ class WorkflowService:
                         "user_message": message,
                         "session_id": session_id,
                         "message_id": message_id,
+                        **memory_scope_metadata,
                     },
                     origin=CONVERSATION_ORIGIN,
                     confidence=float(confidence),
@@ -1093,6 +1105,7 @@ class WorkflowService:
             raise WorkflowError("memory_patch proposal requires text")
         if not memory_patch.source_refs:
             raise WorkflowError("memory_patch proposal requires source refs")
+        _attach_memory_scope_metadata(memory_patch.metadata, run.scope)
         _annotate_memory_candidate(
             memory_patch.metadata,
             operation="memory_patch",
@@ -1305,14 +1318,36 @@ def _memory_runtime_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]
     return build_runtime_memory_scope(scope)
 
 
-def _attach_memory_runtime_metadata(metadata: dict[str, Any], proposal: Proposal) -> None:
-    scope = _memory_runtime_scope(proposal.metadata)
+def _attach_memory_scope_metadata(metadata: dict[str, Any], scope: dict[str, Any] | None = None) -> None:
+    runtime_scope = _memory_runtime_scope(scope)
     for key in ("workspace_id", "tenant_id", "workspace_configured", "tenant_configured", "memory_namespace"):
-        if key in scope:
-            metadata.setdefault(key, scope[key])
+        if key in runtime_scope:
+            metadata.setdefault(key, runtime_scope[key])
+
+
+def _attach_memory_runtime_metadata(metadata: dict[str, Any], proposal: Proposal) -> None:
+    _attach_memory_scope_metadata(metadata, proposal.metadata)
     metadata.setdefault("proposal_id", proposal.proposal_id)
     metadata.setdefault("run_id", proposal.run_id)
     metadata.setdefault("applied_at", utc_now_iso())
+
+
+def _memory_fact_scope_metadata(fact: MemoryFact) -> dict[str, Any]:
+    fact_metadata = fact.metadata or {}
+    scope = {
+        key: fact_metadata[key]
+        for key in (
+            "workspace_id",
+            "tenant_id",
+            "workspace_configured",
+            "tenant_configured",
+            "memory_namespace",
+        )
+        if key in fact_metadata
+    }
+    metadata = _memory_runtime_scope(scope)
+    metadata["fact_id"] = fact.fact_id
+    return metadata
 
 
 def _annotated_memory_patch(

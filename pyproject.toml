@@ -21,6 +21,7 @@ pska-essential-workspace-status = "pska_essential.workspace_status_cli:main"
 pska-essential-eval = "pska_essential.eval:main"
 pska-essential-ingest-loop = "pska_essential.ingest_loop:main"
 pska-essential-ingest-loop-resume = "pska_essential.ingest_loop:resume_main"
+pska-essential-review-memory-smoke = "pska_essential.review_memory_smoke:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -104,6 +104,9 @@ connects independent AI systems into a coherent, auditable knowledge workspace.
 
 ## Review Rule
 
+- PSKA owns the ReviewCandidate, ReviewDecision, Merge, and AuditLog lifecycle.
+  Third-party approval or annotation products are adapters, not protocol
+  authorities.
 - Long-term memory and graph writes, updates, and deletions require accepted
   review.
 - Do not expose direct add/delete/clear backend memory tools to agents.

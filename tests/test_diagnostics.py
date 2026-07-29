@@ -4,6 +4,7 @@ import unittest
 from types import SimpleNamespace
 
 from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
+from pska_essential.adapters.sqlite import SQLiteMemoryAdapter
 from pska_essential.contracts import ContextPacket, SourceContext, SourceRef
 from pska_essential.diagnostics import (
     add_live_closed_loop_probe_audit,
@@ -110,6 +111,19 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(checks["memory_search_contract"]["metadata"]["provider"], "graphiti")
         self.assertIn("LLM or embedding provider", checks["memory_search_contract"]["message"])
         self.assertEqual(service.store.list_audit_events(action="memory.search"), [])
+
+    def test_runtime_diagnostics_treats_sqlite_memory_as_configured_provider(self):
+        service = WorkflowService(_LiveRetrieval(), SQLiteMemoryAdapter(":memory:"), SQLiteReviewStore(":memory:"))
+
+        diagnostics = build_runtime_diagnostics(
+            service=service,
+            kb_gateway_factory=lambda: _ReadyGateway(),
+        )
+
+        checks = {item["name"]: item for item in diagnostics["checks"]}
+        self.assertEqual(checks["memory_provider"]["status"], "ok")
+        self.assertEqual(checks["memory_provider"]["metadata"]["provider"], "sqlite")
+        self.assertEqual(checks["memory_search_contract"]["status"], "ok")
 
     def test_memory_probe_rejects_fake_as_live_proof(self):
         service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))
