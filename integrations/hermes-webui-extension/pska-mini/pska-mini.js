@@ -4,6 +4,9 @@
   const STORAGE_KEY = "pska-mini.hermes-webui.scope.v1";
   const SKILL_NAME = "knowledge-retrieval";
   const SKILL_CACHE_TTL_MS = 5 * 60 * 1000;
+  const REVIEW_BOARD_SLUG = "pska-review";
+  const DIGEST_TASK_NAME = "PSKA Digest Runner";
+  const DIGEST_TASK_MARKER = "PSKA-Mini Digest Runner";
 
   if (window.__pskaMiniExtensionLoaded) return;
   window.__pskaMiniExtensionLoaded = true;
@@ -20,6 +23,10 @@
     health: null,
     workspace: null,
     datasets: [],
+    hermesProfile: null,
+    hermesProjects: null,
+    hermesWorkspaces: null,
+    scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
   };
@@ -117,6 +124,16 @@
           <button id="pskaMiniClearDatasets" type="button">Clear</button>
         </div>
 
+        <div class="pska-mini-section-head">
+          <strong>Hermes modules</strong>
+        </div>
+        <div class="pska-mini-hermes" id="pskaMiniHermesModules"></div>
+        <div class="pska-mini-actions pska-mini-hermes-actions">
+          <button id="pskaMiniApplySuggestedScope" type="button">Apply suggested scope</button>
+          <button id="pskaMiniSyncReviews" type="button">Sync Review Board</button>
+          <button id="pskaMiniCreateDigestTask" type="button">Create Digest Task</button>
+        </div>
+
         <details class="pska-mini-advanced">
           <summary>Advanced scope</summary>
           <label>Dataset IDs
@@ -144,6 +161,9 @@
     wrap.querySelector("#pskaMiniClearDatasets").addEventListener("click", clearDatasets);
     wrap.querySelector("#pskaMiniProbe").addEventListener("click", runRetrievalProbe);
     wrap.querySelector("#pskaMiniPreview").addEventListener("click", previewTurnContext);
+    wrap.querySelector("#pskaMiniApplySuggestedScope").addEventListener("click", applySuggestedScope);
+    wrap.querySelector("#pskaMiniSyncReviews").addEventListener("click", syncReviewBoard);
+    wrap.querySelector("#pskaMiniCreateDigestTask").addEventListener("click", createDigestTask);
     wrap.querySelector("#pskaMiniEnabled").addEventListener("change", syncFromControls);
     wrap.querySelector("#pskaMiniMode").addEventListener("change", syncFromControls);
     wrap.querySelector("#pskaMiniMaxTokens").addEventListener("input", syncFromControls);
@@ -167,15 +187,22 @@
       health: pskaMiniFetchJson("/api/health"),
       workspace: pskaMiniFetchJson("/api/workspace/status"),
       datasets: pskaMiniFetchJson("/api/kb/datasets"),
+      hermesProfile: fetchWebuiJson("/api/profile/active", { timeoutMs: 5000 }),
+      hermesProjects: fetchWebuiJson("/api/projects", { timeoutMs: 5000 }),
+      hermesWorkspaces: fetchWebuiJson("/api/workspaces", { timeoutMs: 5000 }),
       diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 5000 })
     });
     const diagnosticsValue = valueOrNull(results.diagnostics);
-    dashboard = {
+    const nextDashboard = {
       loading: false,
       loadedAt: new Date().toLocaleTimeString(),
       health: valueOrNull(results.health),
       workspace: valueOrNull(results.workspace)?.workspace_status || null,
       datasets: valueOrNull(results.datasets)?.datasets || [],
+      hermesProfile: valueOrNull(results.hermesProfile),
+      hermesProjects: valueOrNull(results.hermesProjects),
+      hermesWorkspaces: valueOrNull(results.hermesWorkspaces),
+      scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
         ? errorText(results.diagnostics.reason)
         : diagnosticsValue?.ok === false
@@ -189,12 +216,15 @@
           .map(([key, result]) => [key, errorText(result.reason)])
       )
     };
+    nextDashboard.scopeSuggestions = buildScopeSuggestions(nextDashboard);
+    dashboard = nextDashboard;
     renderDashboard();
   }
 
   function renderDashboard() {
     renderStatus();
     renderDatasets();
+    renderHermesModules();
   }
 
   function renderStatus() {
@@ -254,6 +284,50 @@
     }).join("");
   }
 
+  function renderHermesModules() {
+    const container = document.getElementById("pskaMiniHermesModules");
+    if (!container) return;
+    const profileName = String(dashboard.hermesProfile?.name || dashboard.hermesProjects?.active_profile || "default");
+    const workspacePath = String(dashboard.hermesWorkspaces?.last || dashboard.hermesProfile?.default_workspace || "");
+    const projects = Array.isArray(dashboard.hermesProjects?.projects) ? dashboard.hermesProjects.projects : [];
+    const projectNames = projects
+      .map((project) => String(project?.name || project?.label || project?.path || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const suggestions = dashboard.scopeSuggestions || [];
+    const scopeButton = document.getElementById("pskaMiniApplySuggestedScope");
+    if (scopeButton) scopeButton.disabled = !suggestions.length;
+    container.innerHTML = `
+      <div class="pska-mini-hermes-grid">
+        <span>Profile</span>
+        <strong>${escapeHtml(profileName)}</strong>
+        <span>Workspace</span>
+        <strong title="${escapeAttr(workspacePath)}">${escapeHtml(basename(workspacePath) || "none")}</strong>
+        <span>Projects</span>
+        <strong>${escapeHtml(projectNames.join(", ") || "none")}</strong>
+      </div>
+      <div class="pska-mini-suggestions">
+        ${suggestions.length ? suggestions.map((item) => `
+          <button type="button" data-pska-suggested-dataset="${escapeAttr(item.id)}" title="${escapeAttr(item.reason)}">
+            ${escapeHtml(item.name)}
+          </button>
+        `).join("") : `<span>No dataset suggestion</span>`}
+      </div>
+    `;
+    container.querySelectorAll("[data-pska-suggested-dataset]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const id = button.getAttribute("data-pska-suggested-dataset");
+        if (!id) return;
+        state.datasetIds = Array.from(new Set([...state.datasetIds, id]));
+        state.enabled = true;
+        saveState();
+        renderControls();
+        renderDatasets();
+        renderHermesModules();
+      });
+    });
+  }
+
   function renderControls() {
     const chip = document.getElementById("pskaMiniChip");
     const label = document.getElementById("pskaMiniLabel");
@@ -284,6 +358,7 @@
     saveState();
     renderControls();
     renderDatasets();
+    renderHermesModules();
   }
 
   function onDatasetToggle(event) {
@@ -300,6 +375,7 @@
     saveState();
     renderControls();
     renderDatasets();
+    renderHermesModules();
   }
 
   function renderBridgeStatus() {
@@ -411,7 +487,8 @@
       dataset_ids: state.datasetIds,
       document_ids: state.documentIds,
       max_tokens: state.maxTokens,
-      source: "hermes-webui.pska-mini-chip"
+      source: "hermes-webui.pska-mini-chip",
+      hermes: currentHermesContext()
     };
     const lines = [
       "## PSKA-Mini Runtime Scope",
@@ -551,6 +628,7 @@
     saveState();
     renderControls();
     renderDatasets();
+    renderHermesModules();
   }
 
   function clearDatasets() {
@@ -558,6 +636,22 @@
     saveState();
     renderControls();
     renderDatasets();
+    renderHermesModules();
+  }
+
+  function applySuggestedScope() {
+    const suggestions = dashboard.scopeSuggestions || [];
+    if (!suggestions.length) {
+      showPreviewText("No Hermes profile/project dataset suggestion is available.");
+      return;
+    }
+    state.datasetIds = Array.from(new Set(suggestions.slice(0, 3).map((item) => item.id).filter(Boolean)));
+    state.enabled = state.datasetIds.length > 0;
+    saveState();
+    renderControls();
+    renderDatasets();
+    renderHermesModules();
+    showPreviewText(`Applied ${state.datasetIds.length} suggested dataset${state.datasetIds.length === 1 ? "" : "s"}.`);
   }
 
   async function runRetrievalProbe() {
@@ -647,6 +741,281 @@
     }
   }
 
+  async function syncReviewBoard() {
+    const box = document.getElementById("pskaMiniPreviewBox");
+    if (!box) return;
+    box.hidden = false;
+    box.textContent = "Syncing PSKA reviews to Hermes Kanban...";
+    try {
+      const reviewsPayload = await pskaMiniFetchJson("/api/reviews?limit=50", { timeoutMs: 10000 });
+      const reviews = normalizeReviews(reviewsPayload)
+        .filter((review) => shouldProjectReview(review))
+        .slice(0, 25);
+      await fetchWebuiJson("/api/kanban/boards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: REVIEW_BOARD_SLUG,
+          name: "PSKA Review",
+          description: "Projection of the PSKA review queue",
+          icon: "check-square",
+          color: "#4b7bec"
+        }),
+        timeoutMs: 10000
+      });
+      let synced = 0;
+      for (const review of reviews) {
+        await fetchWebuiJson("/api/kanban/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reviewTaskPayload(review)),
+          timeoutMs: 10000
+        });
+        synced += 1;
+      }
+      box.textContent = reviews.length
+        ? `Synced ${synced} PSKA review card${synced === 1 ? "" : "s"} to Hermes Kanban board "${REVIEW_BOARD_SLUG}".`
+        : `PSKA Review board is ready. No active review candidates found.`;
+      toast("PSKA review board synced.", "success");
+    } catch (error) {
+      box.textContent = `Review board sync failed: ${errorText(error)}`;
+      toast(`PSKA review sync failed: ${errorText(error)}`, "error");
+    }
+  }
+
+  async function createDigestTask() {
+    const box = document.getElementById("pskaMiniPreviewBox");
+    if (!box) return;
+    box.hidden = false;
+    box.textContent = "Checking Hermes Tasks...";
+    try {
+      const jobsPayload = await fetchWebuiJson("/api/crons", { timeoutMs: 10000 });
+      const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
+      const existing = jobs.find((job) => {
+        const name = String(job?.name || "");
+        const prompt = String(job?.prompt || "");
+        return name === DIGEST_TASK_NAME || prompt.includes(DIGEST_TASK_MARKER);
+      });
+      if (existing) {
+        box.textContent = `Digest task already exists: ${existing.name || existing.id || DIGEST_TASK_NAME}`;
+        toast("PSKA digest task already exists.", "success");
+        return;
+      }
+      const data = await fetchWebuiJson("/api/crons/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: DIGEST_TASK_NAME,
+          schedule: "every 1h",
+          deliver: "local",
+          skills: [SKILL_NAME],
+          prompt: buildDigestTaskPrompt()
+        }),
+        timeoutMs: 10000
+      });
+      const job = data.job || {};
+      box.textContent = `Created Hermes task: ${job.name || DIGEST_TASK_NAME}. Scheduled ticks still require the Hermes gateway daemon.`;
+      toast("PSKA digest task created.", "success");
+    } catch (error) {
+      box.textContent = `Digest task creation failed: ${errorText(error)}`;
+      toast(`PSKA digest task failed: ${errorText(error)}`, "error");
+    }
+  }
+
+  function buildScopeSuggestions(view) {
+    const datasets = Array.isArray(view.datasets) ? view.datasets : [];
+    const context = currentHermesContext(view);
+    const searchValues = [
+      context.profile,
+      context.workspace,
+      basename(context.workspace),
+      ...context.projects
+    ].filter(Boolean);
+    const tokens = scopeTokens(searchValues);
+    if (!datasets.length || !tokens.length) return [];
+    return datasets
+      .map((dataset) => {
+        const id = String(dataset.dataset_id || dataset.id || "");
+        const name = String(dataset.name || id || "");
+        const haystack = normalizeSearchText(`${name} ${id}`);
+        let score = 0;
+        const matched = [];
+        tokens.forEach((token) => {
+          if (!token || token.length < 2) return;
+          if (haystack.includes(token)) {
+            score += Math.min(6, token.length);
+            matched.push(token);
+          }
+        });
+        return { id, name, score, reason: matched.length ? `matched ${matched.slice(0, 4).join(", ")}` : "" };
+      })
+      .filter((item) => item.id && item.score > 0)
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+      .slice(0, 3);
+  }
+
+  function currentHermesContext(view = dashboard) {
+    const profile = String(view.hermesProfile?.name || view.hermesProjects?.active_profile || "").trim();
+    const workspace = String(view.hermesWorkspaces?.last || view.hermesProfile?.default_workspace || "").trim();
+    const projects = Array.isArray(view.hermesProjects?.projects) ? view.hermesProjects.projects : [];
+    return {
+      profile: profile || "default",
+      workspace,
+      projects: projects
+        .map((project) => String(project?.name || project?.label || project?.path || "").trim())
+        .filter(Boolean)
+        .slice(0, 8)
+    };
+  }
+
+  function scopeTokens(values) {
+    const tokens = [];
+    values.forEach((value) => {
+      const normalized = normalizeSearchText(value);
+      const parts = normalized.match(/[a-z0-9\u4e00-\u9fff]+/g) || [];
+      parts.forEach((part) => {
+        if (part.length >= 2) tokens.push(part);
+      });
+    });
+    return Array.from(new Set(tokens));
+  }
+
+  function normalizeSearchText(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[_\-.\\/]+/g, " ")
+      .trim();
+  }
+
+  function normalizeReviews(payload) {
+    const direct = payload?.reviews || payload?.items || payload?.candidates || [];
+    if (Array.isArray(direct)) return direct;
+    if (Array.isArray(payload?.review_candidates)) return payload.review_candidates;
+    return [];
+  }
+
+  function shouldProjectReview(review) {
+    const status = normalizeReviewStatus(review);
+    return ["pending", "accepted", "needs_revision", "needs_edit"].includes(status);
+  }
+
+  function normalizeReviewStatus(review) {
+    return String(review?.status || review?.decision_status || review?.state || "pending")
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+  }
+
+  function reviewTaskPayload(review) {
+    const reviewId = String(review?.review_id || review?.id || review?.candidate_id || "");
+    const status = normalizeReviewStatus(review);
+    const proposal = review?.proposal || review?.candidate || review?.payload || {};
+    const kind = String(review?.kind || proposal?.kind || proposal?.type || "candidate");
+    const titleBits = ["PSKA review", kind, reviewId ? shortId(reviewId) : ""].filter(Boolean);
+    return {
+      board: REVIEW_BOARD_SLUG,
+      title: titleBits.join(" · "),
+      body: reviewTaskBody(review, proposal, reviewId, status, kind),
+      created_by: "pska-mini",
+      priority: reviewPriority(status),
+      status: reviewKanbanStatus(status),
+      idempotency_key: reviewId ? `pska-review:${reviewId}` : `pska-review:${kind}:${fingerprint(proposal)}`,
+      skills: [SKILL_NAME]
+    };
+  }
+
+  function reviewTaskBody(review, proposal, reviewId, status, kind) {
+    const evidence = proposal?.evidence || proposal?.evidence_refs || proposal?.source_refs || review?.evidence || [];
+    const rationale = String(proposal?.rationale || review?.rationale || proposal?.reason || "").trim();
+    const body = [
+      "Projection only. PSKA remains the source of truth.",
+      "",
+      `review_id: ${reviewId || "unknown"}`,
+      `kind: ${kind}`,
+      `status: ${status}`,
+      `evidence_refs: ${Array.isArray(evidence) ? evidence.length : 0}`,
+      reviewId ? `pska_api: GET /api/reviews/${reviewId}` : "",
+      rationale ? `rationale: ${rationale}` : "",
+      "",
+      truncate(stableJson(proposal), 1800)
+    ].filter(Boolean);
+    return body.join("\n");
+  }
+
+  function reviewKanbanStatus(status) {
+    if (status === "accepted") return "ready";
+    if (status === "needs_revision" || status === "needs_edit") return "blocked";
+    return "triage";
+  }
+
+  function reviewPriority(status) {
+    if (status === "accepted") return 2;
+    if (status === "needs_revision" || status === "needs_edit") return 1;
+    return 3;
+  }
+
+  function buildDigestTaskPrompt() {
+    const context = currentHermesContext();
+    const scope = {
+      dataset_ids: state.datasetIds,
+      document_ids: state.documentIds,
+      hermes: context
+    };
+    return [
+      DIGEST_TASK_MARKER,
+      "",
+      "Use PSKA-Essential MCP tools to inspect provider jobs and digest jobs.",
+      "Run only queued or ready digest work. Do not write durable memory directly; leave candidates in PSKA Review unless the user has explicitly approved applying them.",
+      "If Graphiti is unavailable, keep RAGFlow evidence and SQLite memory/review paths working and report the degraded memory backend briefly.",
+      "",
+      "Runtime scope:",
+      "```json",
+      JSON.stringify(scope, null, 2),
+      "```"
+    ].join("\n");
+  }
+
+  function showPreviewText(text) {
+    const box = document.getElementById("pskaMiniPreviewBox");
+    if (!box) return;
+    box.hidden = false;
+    box.textContent = text;
+  }
+
+  function stableJson(value) {
+    try {
+      return JSON.stringify(sortJson(value), null, 2);
+    } catch (_) {
+      return String(value || "");
+    }
+  }
+
+  function sortJson(value) {
+    if (Array.isArray(value)) return value.map(sortJson);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortJson(value[key])]));
+  }
+
+  function truncate(value, maxLength) {
+    const text = String(value || "");
+    return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+  }
+
+  function shortId(value) {
+    return String(value || "").slice(0, 8);
+  }
+
+  function fingerprint(value) {
+    const text = stableJson(value).replace(/[^a-zA-Z0-9]+/g, "").slice(0, 80);
+    return text || "unknown";
+  }
+
+  function basename(path) {
+    const text = String(path || "").replace(/\/+$/g, "");
+    if (!text) return "";
+    const parts = text.split(/[\\/]/);
+    return parts[parts.length - 1] || text;
+  }
+
   async function pskaMiniFetchJson(path, options = {}) {
     const response = await pskaMiniFetch(path, options);
     const text = await response.text();
@@ -666,6 +1035,7 @@
     const timeoutMs = Number(options.timeoutMs || 15000);
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    addCsrfHeader(target, options, headers);
     const fetchOptions = { ...options };
     delete fetchOptions.timeoutMs;
     try {
