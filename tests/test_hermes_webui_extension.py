@@ -1,5 +1,8 @@
 import json
+import os
 import re
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,6 +18,14 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertEqual(manifest["id"], "pska-mini")
         self.assertEqual(manifest["scripts"], ["pska-mini.js"])
         self.assertEqual(manifest["stylesheets"], ["pska-mini.css"])
+        self.assertEqual(
+            manifest["sidecar"],
+            {
+                "type": "loopback",
+                "origin": "http://127.0.0.1:8765",
+                "health_path": "/api/health",
+            },
+        )
 
     def test_extension_is_chip_only_and_uses_sidecar_bridge(self):
         script = (EXTENSION_DIR / "pska-mini.js").read_text(encoding="utf-8")
@@ -45,6 +56,45 @@ class HermesWebuiExtensionTests(unittest.TestCase):
             "pska_agentic_question_start",
         ]:
             self.assertNotIn(forbidden, script)
+
+    def test_sync_script_writes_webui_manifest_and_sidecar_consent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            extension_root = root / "extensions"
+            state_dir = root / "webui-state"
+            env = {
+                **os.environ,
+                "HERMES_HOME": str(root / "hermes"),
+                "HERMES_WEBUI_EXTENSION_DIR": str(extension_root),
+                "HERMES_WEBUI_EXTENSION_MANIFEST": "extensions.json",
+                "HERMES_WEBUI_STATE_DIR": str(state_dir),
+                "PSKA_API_BASE_URL": "http://127.0.0.1:9876",
+            }
+
+            result = subprocess.run(
+                ["bash", "integrations/hermes-webui-extension/sync-to-hermes.sh"],
+                cwd=ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((extension_root / "extensions.json").read_text(encoding="utf-8"))
+            entries = {entry["id"]: entry for entry in manifest["extensions"]}
+            self.assertIn("pska-mini", entries)
+            pska_entry = entries["pska-mini"]
+            self.assertEqual(pska_entry["scripts"], ["pska-mini/pska-mini.js"])
+            self.assertEqual(pska_entry["stylesheets"], ["pska-mini/pska-mini.css"])
+            self.assertEqual(pska_entry["sidecar"]["origin"], "http://127.0.0.1:9876")
+            self.assertEqual(pska_entry["sidecar"]["health_path"], "/api/health")
+
+            state = json.loads((state_dir / "extension-overrides.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                state["sidecar_proxy_consents"],
+                {"pska-mini": "http://127.0.0.1:9876"},
+            )
 
 
 if __name__ == "__main__":

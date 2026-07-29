@@ -21,6 +21,10 @@ class StartWorkspaceScriptTests(unittest.TestCase):
         text = Path("scripts/start_pska_workspace.sh").read_text(encoding="utf-8")
 
         self.assertIn("pska_api_contract_ok", text)
+        self.assertIn("ensure_hermes_webui_extension", text)
+        self.assertIn("sync-to-hermes.sh", text)
+        self.assertIn("HERMES_WEBUI_STATE_DIR", text)
+        self.assertIn("PSKA_WEBUI_AUTO_APPROVE_SIDECAR", text)
         self.assertIn("/api/capabilities", text)
         self.assertIn("pska.product_api_contract.v1", text)
         self.assertIn("pska.memory_interaction_model.v1", text)

@@ -3,5 +3,10 @@
   "name": "PSKA Mini",
   "description": "Thin Hermes-WebUI controls for PSKA turn context.",
   "scripts": ["pska-mini.js"],
-  "stylesheets": ["pska-mini.css"]
+  "stylesheets": ["pska-mini.css"],
+  "sidecar": {
+    "type": "loopback",
+    "origin": "http://127.0.0.1:8765",
+    "health_path": "/api/health"
+  }
 }
