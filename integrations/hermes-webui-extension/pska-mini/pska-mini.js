@@ -125,13 +125,13 @@
         </div>
 
         <div class="pska-mini-section-head">
-          <strong>Hermes modules</strong>
+          <strong>Hermes 模块</strong>
         </div>
         <div class="pska-mini-hermes" id="pskaMiniHermesModules"></div>
         <div class="pska-mini-actions pska-mini-hermes-actions">
-          <button id="pskaMiniApplySuggestedScope" type="button">Apply suggested scope</button>
-          <button id="pskaMiniSyncReviews" type="button">Sync Review Board</button>
-          <button id="pskaMiniCreateDigestTask" type="button">Create Digest Task</button>
+          <button id="pskaMiniApplySuggestedScope" type="button">应用建议范围</button>
+          <button id="pskaMiniSyncReviews" type="button">同步审核看板</button>
+          <button id="pskaMiniCreateDigestTask" type="button">创建摘要任务</button>
         </div>
 
         <details class="pska-mini-advanced">
@@ -311,7 +311,7 @@
           <button type="button" data-pska-suggested-dataset="${escapeAttr(item.id)}" title="${escapeAttr(item.reason)}">
             ${escapeHtml(item.name)}
           </button>
-        `).join("") : `<span>No dataset suggestion</span>`}
+        `).join("") : `<span>暂无数据集建议</span>`}
       </div>
     `;
     container.querySelectorAll("[data-pska-suggested-dataset]").forEach((button) => {
@@ -642,7 +642,7 @@
   function applySuggestedScope() {
     const suggestions = dashboard.scopeSuggestions || [];
     if (!suggestions.length) {
-      showPreviewText("No Hermes profile/project dataset suggestion is available.");
+      showPreviewText("当前 Hermes profile/project 没有匹配到数据集建议。");
       return;
     }
     state.datasetIds = Array.from(new Set(suggestions.slice(0, 3).map((item) => item.id).filter(Boolean)));
@@ -651,7 +651,7 @@
     renderControls();
     renderDatasets();
     renderHermesModules();
-    showPreviewText(`Applied ${state.datasetIds.length} suggested dataset${state.datasetIds.length === 1 ? "" : "s"}.`);
+    showPreviewText(`已应用 ${state.datasetIds.length} 个建议数据集。`);
   }
 
   async function runRetrievalProbe() {
@@ -745,7 +745,7 @@
     const box = document.getElementById("pskaMiniPreviewBox");
     if (!box) return;
     box.hidden = false;
-    box.textContent = "Syncing PSKA reviews to Hermes Kanban...";
+    box.textContent = "正在同步 PSKA 审核项到 Hermes Kanban...";
     try {
       const reviewsPayload = await pskaMiniFetchJson("/api/reviews?limit=50", { timeoutMs: 10000 });
       const reviews = normalizeReviews(reviewsPayload)
@@ -765,20 +765,36 @@
       });
       let synced = 0;
       for (const review of reviews) {
-        await fetchWebuiJson("/api/kanban/tasks", {
+        const taskPayload = reviewTaskPayload(review);
+        const created = await fetchWebuiJson("/api/kanban/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(reviewTaskPayload(review)),
+          body: JSON.stringify(taskPayload),
           timeoutMs: 10000
         });
+        const taskId = created?.task?.id || created?.task?.task_id;
+        if (taskId) {
+          await fetchWebuiJson(`/api/kanban/tasks/${encodeURIComponent(taskId)}/patch`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              board: REVIEW_BOARD_SLUG,
+              title: taskPayload.title,
+              body: taskPayload.body,
+              priority: taskPayload.priority,
+              status: taskPayload.status
+            }),
+            timeoutMs: 10000
+          });
+        }
         synced += 1;
       }
       box.textContent = reviews.length
-        ? `Synced ${synced} PSKA review card${synced === 1 ? "" : "s"} to Hermes Kanban board "${REVIEW_BOARD_SLUG}".`
-        : `PSKA Review board is ready. No active review candidates found.`;
+        ? `已同步 ${synced} 张 PSKA 审核卡片到 Hermes Kanban 看板 "${REVIEW_BOARD_SLUG}"。`
+        : `PSKA Review 看板已就绪；没有待处理审核候选。`;
       toast("PSKA review board synced.", "success");
     } catch (error) {
-      box.textContent = `Review board sync failed: ${errorText(error)}`;
+      box.textContent = `同步审核看板失败：${errorText(error)}`;
       toast(`PSKA review sync failed: ${errorText(error)}`, "error");
     }
   }
@@ -787,7 +803,7 @@
     const box = document.getElementById("pskaMiniPreviewBox");
     if (!box) return;
     box.hidden = false;
-    box.textContent = "Checking Hermes Tasks...";
+    box.textContent = "正在检查 Hermes Tasks...";
     try {
       const jobsPayload = await fetchWebuiJson("/api/crons", { timeoutMs: 10000 });
       const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
@@ -797,7 +813,7 @@
         return name === DIGEST_TASK_NAME || prompt.includes(DIGEST_TASK_MARKER);
       });
       if (existing) {
-        box.textContent = `Digest task already exists: ${existing.name || existing.id || DIGEST_TASK_NAME}`;
+        box.textContent = `摘要任务已存在：${existing.name || existing.id || DIGEST_TASK_NAME}`;
         toast("PSKA digest task already exists.", "success");
         return;
       }
@@ -814,10 +830,10 @@
         timeoutMs: 10000
       });
       const job = data.job || {};
-      box.textContent = `Created Hermes task: ${job.name || DIGEST_TASK_NAME}. Scheduled ticks still require the Hermes gateway daemon.`;
+      box.textContent = `已创建 Hermes 任务：${job.name || DIGEST_TASK_NAME}。自动定时运行仍需要 Hermes gateway daemon。`;
       toast("PSKA digest task created.", "success");
     } catch (error) {
-      box.textContent = `Digest task creation failed: ${errorText(error)}`;
+      box.textContent = `创建摘要任务失败：${errorText(error)}`;
       toast(`PSKA digest task failed: ${errorText(error)}`, "error");
     }
   }
@@ -910,10 +926,9 @@
     const status = normalizeReviewStatus(review);
     const proposal = review?.proposal || review?.candidate || review?.payload || {};
     const kind = String(review?.kind || proposal?.kind || proposal?.type || "candidate");
-    const titleBits = ["PSKA review", kind, reviewId ? shortId(reviewId) : ""].filter(Boolean);
     return {
       board: REVIEW_BOARD_SLUG,
-      title: titleBits.join(" · "),
+      title: reviewTaskTitle(proposal, status, kind, reviewId),
       body: reviewTaskBody(review, proposal, reviewId, status, kind),
       created_by: "pska-mini",
       priority: reviewPriority(status),
@@ -923,22 +938,72 @@
     };
   }
 
+  function reviewTaskTitle(proposal, status, kind, reviewId) {
+    const readable = cleanReviewTitle(
+      proposal?.title
+      || proposal?.intent
+      || firstLine(proposal?.body)
+      || reviewId
+      || "审核候选"
+    );
+    return truncate(`PSKA ${reviewStatusLabel(status)} · ${reviewKindLabel(kind)} · ${readable}`, 120);
+  }
+
   function reviewTaskBody(review, proposal, reviewId, status, kind) {
     const evidence = proposal?.evidence || proposal?.evidence_refs || proposal?.source_refs || review?.evidence || [];
     const rationale = String(proposal?.rationale || review?.rationale || proposal?.reason || "").trim();
+    const candidateBody = String(proposal?.body || proposal?.memory_patch?.text || proposal?.memory_update?.text || "").trim();
     const body = [
-      "Projection only. PSKA remains the source of truth.",
+      "PSKA 是权威来源；这张 Kanban 卡只是工作视图。",
       "",
-      `review_id: ${reviewId || "unknown"}`,
-      `kind: ${kind}`,
-      `status: ${status}`,
-      `evidence_refs: ${Array.isArray(evidence) ? evidence.length : 0}`,
-      reviewId ? `pska_api: GET /api/reviews/${reviewId}` : "",
-      rationale ? `rationale: ${rationale}` : "",
+      `审核 ID：${reviewId || "unknown"}`,
+      `类型：${reviewKindLabel(kind)}`,
+      `状态：${reviewStatusLabel(status)}`,
+      reviewId ? `PSKA API：GET /api/reviews/${reviewId}` : "",
       "",
-      truncate(stableJson(proposal), 1800)
+      candidateBody ? `候选内容：\n${truncate(candidateBody, 1400)}` : "",
+      rationale ? `\n理由：\n${truncate(rationale, 500)}` : "",
+      Array.isArray(evidence) && evidence.length ? `\n证据：\n${evidence.slice(0, 5).map((ref, index) => evidenceLine(ref, index)).join("\n")}` : "",
+      "",
+      "原始详情请回到 PSKA Review 或调用上面的 PSKA API 查看。"
     ].filter(Boolean);
     return body.join("\n");
+  }
+
+  function evidenceLine(ref, index) {
+    const title = String(ref?.title || ref?.document_id || ref?.source_id || "source");
+    const chunk = String(ref?.chunk_id || ref?.external_id || "").trim();
+    const suffix = chunk ? ` · ${shortId(chunk)}` : "";
+    return `${index + 1}. ${title}${suffix}`;
+  }
+
+  function reviewKindLabel(kind) {
+    const value = String(kind || "").toLowerCase();
+    if (value === "memory_patch") return "新增记忆候选";
+    if (value === "memory_update") return "更新记忆候选";
+    if (value === "memory_delete") return "删除记忆候选";
+    if (value === "digest") return "摘要候选";
+    if (value === "writing_brief") return "写作简报";
+    return value || "审核候选";
+  }
+
+  function reviewStatusLabel(status) {
+    const value = String(status || "").toLowerCase();
+    if (value === "pending") return "待审核";
+    if (value === "accepted") return "已接受待应用";
+    if (value === "needs_revision" || value === "needs_edit") return "需修订";
+    if (value === "rejected") return "已拒绝";
+    if (value === "applied") return "已应用";
+    return value || "未知状态";
+  }
+
+  function cleanReviewTitle(value) {
+    return String(value || "")
+      .replace(/^Memory Patch:\s*/i, "")
+      .replace(/^Memory Update:\s*/i, "")
+      .replace(/^Memory Delete:\s*/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function reviewKanbanStatus(status) {
@@ -998,6 +1063,10 @@
   function truncate(value, maxLength) {
     const text = String(value || "");
     return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+  }
+
+  function firstLine(value) {
+    return String(value || "").split(/\r?\n/)[0] || "";
   }
 
   function shortId(value) {
