@@ -7,8 +7,8 @@ PSKA is the knowledge workflow and governance layer behind it.
 ## Product Shape
 
 PSKA is not the main chat application. It is the control plane that makes
-RAGFlow, Graphiti, review, audit, and agent tools behave like one governed
-knowledge workflow.
+RAGFlow, the selected memory provider, review, audit, and agent tools behave
+like one governed knowledge workflow.
 
 The normal user path is:
 
@@ -18,15 +18,15 @@ User
     -> Hermes runtime
       -> PSKA MCP tools and Product API
         -> RAGFlow for source evidence and retrieval
-        -> Graphiti for reviewed long-term memory
+        -> selected memory provider for reviewed long-term memory
         -> PSKA review store and audit log
 ```
 
-Use Hermes WebUI for daily work. Use RAGFlow and Graphiti UIs only when you are
-administering those providers directly. PSKA should not ship a separate daily
-workspace frontend. Its Product API and MCP tools are consumed by Hermes WebUI;
-any PSKA-local page is only for development diagnostics or operator status, not
-for normal user workflows.
+Use Hermes WebUI for daily work. Use RAGFlow and memory-provider native UIs only
+when you are administering those providers directly. PSKA should not ship a
+separate daily workspace frontend. Its Product API and MCP tools are consumed
+by Hermes WebUI; any PSKA-local page is only for development diagnostics or
+operator status, not for normal user workflows.
 
 ## Frontend Boundary
 
@@ -62,8 +62,9 @@ Use the bundled startup wrapper when running on this local PSKA machine:
 make start-workspace
 ```
 
-It checks RAGFlow, Graphiti, PSKA Product API, and Hermes WebUI; starts missing
-local services when a known startup path exists; then opens Hermes WebUI.
+It checks RAGFlow, the selected memory provider, PSKA Product API, and Hermes
+WebUI; starts missing local services when a known startup path exists; then
+opens Hermes WebUI.
 
 1. Start the configured provider backends.
 2. Start PSKA Product API with an explicit env file.
@@ -72,7 +73,7 @@ local services when a known startup path exists; then opens Hermes WebUI.
 5. Open Hermes WebUI and verify the Knowledge panel shows provider health,
    workspace status, and PSKA MCP tool inventory.
 
-The key rule is that Hermes must call PSKA, not RAGFlow or Graphiti directly.
+The key rule is that Hermes must call PSKA, not RAGFlow or the memory provider directly.
 Direct provider tools bypass PSKA's review gate, source trace, readiness, and
 audit model.
 
@@ -88,15 +89,15 @@ Create or select a workspace
   -> inspect sources
   -> create a transient artifact or durable memory candidate
   -> review durable candidates
-  -> apply accepted memory to Graphiti
+  -> apply accepted memory to the selected memory provider
   -> ask again with both RAG and reviewed memory available
 ```
 
 This is intentionally not "upload once to every backend". A file should enter
 the product through PSKA once. PSKA sends source documents to RAGFlow for
-chunking, embedding, indexing, and source-grounded retrieval. Graphiti receives
-only reviewed fact, event, entity, or relation projections that are worth
-keeping as durable memory.
+chunking, embedding, indexing, and source-grounded retrieval. The memory
+provider receives only reviewed fact, event, entity, or relation projections
+that are worth keeping as durable memory.
 
 ## Ingestion
 
@@ -119,11 +120,11 @@ over a scope.
 Use `pska_provider_jobs` or `GET /api/provider/jobs` for a workspace-level job
 view. It reports KB dataset/document ingestion, PSKA digest jobs, recent
 provider-level events, phases, progress, failure reasons, and next actions. It
-does not replace RAGFlow's or Graphiti's native job queues.
+does not replace RAGFlow's or a memory provider's native job queues.
 
-## From Documents To Graphiti
+## From Documents To Memory Provider
 
-Uploading a file does not write Graphiti memory.
+Uploading a file does not write durable memory.
 
 The upload path is:
 
@@ -134,7 +135,8 @@ Hermes Knowledge panel or PSKA API
   -> RAGFlow parsing, chunking, embedding, indexing
 ```
 
-Graphiti receives data only through explicit durable-memory paths:
+The selected memory provider receives data only through explicit durable-memory
+paths:
 
 - conversation memory: the user says remember/correct/forget in chat, Hermes
   decides whether this is an add, correction/update, delete/forget, or
@@ -142,8 +144,8 @@ Graphiti receives data only through explicit durable-memory paths:
   a clear user-driven change under conversation policy;
 - digest review: PSKA runs `pska_digest_scope` or a queued digest job over a
   ready RAGFlow scope, creates a compact sourced digest artifact, optionally
-  creates an exception Review, and writes Graphiti only after the Review is
-  accepted and applied.
+  creates an exception Review, and writes memory only after the Review is
+  accepted and applied when policy requires review.
 
 Review is not the normal memory editor. If a memory is wrong, correct it in the
 Hermes conversation; PSKA keeps the internal proposal/decision/apply/audit trail
@@ -153,19 +155,19 @@ Digest jobs are lightweight PSKA workflow metadata, not a shadow copy of
 RAGFlow chunks. `pska_provider_jobs` reports them as `pska_digest_job` entries
 with `dataset_ids`, `document_ids`, `priority`, `attempt_count`, readiness, and
 `data_flow.writes_memory_directly=false`. Running a digest job may create a
-candidate Review; it does not write Graphiti as a side effect of ingestion.
+candidate Review; it does not write memory as a side effect of ingestion.
 In Hermes WebUI, use the PSKA Knowledge panel's Digest card to queue this job
 explicitly. The Jobs card then shows the queued job and can run it.
 
 Hermes WebUI also shows a Memory inflow card from
 `/api/pska/capabilities -> memory.inflow`. Use it as the runtime answer to
-"when will Graphiti receive data?": upload alone will not do it; only
-conversation memory, digest job review/application, or workflow memory
-promotion can move governed projections into the memory provider.
+"when will durable memory receive data?": upload alone will not do it; only
+conversation memory, digest job review/application, or workflow memory promotion
+can move governed projections into the memory provider.
 
 This keeps the ownership rule intact: RAGFlow stores source evidence and
-chunks; Graphiti stores compact reviewed temporal memory; PSKA stores contracts,
-workflow state, audit, and provider-carried provenance metadata.
+chunks; the memory provider stores compact reviewed temporal memory; PSKA stores
+contracts, workflow state, audit, and provider-carried provenance metadata.
 
 For lineage, check `/api/pska/capabilities -> memory.lineage`. The expected
 contract is `pska.memory_lineage.v1`: Graphiti or another memory provider owns

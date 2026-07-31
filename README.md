@@ -33,8 +33,10 @@ must be visible to users and agents.
 
 Read these first when deciding how to use or extend the project:
 
+- [System Interaction Model](docs/SYSTEM_INTERACTION_MODEL.zh.md): current
+  Hermes WebUI, Eidolia, PSKA, RAGFlow, memory, review, and LLM routing rules.
 - [PSKA User Guide](docs/USER_GUIDE.md): daily Hermes WebUI workflow, ingestion,
-  Ask, review, Graphiti memory, and troubleshooting.
+  Ask, review, configured memory provider, and troubleshooting.
 - [Hermes WebUI Integration](docs/HERMES_WEBUI_INTEGRATION.md): plan for using
   Hermes WebUI as the only v1 user workspace, with PSKA behind proxy/API/MCP
   boundaries.
@@ -96,12 +98,13 @@ Run the full local Hermes workspace stack:
 make start-workspace
 ```
 
-This checks RAGFlow, Graphiti, PSKA Product API, and Hermes WebUI; starts the
-missing local services where this machine has a known startup path; then opens
-Hermes WebUI as the v1 product workspace. The PSKA Product API check validates
-the lightweight Product API contract, not just `/api/health`, so a stale local
-8765 process that lacks routes such as `/api/memory/search` is reported as
-`STALE` and restarted. For status without starting services:
+This checks configured components such as RAGFlow, the selected memory provider,
+PSKA Product API, and Hermes WebUI; starts missing local services where this
+machine has a known startup path; then opens Hermes WebUI as the v1 product
+workspace. The PSKA Product API check validates the lightweight Product API
+contract, not just `/api/health`, so a stale local 8765 process that lacks
+routes such as `/api/memory/search` is reported as `STALE` and restarted. For
+status without starting services:
 
 ```bash
 make start-workspace START_WORKSPACE_ARGS=--status-only
@@ -384,14 +387,14 @@ available from the CLI as
 `pska_digest_scope` runs an explicit low-frequency digest over a ready
 dataset/document scope. It creates a sourced digest work product and, only when
 requested with `create_memory_review=true`, turns that digest into a governed
-memory candidate; it does not write Graphiti memory directly.
+memory candidate; it does not write the memory provider directly.
 `pska_digest_job_enqueue`, `pska_digest_job_list`, and `pska_digest_job_run`
 provide an explicit lightweight scheduler surface for digest work. Jobs live as
 PSKA workflow metadata, respect KB readiness before running, and still route any
 durable memory through Review. Provider job status reports each digest job with
 its selected `dataset_ids`, `document_ids`, `priority`, `attempt_count`,
 readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
-operators can see that document digestion is not a hidden Graphiti write.
+operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.

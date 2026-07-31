@@ -5,17 +5,21 @@
 
 ## 1. 启动前确认
 
-确认外部组件在线：
+确认当前主路径组件在线：
 
 ```bash
 curl http://127.0.0.1:9380/api/v1/system/ping
-curl http://127.0.0.1:8000/healthcheck
+curl http://127.0.0.1:8765/api/health
 ```
 
 预期：
 
 - RAGFlow 返回 `pong`
-- Graphiti 返回 `{"status":"healthy"}`
+- PSKA Product API 返回 `ok: true`
+
+Graphiti 只有在 `PSKA_MEMORY_PROVIDER=graphiti` 时才是必需组件。当前轻量路径
+使用 `PSKA_MEMORY_PROVIDER=sqlite`，因此 evidence retrieval、review 和基础
+memory 闭环不依赖 Graphiti。
 
 推荐直接使用统一启动脚本：
 
@@ -23,7 +27,7 @@ curl http://127.0.0.1:8000/healthcheck
 make start-workspace
 ```
 
-它会检查 RAGFlow、Graphiti、PSKA Product API 与 Hermes WebUI。PSKA
+它会检查 RAGFlow、当前 memory provider、PSKA Product API 与 Hermes WebUI。PSKA
 检查不只看 `/api/health`，还会验证 `/api/capabilities` 中的 Product API
 contract，避免旧进程还活着但缺少 `/api/memory/search` 等新接口。
 
@@ -43,9 +47,10 @@ PSKA 自带的 `http://127.0.0.1:8765` 只是诊断和调试 surface，不是日
 
 说明：
 
-- `.env.pska.demo` 使用真实 RAGFlow KB/retrieval。
-- memory provider 显式设置为 `company_graphrag_stub` 时，可演示完整治理生命周期。
-- `.env.pska` 可切回 Graphiti。Graphiti search 需要自己的 LLM/embedding provider 配置完整。
+- `.env.pska` 使用真实 RAGFlow KB/retrieval。
+- 当前开发手顺使用 SQLite memory；它是轻量本地 memory provider，不需要 Graphiti。
+- Graphiti 可以作为未来图记忆 provider 接回，但它需要自己的 LLM/embedding provider
+  配置完整，不能阻塞 RAGFlow evidence retrieval。
 
 ## 2. 看系统状态
 
@@ -53,7 +58,8 @@ PSKA 自带的 `http://127.0.0.1:8765` 只是诊断和调试 surface，不是日
 
 - `知识库` 应显示已连接的 RAGFlow 数据集。
 - `下一步操作` 会提示可以提问、等待 ingestion，或处理异常 Review。
-- 当前可用数据集为 `海康威视年报测试-local-embedding`，应有 615 个 chunks。
+- 当前可用数据集以 PSKA Product API 返回为准；本机样例包含
+  `海康威视年报测试-local-embedding` 和红楼梦测试数据集。
 
 也可用命令确认：
 
@@ -160,7 +166,7 @@ Review 只作为异常收件箱：
 
 如果未完成，PSKA 会返回 not-ready/resume contract，而不是编造答案。
 
-## 7. 什么时候进入 Graphiti
+## 7. 什么时候进入 memory provider
 
 上传文件只进入 RAGFlow。
 
@@ -171,12 +177,12 @@ Hermes WebUI / PSKA API
   -> RAGFlow parse/chunk/embed/index
 ```
 
-Graphiti 不会因为上传或切片自动写入。它只接收紧凑、可治理的长期记忆：
+Memory provider 不会因为上传或切片自动写入。它只接收紧凑、可治理的长期记忆：
 
 - 用户在 Hermes 对话中明确说 `记住 / 不对 / 忘掉`，Hermes 调
   `pska_memory_change_from_conversation`，清晰低风险的变更可自动 apply；
 - PSKA 对 ready 的 RAGFlow scope 跑 `pska_digest_scope` 或 digest job，生成
-  compact digest，必要时进入异常 Review，接受并 apply 后才写 Graphiti。
+  compact digest，必要时进入异常 Review，接受并 apply 后才写 memory provider。
 
 用下面的接口看后台队列：
 
@@ -189,7 +195,7 @@ curl http://127.0.0.1:8765/api/provider/jobs
 
 其中 `pska_digest_job` 会显示 `dataset_ids`、`document_ids`、`priority`、
 `attempt_count`、readiness 和 `data_flow.writes_memory_directly=false`。
-这表示 digest job 是“候选知识消化任务”，不是 Graphiti 直接写入任务。
+这表示 digest job 是“候选知识消化任务”，不是 memory provider 直接写入任务。
 
 ## 8. 诊断
 
@@ -203,8 +209,8 @@ curl http://127.0.0.1:8765/api/provider/jobs
 
 ## 9. 当前已知限制
 
-- Graphiti 容器健康不等于 Graphiti search 可用。当前 Graphiti search 报 500，需要配置它自己的 LLM/embedding provider。
-- 演示模式使用 `company_graphrag_stub` 作为显式 memory substrate，不是 silent fallback。
+- Graphiti 只有在选为 memory provider 时才需要健康；容器健康也不等于 Graphiti search 可用，它还需要自己的 LLM/embedding provider。
+- 演示模式使用 `company_graphrag_stub` 时，它是显式 memory substrate，不是 silent fallback。
 - 前端已经切到中文主界面；动态后端状态码、audit action、provider 名称仍保留英文/contract 语言。
 
 ## 10. 前端语言与 i18n

@@ -2,6 +2,7 @@
 
 Related product docs:
 
+- [System Interaction Model](SYSTEM_INTERACTION_MODEL.zh.md)
 - [PSKA User Guide](USER_GUIDE.md)
 - [Long-Term Stability Design](LONG_TERM_STABILITY_DESIGN.md)
 - [Metadata-First Bridge Design](METADATA_FIRST_BRIDGE_DESIGN.md)
@@ -9,6 +10,11 @@ Related product docs:
 This document defines how PSKA should use `hermes-webui` as the v1 frontend
 substrate while keeping PSKA as the product API, MCP, governance, and adapter
 boundary.
+
+Current runtime routing and LLM ownership are defined in
+[System Interaction Model](SYSTEM_INTERACTION_MODEL.zh.md). In short: Hermes is
+the reasoner, PSKA does not own a generation LLM, and RAGFlow is used as the
+document/retrieval backend rather than as an answer bot.
 
 ## Decision
 
@@ -78,42 +84,46 @@ Hermes WebUI backend
   |-- /api/pska/* proxy ---------------> PSKA Product API
                                            |
                                            v
-                                      PSKA Core
-                                           |
+                                     PSKA Core
+                                          |
                      +---------------------+---------------------+
                      |                     |                     |
-                  RAGFlow               Graphiti              Store
-            document evidence        reviewed memory       audit/review
+                  RAGFlow          Memory Provider          Store
+            document evidence      reviewed memory       audit/review
 ```
 
 Hermes owns the conversation runtime. PSKA owns the knowledge contract. RAGFlow
-and Graphiti remain behind PSKA adapters.
+and the selected memory provider remain behind PSKA adapters. The current local
+runtime can use SQLite memory; Graphiti is an optional memory provider rather
+than a required daily dependency.
 
 ## Data Ownership
 
 One uploaded source document should not be ingested as raw source into both
-RAGFlow and Graphiti.
+RAGFlow and the memory provider.
 
 The v1 rule is:
 
 ```text
 source document -> PSKA ingest -> RAGFlow
-reviewed fact / event / relation projection -> PSKA memory apply -> Graphiti
+reviewed fact / event / relation projection -> PSKA memory apply -> memory provider
 ```
 
 RAGFlow stores source evidence: documents, chunks, embeddings, retrieval
 coordinates, and citations.
 
-Graphiti stores governed temporal memory: facts, events, entities, relations,
-and source references after PSKA review or workspace policy approval.
+The selected memory provider stores governed temporal memory: facts, events,
+entities, relations, and source references after PSKA review or workspace policy
+approval.
 
-Graphiti may use embeddings internally, but it embeds memory episodes and graph
-facts, not the full document chunk corpus that RAGFlow owns.
+Graph memory providers such as Graphiti may use embeddings internally, but they
+embed memory episodes and graph facts, not the full document chunk corpus that
+RAGFlow owns.
 
-The linkage between RAGFlow evidence and Graphiti memory must be metadata-first:
-Graphiti episodes created by PSKA carry upstream PSKA `SourceRef` provenance.
-PSKA may cache resolution results, but it must not become the authoritative
-fact-to-chunk ledger.
+The linkage between RAGFlow evidence and memory provider records must be
+metadata-first: memory records created by PSKA carry upstream PSKA `SourceRef`
+provenance. PSKA may cache resolution results, but it must not become the
+authoritative fact-to-chunk ledger.
 
 ## Frontend Surface Mapping
 

@@ -51,7 +51,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("/api/runtime/retrieval-probe", recovery)
         self.assertIn("Graphiti is NOT bundled with PSKA-Essential", recovery)
 
-    def test_hermes_config_exposes_operational_loop_tools(self):
+    def test_hermes_config_exposes_daily_pska_surface(self):
         text = Path("skills/hermes/config.example.yaml").read_text(encoding="utf-8")
 
         self.assertIn("--env-file", text)
@@ -62,21 +62,42 @@ class SkillDocsTests(unittest.TestCase):
 
         for tool_name in [
             "pska_workspace_status",
-            "pska_runtime_diagnostics",
+            "pska_policy_get",
             "pska_capabilities_get",
-            "pska_workflow_list",
+            "pska_kb_list",
+            "pska_kb_readiness",
+            "pska_kb_ingestion_status",
+            "pska_kb_document_status",
+            "pska_retrieval_probe",
+            "pska_context_retrieve",
+            "pska_source_read",
+            "pska_agentic_question_start",
             "pska_agentic_question_resumable",
             "pska_agentic_question_resume",
-            "pska_audit_list",
+            "pska_memory_search",
+            "pska_memory_change_from_conversation",
+            "pska_memory_lifecycle",
+            "pska_review_list",
+            "pska_review_get",
+            "pska_provider_jobs",
+            "pska_runtime_diagnostics",
             "pska_component_check",
-            "pska_ingest_loop",
-            "pska_ingest_loop_resume",
-            "pska_memory_probe",
-            "pska_live_closed_loop_probe",
         ]:
             self.assertIn(f"- {tool_name}", text)
 
-    def test_hermes_config_tool_list_matches_mcp_registry(self):
+        for tool_name in [
+            "pska_workflow_start",
+            "pska_workflow_list",
+            "pska_audit_list",
+            "pska_eval_run",
+            "pska_kb_ingest_files",
+            "pska_kb_delete",
+            "pska_memory_apply",
+            "pska_digest_job_run",
+        ]:
+            self.assertNotIn(f"- {tool_name}", text)
+
+    def test_hermes_config_tool_list_is_mcp_registry_subset(self):
         text = Path("skills/hermes/config.example.yaml").read_text(encoding="utf-8")
         configured_tools = set(re.findall(r"^\s*- (pska_[A-Za-z0-9_]+)\s*$", text, flags=re.MULTILINE))
         env = {
@@ -90,7 +111,10 @@ class SkillDocsTests(unittest.TestCase):
         with patch.dict("os.environ", env, clear=True):
             actual_tools = set(tool_registry())
 
-        self.assertEqual(configured_tools, actual_tools)
+        self.assertTrue(configured_tools)
+        self.assertLess(configured_tools, actual_tools)
+        self.assertTrue(configured_tools.issubset(actual_tools))
+        self.assertIn("pska_workflow_start", actual_tools - configured_tools)
 
     def test_openclaw_skill_prefers_pska_ingest_loop_boundary(self):
         text = Path("skills/openclaw/SKILL.md").read_text(encoding="utf-8")
