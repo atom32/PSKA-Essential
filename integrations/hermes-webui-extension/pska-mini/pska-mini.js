@@ -7,6 +7,20 @@
   const REVIEW_BOARD_SLUG = "pska-review";
   const DIGEST_TASK_NAME = "PSKA Digest Runner";
   const DIGEST_TASK_MARKER = "PSKA-Mini Digest Runner";
+  const PANEL_NAME = "pska-mini";
+  const MAIN_PANEL_ID = "mainPskaMini";
+  const BUILTIN_MAIN_CLASSES = [
+    "showing-settings",
+    "showing-skills",
+    "showing-memory",
+    "showing-tasks",
+    "showing-kanban",
+    "showing-workspaces",
+    "showing-profiles",
+    "showing-insights",
+    "showing-logs",
+    "showing-plugin"
+  ];
 
   if (window.__pskaMiniExtensionLoaded) return;
   window.__pskaMiniExtensionLoaded = true;
@@ -17,6 +31,17 @@
   let sendBridgeInjecting = false;
   let apiBridgeInstalling = false;
   let pendingChatStartInjection = null;
+  let memoryPage = {
+    loading: false,
+    loadedAt: "",
+    query: "PSKA",
+    facts: [],
+    reviews: [],
+    reviewStatus: "pending",
+    detail: null,
+    message: "",
+    error: ""
+  };
   let dashboard = {
     loading: false,
     loadedAt: "",
@@ -68,6 +93,9 @@
   }
 
   function init() {
+    installPanelCleanup();
+    installNavButtons();
+    installMemoryPage();
     installComposerChip();
     installApiBridge();
     installDisplaySanitizer();
@@ -145,6 +173,7 @@
         </details>
 
         <div class="pska-mini-actions">
+          <button id="pskaMiniOpenMemoryPage" type="button">Memory Page</button>
           <button id="pskaMiniProbe" type="button">RAGFlow Probe</button>
           <button id="pskaMiniPreview" type="button">Preview</button>
           <button id="pskaMiniClose" type="button">Close</button>
@@ -159,6 +188,7 @@
     wrap.querySelector("#pskaMiniRefresh").addEventListener("click", refreshDashboard);
     wrap.querySelector("#pskaMiniSelectReady").addEventListener("click", selectReadyDatasets);
     wrap.querySelector("#pskaMiniClearDatasets").addEventListener("click", clearDatasets);
+    wrap.querySelector("#pskaMiniOpenMemoryPage").addEventListener("click", activateMainPage);
     wrap.querySelector("#pskaMiniProbe").addEventListener("click", runRetrievalProbe);
     wrap.querySelector("#pskaMiniPreview").addEventListener("click", previewTurnContext);
     wrap.querySelector("#pskaMiniApplySuggestedScope").addEventListener("click", applySuggestedScope);
@@ -178,6 +208,489 @@
     });
     renderControls();
     renderDashboard();
+  }
+
+  function installNavButtons() {
+    if (!document.getElementById("pskaMiniRailButton")) {
+      const rail = document.querySelector(".rail");
+      if (rail) rail.insertBefore(createNavButton("rail"), navInsertAnchor(rail));
+    }
+    if (!document.getElementById("pskaMiniMobileButton")) {
+      const mobile = document.querySelector(".sidebar-nav");
+      if (mobile) mobile.insertBefore(createNavButton("mobile"), navInsertAnchor(mobile));
+    }
+  }
+
+  function navInsertAnchor(container) {
+    return container?.querySelector(".dashboard-link, [data-dashboard-link]")
+      || container?.querySelector(".rail-spacer")
+      || container?.querySelector('[data-panel="settings"]')
+      || null;
+  }
+
+  function createNavButton(kind) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = kind === "rail" ? "pskaMiniRailButton" : "pskaMiniMobileButton";
+    button.className = kind === "rail"
+      ? "rail-btn nav-tab has-tooltip pska-mini-nav-button"
+      : "nav-tab has-tooltip has-tooltip--bottom pska-mini-nav-button";
+    button.dataset.panel = PANEL_NAME;
+    button.dataset.tooltip = "PSKA";
+    button.setAttribute("aria-label", "PSKA Memory");
+    if (kind !== "rail") button.dataset.label = "PSKA";
+    button.innerHTML = `
+      <svg width="${kind === "rail" ? 20 : 18}" height="${kind === "rail" ? 20 : 18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z"/>
+        <path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/>
+        <path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>
+      </svg>
+    `;
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      await activateMainPage({ fromRailClick: true });
+    });
+    return button;
+  }
+
+  async function activateMainPage(opts = {}) {
+    closeMenu();
+    installMemoryPage();
+    if (typeof window.switchPanel === "function") {
+      const switched = await window.switchPanel(PANEL_NAME, { fromRailClick: Boolean(opts.fromRailClick) });
+      if (switched === false) return;
+    }
+    showMainPage();
+    if (!memoryPage.loadedAt && !memoryPage.loading) refreshMemoryPage();
+  }
+
+  function installMemoryPage() {
+    if (document.getElementById(MAIN_PANEL_ID)) return;
+    const main = document.querySelector("main.main") || document.querySelector("main");
+    if (!main) return;
+    const panel = document.createElement("section");
+    panel.id = MAIN_PANEL_ID;
+    panel.className = "main-view pska-mini-page";
+    panel.innerHTML = `
+      <div class="main-view-header pska-mini-page-header">
+        <div>
+          <div class="main-view-title">PSKA Memory</div>
+          <div class="pska-mini-page-sub">PSKA SQLite memory and review queue</div>
+        </div>
+        <div class="main-view-actions">
+          <button class="pska-mini-page-btn" id="pskaMiniPageRefresh" type="button">Refresh</button>
+        </div>
+      </div>
+      <div class="main-view-body">
+        <div class="main-view-content pska-mini-page-content">
+          <section class="pska-mini-page-status" id="pskaMiniPageStatus"></section>
+          <div class="pska-mini-page-grid">
+            <section class="pska-mini-page-section">
+              <div class="pska-mini-page-section-head">
+                <h2>Memory</h2>
+                <span id="pskaMiniMemoryCount"></span>
+              </div>
+              <div class="pska-mini-page-search">
+                <input id="pskaMiniMemoryQuery" type="search" value="PSKA" placeholder="Search PSKA memory">
+                <button class="pska-mini-page-btn" id="pskaMiniMemorySearch" type="button">Search</button>
+              </div>
+              <div class="pska-mini-memory-results" id="pskaMiniMemoryResults"></div>
+              <details class="pska-mini-memory-create">
+                <summary>Create review candidate</summary>
+                <textarea id="pskaMiniMemoryDraft" rows="4" placeholder="A durable fact worth reviewing"></textarea>
+                <div class="pska-mini-memory-create-actions">
+                  <label><input id="pskaMiniMemoryForceReview" type="checkbox" checked> force review</label>
+                  <button class="pska-mini-page-btn" id="pskaMiniCreateMemoryReview" type="button">Create</button>
+                </div>
+              </details>
+            </section>
+            <section class="pska-mini-page-section">
+              <div class="pska-mini-page-section-head">
+                <h2>Review Queue</h2>
+                <select id="pskaMiniReviewStatus">
+                  <option value="pending">pending</option>
+                  <option value="accepted">accepted</option>
+                  <option value="all">all</option>
+                </select>
+              </div>
+              <div class="pska-mini-review-list" id="pskaMiniReviewList"></div>
+            </section>
+          </div>
+          <section class="pska-mini-review-detail" id="pskaMiniReviewDetail"></section>
+        </div>
+      </div>
+    `;
+    main.appendChild(panel);
+    panel.querySelector("#pskaMiniPageRefresh").addEventListener("click", refreshMemoryPage);
+    panel.querySelector("#pskaMiniMemorySearch").addEventListener("click", runMemoryPageSearch);
+    panel.querySelector("#pskaMiniMemoryQuery").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        runMemoryPageSearch();
+      }
+    });
+    panel.querySelector("#pskaMiniReviewStatus").addEventListener("change", () => {
+      memoryPage.reviewStatus = String(panel.querySelector("#pskaMiniReviewStatus")?.value || "pending");
+      loadMemoryPageReviews();
+    });
+    panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
+    panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
+    renderMemoryPage();
+  }
+
+  function showMainPage() {
+    installMemoryPage();
+    const main = document.querySelector("main.main") || document.querySelector("main");
+    if (main) {
+      BUILTIN_MAIN_CLASSES.forEach((className) => main.classList.remove(className));
+      main.classList.add("showing-pska-mini");
+    }
+    document.querySelectorAll("[data-panel]").forEach((item) => {
+      item.classList.toggle("active", item.dataset.panel === PANEL_NAME);
+    });
+    const title = document.getElementById("appTitlebarTitle");
+    const sub = document.getElementById("appTitlebarSub");
+    if (title) title.textContent = "PSKA Memory";
+    if (sub) {
+      sub.textContent = "SQLite memory / review queue";
+      sub.hidden = false;
+    }
+  }
+
+  function installPanelCleanup() {
+    document.addEventListener("click", (event) => {
+      const tab = event.target?.closest?.("[data-panel], [data-dashboard-link]");
+      if (!tab) return;
+      if (tab.dataset.panel === PANEL_NAME) return;
+      hideMainPageClass();
+    }, true);
+    patchSwitchPanel();
+    window.setTimeout(patchSwitchPanel, 250);
+    window.setTimeout(patchSwitchPanel, 1000);
+  }
+
+  function patchSwitchPanel() {
+    if (typeof window.switchPanel !== "function") return;
+    if (window.switchPanel.__pskaMiniPanelWrapped) return;
+    const original = window.switchPanel;
+    const wrapped = function pskaMiniPanelSwitch(name) {
+      if (String(name || "") !== PANEL_NAME) hideMainPageClass();
+      return original.apply(this, arguments);
+    };
+    wrapped.__pskaMiniPanelWrapped = true;
+    window.switchPanel = wrapped;
+  }
+
+  function hideMainPageClass() {
+    const main = document.querySelector("main.main") || document.querySelector("main");
+    if (main) main.classList.remove("showing-pska-mini");
+    document.querySelectorAll(`[data-panel="${PANEL_NAME}"]`).forEach((item) => item.classList.remove("active"));
+  }
+
+  async function refreshMemoryPage() {
+    memoryPage = { ...memoryPage, loading: true, error: "", message: "Loading PSKA memory..." };
+    renderMemoryPage();
+    try {
+      await Promise.all([refreshDashboard(), loadMemoryPageReviews(), runMemoryPageSearch({ silentEmpty: true })]);
+      memoryPage = { ...memoryPage, loading: false, loadedAt: new Date().toLocaleTimeString(), message: "Loaded." };
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+    }
+    renderMemoryPage();
+  }
+
+  async function runMemoryPageSearch(options = {}) {
+    const input = document.getElementById("pskaMiniMemoryQuery");
+    const query = String(input?.value || memoryPage.query || "").trim();
+    memoryPage.query = query;
+    if (!query) {
+      memoryPage = { ...memoryPage, facts: [], message: options.silentEmpty ? memoryPage.message : "Enter a memory search query.", error: "" };
+      renderMemoryPage();
+      return;
+    }
+    memoryPage = { ...memoryPage, loading: true, message: "Searching memory...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson("/api/memory/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, scope: {}, limit: 20 }),
+        timeoutMs: 15000
+      });
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        facts: Array.isArray(data.memory_facts) ? data.memory_facts : [],
+        loadedAt: new Date().toLocaleTimeString(),
+        message: `Found ${data.count || 0} memory fact(s).`,
+        error: ""
+      };
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, facts: [], error: errorText(error), message: "" };
+    }
+    renderMemoryPage();
+  }
+
+  async function loadMemoryPageReviews() {
+    const status = memoryPage.reviewStatus === "all" ? "" : `status=${encodeURIComponent(memoryPage.reviewStatus)}&`;
+    const data = await pskaMiniFetchJson(`/api/reviews?${status}limit=50`, { timeoutMs: 15000 });
+    memoryPage = {
+      ...memoryPage,
+      reviews: normalizeReviews(data),
+      loadedAt: new Date().toLocaleTimeString()
+    };
+    renderMemoryPage();
+  }
+
+  async function createMemoryReviewCandidate() {
+    const draft = String(document.getElementById("pskaMiniMemoryDraft")?.value || "").trim();
+    const forceReview = Boolean(document.getElementById("pskaMiniMemoryForceReview")?.checked);
+    if (!draft) {
+      memoryPage = { ...memoryPage, error: "Memory candidate text is required.", message: "" };
+      renderMemoryPage();
+      return;
+    }
+    memoryPage = { ...memoryPage, loading: true, message: "Creating memory review candidate...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson("/api/memory/conversation-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_message: draft,
+          operation: "memory_patch",
+          text: draft,
+          reason: "Created from Hermes WebUI PSKA Memory page",
+          force_review: forceReview,
+          source_refs: [{
+            adapter: "hermes-webui",
+            source_id: `pska-mini-memory-page:${Date.now()}`,
+            title: "Hermes WebUI PSKA Memory page",
+            metadata: { origin: "hermes-webui.pska-mini-extension" }
+          }],
+          scope: {}
+        }),
+        timeoutMs: 20000
+      });
+      const reviewId = data.review?.review_id || "";
+      const status = data.status || "created";
+      const draftBox = document.getElementById("pskaMiniMemoryDraft");
+      if (draftBox) draftBox.value = "";
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        message: reviewId ? `Memory candidate ${reviewId} ${status}.` : `Memory candidate ${status}.`,
+        error: ""
+      };
+      await loadMemoryPageReviews();
+      await runMemoryPageSearch({ silentEmpty: true });
+      toast("PSKA memory candidate created.", "success");
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+      renderMemoryPage();
+      toast(`PSKA memory candidate failed: ${errorText(error)}`, "error");
+    }
+  }
+
+  async function onReviewListClick(event) {
+    const button = event.target?.closest?.("[data-pska-review-action]");
+    if (!button) return;
+    const reviewId = button.getAttribute("data-pska-review-id") || "";
+    const action = button.getAttribute("data-pska-review-action") || "";
+    if (!reviewId) return;
+    if (action === "view") {
+      await loadReviewDetail(reviewId);
+    } else if (action === "accept") {
+      await decideReview(reviewId, "accept");
+    } else if (action === "reject") {
+      await decideReview(reviewId, "reject");
+    } else if (action === "apply") {
+      await applyReviewMemory(reviewId);
+    }
+  }
+
+  async function loadReviewDetail(reviewId) {
+    memoryPage = { ...memoryPage, loading: true, message: "Loading review detail...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson(`/api/reviews/${encodeURIComponent(reviewId)}`, { timeoutMs: 15000 });
+      memoryPage = { ...memoryPage, loading: false, detail: data.review || null, message: "", error: "" };
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+    }
+    renderMemoryPage();
+  }
+
+  async function decideReview(reviewId, decision) {
+    memoryPage = { ...memoryPage, loading: true, message: `${decision} review ${reviewId}...`, error: "" };
+    renderMemoryPage();
+    try {
+      await pskaMiniFetchJson(`/api/reviews/${encodeURIComponent(reviewId)}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, reason: `${decision} from Hermes WebUI PSKA Memory page` }),
+        timeoutMs: 15000
+      });
+      memoryPage = { ...memoryPage, loading: false, message: `Review ${reviewId} ${decision}ed.`, error: "" };
+      await loadMemoryPageReviews();
+      await loadReviewDetail(reviewId);
+      toast(`PSKA review ${decision}ed.`, "success");
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+      renderMemoryPage();
+      toast(`PSKA review decision failed: ${errorText(error)}`, "error");
+    }
+  }
+
+  async function applyReviewMemory(reviewId) {
+    memoryPage = { ...memoryPage, loading: true, message: `Applying review ${reviewId}...`, error: "" };
+    renderMemoryPage();
+    try {
+      await pskaMiniFetchJson(`/api/reviews/${encodeURIComponent(reviewId)}/apply-memory`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        timeoutMs: 20000
+      });
+      memoryPage = { ...memoryPage, loading: false, message: `Review ${reviewId} applied to memory.`, error: "" };
+      await loadMemoryPageReviews();
+      await runMemoryPageSearch({ silentEmpty: true });
+      await loadReviewDetail(reviewId);
+      toast("PSKA memory applied.", "success");
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+      renderMemoryPage();
+      toast(`PSKA memory apply failed: ${errorText(error)}`, "error");
+    }
+  }
+
+  function renderMemoryPage() {
+    renderMemoryPageStatus();
+    renderMemoryResults();
+    renderReviewList();
+    renderReviewDetail();
+  }
+
+  function renderMemoryPageStatus() {
+    const container = document.getElementById("pskaMiniPageStatus");
+    if (!container) return;
+    const workspace = dashboard.workspace || {};
+    const providers = workspace.providers || dashboard.health?.providers || {};
+    const kb = workspace.kb || {};
+    container.innerHTML = `
+      <div class="pska-mini-page-pills">
+        <span class="pska-mini-pill ${dashboard.health?.ok ? "is-ok" : "is-bad"}"><b>API</b> ${dashboard.health?.ok ? "ready" : "missing"}</span>
+        <span class="pska-mini-pill ${providers.memory ? "is-ok" : "is-warn"}"><b>Memory</b> ${escapeHtml(providers.memory || "unknown")}</span>
+        <span class="pska-mini-pill ${kb.usable ? "is-ok" : "is-warn"}"><b>KB</b> ${escapeHtml(kb.usable ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready")}</span>
+        ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
+      </div>
+      ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
+      ${memoryPage.error ? `<div class="pska-mini-warning">${escapeHtml(memoryPage.error)}</div>` : ""}
+    `;
+    const statusSelect = document.getElementById("pskaMiniReviewStatus");
+    if (statusSelect) statusSelect.value = memoryPage.reviewStatus;
+    const queryInput = document.getElementById("pskaMiniMemoryQuery");
+    if (queryInput && document.activeElement !== queryInput) queryInput.value = memoryPage.query || "";
+  }
+
+  function renderMemoryResults() {
+    const count = document.getElementById("pskaMiniMemoryCount");
+    if (count) count.textContent = `${memoryPage.facts.length} shown`;
+    const container = document.getElementById("pskaMiniMemoryResults");
+    if (!container) return;
+    if (memoryPage.loading && !memoryPage.facts.length) {
+      container.innerHTML = `<div class="pska-mini-empty">Loading memory...</div>`;
+      return;
+    }
+    if (!memoryPage.facts.length) {
+      container.innerHTML = `<div class="pska-mini-empty">No memory facts matched this query.</div>`;
+      return;
+    }
+    container.innerHTML = memoryPage.facts.map((fact) => {
+      const id = String(fact.fact_id || fact.id || "");
+      return `
+        <article class="pska-mini-memory-card">
+          <div class="pska-mini-memory-card-head">
+            <strong>${escapeHtml(id || "memory fact")}</strong>
+            <code>${escapeHtml(memoryMetadataLine(fact))}</code>
+          </div>
+          <p>${escapeHtml(fact.text || fact.display_text || "")}</p>
+          <small>${escapeHtml(memorySourceLabel(fact))}</small>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderReviewList() {
+    const container = document.getElementById("pskaMiniReviewList");
+    if (!container) return;
+    if (memoryPage.loading && !memoryPage.reviews.length) {
+      container.innerHTML = `<div class="pska-mini-empty">Loading reviews...</div>`;
+      return;
+    }
+    if (!memoryPage.reviews.length) {
+      container.innerHTML = `<div class="pska-mini-empty">No ${escapeHtml(memoryPage.reviewStatus)} review candidates.</div>`;
+      return;
+    }
+    container.innerHTML = memoryPage.reviews.map((review) => {
+      const id = String(review.review_id || review.id || "");
+      const status = normalizeReviewStatus(review);
+      const proposal = review.proposal || {};
+      const kind = String(proposal.kind || review.kind || "candidate");
+      const applied = Boolean(review.memory_apply);
+      return `
+        <article class="pska-mini-review-card">
+          <div class="pska-mini-review-card-head">
+            <strong>${escapeHtml(reviewKindLabel(kind))}</strong>
+            <span>${escapeHtml(reviewStatusLabel(status))}${applied ? " · applied" : ""}</span>
+          </div>
+          <p>${escapeHtml(proposalPreview(proposal))}</p>
+          <code>${escapeHtml(id)}</code>
+          <div class="pska-mini-review-actions">
+            <button class="pska-mini-page-btn" data-pska-review-action="view" data-pska-review-id="${escapeAttr(id)}" type="button">View</button>
+            ${status === "pending" ? `<button class="pska-mini-page-btn" data-pska-review-action="accept" data-pska-review-id="${escapeAttr(id)}" type="button">Accept</button>` : ""}
+            ${status === "pending" ? `<button class="pska-mini-page-btn" data-pska-review-action="reject" data-pska-review-id="${escapeAttr(id)}" type="button">Reject</button>` : ""}
+            ${status === "accepted" && !applied ? `<button class="pska-mini-page-btn" data-pska-review-action="apply" data-pska-review-id="${escapeAttr(id)}" type="button">Apply</button>` : ""}
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderReviewDetail() {
+    const container = document.getElementById("pskaMiniReviewDetail");
+    if (!container) return;
+    const detail = memoryPage.detail;
+    if (!detail) {
+      container.innerHTML = `<div class="pska-mini-empty">Select a review candidate to inspect its proposal, evidence, and memory apply state.</div>`;
+      return;
+    }
+    container.innerHTML = `
+      <div class="pska-mini-page-section-head">
+        <h2>Review Detail</h2>
+        <code>${escapeHtml(detail.review_id || "")}</code>
+      </div>
+      <pre>${escapeHtml(stableJson(detail))}</pre>
+    `;
+  }
+
+  function memoryMetadataLine(fact) {
+    const metadata = fact?.metadata || {};
+    const version = metadata.version ? `v${metadata.version}` : "";
+    const layer = metadata.layer || "";
+    const namespace = metadata.memory_namespace || "";
+    return [version, layer, namespace].filter(Boolean).join(" · ") || "default";
+  }
+
+  function memorySourceLabel(fact) {
+    const refs = Array.isArray(fact?.source_refs) ? fact.source_refs : [];
+    if (!refs.length) return "No source refs";
+    return refs.slice(0, 3).map((ref) => ref.title || ref.source_id || ref.adapter || "source").join(" · ");
+  }
+
+  function proposalPreview(proposal) {
+    const patch = proposal?.memory_patch?.text || proposal?.memory_update?.text || proposal?.memory_delete?.text;
+    return truncate(patch || proposal?.body || proposal?.intent || "No preview", 260);
   }
 
   async function refreshDashboard() {
