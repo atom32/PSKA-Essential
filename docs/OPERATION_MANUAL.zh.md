@@ -3,6 +3,11 @@
 本文面向今天的可运行系统：Hermes WebUI 日常入口、真实 RAGFlow
 知识库与检索、PSKA Product API/MCP、显式 memory substrate，以及作为异常收件箱的 Review。
 
+当前可演示系统冻结在
+[`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md)。当操作手册
+和历史 handoff 出现差异时，以 baseline 和
+[`SYSTEM_INTERACTION_MODEL.zh.md`](SYSTEM_INTERACTION_MODEL.zh.md) 为准。
+
 ## 1. 启动前确认
 
 确认当前主路径组件在线：
@@ -59,7 +64,7 @@ PSKA 自带的 `http://127.0.0.1:8765` 只是诊断和调试 surface，不是日
 - `知识库` 应显示已连接的 RAGFlow 数据集。
 - `下一步操作` 会提示可以提问、等待 ingestion，或处理异常 Review。
 - 当前可用数据集以 PSKA Product API 返回为准；本机样例包含
-  `海康威视年报测试-local-embedding` 和红楼梦测试数据集。
+  `小米财报`、`海康威视年报测试-local-embedding` 和红楼梦测试数据集。
 
 也可用命令确认：
 
@@ -67,27 +72,30 @@ PSKA 自带的 `http://127.0.0.1:8765` 只是诊断和调试 surface，不是日
 make workspace-status ENV_FILE=.env.pska.demo
 ```
 
-## 3. 基础闭环：问答到工作产物
+## 3. 基础闭环：WebUI 问答到工作产物
 
-进入 `提问`：
+当前 demo 主路径在 Hermes WebUI，不在 PSKA 诊断页面：
 
-1. 在知识库选择器中选择 `海康威视年报测试-local-embedding`。
-2. 点击 `加入知识库`。
+1. 打开 `http://127.0.0.1:8787`。
+2. 打开 PSKA chip，等待状态变成 API ready，并选择一个 RAGFlow dataset。
 3. 输入问题，例如：
 
    ```text
-   请用要点总结海康威视2025年报中的核心经营变化、主要风险和管理层重点。
+   请使用当前选中的 PSKA 知识库“小米财报”，不要只凭聊天上下文。
+   比较小米 2024 和 2025 财报中智能电动车等创新业务的收入、毛利率和亏损/利润变化，
+   给出 3 条金融分析要点，并列出来源。
    ```
 
-4. 点击 `运行提问`。
+4. 发送问题。
 
 预期结果：
 
-- 状态为 `ready`。
-- 返回多个 context packets。
-- 显示 source manifest。
-- 可以打开来源阅读器。
-- `写作` 页面出现 sourced brief。
+- WebUI 显示 `PSKA scope attached to this turn.`
+- Hermes 返回带来源的分析回答。
+- PSKA audit 中可以看到对应 dataset scope 的 retrieval/probe 记录。
+
+PSKA Product API 的本地页面仍可用于诊断、probe、review 和 memory 检查，但它不是
+当前日常问答入口。
 
 ## 4. 导出
 

@@ -1,5 +1,10 @@
 # Demo Runbook
 
+> Current baseline note, 2026-08-03: the runnable local demo is documented in
+> [`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md). This
+> runbook still describes lower-level MCP/upload demos and remains useful for
+> engineering validation, but it is not the daily demo script.
+
 Product demos assume a fresh workspace: no useful datasets, no preloaded demo
 knowledge, and no cleanup step in the user path. The user starts by uploading
 source material through PSKA. Bad local datasets may be deleted only as

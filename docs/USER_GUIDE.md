@@ -4,6 +4,11 @@ This guide explains how PSKA should be used as a product today. It is written
 from the intended v1 shape: Hermes WebUI is the daily user entry point, while
 PSKA is the knowledge workflow and governance layer behind it.
 
+For the current local runnable demo, read
+[`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md) first. That
+baseline uses Hermes WebUI, Eidolia, RAGFlow, SQLite memory, and SQLite review;
+Graphiti is optional, not required for the demo.
+
 ## Product Shape
 
 PSKA is not the main chat application. It is the control plane that makes

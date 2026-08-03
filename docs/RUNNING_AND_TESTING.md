@@ -3,6 +3,11 @@
 PSKA-Essential should not be developed as a giant all-in-one stack. Its value is
 the adapter boundary, so the runtime model is layered.
 
+The current runnable demo baseline is
+[`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md): Hermes
+WebUI + Eidolia + RAGFlow + SQLite memory + SQLite review. Graphiti is a
+supported optional memory provider, not a prerequisite for the baseline demo.
+
 ## Modes
 
 ### 1. Core Development
@@ -93,17 +98,16 @@ context should cite the uploaded fake document. For PDFs such as annual
 reports, switch to RAGFlow-backed KB mode so parsing and embedding are handled
 by the external KB.
 
-Live RAGFlow/Graphiti mode uses the same Product API command after setting
-providers explicitly:
+Live RAGFlow mode uses the same Product API command after setting providers
+explicitly. The current local demo uses SQLite memory:
 
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow
 export PSKA_KB_PROVIDER=ragflow
-export PSKA_MEMORY_PROVIDER=graphiti
+export PSKA_MEMORY_PROVIDER=sqlite
+export PSKA_MEMORY_DB=/Users/xudawei/PSKA-Essential/.pska-essential/memory.sqlite3
 export RAGFLOW_BASE_URL=http://127.0.0.1:9380
 export RAGFLOW_API_KEY=...
-export GRAPHITI_BASE_URL=http://127.0.0.1:8000
-export GRAPHITI_GROUP_ID=pska-essential
 export PSKA_GOVERNANCE_DURABLE_MEMORY=manual_review
 export PSKA_WORKSPACE_ID=default
 export PSKA_TENANT_ID=
@@ -113,9 +117,10 @@ PYTHONPATH=src python3 -m pska_essential.product_api
 The selected live providers must have their required connection env configured
 before Product API, MCP, workspace-status, component-check, or live closed-loop
 startup. RAGFlow retrieval/KB requires `RAGFLOW_BASE_URL` and
-`RAGFLOW_API_KEY`; Graphiti memory requires `GRAPHITI_BASE_URL`. Missing values
-fail explicitly and are not replaced by implicit localhost, empty-key, fake, or
-alternate-provider defaults.
+`RAGFLOW_API_KEY`; Graphiti memory additionally requires `GRAPHITI_BASE_URL`
+when `PSKA_MEMORY_PROVIDER=graphiti`. Missing values fail explicitly and are
+not replaced by implicit localhost, empty-key, fake, or alternate-provider
+defaults.
 Instead of exporting each value in the shell, copy `.env.example` to an explicit
 runtime file such as `.env.pska`, fill in real keys, and pass it with
 `--env-file .env.pska` or `make ... ENV_FILE=.env.pska`. PSKA does not

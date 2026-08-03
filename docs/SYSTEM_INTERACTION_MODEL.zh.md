@@ -4,6 +4,10 @@
 PSKA-Essential、RAGFlow、memory 和 review 之间的真实交互路径，以及每条路
 使用的 LLM 来源。
 
+当前可演示系统的冻结基线见
+[`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md)。本文
+继续作为交互路径和职责边界的规范说明。
+
 ## 核心规则
 
 1. Hermes 是唯一日常 Reasoner。
@@ -48,7 +52,7 @@ PSKA-Essential、RAGFlow、memory 和 review 之间的真实交互路径，以�
 | Eidolia | 创作画布、项目工作区、thought/artifact 编排和节点运行 | 生成和 agentic run 通过 Hermes CLI，默认继承 Hermes 模型 |
 | PSKA-Essential Product API | 状态、scope、readiness、retrieval probe、review、memory、jobs | 无生成 LLM |
 | PSKA-Essential MCP | Hermes 调用 PSKA 的工具面 | 无生成 LLM；工具结果由 Hermes 综合 |
-| RAGFlow | 文档库、解析、chunk、embedding、retrieval | 只使用 embedding/indexing；当前数据集为 `bge-m3@local-infinity-direct@SILICONFLOW` |
+| RAGFlow | 文档库、解析、chunk、embedding、retrieval | 只使用 embedding/indexing；具体 embedding/indexing provider 由 RAGFlow dataset 配置 |
 | SQLite Memory | 当前轻量 memory provider | 无 LLM |
 | SQLite Review | 当前轻量 review store | 无 LLM |
 | Graphiti | 可选未来图记忆 provider | 当前不是主路径 |
@@ -122,6 +126,10 @@ LLM 来源：Hermes。PSKA 只返回工具结果。
 当前实现说明：chip 现在通过 WebUI extension 包装 `window.send` 和 `window.api`，
 在下一次 `/api/chat/start` 里注入 skill/context 文本，并在显示层隐藏该注入。
 这是当前可用桥接方式。长期目标是改为结构化 turn scope，而不是靠隐藏文本。
+
+2026-08-03 demo baseline 中，WebUI 财报问题已经能把选中知识库 scope 传给
+Hermes，并在 PSKA audit 中留下 scoped retrieval/probe 记录。它满足当前 demo
+要求，但不应误解为 WebUI 每次都会强制跑完整 PSKA agentic loop。
 
 ### 3. WebUI chip 的状态、Probe、Kanban、Tasks
 

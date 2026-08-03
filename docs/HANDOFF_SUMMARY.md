@@ -2,6 +2,11 @@
 
 Last updated: 2026-07-15
 
+> Baseline note, 2026-08-03: this handoff is historical. For the current
+> runnable demo baseline, use
+> [`docs/DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md) and
+> [`docs/SYSTEM_INTERACTION_MODEL.zh.md`](SYSTEM_INTERACTION_MODEL.zh.md).
+
 This document is the handoff point for a fresh Codex conversation.
 
 ## Product Direction

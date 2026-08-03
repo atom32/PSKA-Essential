@@ -33,6 +33,9 @@ must be visible to users and agents.
 
 Read these first when deciding how to use or extend the project:
 
+- [Demo Baseline 2026-08-03](docs/DEMO_BASELINE_2026-08-03.zh.md):
+  current local demo freeze for Hermes WebUI, Eidolia, PSKA-Essential,
+  RAGFlow, SQLite memory, and SQLite review.
 - [System Interaction Model](docs/SYSTEM_INTERACTION_MODEL.zh.md): current
   Hermes WebUI, Eidolia, PSKA, RAGFlow, memory, review, and LLM routing rules.
 - [PSKA User Guide](docs/USER_GUIDE.md): daily Hermes WebUI workflow, ingestion,
@@ -129,12 +132,14 @@ through `/api/pska/*` and PSKA MCP tools.
 
 ## External Backends
 
-Production mode requires explicit providers:
+Production/live mode requires explicit providers. The current local demo
+baseline uses RAGFlow plus SQLite memory:
 
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow
 export PSKA_KB_PROVIDER=ragflow
-export PSKA_MEMORY_PROVIDER=graphiti
+export PSKA_MEMORY_PROVIDER=sqlite
+export PSKA_MEMORY_DB=/Users/xudawei/PSKA-Essential/.pska-essential/memory.sqlite3
 ```
 
 Selected live providers also require their connection environment variables at
@@ -143,6 +148,10 @@ URL/key instead of starting with an implicit localhost or empty-key default.
 CLI entry points can load an explicit env file with `--env-file .env.pska`, and
 the Make targets accept `ENV_FILE=.env.pska`. This is only configuration
 loading; PSKA still fails when required providers or keys are absent.
+
+Graphiti can be selected later with `PSKA_MEMORY_PROVIDER=graphiti`, but it is
+not required for evidence retrieval, SQLite review, or the current demo memory
+loop.
 
 RAGFlow retrieval:
 
