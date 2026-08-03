@@ -269,10 +269,11 @@ mcp_servers:
     connect_timeout: 120
 ```
 
-This command was verified with a temporary `HERMES_HOME`: Hermes agent's MCP
-client connected to PSKA over stdio and registered 49 runtime tools. That count
-includes the 45 PSKA MCP business tools plus 4 Hermes MCP utility tools for
-prompts and resources.
+Current baseline, 2026-08-03: `pska_essential --list-tools` returns 51 PSKA MCP
+tools from PSKA's own `tool_registry()`. Older notes that mention 45 PSKA tools
+or 49 runtime tools were from an earlier registry shape and should be treated as
+historical. Product API route counts are a separate number; they should not be
+used to infer the MCP tool surface.
 
 Important runtime distinction: Hermes WebUI's `/api/mcp/servers` and
 `/api/mcp/tools` endpoints are read-only inventory views. They display

@@ -352,8 +352,8 @@ Eidolia 应收敛为两类长期节点：
    `/api/agent/runs` 和 Hermes CLI。
 3. 将 WebUI chip 的隐藏文本注入升级为结构化 turn scope；在升级前，保持注入内容
    精简、可审计、可关闭。
-4. 将 Hermes PSKA skill 分为 daily skill 和 admin skill，避免日常 whitelist 只有
-   21 个工具时，skill 文档还提示不可见的 admin 工具。
+4. 将 Hermes PSKA skill 分为 daily skill 和 admin skill。当前 MCP registry 是
+   51 个工具；daily profile 应只暴露日常问答、证据、记忆和 review 所需子集。
 5. 将 PSKA MCP server 做成 profile 化工具面，例如 `daily` 和 `admin`，避免其他 MCP
    client 直接看到全部 51 个原始工具。
 

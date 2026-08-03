@@ -148,7 +148,9 @@ Hermes 或 API
 - WebUI 的 PSKA chip 可能先显示 stale/loading，等待 Product API 和 dataset 状态刷新后再测试。
 - 当前 WebUI chip 通过 extension/sidecar 注入 turn scope；长期目标是更结构化的 turn scope contract。
 - WebUI 金融 demo 目前观测到的是 scoped retrieval/probe 审计，不应误解为每次都完整跑 PSKA agentic loop。
-- PSKA MCP 当前暴露 51 个工具，功能面偏宽。长期需要按 daily/admin/dev profile 收窄。
+- PSKA MCP 当前 `tool_registry()` 暴露 51 个工具；这不是 Product API route 数量。
+  Product API route 数量和 WebUI/Hermes inventory 显示口径可能不同。长期需要按
+  daily/admin/dev profile 收窄。
 - Hermes Agent 本地带有 MCP 修复提交；更新 upstream 前要确认该修复是否已经合入，避免 pull 后回退。
 - RAGFlow 可迁移到另一台机器重新部署；PSKA 只应依赖配置化的 RAGFlow API 地址和 key。
 
@@ -161,4 +163,3 @@ Hermes 或 API
 5. Review 管高风险和不确定候选，不阻塞普通问答。
 6. 所有端口、地址、dataset scope、provider 都走统一配置，不能写死到业务代码。
 7. PSKA 对 Hermes WebUI 的集成应尽量保持 extension/sidecar 形式，降低后续 `git pull` 成本。
-
