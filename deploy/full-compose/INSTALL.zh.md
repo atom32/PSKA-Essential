@@ -282,11 +282,38 @@ http://<Windows-LAN-IP>:9222
 ```bash
 cd ~/pska-demo/PSKA-Essential/deploy/full-compose
 ./bootstrap.sh status
+./bootstrap.sh smoke
+```
+
+`smoke` 会按真实浏览器路径登录 WebUI，读取 CSRF token，授权 extension sidecar，
+然后检查：
+
+- WebUI extension manifest 能发现 `pska-mini` 和 `eidolia`。
+- WebUI sidecar proxy 能访问 PSKA Product API。
+- PSKA Product API 的 retrieval/KB provider 指向 RAGFlow，memory provider 指向 SQLite。
+- Eidolia 的 Agent backend 是 `hermes_gateway`，不是 `hermes_cli`。
+- RAGFlow 数据集列表可通过 PSKA 查询。
+
+如果要检查演示知识库是否已经解析完成：
+
+```bash
+./bootstrap.sh smoke --dataset-name 小米财报 --dataset-name 海康财报
+```
+
+如果已经配置可用 LLM key，并且要验证 Eidolia 也能通过 Hermes Gateway 生成节点：
+
+```bash
+PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
+```
+
+补充低层检查：
+
+```bash
 curl -sS -o /dev/null -w "webui:%{http_code}\n" http://127.0.0.1:8787/
 docker exec pska-full-hermes-webui-1 curl -fsS http://127.0.0.1:8765/api/health | jq .
 ```
 
-`webui` 返回 `302` 是正常的，表示跳转到登录流程。
+`webui` 返回 `302` 是正常的，表示未登录时跳转到登录流程。
 
 在 Windows 或其他局域网机器：
 
@@ -353,6 +380,32 @@ git -C .runtime/repos/ragflow status --short --branch
 
 先打开 RAGFlow 创建 API key，写回 `.env`，再重新运行。
 
+`./bootstrap.sh smoke` 提示 `Cross-origin mismatch`、`Session expired` 或 403：
+
+不要用裸 curl 直接判断 sidecar proxy 失败。WebUI extension sidecar 是按浏览器同源请求
+设计的，POST 请求需要登录 cookie、`Origin`、`Referer` 和 CSRF token。请优先用
+`./bootstrap.sh smoke`；如果这个命令仍失败，再看 WebUI 日志。
+
+Eidolia 显示 `Hermes CLI 未找到：hermes`：
+
+full compose 不应该依赖容器里的 Hermes CLI。确认 `.env` 保持：
+
+```bash
+NOVEL_AGENT_BACKEND=hermes_gateway
+HERMES_GATEWAY_BASE_URL=http://hermes-agent:8642
+```
+
+修改后重新启动：
+
+```bash
+./bootstrap.sh up
+```
+
+`curl http://pska-mcp:8766/mcp` 或裸 GET `/mcp` 返回 406：
+
+这是正常的 streamable HTTP MCP 行为，不代表 MCP 挂了。验收以容器 health、
+Hermes Agent 配置和 `./bootstrap.sh smoke` 为准。
+
 局域网无法访问 `8787` 或 `9222`：
 
 WSL IP 变了。重新运行 `refresh-wsl-portproxy.ps1`。
@@ -375,6 +428,21 @@ curl -fsS http://127.0.0.1:6380/health
 ```
 
 16GB RAM 机器不要轻易切到 `BAAI/bge-m3`，默认 `BAAI/bge-small-en-v1.5` 更稳。
+
+RAGFlow 数据集已经上传，但 PSKA 查询不到内容：
+
+先看 readiness。文档上传成功不等于分块和索引完成：
+
+```bash
+./bootstrap.sh smoke --dataset-name <dataset-name>
+```
+
+`processing` 时先换一个 ready 的数据集演示，或等 RAGFlow 队列处理完成。
+
+弱网下 GitHub、Docker Hub、Hugging Face 或 PyPI 拉取失败：
+
+先配置稳定代理、镜像源或预构建镜像，再部署。不要把临时代理 IP、PAT 或带 token 的
+git remote 写进 `.env` 或提交到仓库。
 
 需要停止服务但保留数据：
 

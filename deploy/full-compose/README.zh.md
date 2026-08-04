@@ -25,6 +25,8 @@ Docker volume 保存。
 
 从零部署请先看 [INSTALL.zh.md](./INSTALL.zh.md)。它按“没有智能体协助”的场景写，
 包含 WSL 放到 D 盘、RAGFlow 初始化、局域网端口暴露和重启恢复步骤。
+本次远端演示笔记本部署的复盘、踩坑记录和下次检查表见
+[DEPLOYMENT_REVIEW_2026-08-05.zh.md](./DEPLOYMENT_REVIEW_2026-08-05.zh.md)。
 
 Embedding 是 v0 的必选基础服务。默认模型是 `BAAI/bge-small-en-v1.5`，这是为了
 16GB RAM 的演示笔记本能稳定启动；如果机器内存足够，可以在 `.env` 里把
@@ -201,11 +203,17 @@ RAGFlow -> PSKA embedding container -> local TEI model
 ./bootstrap.sh up
 PSKA_FULL_BUILD=1 ./bootstrap.sh up
 ./bootstrap.sh status
+./bootstrap.sh smoke
+PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
 ./bootstrap.sh logs
 ./bootstrap.sh down
 ```
 
 `down` 会停止服务但保留 Docker volume。清空数据请手动删除对应 volume。
+
+`smoke` 会按真实浏览器路径登录 WebUI，确认 extension sidecar、PSKA Product API、
+Eidolia Hermes Gateway backend 和数据集列表可用。设置 `PSKA_SMOKE_RUN_EIDOLIA=1`
+后会额外创建一个很小的 Eidolia 项目，通过 Hermes Gateway 异步生成一个 thought 节点。
 
 ## 运行态目录
 

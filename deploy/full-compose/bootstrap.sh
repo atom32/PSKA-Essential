@@ -599,6 +599,14 @@ cmd_logs() {
   suite_compose logs -f "${@:2}"
 }
 
+cmd_smoke() {
+  load_env
+  resolve_paths
+  local py
+  py="$(python_bin)"
+  "${py}" "${SCRIPT_DIR}/smoke-test.py" --env-file "${ENV_FILE}" "${@:2}"
+}
+
 cmd="${1:-up}"
 case "${cmd:-up}" in
   init) cmd_init ;;
@@ -608,9 +616,10 @@ case "${cmd:-up}" in
   down) cmd_down ;;
   status) cmd_status ;;
   logs) cmd_logs "$@" ;;
+  smoke) cmd_smoke "$@" ;;
   *)
     cat <<'USAGE'
-Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|up|status|logs|down]
+Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|up|status|logs|smoke|down]
 
   init        Clone/check repos and generate Hermes/PSKA config.
   embedding-up  Start the local embedding service only.
@@ -618,6 +627,7 @@ Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|up|status|logs|down]
   up          Start RAGFlow, then PSKA suite when RAGFLOW_API_KEY is set.
   status      Show both compose projects.
   logs        Follow PSKA suite logs; pass service names after logs.
+  smoke       Run browser-facing WebUI/extension/PSKA/Eidolia smoke checks.
   down        Stop PSKA suite and RAGFlow, preserving volumes.
 USAGE
     exit 2
