@@ -34,7 +34,28 @@ RAGFlow 自己已经有复杂的上游 compose、profile 和 `.env`。Full Compo
 这些定义，而是由 `bootstrap.sh` 拉取/校验 RAGFlow，然后从 RAGFlow 的 `docker/`
 目录启动它自己的 compose。
 
-这样后续更新 RAGFlow 时，不需要在 PSKA 里维护一份过期的 RAGFlow 副本。
+这样后续更新 RAGFlow 时，不需要在 PSKA 里维护一份过期的 RAGFlow 副本。PSKA 也不会
+改写 RAGFlow checkout 里的 `docker/.env`，而是把生成配置写到
+`PSKA_SUITE_HOME/ragflow.env` 和 `PSKA_SUITE_HOME/ragflow-pska-full.override.yml`。
+RAGFlow 仓库应该保持可 `git pull` 的干净状态。
+
+## 代码来源原则
+
+部署机应该从 GitHub 拉取组件仓库，而不是从开发机拷贝工作目录。这样才能验证一站式部署
+和后续升级路径。
+
+如果组件仓库需要私有访问权限，推荐用一次性 `GIT_ASKPASS` 或临时 credential helper
+注入 PAT；不要把 PAT 写入 `origin` URL，也不要提交进 `.env`。部署完成后确认：
+
+```bash
+git -C "$EIDOLIA_REPO" remote -v
+git -C "$HERMES_WEBUI_REPO" remote -v
+```
+
+URL 应该仍是普通 `https://github.com/...`，不能包含 token。
+
+当前 `EIDOLIA_REPO_URL` 仍指向开发期的 `atom32/novel`。对外演示前，建议把 Eidolia
+工作区能力整理成一个中性的 public repo，再把 `.env` 里的 `EIDOLIA_REPO_URL` 改到新仓库。
 
 ## 第一次启动
 
@@ -166,6 +187,9 @@ deploy/full-compose/.runtime
 - `repos/ragflow`
 - `hermes-home/config.yaml`
 - `hermes-home/pska.env`
+- `ragflow.env`
+- `ragflow-pska-full.override.yml`
+- `ragflow-service_conf.yaml.template`
 - `workspace/`
 
 `bootstrap.sh` 会预写 WebUI extension consent：
