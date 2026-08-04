@@ -1,0 +1,87 @@
+name: pska-alpha
+
+services:
+  hermes-webui:
+    build:
+      context: ${HERMES_WEBUI_REPO:-../../../hermes-webui}
+      dockerfile: Dockerfile
+      args:
+        BUILD_APT_PROXY: ${BUILD_APT_PROXY:-}
+    image: pska-alpha/hermes-webui:${PSKA_ALPHA_IMAGE_TAG:-local}
+    ports:
+      - "${HERMES_WEBUI_BIND:-0.0.0.0}:${HERMES_WEBUI_PORT:-8787}:8787"
+    volumes:
+      - ${HERMES_HOME:-${HOME}/.hermes}:/home/hermeswebui/.hermes
+      - ${HERMES_WORKSPACE:-${HOME}/workspace}:/workspace
+      - extension-root:/extensions
+      - ./extensions/extensions.json:/extensions/extensions.json:ro
+      - ${PSKA_ESSENTIAL_REPO:-../..}/integrations/hermes-webui-extension/pska-mini:/extensions/pska-mini:ro
+      - ${EIDOLIA_REPO:-../../../novel}/integrations/hermes-webui-extension/eidolia:/extensions/eidolia:ro
+    environment:
+      WANTED_UID: ${WANTED_UID:-${UID:-1000}}
+      WANTED_GID: ${WANTED_GID:-${GID:-1000}}
+      HERMES_WEBUI_HOST: 0.0.0.0
+      HERMES_WEBUI_PORT: 8787
+      HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
+      HERMES_WEBUI_PASSWORD: ${HERMES_WEBUI_PASSWORD:-}
+      HERMES_WEBUI_EXTENSION_DIR: /extensions
+      HERMES_WEBUI_EXTENSION_MANIFEST: extensions.json
+      HERMES_SKIP_CHMOD: ${HERMES_SKIP_CHMOD:-1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  pska-api:
+    build:
+      context: ${PSKA_ESSENTIAL_REPO:-../..}
+      dockerfile: Dockerfile
+    image: pska-alpha/pska-essential:${PSKA_ALPHA_IMAGE_TAG:-local}
+    network_mode: "service:hermes-webui"
+    depends_on:
+      - hermes-webui
+    volumes:
+      - pska-data:/data
+    environment:
+      PSKA_API_HOST: 127.0.0.1
+      PSKA_API_PORT: 8765
+      PSKA_RETRIEVAL_PROVIDER: ${PSKA_RETRIEVAL_PROVIDER:-ragflow}
+      PSKA_KB_PROVIDER: ${PSKA_KB_PROVIDER:-ragflow}
+      PSKA_MEMORY_PROVIDER: ${PSKA_MEMORY_PROVIDER:-sqlite}
+      PSKA_DEV_FAKE: ${PSKA_DEV_FAKE:-}
+      PSKA_REVIEW_DB: /data/review.sqlite3
+      PSKA_MEMORY_DB: /data/memory.sqlite3
+      PSKA_GOVERNANCE_DURABLE_MEMORY: ${PSKA_GOVERNANCE_DURABLE_MEMORY:-manual_review}
+      PSKA_WORKSPACE_ID: ${PSKA_WORKSPACE_ID:-default}
+      PSKA_TENANT_ID: ${PSKA_TENANT_ID:-}
+      RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-http://host.docker.internal:9380}
+      RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
+      RAGFLOW_TIMEOUT: ${RAGFLOW_TIMEOUT:-30}
+      PSKA_DIAGNOSTICS_TIMEOUT: ${PSKA_DIAGNOSTICS_TIMEOUT:-3}
+      GRAPHITI_BASE_URL: ${GRAPHITI_BASE_URL:-}
+      GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-pska-essential}
+    restart: unless-stopped
+
+  eidolia:
+    build:
+      context: ${EIDOLIA_REPO:-../../../novel}
+      dockerfile: Dockerfile
+    image: pska-alpha/eidolia:${PSKA_ALPHA_IMAGE_TAG:-local}
+    network_mode: "service:hermes-webui"
+    depends_on:
+      - hermes-webui
+      - pska-api
+    volumes:
+      - eidolia-data:/data
+    environment:
+      HOST: 127.0.0.1
+      PORT: 8797
+      NOVEL_RUNTIME_ROOT: /data
+      NOVEL_MCP_AUTOSTART: ${NOVEL_MCP_AUTOSTART:-false}
+      PSKA_API_BASE_URL: http://127.0.0.1:8765
+      HERMES_COMMAND: ${HERMES_COMMAND:-hermes}
+    restart: unless-stopped
+
+volumes:
+  extension-root:
+  pska-data:
+  eidolia-data:

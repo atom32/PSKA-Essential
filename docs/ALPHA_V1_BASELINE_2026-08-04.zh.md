@@ -159,6 +159,9 @@ http://127.0.0.1:8765
 
 主要文档：
 
+- [`ALPHA_COMPOSE_DEPLOYMENT.zh.md`](ALPHA_COMPOSE_DEPLOYMENT.zh.md): Docker
+  Compose Alpha A。覆盖 Hermes-WebUI + PSKA Product API + Eidolia，RAGFlow
+  作为外部服务；Hermes Agent / PSKA MCP 容器内闭环仍属于 Alpha B。
 - [`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md)
 - [`SYSTEM_INTERACTION_MODEL.zh.md`](SYSTEM_INTERACTION_MODEL.zh.md)
 - [`OPERATION_MANUAL.zh.md`](OPERATION_MANUAL.zh.md)

@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -40,6 +40,15 @@ serve-dev:
 
 start-workspace:
 	scripts/start_pska_workspace.sh $(START_WORKSPACE_ARGS)
+
+alpha-compose-up:
+	cd deploy/alpha-compose && docker compose up -d --build
+
+alpha-compose-ps:
+	cd deploy/alpha-compose && docker compose ps
+
+alpha-compose-down:
+	cd deploy/alpha-compose && docker compose down
 
 clean:
 	find . -type d \( -name __pycache__ -o -name .pytest_cache \) -prune -exec rm -rf {} +
