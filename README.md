@@ -33,6 +33,9 @@ must be visible to users and agents.
 
 Read these first when deciding how to use or extend the project:
 
+- [Alpha v1 Baseline 2026-08-04](docs/ALPHA_V1_BASELINE_2026-08-04.zh.md):
+  frozen componentized Alpha baseline, component commits, runtime boundary,
+  sealed scope, and next-stage backlog.
 - [Demo Baseline 2026-08-03](docs/DEMO_BASELINE_2026-08-03.zh.md):
   current local demo freeze for Hermes WebUI, Eidolia, PSKA-Essential,
   RAGFlow, SQLite memory, and SQLite review.

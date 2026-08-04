@@ -4,6 +4,10 @@
 它只回答一个问题：今天这套以 PSKA-Essential 为胶水层、以成熟组件为能力来源的
 系统，哪些能力已经可以作为 demo 使用，哪些能力明确不在当前 demo 范围内。
 
+2026-08-04，本 demo baseline 已被
+[`ALPHA_V1_BASELINE_2026-08-04.zh.md`](ALPHA_V1_BASELINE_2026-08-04.zh.md)
+引用为 PSKA 组件化 Alpha v1 的封板基础。
+
 ## Baseline 结论
 
 当前 demo 已经足够作为阶段性基线：
