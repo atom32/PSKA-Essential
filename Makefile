@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -49,6 +49,18 @@ alpha-compose-ps:
 
 alpha-compose-down:
 	cd deploy/alpha-compose && docker compose down
+
+full-compose-init:
+	cd deploy/full-compose && ./bootstrap.sh init
+
+full-compose-up:
+	cd deploy/full-compose && ./bootstrap.sh up
+
+full-compose-status:
+	cd deploy/full-compose && ./bootstrap.sh status
+
+full-compose-down:
+	cd deploy/full-compose && ./bootstrap.sh down
 
 clean:
 	find . -type d \( -name __pycache__ -o -name .pytest_cache \) -prune -exec rm -rf {} +

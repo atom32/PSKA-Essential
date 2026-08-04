@@ -1,0 +1,158 @@
+name: ${PSKA_FULL_PROJECT:-pska-full}
+
+services:
+  pska-data-init:
+    image: busybox:1.36
+    network_mode: none
+    command:
+      - sh
+      - -c
+      - "mkdir -p /data && chown -R ${WANTED_UID:-1000}:${WANTED_GID:-1000} /data"
+    volumes:
+      - pska-data:/data
+    restart: "no"
+
+  hermes-agent:
+    build:
+      context: ${PSKA_ESSENTIAL_REPO:-../..}
+      dockerfile: deploy/full-compose/hermes-agent/Dockerfile
+      args:
+        HERMES_AGENT_IMAGE: ${HERMES_AGENT_IMAGE:-nousresearch/hermes-agent:latest}
+    image: pska-full/hermes-agent:${PSKA_FULL_IMAGE_TAG:-local}
+    command: gateway run
+    depends_on:
+      pska-data-init:
+        condition: service_completed_successfully
+    ports:
+      - "${HERMES_GATEWAY_BIND:-127.0.0.1}:${HERMES_GATEWAY_PORT:-8642}:8642"
+    volumes:
+      - ${HERMES_HOME_DIR:-./.runtime/hermes-home}:/home/hermes/.hermes
+      - pska-data:/data
+    environment:
+      HERMES_HOME: /home/hermes/.hermes
+      HERMES_UID: ${WANTED_UID:-1000}
+      HERMES_GID: ${WANTED_GID:-1000}
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_PORT: "8642"
+      API_SERVER_KEY: ${HERMES_GATEWAY_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - pska-suite
+
+  hermes-webui:
+    build:
+      context: ${HERMES_WEBUI_REPO:-./.runtime/repos/hermes-webui}
+      dockerfile: Dockerfile
+      args:
+        BUILD_APT_PROXY: ${BUILD_APT_PROXY:-}
+    image: pska-full/hermes-webui:${PSKA_FULL_IMAGE_TAG:-local}
+    depends_on:
+      - hermes-agent
+    ports:
+      - "${HERMES_WEBUI_BIND:-0.0.0.0}:${HERMES_WEBUI_PORT:-8787}:8787"
+    volumes:
+      - ${HERMES_HOME_DIR:-./.runtime/hermes-home}:/home/hermeswebui/.hermes
+      - ${HERMES_WORKSPACE:-./.runtime/workspace}:/workspace
+      - extension-root:/extensions
+      - ./extensions/extensions.json:/extensions/extensions.json:ro
+      - ${PSKA_ESSENTIAL_REPO:-../..}/integrations/hermes-webui-extension/pska-mini:/extensions/pska-mini:ro
+      - ${EIDOLIA_REPO:-./.runtime/repos/novel}/integrations/hermes-webui-extension/eidolia:/extensions/eidolia:ro
+    environment:
+      WANTED_UID: ${WANTED_UID:-1000}
+      WANTED_GID: ${WANTED_GID:-1000}
+      HERMES_WEBUI_HOST: 0.0.0.0
+      HERMES_WEBUI_PORT: 8787
+      HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
+      HERMES_WEBUI_PASSWORD: ${HERMES_WEBUI_PASSWORD:-}
+      HERMES_WEBUI_EXTENSION_DIR: /extensions
+      HERMES_WEBUI_EXTENSION_MANIFEST: extensions.json
+      HERMES_API_URL: http://hermes-agent:8642
+      GATEWAY_HEALTH_URL: http://hermes-agent:8642
+      API_SERVER_KEY: ${HERMES_GATEWAY_API_KEY:-}
+      HERMES_WEBUI_CHAT_BACKEND: ${HERMES_WEBUI_CHAT_BACKEND:-gateway}
+      HERMES_WEBUI_GATEWAY_BASE_URL: http://hermes-agent:8642
+      HERMES_WEBUI_GATEWAY_API_KEY: ${HERMES_GATEWAY_API_KEY:-}
+      HERMES_WEBUI_GATEWAY_USE_RUNS_API: ${HERMES_WEBUI_GATEWAY_USE_RUNS_API:-true}
+      HERMES_SKIP_CHMOD: ${HERMES_SKIP_CHMOD:-1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - pska-suite
+
+  pska-api:
+    build:
+      context: ${PSKA_ESSENTIAL_REPO:-../..}
+      dockerfile: Dockerfile
+    image: pska-full/pska-essential:${PSKA_FULL_IMAGE_TAG:-local}
+    network_mode: "service:hermes-webui"
+    depends_on:
+      pska-data-init:
+        condition: service_completed_successfully
+      hermes-webui:
+        condition: service_started
+    command: ["pska-essential-api", "--env-file", "/config/pska.env"]
+    user: "${WANTED_UID:-1000}:${WANTED_GID:-1000}"
+    volumes:
+      - pska-data:/data
+      - ${HERMES_HOME_DIR:-./.runtime/hermes-home}/pska.env:/config/pska.env:ro
+    environment:
+      PSKA_API_HOST: 127.0.0.1
+      PSKA_API_PORT: 8765
+    restart: unless-stopped
+
+  eidolia:
+    build:
+      context: ${EIDOLIA_REPO:-./.runtime/repos/novel}
+      dockerfile: Dockerfile
+    image: pska-full/eidolia:${PSKA_FULL_IMAGE_TAG:-local}
+    network_mode: "service:hermes-webui"
+    depends_on:
+      - hermes-webui
+      - pska-api
+    volumes:
+      - eidolia-data:/data
+    environment:
+      HOST: 127.0.0.1
+      PORT: 8797
+      NOVEL_RUNTIME_ROOT: /data
+      NOVEL_MCP_AUTOSTART: ${NOVEL_MCP_AUTOSTART:-false}
+      PSKA_API_BASE_URL: http://127.0.0.1:8765
+      HERMES_COMMAND: ${HERMES_COMMAND:-hermes}
+    restart: unless-stopped
+
+  hermes-dashboard:
+    image: ${HERMES_AGENT_IMAGE:-nousresearch/hermes-agent:latest}
+    profiles:
+      - dashboard
+    command: dashboard --host 0.0.0.0 --insecure
+    depends_on:
+      - hermes-agent
+    ports:
+      - "${HERMES_DASHBOARD_BIND:-127.0.0.1}:${HERMES_DASHBOARD_PORT:-9119}:9119"
+    volumes:
+      - ${HERMES_HOME_DIR:-./.runtime/hermes-home}:/home/hermes/.hermes
+    environment:
+      HERMES_HOME: /home/hermes/.hermes
+      HERMES_UID: ${WANTED_UID:-1000}
+      HERMES_GID: ${WANTED_GID:-1000}
+      GATEWAY_HEALTH_URL: http://hermes-agent:8642
+    restart: unless-stopped
+    networks:
+      - pska-suite
+
+networks:
+  pska-suite:
+    driver: bridge
+
+volumes:
+  extension-root:
+  pska-data:
+  eidolia-data:

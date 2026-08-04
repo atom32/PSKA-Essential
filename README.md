@@ -39,6 +39,9 @@ Read these first when deciding how to use or extend the project:
 - [Alpha Compose Deployment](docs/ALPHA_COMPOSE_DEPLOYMENT.zh.md):
   Docker Compose Alpha A for Hermes-WebUI + PSKA Product API + Eidolia, with
   external RAGFlow and explicit Alpha B runtime boundaries.
+- [Full Compose v0](deploy/full-compose/README.zh.md): one-stop connected-machine
+  deployment for RAGFlow upstream compose plus Hermes Agent, Hermes-WebUI,
+  PSKA Product API/MCP, and Eidolia.
 - [Demo Baseline 2026-08-03](docs/DEMO_BASELINE_2026-08-03.zh.md):
   current local demo freeze for Hermes WebUI, Eidolia, PSKA-Essential,
   RAGFlow, SQLite memory, and SQLite review.

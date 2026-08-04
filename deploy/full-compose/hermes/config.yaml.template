@@ -1,0 +1,60 @@
+_config_version: 12
+
+model:
+  default: "$HERMES_MODEL_DEFAULT"
+  provider: "$HERMES_MODEL_PROVIDER"
+  base_url: "$HERMES_MODEL_BASE_URL"
+
+agent:
+  max_turns: $HERMES_AGENT_MAX_TURNS
+  verbose: false
+  reasoning_effort: medium
+
+terminal:
+  backend: local
+  cwd: /workspace
+  timeout: 300
+  home_mode: auto
+
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+
+webui:
+  dashboard:
+    enabled: auto
+
+mcp_servers:
+  pska-essential:
+    command: /opt/hermes/.venv/bin/pska-essential-mcp
+    args:
+      - --env-file
+      - /home/hermes/.hermes/pska.env
+    enabled: true
+    timeout: 120
+    connect_timeout: 120
+    tools:
+      include:
+        - pska_workspace_status
+        - pska_policy_get
+        - pska_capabilities_get
+        - pska_kb_list
+        - pska_kb_readiness
+        - pska_kb_ingestion_status
+        - pska_kb_document_status
+        - pska_retrieval_probe
+        - pska_context_retrieve
+        - pska_source_read
+        - pska_agentic_question_start
+        - pska_agentic_question_resumable
+        - pska_agentic_question_resume
+        - pska_memory_search
+        - pska_memory_change_from_conversation
+        - pska_memory_lifecycle
+        - pska_review_list
+        - pska_review_get
+        - pska_provider_jobs
+        - pska_runtime_diagnostics
+        - pska_component_check

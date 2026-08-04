@@ -1,0 +1,160 @@
+# PSKA Full Compose v0
+
+这个目录用于在另一台联网机器上一站式部署当前 PSKA 组件化 Alpha：
+
+```text
+RAGFlow upstream compose
+  - RAGFlow
+  - MySQL
+  - Redis
+  - MinIO
+  - Elasticsearch / Infinity / OpenSearch 等可选 doc engine
+
+PSKA suite compose
+  - pska-data-init
+  - Hermes Agent / Gateway
+  - Hermes-WebUI
+  - PSKA Product API
+  - PSKA MCP installed into Hermes Agent
+  - Eidolia
+```
+
+Graphiti 不在 v0 主路径里。Memory 和 Review 默认使用 SQLite，并由 `pska-data`
+Docker volume 保存。
+
+## 为什么不是一个巨大 compose 文件
+
+RAGFlow 自己已经有复杂的上游 compose、profile 和 `.env`。Full Compose v0 不复制
+这些定义，而是由 `bootstrap.sh` 拉取/校验 RAGFlow，然后从 RAGFlow 的 `docker/`
+目录启动它自己的 compose。
+
+这样后续更新 RAGFlow 时，不需要在 PSKA 里维护一份过期的 RAGFlow 副本。
+
+## 第一次启动
+
+```bash
+cd /path/to/PSKA-Essential/deploy/full-compose
+cp .env.example .env
+```
+
+编辑 `.env`：
+
+- `HERMES_WEBUI_PASSWORD` 改成真实密码。
+- `HERMES_GATEWAY_API_KEY` 改成随机长 token。WebUI 通过它访问 Hermes Gateway。
+- `WANTED_UID` / `WANTED_GID` 按 `id -u` / `id -g` 设置。
+- 填你要用的 Hermes 模型环境变量，例如 `DEEPSEEK_API_KEY`。
+- 先留空 `RAGFLOW_API_KEY`。
+
+可用下面命令生成 Gateway token：
+
+```bash
+openssl rand -hex 32
+```
+
+先启动 RAGFlow：
+
+```bash
+./bootstrap.sh ragflow-up
+```
+
+打开 RAGFlow：
+
+```text
+http://127.0.0.1:8080
+```
+
+完成 RAGFlow 一次性初始化：
+
+- 创建用户/登录；
+- 配置 LLM 和 embedding provider；
+- 创建 API key；
+- 把 API key 写回 `.env` 的 `RAGFLOW_API_KEY`。
+
+然后启动整套 PSKA：
+
+```bash
+./bootstrap.sh up
+```
+
+打开主入口：
+
+```text
+http://<机器IP>:8787
+```
+
+## 服务分工
+
+对外入口：
+
+- `Hermes-WebUI`: `8787`
+- `RAGFlow Web`: 默认 `8080`
+
+本机调试入口：
+
+- `Hermes Gateway`: `127.0.0.1:8642`
+- `RAGFlow API`: `127.0.0.1:9380`
+
+不直接暴露：
+
+- `PSKA Product API`: WebUI 容器视角的 `127.0.0.1:8765`
+- `Eidolia`: WebUI 容器视角的 `127.0.0.1:8797`
+
+`pska-data-init` 是一次性容器，只负责把共享的 `pska-data` volume chown 到
+`WANTED_UID:WANTED_GID`。这样 Hermes Agent 内的 PSKA MCP 和 PSKA Product API 能同时
+读写 SQLite Memory / Review。
+
+## 已打通的路径
+
+```text
+WebUI -> Hermes Agent -> PSKA MCP -> RAGFlow
+WebUI chat -> Hermes Gateway API -> Hermes Agent -> PSKA MCP
+WebUI -> PSKA chip extension -> PSKA Product API -> RAGFlow
+WebUI -> Eidolia rail extension -> Eidolia
+Eidolia -> Ask PSKA evidence -> PSKA Product API -> RAGFlow
+PSKA API / MCP -> SQLite Memory + SQLite Review
+```
+
+## v0 暂不承诺
+
+- 不自动生成 RAGFlow API key；这一步仍然需要进 RAGFlow 做一次初始化。
+- 不自动配置 RAGFlow 的 embedding/LLM provider；不同模型供应商差异较大。
+- Eidolia 的 Hermes CLI 生成路径仍不是容器内完整闭环；Eidolia 的 Ask PSKA
+  evidence 路径已容器化。
+- 不启动 Graphiti。
+
+## 常用命令
+
+```bash
+./bootstrap.sh init
+./bootstrap.sh ragflow-up
+./bootstrap.sh up
+./bootstrap.sh status
+./bootstrap.sh logs
+./bootstrap.sh down
+```
+
+`down` 会停止服务但保留 Docker volume。清空数据请手动删除对应 volume。
+
+## 运行态目录
+
+默认在：
+
+```text
+deploy/full-compose/.runtime
+```
+
+包含：
+
+- `repos/novel`
+- `repos/hermes-webui`
+- `repos/ragflow`
+- `hermes-home/config.yaml`
+- `hermes-home/pska.env`
+- `workspace/`
+
+`bootstrap.sh` 会预写 WebUI extension consent：
+
+```text
+pska-mini -> http://127.0.0.1:8765
+eidolia -> http://127.0.0.1:8797
+```

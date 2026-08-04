@@ -1,0 +1,29 @@
+{
+  "extensions": [
+    {
+      "id": "pska-mini",
+      "name": "PSKA Mini",
+      "description": "Thin Hermes-WebUI controls for PSKA turn context.",
+      "scripts": ["pska-mini/pska-mini.js"],
+      "stylesheets": ["pska-mini/pska-mini.css"],
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:8765",
+        "health_path": "/api/health"
+      }
+    },
+    {
+      "id": "eidolia",
+      "name": "Eidolia",
+      "description": "Local writing workspace launcher for Eidolia/novel.",
+      "scripts": ["eidolia/eidolia.js?v=20260804-full-compose"],
+      "stylesheets": ["eidolia/eidolia.css"],
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:8797",
+        "health_path": "/health",
+        "proxy_auth": "legacy"
+      }
+    }
+  ]
+}
