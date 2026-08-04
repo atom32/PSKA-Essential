@@ -163,21 +163,22 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 不直接暴露：
 
 - `PSKA Product API`: WebUI 容器视角的 `127.0.0.1:8765`
+- `PSKA MCP`: Docker 内网 `http://pska-mcp:8766/mcp`
 - `Eidolia`: WebUI 容器视角的 `127.0.0.1:8797`
 
 `pska-data-init` 是一次性容器，只负责把共享的 `pska-data` volume chown 到
-`WANTED_UID:WANTED_GID`。这样 Hermes Agent 内的 PSKA MCP 和 PSKA Product API 能同时
+`WANTED_UID:WANTED_GID`。这样 PSKA MCP 和 PSKA Product API 能同时
 读写 SQLite Memory / Review。
 
 ## 已打通的路径
 
 ```text
-WebUI -> Hermes Agent -> PSKA MCP -> RAGFlow
-WebUI chat -> Hermes Gateway API -> Hermes Agent -> PSKA MCP
+WebUI -> Hermes Agent -> PSKA MCP HTTP -> RAGFlow
+WebUI chat -> Hermes Gateway API -> Hermes Agent -> PSKA MCP HTTP
 WebUI -> PSKA chip extension -> PSKA Product API -> RAGFlow
 WebUI -> Eidolia rail extension -> Eidolia
 Eidolia -> Ask PSKA evidence -> PSKA Product API -> RAGFlow
-Eidolia -> Hermes Gateway -> Hermes Agent -> PSKA MCP
+Eidolia -> Hermes Gateway -> Hermes Agent -> PSKA MCP HTTP
 PSKA API / MCP -> SQLite Memory + SQLite Review
 RAGFlow -> PSKA embedding container -> local TEI model
 ```

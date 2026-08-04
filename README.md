@@ -335,6 +335,13 @@ cp .env.example .env.pska
 uv run pska-essential-mcp --env-file .env.pska
 ```
 
+For Docker/full-compose deployments, run PSKA MCP as an internal streamable
+HTTP service and point Hermes Agent at its URL:
+
+```bash
+uv run pska-essential-mcp --env-file .env.pska --transport streamable-http --host 0.0.0.0 --port 8766 --path /mcp
+```
+
 Hermes should connect only to PSKA-Essential MCP. Do not expose RAGFlow or
 Graphiti MCP servers directly to the agent; that would bypass the review gate.
 For local fake development, create a separate explicit fake env file with

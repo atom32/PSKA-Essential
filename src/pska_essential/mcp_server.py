@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from typing import Any, Callable
 
@@ -777,12 +778,24 @@ def _optional_strings(values: list[str] | None, *, dedupe: bool = True) -> list[
     return result
 
 
-def build_fastmcp(service=None):
+def _http_path(value: str) -> str:
+    normalized = str(value or "").strip() or "/mcp"
+    return normalized if normalized.startswith("/") else f"/{normalized}"
+
+
+def build_fastmcp(
+    service=None,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    path: str = "/mcp",
+):
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError as exc:
         raise RuntimeError("Install optional dependency with `uv sync --extra mcp` to run MCP") from exc
 
+    http_path = _http_path(path)
     mcp = FastMCP(
         "pska-essential",
         instructions=(
@@ -793,6 +806,10 @@ def build_fastmcp(service=None):
             "servers directly. Do not use case-specific shortcuts or fallback "
             "answers when retrieval/backend calls fail."
         ),
+        host=host,
+        port=port,
+        streamable_http_path=http_path,
+        sse_path=http_path,
     )
     for name, func in tool_registry(service).items():
         mcp.add_tool(func, name=name)
@@ -801,22 +818,45 @@ def build_fastmcp(service=None):
 
 def main(argv: list[str] | None = None) -> int:
     cli_args = list(sys.argv[1:] if argv is None else argv)
-    if any(arg in {"-h", "--help"} for arg in cli_args):
-        print("usage: pska-essential-mcp [--env-file ENV_FILE] [--list-tools]")
-        return 0
     env_parser = env_file_arg_parser()
+    env_parser.add_argument("--list-tools", action="store_true", help="Print registered MCP tool names and exit.")
+    env_parser.add_argument(
+        "--transport",
+        choices=("stdio", "sse", "streamable-http"),
+        default=os.getenv("PSKA_MCP_TRANSPORT", "stdio"),
+        help="MCP transport to run. Defaults to stdio for local Hermes CLI configs.",
+    )
+    env_parser.add_argument(
+        "--host",
+        default=os.getenv("PSKA_MCP_HOST", "127.0.0.1"),
+        help="Host for HTTP MCP transports.",
+    )
+    env_parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("PSKA_MCP_PORT", "8000")),
+        help="Port for HTTP MCP transports.",
+    )
+    env_parser.add_argument(
+        "--path",
+        default=os.getenv("PSKA_MCP_PATH", "/mcp"),
+        help="URL path for streamable HTTP/SSE MCP transports.",
+    )
+    if any(arg in {"-h", "--help"} for arg in cli_args):
+        env_parser.print_help()
+        return 0
     env_args, remaining = env_parser.parse_known_args(cli_args)
     if env_args.env_file:
         load_env_file(env_args.env_file)
 
-    if "--list-tools" in remaining:
+    if env_args.list_tools:
         print(json.dumps(sorted(tool_registry().keys()), ensure_ascii=False, indent=2))
         return 0
     original_argv = sys.argv
     sys.argv = [original_argv[0], *remaining]
     try:
-        server = build_fastmcp()
-        server.run()
+        server = build_fastmcp(host=env_args.host, port=env_args.port, path=env_args.path)
+        server.run(env_args.transport)
     finally:
         sys.argv = original_argv
     return 0

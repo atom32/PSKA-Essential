@@ -302,7 +302,7 @@ RAGFlow 能打开登录页
 - Eidolia 能打开默认空项目。
 - Eidolia 左侧 Agent 状态显示 Hermes Gateway 就绪，而不是 Hermes CLI 缺失。
 - Eidolia 的 Ask PSKA evidence 能调用 PSKA。
-- WebUI chat 在 PSKA chip 开启时，Hermes 可以按 PSKA skill/MCP 使用 RAGFlow 证据。
+- WebUI chat 在 PSKA chip 开启时，Hermes 可以通过内部 PSKA MCP HTTP 服务使用 RAGFlow 证据。
 
 ## 9. 重启后的恢复
 

@@ -28,10 +28,7 @@ webui:
 
 mcp_servers:
   pska-essential:
-    command: /opt/hermes/.venv/bin/pska-essential-mcp
-    args:
-      - --env-file
-      - /home/hermes/.hermes/pska.env
+    url: http://pska-mcp:8766/mcp
     enabled: true
     timeout: 120
     connect_timeout: 120
