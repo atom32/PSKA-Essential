@@ -656,7 +656,7 @@ ragflow = [
 requires-dist = [
     { name = "graphiti-core", marker = "extra == 'graphiti'", specifier = ">=0.29,<0.30" },
     { name = "graphiti-core", extras = ["falkordb"], marker = "extra == 'graphiti-falkordb'", specifier = ">=0.29,<0.30" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
+    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0,<2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "ragflow-sdk", marker = "extra == 'ragflow'", specifier = ">=0.19.0" },
 ]
