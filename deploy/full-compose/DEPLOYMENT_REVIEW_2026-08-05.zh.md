@@ -31,8 +31,9 @@ PSKA-Essential -> RAGFlow / SQLite Review / SQLite Memory
 - 部署 smoke 自动生成项目：`pska-smoke-eidolia-20260805005139`
 
 新增的 `./bootstrap.sh smoke` 已在远端 `http://192.168.31.95:8787` 通过一次基础验收
-和一次 `--run-eidolia` 完整验收。验收时“小米财报”数据集 ready，chunk 数为 175；
-“海康财报”数据集已存在但仍在 `processing`，chunk 数为 0，因此不作为部署失败。
+和一次 `--run-eidolia` 完整验收。验收时“小米财报”数据集 ready；“海康财报”数据集
+已存在但仍在 `processing`，因此不作为部署失败。RAGFlow chunk 数会随后台解析继续变化，
+复盘文档只记录 readiness 状态，不把某一刻的 chunk 数作为固定成功标准。
 
 ## 遇到的问题和修正
 
