@@ -115,8 +115,21 @@ http://127.0.0.1:8080
 打开主入口：
 
 ```text
-http://<机器IP>:8787
+http://127.0.0.1:8787
 ```
+
+如果部署在 WSL2 里，Windows 本机浏览器通常可以访问 `localhost:8787`，但局域网其他设备
+访问 `http://<Windows-IP>:8787` 可能会超时。演示时如果需要从另一台设备访问，请在
+Windows 管理员 PowerShell 里把端口转发到当前 WSL IP，并放通防火墙：
+
+```powershell
+$wslIp = (wsl hostname -I).Trim().Split(" ")[0]
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=8787 connectaddress=$wslIp connectport=8787
+New-NetFirewallRule -DisplayName "PSKA Demo WebUI 8787" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8787
+```
+
+如果也要让观众直接打开 RAGFlow UI，同理转发 `8080`。不要转发 embedding 端口；它应保持
+`127.0.0.1:6380` 或容器私有网络访问。
 
 ## 服务分工
 
