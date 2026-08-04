@@ -203,6 +203,19 @@ RAGFLOW_API_KEY=<ragflow-api-key>
 ./bootstrap.sh up
 ```
 
+默认 `PSKA_FULL_BUILD=auto`：第一次部署缺镜像时会构建，已有镜像时不会强制重新
+构建。更新源码后需要应用到镜像时，使用：
+
+```bash
+PSKA_FULL_BUILD=1 ./bootstrap.sh up
+```
+
+弱网演示环境只想重启已有镜像时，使用：
+
+```bash
+PSKA_FULL_BUILD=0 ./bootstrap.sh up
+```
+
 查看状态：
 
 ```bash
@@ -323,7 +336,7 @@ git pull --ff-only
 ```bash
 cd ~/pska-demo/PSKA-Essential/deploy/full-compose
 PSKA_FULL_UPDATE_REPOS=1 ./bootstrap.sh init
-./bootstrap.sh up
+PSKA_FULL_BUILD=1 ./bootstrap.sh up
 ```
 
 确认组件仓库没有脏改：

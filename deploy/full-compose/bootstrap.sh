@@ -469,6 +469,23 @@ suite_compose() {
   docker_compose "${args[@]}" "$@"
 }
 
+suite_up() {
+  case "${PSKA_FULL_BUILD:-auto}" in
+    1|true|TRUE|yes|YES)
+      suite_compose up -d --build
+      ;;
+    0|false|FALSE|no|NO)
+      suite_compose up -d --no-build
+      ;;
+    auto|"")
+      suite_compose up -d
+      ;;
+    *)
+      die "PSKA_FULL_BUILD must be auto, 1, or 0."
+      ;;
+  esac
+}
+
 ragflow_compose() {
   local profiles=("${DOC_ENGINE:-elasticsearch}" "${DEVICE:-cpu}")
   local item
@@ -536,7 +553,7 @@ cmd_up() {
     exit 2
   fi
   log "starting PSKA suite compose"
-  suite_compose up -d --build
+  suite_up
 }
 
 cmd_embedding_up() {

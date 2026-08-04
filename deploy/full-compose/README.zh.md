@@ -115,6 +115,10 @@ http://127.0.0.1:8080
 ./bootstrap.sh up
 ```
 
+默认 `PSKA_FULL_BUILD=auto`。需要强制按当前源码重建镜像时用
+`PSKA_FULL_BUILD=1 ./bootstrap.sh up`；弱网环境只重启已有镜像时用
+`PSKA_FULL_BUILD=0 ./bootstrap.sh up`。
+
 打开主入口：
 
 ```text
@@ -194,6 +198,7 @@ RAGFlow -> PSKA embedding container -> local TEI model
 ./bootstrap.sh embedding-up
 ./bootstrap.sh ragflow-up
 ./bootstrap.sh up
+PSKA_FULL_BUILD=1 ./bootstrap.sh up
 ./bootstrap.sh status
 ./bootstrap.sh logs
 ./bootstrap.sh down
