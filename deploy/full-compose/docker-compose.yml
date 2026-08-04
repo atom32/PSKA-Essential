@@ -30,7 +30,9 @@ services:
       HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
     restart: unless-stopped
     networks:
-      - pska-suite
+      pska-suite:
+        aliases:
+          - pska-embedding
 
   hermes-agent:
     build:

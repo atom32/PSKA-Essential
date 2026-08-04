@@ -227,7 +227,11 @@ if embedding_enabled:
     extra = [item for item in extra if not item.startswith("tei-")]
 profiles = [os.getenv("DOC_ENGINE", "elasticsearch"), os.getenv("DEVICE", "cpu"), *extra]
 embedding_port = os.getenv("EMBEDDING_HOST_PORT", "6380")
-tei_base_url = os.getenv("RAGFLOW_TEI_BASE_URL") or f"http://host.docker.internal:{embedding_port}"
+tei_base_url = os.getenv("RAGFLOW_TEI_BASE_URL") or (
+    "http://pska-embedding:80"
+    if embedding_enabled
+    else f"http://host.docker.internal:{embedding_port}"
+)
 updates = {
     "DOC_ENGINE": os.getenv("DOC_ENGINE", "elasticsearch"),
     "DEVICE": os.getenv("DEVICE", "cpu"),
@@ -256,8 +260,8 @@ updates = {
     "OPENSEARCH_PASSWORD": os.getenv("RAGFLOW_OPENSEARCH_PASSWORD", "PskA_full_OpenSearch_01!"),
     "TEI_IMAGE_CPU": os.getenv("EMBEDDING_IMAGE") or "ghcr.io/huggingface/text-embeddings-inference:cpu-1.8",
     "TEI_MODEL": os.getenv("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5",
-    "TEI_HOST": os.getenv("RAGFLOW_TEI_HOST") or "host.docker.internal",
-    "TEI_PORT": embedding_port,
+    "TEI_HOST": os.getenv("RAGFLOW_TEI_HOST") or ("pska-embedding" if embedding_enabled else "host.docker.internal"),
+    "TEI_PORT": "80" if embedding_enabled else embedding_port,
     "TEI_BASE_URL": tei_base_url,
     "TZ": os.getenv("TZ", "Asia/Shanghai"),
 }
@@ -308,7 +312,11 @@ dest = Path(sys.argv[2])
 embedding_enabled = os.getenv("EMBEDDING_ENABLED", "1") != "0"
 embedding_port = os.getenv("EMBEDDING_HOST_PORT", "6380")
 explicit_base_url = os.getenv("RAGFLOW_TEI_BASE_URL")
-base_url = explicit_base_url or f"http://host.docker.internal:{embedding_port}"
+base_url = explicit_base_url or (
+    "http://pska-embedding:80"
+    if embedding_enabled
+    else f"http://host.docker.internal:{embedding_port}"
+)
 text = source.read_text(encoding="utf-8")
 old = "      base_url: 'http://${TEI_HOST}:80'"
 if old not in text:
@@ -346,7 +354,11 @@ if embedding_enabled and embedding_marker:
 container_profiles = ",".join(profiles)
 embedding_port = os.getenv("EMBEDDING_HOST_PORT", "6380")
 explicit_base_url = os.getenv("RAGFLOW_TEI_BASE_URL")
-tei_base_url = explicit_base_url or f"http://host.docker.internal:{embedding_port}"
+tei_base_url = explicit_base_url or (
+    "http://pska-embedding:80"
+    if embedding_enabled
+    else f"http://host.docker.internal:{embedding_port}"
+)
 tei_model = os.getenv("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5"
 volume = f"{service_conf}:/ragflow/conf/service_conf.yaml.template:ro"
 mysql_password = os.getenv("RAGFLOW_MYSQL_PASSWORD", "pska_full_mysql_change_me")
@@ -373,6 +385,26 @@ ragflow_runtime_env = {
     "OPENSEARCH_PASSWORD": opensearch_password,
 }
 override.parent.mkdir(parents=True, exist_ok=True)
+pska_suite_network_name = f"{os.getenv('PSKA_FULL_PROJECT', 'pska-full')}_pska-suite"
+ragflow_extra_network_lines = (
+    [
+        "    networks:",
+        "      - default",
+        "      - pska_suite",
+    ]
+    if embedding_enabled
+    else []
+)
+external_network_lines = (
+    [
+        "networks:",
+        "  pska_suite:",
+        "    external: true",
+        f"    name: {json.dumps(pska_suite_network_name)}",
+    ]
+    if embedding_enabled
+    else []
+)
 override.write_text(
     "\n".join(
         [
@@ -397,14 +429,17 @@ override.write_text(
             "    environment:",
             *env_lines(ragflow_runtime_env),
             *tei_base_url_lines,
+            *ragflow_extra_network_lines,
             "    volumes:",
             f"      - {json.dumps(volume)}",
             "  ragflow-gpu:",
             "    environment:",
             *env_lines(ragflow_runtime_env),
             *tei_base_url_lines,
+            *ragflow_extra_network_lines,
             "    volumes:",
             f"      - {json.dumps(volume)}",
+            *external_network_lines,
             "",
         ]
     ),

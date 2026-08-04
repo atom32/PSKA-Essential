@@ -74,8 +74,8 @@ cp .env.example .env
 - 填你要用的 Hermes 模型环境变量，例如 `DEEPSEEK_API_KEY`。
 - 先留空 `RAGFLOW_API_KEY`。
 - 保持 `EMBEDDING_ENABLED=1`。默认会启动本地 TEI embedding 服务。
-- `RAGFLOW_TEI_BASE_URL` 可以留空，脚本会按 `EMBEDDING_HOST_PORT` 自动写成
-  `http://host.docker.internal:<port>`。
+- `RAGFLOW_TEI_BASE_URL` 可以留空，脚本会让 RAGFlow 通过 Docker 私有网络访问
+  `http://pska-embedding:80`，不需要把 embedding 暴露到局域网。
 
 可用下面命令生成 Gateway token：
 
@@ -155,6 +155,7 @@ RAGFlow -> PSKA embedding container -> local TEI model
 ## v0 暂不承诺
 
 - 不自动生成 RAGFlow API key；这一步仍然需要进 RAGFlow 做一次初始化。
+- RAGFlow 账号/API key 也可以通过 RAGFlow API 初始化，但 v0 文档仍以 UI 手工路径为准。
 - 不自动配置 RAGFlow 的外部 LLM provider；不同模型供应商差异较大。
 - Eidolia 的 Hermes CLI 生成路径仍不是容器内完整闭环；Eidolia 的 Ask PSKA
   evidence 路径已容器化。
