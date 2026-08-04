@@ -49,6 +49,7 @@ services:
       - "${HERMES_GATEWAY_BIND:-127.0.0.1}:${HERMES_GATEWAY_PORT:-8642}:8642"
     volumes:
       - ${HERMES_HOME_DIR:-./.runtime/hermes-home}:/home/hermes/.hermes
+      - ${HERMES_WORKSPACE:-./.runtime/workspace}:/workspace
       - pska-data:/data
     environment:
       HERMES_HOME: /home/hermes/.hermes
@@ -137,6 +138,7 @@ services:
     image: pska-full/eidolia:${PSKA_FULL_IMAGE_TAG:-local}
     network_mode: "service:hermes-webui"
     depends_on:
+      - hermes-agent
       - hermes-webui
       - pska-api
     volumes:
@@ -145,9 +147,11 @@ services:
       HOST: 127.0.0.1
       PORT: 8797
       NOVEL_RUNTIME_ROOT: /data
+      NOVEL_AGENT_BACKEND: ${NOVEL_AGENT_BACKEND:-hermes_gateway}
       NOVEL_MCP_AUTOSTART: ${NOVEL_MCP_AUTOSTART:-false}
       PSKA_API_BASE_URL: http://127.0.0.1:8765
-      HERMES_COMMAND: ${HERMES_COMMAND:-hermes}
+      HERMES_GATEWAY_BASE_URL: ${HERMES_GATEWAY_BASE_URL:-http://hermes-agent:8642}
+      HERMES_GATEWAY_API_KEY: ${HERMES_GATEWAY_API_KEY:-}
     restart: unless-stopped
 
   hermes-dashboard:

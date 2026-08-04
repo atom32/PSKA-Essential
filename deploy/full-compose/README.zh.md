@@ -23,6 +23,9 @@ PSKA suite compose
 Graphiti 不在 v0 主路径里。Memory 和 Review 默认使用 SQLite，并由 `pska-data`
 Docker volume 保存。
 
+从零部署请先看 [INSTALL.zh.md](./INSTALL.zh.md)。它按“没有智能体协助”的场景写，
+包含 WSL 放到 D 盘、RAGFlow 初始化、局域网端口暴露和重启恢复步骤。
+
 Embedding 是 v0 的必选基础服务。默认模型是 `BAAI/bge-small-en-v1.5`，这是为了
 16GB RAM 的演示笔记本能稳定启动；如果机器内存足够，可以在 `.env` 里把
 `EMBEDDING_MODEL_ID` 改成 `BAAI/bge-m3`。默认镜像使用 Hugging Face 的 GHCR
@@ -131,6 +134,15 @@ New-NetFirewallRule -DisplayName "PSKA Demo WebUI 8787" -Direction Inbound -Acti
 如果也要让观众直接打开 RAGFlow UI，同理转发 `8080`。不要转发 embedding 端口；它应保持
 `127.0.0.1:6380` 或容器私有网络访问。
 
+仓库也提供了一个管理员 PowerShell 辅助脚本：
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass -Force
+& "\\wsl.localhost\Ubuntu-24.04\home\<linux-user>\pska-demo\PSKA-Essential\deploy\full-compose\windows\refresh-wsl-portproxy.ps1" -Distro Ubuntu-24.04
+```
+
+默认会暴露 `8787`，并把 Windows `9222` 转发到 WSL 内 RAGFlow Web `8080`。
+
 ## 服务分工
 
 对外入口：
@@ -161,6 +173,7 @@ WebUI chat -> Hermes Gateway API -> Hermes Agent -> PSKA MCP
 WebUI -> PSKA chip extension -> PSKA Product API -> RAGFlow
 WebUI -> Eidolia rail extension -> Eidolia
 Eidolia -> Ask PSKA evidence -> PSKA Product API -> RAGFlow
+Eidolia -> Hermes Gateway -> Hermes Agent -> PSKA MCP
 PSKA API / MCP -> SQLite Memory + SQLite Review
 RAGFlow -> PSKA embedding container -> local TEI model
 ```
@@ -170,8 +183,8 @@ RAGFlow -> PSKA embedding container -> local TEI model
 - 不自动生成 RAGFlow API key；这一步仍然需要进 RAGFlow 做一次初始化。
 - RAGFlow 账号/API key 也可以通过 RAGFlow API 初始化，但 v0 文档仍以 UI 手工路径为准。
 - 不自动配置 RAGFlow 的外部 LLM provider；不同模型供应商差异较大。
-- Eidolia 的 Hermes CLI 生成路径仍不是容器内完整闭环；Eidolia 的 Ask PSKA
-  evidence 路径已容器化。
+- Eidolia 的普通生成路径走 Hermes Gateway runs API；`agentic_tools` 里依赖
+  Eidolia 自己 novel-local MCP 的深度工具循环仍不作为 v0 主路径。
 - 不启动 Graphiti。
 
 ## 常用命令
