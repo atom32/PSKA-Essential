@@ -61,7 +61,7 @@ resolve_paths() {
   PSKA_ESSENTIAL_REPO="$(abs_dir "$(script_path "${PSKA_ESSENTIAL_REPO:-../..}")")"
   HERMES_HOME_DIR="$(abs_dir "$(script_path "${HERMES_HOME_DIR:-${PSKA_SUITE_HOME}/hermes-home}")")"
   HERMES_WORKSPACE="$(abs_dir "$(script_path "${HERMES_WORKSPACE:-${PSKA_SUITE_HOME}/workspace}")")"
-  EIDOLIA_REPO="${EIDOLIA_REPO:-${PSKA_SUITE_HOME}/repos/novel}"
+  EIDOLIA_REPO="${EIDOLIA_REPO:-${PSKA_SUITE_HOME}/repos/InfinityCanvas}"
   HERMES_WEBUI_REPO="${HERMES_WEBUI_REPO:-${PSKA_SUITE_HOME}/repos/hermes-webui}"
   RAGFLOW_HOME="${RAGFLOW_HOME:-${PSKA_SUITE_HOME}/repos/ragflow}"
   EIDOLIA_REPO="$(script_path "${EIDOLIA_REPO}")"
@@ -113,7 +113,7 @@ ensure_repo() {
 
 ensure_repos() {
   mkdir -p "${PSKA_SUITE_HOME}/repos"
-  ensure_repo "Eidolia" "${EIDOLIA_REPO_URL:-https://github.com/atom32/novel.git}" "${EIDOLIA_REF:-main}" "${EIDOLIA_REPO}"
+  ensure_repo "Eidolia" "${EIDOLIA_REPO_URL:-https://github.com/atom32/InfinityCanvas.git}" "${EIDOLIA_REF:-main}" "${EIDOLIA_REPO}"
   ensure_repo "Hermes-WebUI" "${HERMES_WEBUI_REPO_URL:-https://github.com/nesquena/hermes-webui.git}" "${HERMES_WEBUI_REF:-master}" "${HERMES_WEBUI_REPO}"
   ensure_repo "RAGFlow" "${RAGFLOW_REPO_URL:-https://github.com/infiniflow/ragflow.git}" "${RAGFLOW_REF:-v0.26.4}" "${RAGFLOW_HOME}"
 }

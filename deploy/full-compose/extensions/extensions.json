@@ -15,7 +15,7 @@
     {
       "id": "eidolia",
       "name": "Eidolia",
-      "description": "Local writing workspace launcher for Eidolia/novel.",
+      "description": "Local writing workspace launcher for InfinityCanvas/Eidolia.",
       "scripts": ["eidolia/eidolia.js?v=20260804-full-compose"],
       "stylesheets": ["eidolia/eidolia.css"],
       "sidecar": {

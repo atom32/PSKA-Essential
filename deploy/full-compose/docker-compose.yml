@@ -83,7 +83,7 @@ services:
       - extension-root:/extensions
       - ./extensions/extensions.json:/extensions/extensions.json:ro
       - ${PSKA_ESSENTIAL_REPO:-../..}/integrations/hermes-webui-extension/pska-mini:/extensions/pska-mini:ro
-      - ${EIDOLIA_REPO:-./.runtime/repos/novel}/integrations/hermes-webui-extension/eidolia:/extensions/eidolia:ro
+      - ${EIDOLIA_REPO:-./.runtime/repos/InfinityCanvas}/integrations/hermes-webui-extension/eidolia:/extensions/eidolia:ro
     environment:
       WANTED_UID: ${WANTED_UID:-1000}
       WANTED_GID: ${WANTED_GID:-1000}
@@ -130,7 +130,7 @@ services:
 
   eidolia:
     build:
-      context: ${EIDOLIA_REPO:-./.runtime/repos/novel}
+      context: ${EIDOLIA_REPO:-./.runtime/repos/InfinityCanvas}
       dockerfile: Dockerfile
     image: pska-full/eidolia:${PSKA_FULL_IMAGE_TAG:-local}
     network_mode: "service:hermes-webui"

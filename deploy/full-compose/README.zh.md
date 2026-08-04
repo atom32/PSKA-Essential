@@ -44,7 +44,8 @@ RAGFlow 仓库应该保持可 `git pull` 的干净状态。
 部署机应该从 GitHub 拉取组件仓库，而不是从开发机拷贝工作目录。这样才能验证一站式部署
 和后续升级路径。
 
-如果组件仓库需要私有访问权限，推荐用一次性 `GIT_ASKPASS` 或临时 credential helper
+默认组件仓库应可直接从 GitHub 拉取，不需要从开发机拷贝工作目录，也不需要传递 PAT。
+如果你临时改用私有仓库，才推荐用一次性 `GIT_ASKPASS` 或临时 credential helper
 注入 PAT；不要把 PAT 写入 `origin` URL，也不要提交进 `.env`。部署完成后确认：
 
 ```bash
@@ -54,8 +55,9 @@ git -C "$HERMES_WEBUI_REPO" remote -v
 
 URL 应该仍是普通 `https://github.com/...`，不能包含 token。
 
-当前 `EIDOLIA_REPO_URL` 仍指向开发期的 `atom32/novel`。对外演示前，建议把 Eidolia
-工作区能力整理成一个中性的 public repo，再把 `.env` 里的 `EIDOLIA_REPO_URL` 改到新仓库。
+默认 `EIDOLIA_REPO_URL` 指向中性的 public repo：
+`https://github.com/atom32/InfinityCanvas.git`。这个仓库承载 Eidolia 创作工作区能力，
+不包含私人 `content/` 或私人 prompt。
 
 ## 第一次启动
 
@@ -182,7 +184,7 @@ deploy/full-compose/.runtime
 
 包含：
 
-- `repos/novel`
+- `repos/InfinityCanvas`
 - `repos/hermes-webui`
 - `repos/ragflow`
 - `hermes-home/config.yaml`
