@@ -11,6 +11,7 @@ RAGFlow upstream compose
   - Elasticsearch / Infinity / OpenSearch 等可选 doc engine
 
 PSKA suite compose
+  - Embedding / TEI
   - pska-data-init
   - Hermes Agent / Gateway
   - Hermes-WebUI
@@ -21,6 +22,10 @@ PSKA suite compose
 
 Graphiti 不在 v0 主路径里。Memory 和 Review 默认使用 SQLite，并由 `pska-data`
 Docker volume 保存。
+
+Embedding 是 v0 的必选基础服务。默认模型是 `BAAI/bge-small-en-v1.5`，这是为了
+16GB RAM 的演示笔记本能稳定启动；如果机器内存足够，可以在 `.env` 里把
+`EMBEDDING_MODEL_ID` 改成 `BAAI/bge-m3`。
 
 ## 为什么不是一个巨大 compose 文件
 
@@ -44,6 +49,9 @@ cp .env.example .env
 - `WANTED_UID` / `WANTED_GID` 按 `id -u` / `id -g` 设置。
 - 填你要用的 Hermes 模型环境变量，例如 `DEEPSEEK_API_KEY`。
 - 先留空 `RAGFLOW_API_KEY`。
+- 保持 `EMBEDDING_ENABLED=1`。默认会启动本地 TEI embedding 服务。
+- `RAGFLOW_TEI_BASE_URL` 可以留空，脚本会按 `EMBEDDING_HOST_PORT` 自动写成
+  `http://host.docker.internal:<port>`。
 
 可用下面命令生成 Gateway token：
 
@@ -57,6 +65,8 @@ openssl rand -hex 32
 ./bootstrap.sh ragflow-up
 ```
 
+这个命令会先启动本地 embedding 容器，再启动 RAGFlow upstream compose。
+
 打开 RAGFlow：
 
 ```text
@@ -66,7 +76,9 @@ http://127.0.0.1:8080
 完成 RAGFlow 一次性初始化：
 
 - 创建用户/登录；
-- 配置 LLM 和 embedding provider；
+- 配置 LLM provider；
+- embedding 使用内置模型：`BAAI/bge-small-en-v1.5@Builtin`，除非你在 `.env`
+  里换了 `EMBEDDING_MODEL_ID`；
 - 创建 API key；
 - 把 API key 写回 `.env` 的 `RAGFLOW_API_KEY`。
 
@@ -91,6 +103,7 @@ http://<机器IP>:8787
 
 本机调试入口：
 
+- `Embedding / TEI`: `127.0.0.1:6380`
 - `Hermes Gateway`: `127.0.0.1:8642`
 - `RAGFlow API`: `127.0.0.1:9380`
 
@@ -112,12 +125,13 @@ WebUI -> PSKA chip extension -> PSKA Product API -> RAGFlow
 WebUI -> Eidolia rail extension -> Eidolia
 Eidolia -> Ask PSKA evidence -> PSKA Product API -> RAGFlow
 PSKA API / MCP -> SQLite Memory + SQLite Review
+RAGFlow -> PSKA embedding container -> local TEI model
 ```
 
 ## v0 暂不承诺
 
 - 不自动生成 RAGFlow API key；这一步仍然需要进 RAGFlow 做一次初始化。
-- 不自动配置 RAGFlow 的 embedding/LLM provider；不同模型供应商差异较大。
+- 不自动配置 RAGFlow 的外部 LLM provider；不同模型供应商差异较大。
 - Eidolia 的 Hermes CLI 生成路径仍不是容器内完整闭环；Eidolia 的 Ask PSKA
   evidence 路径已容器化。
 - 不启动 Graphiti。
@@ -126,6 +140,7 @@ PSKA API / MCP -> SQLite Memory + SQLite Review
 
 ```bash
 ./bootstrap.sh init
+./bootstrap.sh embedding-up
 ./bootstrap.sh ragflow-up
 ./bootstrap.sh up
 ./bootstrap.sh status

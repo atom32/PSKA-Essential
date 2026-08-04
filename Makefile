@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -52,6 +52,12 @@ alpha-compose-down:
 
 full-compose-init:
 	cd deploy/full-compose && ./bootstrap.sh init
+
+full-compose-embedding-up:
+	cd deploy/full-compose && ./bootstrap.sh embedding-up
+
+full-compose-ragflow-up:
+	cd deploy/full-compose && ./bootstrap.sh ragflow-up
 
 full-compose-up:
 	cd deploy/full-compose && ./bootstrap.sh up
