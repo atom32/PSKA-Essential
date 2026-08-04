@@ -25,7 +25,8 @@ Docker volume 保存。
 
 Embedding 是 v0 的必选基础服务。默认模型是 `BAAI/bge-small-en-v1.5`，这是为了
 16GB RAM 的演示笔记本能稳定启动；如果机器内存足够，可以在 `.env` 里把
-`EMBEDDING_MODEL_ID` 改成 `BAAI/bge-m3`。
+`EMBEDDING_MODEL_ID` 改成 `BAAI/bge-m3`。默认镜像使用 Hugging Face 的 GHCR
+镜像：`ghcr.io/huggingface/text-embeddings-inference:cpu-1.8`。
 
 ## 为什么不是一个巨大 compose 文件
 

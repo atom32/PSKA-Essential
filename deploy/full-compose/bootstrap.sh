@@ -255,7 +255,7 @@ updates = {
     "MINIO_PASSWORD": os.getenv("RAGFLOW_MINIO_PASSWORD", "pska_full_minio_change_me"),
     "ELASTIC_PASSWORD": os.getenv("RAGFLOW_ELASTIC_PASSWORD", "pska_full_elastic_change_me"),
     "OPENSEARCH_PASSWORD": os.getenv("RAGFLOW_OPENSEARCH_PASSWORD", "PskA_full_OpenSearch_01!"),
-    "TEI_IMAGE_CPU": os.getenv("EMBEDDING_IMAGE") or "infiniflow/text-embeddings-inference:cpu-1.8",
+    "TEI_IMAGE_CPU": os.getenv("EMBEDDING_IMAGE") or "ghcr.io/huggingface/text-embeddings-inference:cpu-1.8",
     "TEI_MODEL": os.getenv("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5",
     "TEI_HOST": os.getenv("RAGFLOW_TEI_HOST") or "host.docker.internal",
     "TEI_PORT": embedding_port,

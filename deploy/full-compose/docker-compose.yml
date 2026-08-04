@@ -13,7 +13,7 @@ services:
     restart: "no"
 
   embedding:
-    image: ${EMBEDDING_IMAGE:-infiniflow/text-embeddings-inference:cpu-1.8}
+    image: ${EMBEDDING_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-1.8}
     profiles:
       - embedding
     command:
