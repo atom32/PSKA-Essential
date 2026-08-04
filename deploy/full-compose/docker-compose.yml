@@ -67,28 +67,6 @@ services:
       SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    expose:
-      - "8766"
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - |
-          from urllib.error import HTTPError
-          from urllib.request import urlopen
-          import sys
-          try:
-              urlopen("http://127.0.0.1:8766/mcp", timeout=3).read()
-          except HTTPError as exc:
-              sys.exit(0 if exc.code in {405, 406} else 1)
-          except Exception:
-              sys.exit(1)
-          sys.exit(0)
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
     restart: unless-stopped
     networks:
       - pska-suite
@@ -181,6 +159,28 @@ services:
       - ${HERMES_HOME_DIR:-./.runtime/hermes-home}/pska.env:/config/pska.env:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    expose:
+      - "8766"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          from urllib.error import HTTPError
+          from urllib.request import urlopen
+          import sys
+          try:
+              urlopen("http://127.0.0.1:8766/mcp", timeout=3).read()
+          except HTTPError as exc:
+              sys.exit(0 if exc.code in {405, 406} else 1)
+          except Exception:
+              sys.exit(1)
+          sys.exit(0)
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     restart: unless-stopped
     networks:
       - pska-suite
