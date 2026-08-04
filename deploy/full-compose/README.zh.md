@@ -227,6 +227,10 @@ deploy/full-compose/.runtime
 - `ragflow-service_conf.yaml.template`
 - `workspace/`
 
+`bootstrap.sh` 会按当前模板更新 `hermes-home/config.yaml`，旧文件会备份为
+`config.yaml.bak-*`。如果你临时手改了 Hermes 配置并希望脚本不要覆盖，设置
+`PSKA_FULL_KEEP_HERMES_CONFIG=1`。
+
 `bootstrap.sh` 会预写 WebUI extension consent：
 
 ```text

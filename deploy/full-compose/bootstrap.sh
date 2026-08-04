@@ -159,17 +159,19 @@ write_hermes_config() {
   local config="${HERMES_HOME_DIR}/config.yaml"
   local py
   py="$(python_bin)"
-  if [[ -f "${config}" && "${PSKA_FULL_OVERWRITE_HERMES_CONFIG:-0}" != "1" ]]; then
+  if [[ -f "${config}" && "${PSKA_FULL_KEEP_HERMES_CONFIG:-0}" == "1" ]]; then
     log "Hermes config exists; leaving ${config} unchanged."
     return
   fi
   "${py}" - <<'PY'
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from string import Template
 
 script_dir = Path(os.environ["SCRIPT_DIR"])
 home = Path(os.environ["HERMES_HOME_DIR"])
+config = home / "config.yaml"
 template = (script_dir / "hermes" / "config.yaml.template").read_text(encoding="utf-8")
 mapping = {
     "HERMES_MODEL_DEFAULT": os.getenv("HERMES_MODEL_DEFAULT", "deepseek-v4-flash"),
@@ -178,7 +180,17 @@ mapping = {
     "HERMES_AGENT_MAX_TURNS": os.getenv("HERMES_AGENT_MAX_TURNS", "150"),
 }
 home.mkdir(parents=True, exist_ok=True)
-(home / "config.yaml").write_text(Template(template).safe_substitute(mapping), encoding="utf-8")
+rendered = Template(template).safe_substitute(mapping)
+if config.exists():
+    current = config.read_text(encoding="utf-8")
+    if current == rendered:
+        print(f"[pska-full] Hermes config up to date: {config}")
+        raise SystemExit(0)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    backup = config.with_name(f"{config.name}.bak-{stamp}")
+    backup.write_text(current, encoding="utf-8")
+    print(f"[pska-full] Hermes config changed; backed up existing file to {backup}")
+config.write_text(rendered, encoding="utf-8")
 PY
 }
 
