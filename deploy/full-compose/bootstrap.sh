@@ -83,11 +83,31 @@ repo_dirty() {
   [[ -n "$(git -C "${dir}" status --porcelain 2>/dev/null || true)" ]]
 }
 
+validate_source_mode() {
+  case "${PSKA_FULL_SOURCE_MODE:-auto}" in
+    auto|online|offline) ;;
+    *) die "PSKA_FULL_SOURCE_MODE must be auto, online, or offline." ;;
+  esac
+}
+
+validate_component_sources() {
+  [[ -f "${EIDOLIA_REPO}/Dockerfile" ]] || die "Eidolia source is incomplete: ${EIDOLIA_REPO}/Dockerfile not found."
+  [[ -d "${EIDOLIA_REPO}/integrations/hermes-webui-extension/eidolia" ]] || die "Eidolia WebUI extension not found under ${EIDOLIA_REPO}."
+  [[ -f "${HERMES_WEBUI_REPO}/Dockerfile" ]] || die "Hermes-WebUI source is incomplete: ${HERMES_WEBUI_REPO}/Dockerfile not found."
+  [[ -f "${RAGFLOW_HOME}/docker/docker-compose.yml" ]] || die "RAGFlow source is incomplete: ${RAGFLOW_HOME}/docker/docker-compose.yml not found."
+  [[ -f "${RAGFLOW_HOME}/docker/service_conf.yaml.template" ]] || die "RAGFlow service config template not found under ${RAGFLOW_HOME}."
+}
+
 ensure_repo() {
   local name="$1" url="$2" ref="$3" dir="$4"
+  local mode="${PSKA_FULL_SOURCE_MODE:-auto}"
+  if [[ -d "${dir}" && -n "$(find "${dir}" -mindepth 1 -maxdepth 1 -print -quit)" && ! -d "${dir}/.git" ]]; then
+    log "${name} exists as a preloaded source directory; using it as-is: ${dir}"
+    return
+  fi
   if [[ ! -d "${dir}/.git" ]]; then
-    if [[ -d "${dir}" && -n "$(find "${dir}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
-      die "${name} destination exists but is not a git repo: ${dir}"
+    if [[ "${mode}" == "offline" ]]; then
+      die "${name} source is missing in offline mode: ${dir}. Preload this directory from a source bundle, or set the corresponding *_REPO_URL to an internal Git mirror and use PSKA_FULL_SOURCE_MODE=online."
     fi
     log "cloning ${name} (${ref}) -> ${dir}"
     git clone --depth 1 --branch "${ref}" "${url}" "${dir}" || {
@@ -99,6 +119,10 @@ ensure_repo() {
   fi
   if [[ "${PSKA_FULL_UPDATE_REPOS:-0}" != "1" ]]; then
     log "${name} exists; leaving it as-is (set PSKA_FULL_UPDATE_REPOS=1 to fetch/checkout ${ref})."
+    return
+  fi
+  if [[ "${mode}" == "offline" ]]; then
+    warn "${name} exists; skipping update because PSKA_FULL_SOURCE_MODE=offline."
     return
   fi
   if repo_dirty "${dir}"; then
@@ -113,9 +137,11 @@ ensure_repo() {
 
 ensure_repos() {
   mkdir -p "${PSKA_SUITE_HOME}/repos"
+  validate_source_mode
   ensure_repo "Eidolia" "${EIDOLIA_REPO_URL:-https://github.com/atom32/InfinityCanvas.git}" "${EIDOLIA_REF:-main}" "${EIDOLIA_REPO}"
   ensure_repo "Hermes-WebUI" "${HERMES_WEBUI_REPO_URL:-https://github.com/nesquena/hermes-webui.git}" "${HERMES_WEBUI_REF:-master}" "${HERMES_WEBUI_REPO}"
   ensure_repo "RAGFlow" "${RAGFLOW_REPO_URL:-https://github.com/infiniflow/ragflow.git}" "${RAGFLOW_REF:-v0.26.4}" "${RAGFLOW_HOME}"
+  validate_component_sources
 }
 
 write_pska_env() {

@@ -102,9 +102,12 @@ docker compose version
 2. 启用当前 Ubuntu distro
 3. 回到 WSL 重新执行 `docker version`
 
-## 3. 拉取 PSKA-Essential
+## 3. 准备 PSKA-Essential 和组件源码
 
-部署机应该从 GitHub 拉取，不从开发机拷贝目录：
+GitHub 不是部署硬性要求。部署机只需要拿到干净 baseline 的源码，可以来自公网
+GitHub、公司内网 Git 镜像、git bundle，或运维提前放好的源码包。
+
+公网或内网 Git 镜像路径：
 
 ```bash
 mkdir -p ~/pska-demo
@@ -113,11 +116,31 @@ git clone https://github.com/atom32/PSKA-Essential.git
 cd PSKA-Essential/deploy/full-compose
 ```
 
-full compose 会自动拉取这些组件：
+如果使用公司内网 Git 镜像，把 `.env` 里的 URL 改成内网地址：
 
-- `https://github.com/atom32/InfinityCanvas.git`
-- `https://github.com/nesquena/hermes-webui.git`
-- `https://github.com/infiniflow/ragflow.git`
+```bash
+EIDOLIA_REPO_URL=<internal-git>/InfinityCanvas.git
+HERMES_WEBUI_REPO_URL=<internal-git>/hermes-webui.git
+RAGFLOW_REPO_URL=<internal-git>/ragflow.git
+PSKA_FULL_SOURCE_MODE=online
+```
+
+公司服务器无法访问 GitHub 时，推荐离线源码包路径。请提前把组件源码解压到：
+
+```text
+~/pska-demo/PSKA-Essential/deploy/full-compose/.runtime/repos/InfinityCanvas
+~/pska-demo/PSKA-Essential/deploy/full-compose/.runtime/repos/hermes-webui
+~/pska-demo/PSKA-Essential/deploy/full-compose/.runtime/repos/ragflow
+```
+
+然后在 `.env` 里设置：
+
+```bash
+PSKA_FULL_SOURCE_MODE=offline
+```
+
+离线源码目录可以没有 `.git`。`bootstrap.sh` 会校验必要文件是否存在，不会尝试
+`git clone`、`git fetch` 或 `git pull`。
 
 默认不需要 PAT。不要把 PAT 写进 git remote URL 或 `.env`。
 
@@ -131,6 +154,7 @@ nano .env
 必须修改：
 
 ```bash
+PSKA_FULL_SOURCE_MODE=auto
 HERMES_WEBUI_PASSWORD=<your-webui-password>
 HERMES_GATEWAY_API_KEY=<random-long-token>
 WANTED_UID=<id -u>
@@ -182,7 +206,7 @@ git remote。
 
 这个命令会：
 
-- 拉取 InfinityCanvas、Hermes-WebUI、RAGFlow 仓库
+- 按 `PSKA_FULL_SOURCE_MODE` 使用本地组件源码，或在允许联网时拉取缺失组件
 - 生成 Hermes/PSKA/RAGFlow 运行配置
 - 启动本地 TEI embedding
 - 启动 RAGFlow upstream compose
@@ -497,10 +521,16 @@ RAGFlow 数据集已经上传，但 PSKA 查询不到内容：
 
 `processing` 时先换一个 ready 的数据集演示，或等 RAGFlow 队列处理完成。
 
-弱网下 GitHub、Docker Hub、Hugging Face 或 PyPI 拉取失败：
+公司网络不能直连 GitHub、Docker Hub、Hugging Face 或 PyPI：
 
-先配置稳定代理、镜像源或预构建镜像，再部署。不要把临时代理 IP、PAT 或带 token 的
-git remote 写进 `.env` 或提交到仓库。
+这不是部署失败前提。请改用公司允许的输入来源：
+
+- 源码：内网 Git 镜像、git bundle、或干净源码包，并设置 `PSKA_FULL_SOURCE_MODE=offline`。
+- Docker 镜像：内网 registry、`docker save` / `docker load` 镜像包，或运维统一镜像源。
+- Python 依赖：`PIP_INDEX_URL` / `UV_DEFAULT_INDEX` 指向内网 PyPI 或公司允许的镜像源。
+- embedding 模型：提前让 TEI volume 缓存模型，或使用 Hugging Face mirror。
+
+不要把临时代理 IP、PAT 或带 token 的 git remote 写进 `.env` 或提交到仓库。
 
 需要停止服务但保留数据：
 

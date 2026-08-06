@@ -43,7 +43,9 @@ PSKA-Essential -> RAGFlow / SQLite Review / SQLite Memory
 
 处理：临时使用开发机代理完成拉取和构建，随后移除 Docker daemon 代理配置。
 
-下次建议：部署前先配置稳定的系统代理、Docker daemon proxy、镜像源或预构建镜像。不要把临时代理 IP 写进 `.env`、Docker systemd drop-in 或 git remote。
+下次建议：不要把 GitHub 访问作为公司内网部署前提。在线模式可以配置系统代理、Docker
+daemon proxy、镜像源或内网 Git 镜像；离线模式应提前准备源码包、Docker 镜像包和模型缓存。
+不要把临时代理 IP 写进 `.env`、Docker systemd drop-in 或 git remote。
 
 2. 私有 `novel` 仓库不适合作为一站式部署依赖。
 
@@ -153,7 +155,8 @@ docker version
 docker compose version
 ```
 
-2. 确认网络能访问 GitHub、Docker Hub/GHCR、PyPI、Hugging Face。弱网环境先配置稳定代理或镜像。
+2. 选择源码和镜像来源。公网可用时可以访问 GitHub、Docker Hub/GHCR、PyPI、Hugging Face；
+公司内网部署时可以改用内网 Git 镜像、源码包、Docker 镜像包和模型缓存，不要求直连 GitHub。
 
 3. 拉取 PSKA-Essential：
 

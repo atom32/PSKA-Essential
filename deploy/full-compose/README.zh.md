@@ -46,19 +46,28 @@ RAGFlow 仓库应该保持可 `git pull` 的干净状态。
 
 ## 代码来源原则
 
-部署机应该从 GitHub 拉取组件仓库，而不是从开发机拷贝工作目录。这样才能验证一站式部署
-和后续升级路径。
+GitHub 不是运行条件，也不应该是公司内网部署的硬性前提。Full compose 支持三种源码来源：
 
-默认组件仓库应可直接从 GitHub 拉取，不需要从开发机拷贝工作目录，也不需要传递 PAT。
-如果你临时改用私有仓库，才推荐用一次性 `GIT_ASKPASS` 或临时 credential helper
-注入 PAT；不要把 PAT 写入 `origin` URL，也不要提交进 `.env`。部署完成后确认：
+- `PSKA_FULL_SOURCE_MODE=auto`：默认模式。组件目录缺失时尝试按 URL 拉取；目录已存在时直接使用。
+- `PSKA_FULL_SOURCE_MODE=online`：适合公网 GitHub 或公司内网 Git 镜像。可以把
+  `EIDOLIA_REPO_URL`、`HERMES_WEBUI_REPO_URL`、`RAGFLOW_REPO_URL` 改成内网镜像地址。
+- `PSKA_FULL_SOURCE_MODE=offline`：完全不访问 Git。必须提前把组件源码放到
+  `PSKA_SUITE_HOME/repos/InfinityCanvas`、`PSKA_SUITE_HOME/repos/hermes-webui`、
+  `PSKA_SUITE_HOME/repos/ragflow`，或在 `.env` 中显式设置对应本地路径。
+
+需要避免的是“拷贝一个带未提交补丁的开发工作目录”。可复现部署应使用 Git tag/commit、
+内网 Git 镜像、git bundle、或从干净 baseline 打出的源码包。
+
+如果临时改用私有仓库，才推荐用一次性 `GIT_ASKPASS` 或临时 credential helper 注入 PAT；
+不要把 PAT 写入 `origin` URL，也不要提交进 `.env`。部署完成后如使用 Git 源，可确认：
 
 ```bash
 git -C "$EIDOLIA_REPO" remote -v
 git -C "$HERMES_WEBUI_REPO" remote -v
 ```
 
-URL 应该仍是普通 `https://github.com/...`，不能包含 token。
+URL 应该是普通公网/内网 Git 地址，不能包含 token。离线源码包模式下没有 `.git` 目录也可以，
+脚本会按普通源码目录使用。
 
 默认 `EIDOLIA_REPO_URL` 指向中性的 public repo：
 `https://github.com/atom32/InfinityCanvas.git`。这个仓库承载 Eidolia 创作工作区能力，
@@ -76,6 +85,7 @@ cp .env.example .env
 - `HERMES_WEBUI_PASSWORD` 改成真实密码。
 - `HERMES_GATEWAY_API_KEY` 改成随机长 token。WebUI 通过它访问 Hermes Gateway。
 - `WANTED_UID` / `WANTED_GID` 按 `id -u` / `id -g` 设置。
+- 公司内网或离线部署时，把 `PSKA_FULL_SOURCE_MODE` 改成 `offline`，并提前放好组件源码。
 - 填你要用的 Hermes 模型环境变量，例如 `DEEPSEEK_API_KEY`。
 - 先留空 `RAGFLOW_API_KEY`。
 - 保持 `EMBEDDING_ENABLED=1`。默认会启动本地 TEI embedding 服务。
