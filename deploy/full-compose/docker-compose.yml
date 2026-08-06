@@ -198,6 +198,9 @@ services:
       context: ${EIDOLIA_REPO:-./.runtime/repos/InfinityCanvas}
       dockerfile: Dockerfile
       args:
+        BUILD_APT_PROXY: ${BUILD_APT_PROXY:-}
+        DEBIAN_APT_MIRROR: ${DEBIAN_APT_MIRROR:-}
+        DEBIAN_SECURITY_APT_MIRROR: ${DEBIAN_SECURITY_APT_MIRROR:-}
         NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-}
     image: pska-full/eidolia:${PSKA_FULL_IMAGE_TAG:-local}
     network_mode: "service:hermes-webui"
