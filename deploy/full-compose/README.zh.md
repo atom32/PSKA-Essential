@@ -94,7 +94,8 @@ cp .env.example .env
 - 弱网或公司网络需要代理/镜像源时，优先在 `.env` 配置 `HTTP_PROXY`、
   `HTTPS_PROXY`、`NO_PROXY`、`BUILD_APT_PROXY`、`DEBIAN_APT_MIRROR`、
   `DEBIAN_SECURITY_APT_MIRROR`、`NPM_CONFIG_REGISTRY`、`PIP_INDEX_URL`、
-  `UV_DEFAULT_INDEX`，不要手改 Dockerfile 或 git remote。
+  `UV_DEFAULT_INDEX`，不要手改 Dockerfile 或 git remote。Debian apt 镜像建议使用
+  `http://...`，避免 slim 基础镜像安装证书包前无法访问 HTTPS 源。
 
 可用下面命令生成 Gateway token：
 
