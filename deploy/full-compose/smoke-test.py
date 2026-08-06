@@ -190,6 +190,46 @@ def run_local_command(args: list[str], timeout: int = 15) -> subprocess.Complete
     return subprocess.run(args, check=False, text=True, capture_output=True, timeout=timeout)
 
 
+def check_eidolia_archive_tools(env: dict[str, str]) -> dict[str, Any]:
+    project = env.get("PSKA_FULL_PROJECT") or "pska-full"
+    ps = run_local_command(
+        [
+            "docker",
+            "ps",
+            "--filter",
+            f"label=com.docker.compose.project={project}",
+            "--filter",
+            "label=com.docker.compose.service=eidolia",
+            "--format",
+            "{{.Names}}",
+        ]
+    )
+    if ps.returncode != 0:
+        raise RuntimeError(f"docker ps failed while checking Eidolia archive tools: {ps.stderr.strip()[:500]}")
+    eidolia_container = (ps.stdout.strip().splitlines() or [""])[0]
+    if not eidolia_container:
+        raise RuntimeError(f"Eidolia container not found for project {project}")
+
+    command = """
+set -eu
+zip_path="$(command -v zip)"
+unzip_path="$(command -v unzip)"
+printf 'zip=%s\\nunzip=%s\\n' "$zip_path" "$unzip_path"
+""".strip()
+    result = run_local_command(["docker", "exec", eidolia_container, "sh", "-lc", command])
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Eidolia archive tools are missing; rebuild the Eidolia image after updating InfinityCanvas. "
+            f"stderr={result.stderr.strip()[:500]}"
+        )
+    tools: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            tools[key] = value
+    return {"ok": True, "container": eidolia_container, "tools": tools}
+
+
 def check_ragflow_embedding_model_tables(env: dict[str, str]) -> dict[str, Any]:
     project = env.get("RAGFLOW_PROJECT") or "ragflow"
     model = env.get("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5"
@@ -487,6 +527,7 @@ def main() -> int:
             "error": eidolia.get("error") or eidolia.get("ready_error"),
         },
     )
+    results["checks"]["eidolia_archive_tools"] = check_eidolia_archive_tools(env)
 
     status, datasets_body = client.json("/api/extensions/pska-mini/sidecar/api/kb/datasets", browser=True, timeout=120)
     datasets = datasets_body.get("datasets") or datasets_body.get("items") or []

@@ -227,7 +227,7 @@ PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
 
 `smoke` 会按真实浏览器路径登录 WebUI，确认 extension sidecar、PSKA Product API、
 Eidolia Hermes Gateway backend、数据集列表、RAGFlow Builtin embedding 生成配置、
-旧 `tenant_llm` 兼容表和新 `tenant_model_*` UI 投影表可用。设置
+Eidolia ZIP 导入/导出依赖、旧 `tenant_llm` 兼容表和新 `tenant_model_*` UI 投影表可用。设置
 `PSKA_SMOKE_RUN_EIDOLIA=1` 后会额外创建一个很小的 Eidolia 项目，
 通过 Hermes Gateway 异步生成一个 thought 节点。
 
