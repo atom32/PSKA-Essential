@@ -12,7 +12,12 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-RUN pip install --no-cache-dir ".[mcp]" \
+ARG PIP_INDEX_URL=
+ARG PIP_TRUSTED_HOST=
+
+RUN if [ -n "${PIP_INDEX_URL}" ]; then python -m pip config set global.index-url "${PIP_INDEX_URL}"; fi \
+    && if [ -n "${PIP_TRUSTED_HOST}" ]; then python -m pip config set global.trusted-host "${PIP_TRUSTED_HOST}"; fi \
+    && pip install --no-cache-dir ".[mcp]" \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin pska \
     && mkdir -p /data \
     && chown -R pska:pska /data

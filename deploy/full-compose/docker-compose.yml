@@ -28,6 +28,10 @@ services:
       HF_HOME: /data
       HUGGINGFACE_HUB_CACHE: /data
       HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      ALL_PROXY: ${ALL_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-}
     restart: unless-stopped
     networks:
       pska-suite:
@@ -40,6 +44,7 @@ services:
       dockerfile: deploy/full-compose/hermes-agent/Dockerfile
       args:
         HERMES_AGENT_IMAGE: ${HERMES_AGENT_IMAGE:-nousresearch/hermes-agent:latest}
+        UV_DEFAULT_INDEX: ${UV_DEFAULT_INDEX:-}
     image: pska-full/hermes-agent:${PSKA_FULL_IMAGE_TAG:-local}
     command: gateway run
     depends_on:
@@ -116,6 +121,9 @@ services:
     build:
       context: ${PSKA_ESSENTIAL_REPO:-../..}
       dockerfile: Dockerfile
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
     image: pska-full/pska-essential:${PSKA_FULL_IMAGE_TAG:-local}
     network_mode: "service:hermes-webui"
     depends_on:

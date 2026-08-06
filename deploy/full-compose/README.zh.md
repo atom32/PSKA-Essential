@@ -81,6 +81,9 @@ cp .env.example .env
 - 保持 `EMBEDDING_ENABLED=1`。默认会启动本地 TEI embedding 服务。
 - `RAGFLOW_TEI_BASE_URL` 可以留空，脚本会让 RAGFlow 通过 Docker 私有网络访问
   `http://pska-embedding:80`，不需要把 embedding 暴露到局域网。
+- 弱网或公司网络需要代理/镜像源时，优先在 `.env` 配置 `HTTP_PROXY`、
+  `HTTPS_PROXY`、`NO_PROXY`、`PIP_INDEX_URL`、`UV_DEFAULT_INDEX`，不要手改
+  Dockerfile 或 git remote。
 
 可用下面命令生成 Gateway token：
 
@@ -214,6 +217,26 @@ PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
 `smoke` 会按真实浏览器路径登录 WebUI，确认 extension sidecar、PSKA Product API、
 Eidolia Hermes Gateway backend 和数据集列表可用。设置 `PSKA_SMOKE_RUN_EIDOLIA=1`
 后会额外创建一个很小的 Eidolia 项目，通过 Hermes Gateway 异步生成一个 thought 节点。
+
+如果 RAGFlow 的模型配置页找不到内置 embedding，先更新到包含本段的版本，然后重新生成
+运行配置并重启 RAGFlow：
+
+```bash
+./bootstrap.sh init
+./bootstrap.sh ragflow-up
+```
+
+生成的 `.runtime/ragflow-service_conf.yaml.template` 中应包含：
+
+```yaml
+user_default_llm:
+  default_models:
+    embedding_model:
+      name: 'BAAI/bge-small-en-v1.5'
+      factory: 'Builtin'
+      api_key: 'xxx'
+      base_url: 'http://pska-embedding:80'
+```
 
 ## 运行态目录
 

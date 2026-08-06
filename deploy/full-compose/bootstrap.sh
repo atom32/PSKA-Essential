@@ -324,17 +324,33 @@ dest = Path(sys.argv[2])
 embedding_enabled = os.getenv("EMBEDDING_ENABLED", "1") != "0"
 embedding_port = os.getenv("EMBEDDING_HOST_PORT", "6380")
 explicit_base_url = os.getenv("RAGFLOW_TEI_BASE_URL")
+tei_model = os.getenv("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5"
 base_url = explicit_base_url or (
     "http://pska-embedding:80"
     if embedding_enabled
     else f"http://host.docker.internal:{embedding_port}"
 )
 text = source.read_text(encoding="utf-8")
-old = "      base_url: 'http://${TEI_HOST}:80'"
-if old not in text:
-    raise SystemExit(f"unsupported RAGFlow service_conf template; TEI base_url marker not found in {source}")
 if embedding_enabled or explicit_base_url:
-    text = text.replace(old, f"      base_url: '{base_url}'", 1)
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
+        if line.strip() != "embedding_model:" or line.lstrip().startswith("#"):
+            continue
+        end = idx + 1
+        while end < len(lines) and lines[end].startswith("      "):
+            end += 1
+        block = [
+            line,
+            f"      name: '{tei_model}'",
+            "      factory: 'Builtin'",
+            "      api_key: 'xxx'",
+            f"      base_url: '{base_url}'",
+        ]
+        lines[idx:end] = block
+        text = "\n".join(lines) + "\n"
+        break
+    else:
+        raise SystemExit(f"unsupported RAGFlow service_conf template; embedding_model block not found in {source}")
 dest.parent.mkdir(parents=True, exist_ok=True)
 dest.write_text(text, encoding="utf-8")
 PY
@@ -379,6 +395,7 @@ minio_user = os.getenv("RAGFLOW_MINIO_USER", "rag_flow")
 minio_password = os.getenv("RAGFLOW_MINIO_PASSWORD", "pska_full_minio_change_me")
 elastic_password = os.getenv("RAGFLOW_ELASTIC_PASSWORD", "pska_full_elastic_change_me")
 opensearch_password = os.getenv("RAGFLOW_OPENSEARCH_PASSWORD", "PskA_full_OpenSearch_01!")
+opensearch_image = os.getenv("RAGFLOW_OPENSEARCH_IMAGE", "opensearchproject/opensearch:2.19.1")
 tei_base_url_lines = []
 if embedding_enabled or explicit_base_url:
     tei_base_url_lines = [f"      TEI_BASE_URL: {json.dumps(tei_base_url)}"]
@@ -426,6 +443,7 @@ override.write_text(
             "    environment:",
             *env_lines({"ELASTIC_PASSWORD": elastic_password}),
             "  opensearch01:",
+            f"    image: {json.dumps(opensearch_image)}",
             "    environment:",
             *env_lines({"OPENSEARCH_PASSWORD": opensearch_password, "OPENSEARCH_INITIAL_ADMIN_PASSWORD": opensearch_password}),
             "  mysql:",
@@ -498,6 +516,11 @@ suite_up() {
   esac
 }
 
+reattach_webui_sidecars() {
+  log "reattaching WebUI network sidecars"
+  suite_compose up -d --no-deps --force-recreate pska-api eidolia
+}
+
 ragflow_compose() {
   local profiles=("${DOC_ENGINE:-elasticsearch}" "${DEVICE:-cpu}")
   local item
@@ -566,6 +589,7 @@ cmd_up() {
   fi
   log "starting PSKA suite compose"
   suite_up
+  reattach_webui_sidecars
 }
 
 cmd_embedding_up() {

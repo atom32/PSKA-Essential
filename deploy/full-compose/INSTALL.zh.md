@@ -158,6 +158,20 @@ LLM API key 有两种方式：
 
 `RAGFLOW_API_KEY` 先留空，等 RAGFlow 初始化后再填。
 
+公司网络或弱网环境可选配置：
+
+```bash
+HTTP_PROXY=http://<proxy-host>:<proxy-port>
+HTTPS_PROXY=http://<proxy-host>:<proxy-port>
+ALL_PROXY=http://<proxy-host>:<proxy-port>
+NO_PROXY=localhost,127.0.0.1,::1,pska-embedding,host.docker.internal,<server-lan-cidr>
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+这些变量会传给构建过程和 embedding 容器。不要为弱网临时修改 Dockerfile、compose 文件或
+git remote。
+
 ## 5. 初始化并启动 RAGFlow
 
 先生成运行态配置并启动 embedding + RAGFlow：
@@ -405,6 +419,50 @@ HERMES_GATEWAY_BASE_URL=http://hermes-agent:8642
 
 这是正常的 streamable HTTP MCP 行为，不代表 MCP 挂了。验收以容器 health、
 Hermes Agent 配置和 `./bootstrap.sh smoke` 为准。
+
+RAGFlow 配置页面找不到内置 embedding 模型：
+
+确认本地 TEI 容器可用：
+
+```bash
+curl -fsS http://127.0.0.1:6380/info
+docker exec ragflow-ragflow-cpu-1 curl -fsS http://pska-embedding:80/info
+```
+
+然后确认生成的 RAGFlow 配置里有完整模型声明：
+
+```bash
+grep -A5 -n "embedding_model:" .runtime/ragflow-service_conf.yaml.template
+```
+
+应看到类似：
+
+```yaml
+embedding_model:
+  name: 'BAAI/bge-small-en-v1.5'
+  factory: 'Builtin'
+  api_key: 'xxx'
+  base_url: 'http://pska-embedding:80'
+```
+
+如果只有 `api_key/base_url`，说明部署版本过旧。更新 PSKA-Essential 后重新生成配置并重启
+RAGFlow：
+
+```bash
+git pull --ff-only
+./bootstrap.sh init
+./bootstrap.sh ragflow-up
+```
+
+WebUI 显示 `pska off`，但 `pska-api` / `eidolia` 容器看起来是 running/healthy：
+
+这通常是 `hermes-webui` 被单独重建后，`network_mode: service:hermes-webui` 的 sidecar
+还挂在旧网络命名空间。新版 `./bootstrap.sh up` 会自动重建 `pska-api` 和 `eidolia`；
+老版本可手动执行：
+
+```bash
+docker compose --project-name pska-full --env-file .env -f docker-compose.yml up -d --no-deps --force-recreate pska-api eidolia
+```
 
 局域网无法访问 `8787` 或 `9222`：
 

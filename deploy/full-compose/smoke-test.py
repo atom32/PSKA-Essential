@@ -153,6 +153,37 @@ def compact_dataset(dataset: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def resolve_config_path(env_file: Path, raw: str | None, fallback: str) -> Path:
+    value = raw or fallback
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = env_file.resolve().parent / path
+    return path
+
+
+def check_generated_ragflow_embedding_config(env_file: Path, env: dict[str, str]) -> dict[str, Any]:
+    suite_home = resolve_config_path(env_file, env.get("PSKA_SUITE_HOME"), ".runtime")
+    service_conf = Path(env.get("PSKA_RAGFLOW_SERVICE_CONF", "")) if env.get("PSKA_RAGFLOW_SERVICE_CONF") else suite_home / "ragflow-service_conf.yaml.template"
+    if not service_conf.is_absolute():
+        service_conf = env_file.resolve().parent / service_conf
+    if not service_conf.exists():
+        return {"skipped": True, "reason": f"not found: {service_conf}"}
+    text = service_conf.read_text(encoding="utf-8")
+    expected_model = env.get("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5"
+    ok = (
+        "embedding_model:" in text
+        and f"name: '{expected_model}'" in text
+        and "factory: 'Builtin'" in text
+        and "base_url: 'http://pska-embedding:80'" in text
+    )
+    if not ok:
+        raise RuntimeError(
+            "Generated RAGFlow embedding config is incomplete; run ./bootstrap.sh init with a version "
+            "that writes name/factory/base_url for the Builtin TEI embedding model."
+        )
+    return {"ok": True, "file": str(service_conf), "model": expected_model, "factory": "Builtin"}
+
+
 def check_eidolia_generation(client: SmokeClient) -> dict[str, Any]:
     stamp = _dt.datetime.now().strftime("%Y%m%d%H%M%S")
     project_id = f"pska-smoke-eidolia-{stamp}"
@@ -305,7 +336,8 @@ def main() -> int:
     parser.add_argument("--run-eidolia", action="store_true")
     args = parser.parse_args()
 
-    env.update(load_env_file(Path(args.env_file)))
+    env_file = Path(args.env_file).expanduser()
+    env.update(load_env_file(env_file))
     base_url = args.base_url or env.get("PSKA_SMOKE_BASE_URL") or f"http://127.0.0.1:{env.get('HERMES_WEBUI_PORT', '8787')}"
     password = args.password or env.get("PSKA_SMOKE_WEBUI_PASSWORD") or env.get("HERMES_WEBUI_PASSWORD", "")
     run_eidolia = args.run_eidolia or env_bool(env.get("PSKA_SMOKE_RUN_EIDOLIA"), False)
@@ -390,6 +422,9 @@ def main() -> int:
         )
     if dataset_names:
         results["checks"]["dataset_readiness"] = readiness_results
+
+    if env.get("EMBEDDING_ENABLED", "1") != "0":
+        results["checks"]["ragflow_embedding_config"] = check_generated_ragflow_embedding_config(env_file, env)
 
     if run_eidolia:
         results["checks"]["eidolia_generation"] = check_eidolia_generation(client)
