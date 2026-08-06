@@ -15,6 +15,8 @@ import http.cookiejar
 import json
 import os
 import re
+import shlex
+import subprocess
 import sys
 import time
 import urllib.error
@@ -182,6 +184,63 @@ def check_generated_ragflow_embedding_config(env_file: Path, env: dict[str, str]
             "that writes name/factory/base_url for the Builtin TEI embedding model."
         )
     return {"ok": True, "file": str(service_conf), "model": expected_model, "factory": "Builtin"}
+
+
+def run_local_command(args: list[str], timeout: int = 15) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(args, check=False, text=True, capture_output=True, timeout=timeout)
+
+
+def check_ragflow_embedding_model_tables(env: dict[str, str]) -> dict[str, Any]:
+    project = env.get("RAGFLOW_PROJECT") or "ragflow"
+    model = env.get("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5"
+    ps = run_local_command(
+        [
+            "docker",
+            "ps",
+            "--filter",
+            f"label=com.docker.compose.project={project}",
+            "--filter",
+            "label=com.docker.compose.service=mysql",
+            "--format",
+            "{{.Names}}",
+        ]
+    )
+    if ps.returncode != 0:
+        return {"skipped": True, "reason": "docker ps failed", "stderr": ps.stderr.strip()[:500]}
+    mysql_container = (ps.stdout.strip().splitlines() or [""])[0]
+    if not mysql_container:
+        return {"skipped": True, "reason": f"RAGFlow MySQL container not found for project {project}"}
+
+    literal_model = "'" + model.replace("\\", "\\\\").replace("'", "''") + "'"
+    sql = f"""
+SELECT
+  (SELECT COUNT(*) FROM llm_factories WHERE name='Builtin' AND status='1') AS builtin_factories,
+  (SELECT COUNT(*) FROM llm WHERE fid='Builtin' AND llm_name={literal_model} AND model_type='embedding' AND status='1') AS builtin_models,
+  (SELECT COUNT(*) FROM tenant) AS tenants,
+  (SELECT COUNT(*) FROM tenant_llm WHERE llm_factory='Builtin' AND llm_name={literal_model} AND model_type='embedding' AND status='1') AS tenant_models;
+""".strip()
+    command = f'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -D rag_flow -N -B -e {shlex.quote(sql)}'
+    result = run_local_command(["docker", "exec", mysql_container, "sh", "-lc", command])
+    if result.returncode != 0:
+        raise RuntimeError(f"RAGFlow model table check failed: {result.stderr.strip()[:800]}")
+    parts = result.stdout.strip().split()
+    if len(parts) < 4:
+        raise RuntimeError(f"RAGFlow model table check returned unexpected output: {result.stdout.strip()[:800]}")
+    factory_count, model_count, tenant_count, tenant_model_count = [int(item) for item in parts[:4]]
+    ok = factory_count >= 1 and model_count >= 1 and tenant_model_count >= tenant_count
+    if not ok:
+        raise RuntimeError(
+            "RAGFlow Builtin embedding is not visible in model tables; run ./bootstrap.sh ragflow-model-sync."
+        )
+    return {
+        "ok": True,
+        "model": model,
+        "factory": "Builtin",
+        "builtin_factories": factory_count,
+        "builtin_models": model_count,
+        "tenants": tenant_count,
+        "tenant_models": tenant_model_count,
+    }
 
 
 def check_eidolia_generation(client: SmokeClient) -> dict[str, Any]:
@@ -425,6 +484,7 @@ def main() -> int:
 
     if env.get("EMBEDDING_ENABLED", "1") != "0":
         results["checks"]["ragflow_embedding_config"] = check_generated_ragflow_embedding_config(env_file, env)
+        results["checks"]["ragflow_embedding_model_tables"] = check_ragflow_embedding_model_tables(env)
 
     if run_eidolia:
         results["checks"]["eidolia_generation"] = check_eidolia_generation(client)

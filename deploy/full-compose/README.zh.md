@@ -213,6 +213,7 @@ RAGFlow -> PSKA embedding container -> local TEI model
 ./bootstrap.sh init
 ./bootstrap.sh embedding-up
 ./bootstrap.sh ragflow-up
+./bootstrap.sh ragflow-model-sync
 ./bootstrap.sh up
 PSKA_FULL_BUILD=1 ./bootstrap.sh up
 ./bootstrap.sh status
@@ -225,8 +226,9 @@ PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
 `down` 会停止服务但保留 Docker volume。清空数据请手动删除对应 volume。
 
 `smoke` 会按真实浏览器路径登录 WebUI，确认 extension sidecar、PSKA Product API、
-Eidolia Hermes Gateway backend 和数据集列表可用。设置 `PSKA_SMOKE_RUN_EIDOLIA=1`
-后会额外创建一个很小的 Eidolia 项目，通过 Hermes Gateway 异步生成一个 thought 节点。
+Eidolia Hermes Gateway backend、数据集列表、RAGFlow Builtin embedding 生成配置和
+模型表投影可用。设置 `PSKA_SMOKE_RUN_EIDOLIA=1` 后会额外创建一个很小的 Eidolia 项目，
+通过 Hermes Gateway 异步生成一个 thought 节点。
 
 如果 RAGFlow 的模型配置页找不到内置 embedding，先更新到包含本段的版本，然后重新生成
 运行配置并重启 RAGFlow：
@@ -234,6 +236,7 @@ Eidolia Hermes Gateway backend 和数据集列表可用。设置 `PSKA_SMOKE_RUN
 ```bash
 ./bootstrap.sh init
 ./bootstrap.sh ragflow-up
+./bootstrap.sh ragflow-model-sync
 ```
 
 生成的 `.runtime/ragflow-service_conf.yaml.template` 中应包含：

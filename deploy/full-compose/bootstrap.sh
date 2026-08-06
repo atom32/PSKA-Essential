@@ -570,6 +570,86 @@ ragflow_compose() {
   (cd "${RAGFLOW_HOME}/docker" && COMPOSE_PROJECT_NAME="${RAGFLOW_PROJECT:-ragflow}" docker_compose "${args[@]}" "$@")
 }
 
+wait_for_ragflow_mysql() {
+  local attempt
+  for attempt in $(seq 1 60); do
+    if ragflow_compose exec -T mysql sh -lc 'mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent' >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+ragflow_builtin_embedding_sql() {
+  local py
+  py="$(python_bin)"
+  "${py}" - <<'PY'
+import os
+
+
+def sql_string(value: str) -> str:
+    return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'"
+
+
+model = os.getenv("EMBEDDING_MODEL_ID") or "BAAI/bge-small-en-v1.5"
+base_url = os.getenv("RAGFLOW_TEI_BASE_URL") or (
+    "http://pska-embedding:80"
+    if os.getenv("EMBEDDING_ENABLED", "1") != "0"
+    else f"http://host.docker.internal:{os.getenv('EMBEDDING_HOST_PORT', '6380')}"
+)
+max_tokens = {
+    "BAAI/bge-small-en-v1.5": 512,
+    "BAAI/bge-m3": 8192,
+    "Qwen/Qwen3-Embedding-0.6B": 32768,
+}.get(model, 512)
+
+print(
+    f"""
+SET @model := {sql_string(model)};
+SET @api_base := {sql_string(base_url)};
+SET @max_tokens := {int(max_tokens)};
+
+INSERT INTO llm_factories (name, logo, tags, `rank`, status)
+VALUES ('Builtin', '', 'TEXT EMBEDDING', 0, '1')
+ON DUPLICATE KEY UPDATE tags=VALUES(tags), status=VALUES(status);
+
+INSERT INTO llm (llm_name, model_type, fid, max_tokens, tags, is_tools, status)
+VALUES (@model, 'embedding', 'Builtin', @max_tokens, CONCAT('TEXT EMBEDDING,', @max_tokens), 0, '1')
+ON DUPLICATE KEY UPDATE max_tokens=VALUES(max_tokens), tags=VALUES(tags), is_tools=VALUES(is_tools), status=VALUES(status);
+
+UPDATE tenant_llm
+SET api_key='xxx', api_base=@api_base, max_tokens=@max_tokens, status='1'
+WHERE llm_factory='Builtin' AND llm_name=@model AND model_type='embedding';
+
+INSERT INTO tenant_llm (tenant_id, llm_factory, model_type, llm_name, api_key, api_base, max_tokens, used_tokens, status)
+SELECT t.id, 'Builtin', 'embedding', @model, 'xxx', @api_base, @max_tokens, 0, '1'
+FROM tenant t
+WHERE NOT EXISTS (
+  SELECT 1 FROM tenant_llm x
+  WHERE x.tenant_id=t.id AND x.llm_factory='Builtin' AND x.llm_name=@model AND x.model_type='embedding'
+);
+
+UPDATE tenant
+SET embd_id=@model
+WHERE embd_id IS NULL OR embd_id='' OR embd_id=@model OR embd_id=CONCAT(@model, '@Builtin');
+""".strip()
+)
+PY
+}
+
+sync_ragflow_builtin_embedding() {
+  if [[ "${EMBEDDING_ENABLED:-1}" == "0" ]]; then
+    return
+  fi
+  if ! wait_for_ragflow_mysql; then
+    warn "RAGFlow MySQL is not ready; skipping Builtin embedding model metadata sync."
+    return
+  fi
+  log "syncing RAGFlow Builtin embedding model metadata"
+  ragflow_builtin_embedding_sql | ragflow_compose exec -T mysql sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -D rag_flow'
+}
+
 start_embedding_if_enabled() {
   if [[ "${EMBEDDING_ENABLED:-1}" == "0" ]]; then
     warn "EMBEDDING_ENABLED=0; PSKA-managed embedding service will not be started."
@@ -598,6 +678,7 @@ cmd_ragflow_up() {
   start_embedding_if_enabled
   log "starting RAGFlow upstream compose"
   ragflow_compose up -d
+  sync_ragflow_builtin_embedding
   log "RAGFlow UI: http://127.0.0.1:${RAGFLOW_WEB_HTTP_PORT:-8080}"
   log "RAGFlow API: http://127.0.0.1:${RAGFLOW_HOST_PORT:-9380}"
 }
@@ -608,6 +689,7 @@ cmd_up() {
   start_embedding_if_enabled
   log "starting RAGFlow upstream compose"
   ragflow_compose up -d
+  sync_ragflow_builtin_embedding
   if [[ "${PSKA_RETRIEVAL_PROVIDER:-ragflow}" == "ragflow" && -z "${RAGFLOW_API_KEY:-}" ]]; then
     warn "RAGFLOW_API_KEY is empty. RAGFlow is started so you can create/configure the key."
     warn "Open http://127.0.0.1:${RAGFLOW_WEB_HTTP_PORT:-8080}, create an API key/model provider, put it in ${ENV_FILE}, then rerun ./bootstrap.sh up."
@@ -621,6 +703,12 @@ cmd_up() {
 cmd_embedding_up() {
   cmd_init
   start_embedding_if_enabled
+}
+
+cmd_ragflow_model_sync() {
+  load_env
+  resolve_paths
+  sync_ragflow_builtin_embedding
 }
 
 cmd_down() {
@@ -663,17 +751,19 @@ case "${cmd:-up}" in
   embedding-up) cmd_embedding_up ;;
   up) cmd_up ;;
   ragflow-up) cmd_ragflow_up ;;
+  ragflow-model-sync) cmd_ragflow_model_sync ;;
   down) cmd_down ;;
   status) cmd_status ;;
   logs) cmd_logs "$@" ;;
   smoke) cmd_smoke "$@" ;;
   *)
     cat <<'USAGE'
-Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|up|status|logs|smoke|down]
+Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|ragflow-model-sync|up|status|logs|smoke|down]
 
   init        Clone/check repos and generate Hermes/PSKA config.
   embedding-up  Start the local embedding service only.
   ragflow-up  Start only RAGFlow so you can create the first API key.
+  ragflow-model-sync  Sync Builtin TEI embedding metadata into RAGFlow's model tables.
   up          Start RAGFlow, then PSKA suite when RAGFLOW_API_KEY is set.
   status      Show both compose projects.
   logs        Follow PSKA suite logs; pass service names after logs.

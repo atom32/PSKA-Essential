@@ -478,6 +478,17 @@ git pull --ff-only
 ./bootstrap.sh ragflow-up
 ```
 
+如果配置已经完整，但 `http://<server>:8080/user-setting/model` 里仍然不显示 Builtin
+embedding，说明 RAGFlow 的租户模型表还没有投影这条内置模型。执行：
+
+```bash
+./bootstrap.sh ragflow-model-sync
+./bootstrap.sh smoke
+```
+
+`smoke` 会检查 `llm_factories`、`llm`、`tenant_llm` 三张表中是否有
+`BAAI/bge-small-en-v1.5 / Builtin`。通过后刷新 RAGFlow 页面。
+
 WebUI 显示 `pska off`，但 `pska-api` / `eidolia` 容器看起来是 running/healthy：
 
 这通常是 `hermes-webui` 被单独重建后，`network_mode: service:hermes-webui` 的 sidecar
