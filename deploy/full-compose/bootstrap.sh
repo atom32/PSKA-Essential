@@ -609,6 +609,7 @@ print(
 SET @model := {sql_string(model)};
 SET @api_base := {sql_string(base_url)};
 SET @max_tokens := {int(max_tokens)};
+SET @instance := 'default';
 
 INSERT INTO llm_factories (name, logo, tags, `rank`, status)
 VALUES ('Builtin', '', 'TEXT EMBEDDING', 0, '1')
@@ -630,9 +631,58 @@ WHERE NOT EXISTS (
   WHERE x.tenant_id=t.id AND x.llm_factory='Builtin' AND x.llm_name=@model AND x.model_type='embedding'
 );
 
+INSERT INTO tenant_model_provider (id, create_time, create_date, update_time, update_date, provider_name, tenant_id)
+SELECT LOWER(MD5(CONCAT(t.id, ':Builtin'))), UNIX_TIMESTAMP(NOW(3))*1000, NOW(), UNIX_TIMESTAMP(NOW(3))*1000, NOW(), 'Builtin', t.id
+FROM tenant t
+WHERE NOT EXISTS (
+  SELECT 1 FROM tenant_model_provider p
+  WHERE p.tenant_id=t.id AND p.provider_name='Builtin'
+);
+
+INSERT INTO tenant_model_instance (id, create_time, create_date, update_time, update_date, instance_name, provider_id, api_key, status, extra)
+SELECT LOWER(MD5(CONCAT(p.id, ':', @instance))), UNIX_TIMESTAMP(NOW(3))*1000, NOW(), UNIX_TIMESTAMP(NOW(3))*1000, NOW(), @instance, p.id, 'xxx', 'active', JSON_OBJECT('base_url', @api_base)
+FROM tenant_model_provider p
+WHERE p.provider_name='Builtin'
+  AND NOT EXISTS (
+    SELECT 1 FROM tenant_model_instance i
+    WHERE i.provider_id=p.id AND i.instance_name=@instance
+  );
+
+UPDATE tenant_model_instance i
+JOIN tenant_model_provider p ON p.id=i.provider_id AND p.provider_name='Builtin'
+SET i.api_key='xxx',
+    i.status='active',
+    i.extra=JSON_OBJECT('base_url', @api_base),
+    i.update_time=UNIX_TIMESTAMP(NOW(3))*1000,
+    i.update_date=NOW()
+WHERE i.instance_name=@instance;
+
+INSERT INTO tenant_model (id, create_time, create_date, update_time, update_date, model_name, provider_id, instance_id, model_type, status, extra)
+SELECT LOWER(MD5(CONCAT(i.id, ':', @model, ':embedding'))), UNIX_TIMESTAMP(NOW(3))*1000, NOW(), UNIX_TIMESTAMP(NOW(3))*1000, NOW(), @model, p.id, i.id, 'embedding', 'active', JSON_OBJECT('max_tokens', @max_tokens)
+FROM tenant_model_provider p
+JOIN tenant_model_instance i ON i.provider_id=p.id AND i.instance_name=@instance
+WHERE p.provider_name='Builtin'
+  AND NOT EXISTS (
+    SELECT 1 FROM tenant_model m
+    WHERE m.provider_id=p.id AND m.instance_id=i.id AND m.model_name=@model AND m.model_type='embedding'
+  );
+
+UPDATE tenant_model m
+JOIN tenant_model_provider p ON p.id=m.provider_id AND p.provider_name='Builtin'
+JOIN tenant_model_instance i ON i.id=m.instance_id AND i.instance_name=@instance
+SET m.status='active',
+    m.extra=JSON_OBJECT('max_tokens', @max_tokens),
+    m.update_time=UNIX_TIMESTAMP(NOW(3))*1000,
+    m.update_date=NOW()
+WHERE m.model_name=@model AND m.model_type='embedding';
+
 UPDATE tenant
-SET embd_id=@model
-WHERE embd_id IS NULL OR embd_id='' OR embd_id=@model OR embd_id=CONCAT(@model, '@Builtin');
+SET embd_id=CONCAT(@model, '@', @instance, '@Builtin')
+WHERE embd_id IS NULL
+   OR embd_id=''
+   OR embd_id=@model
+   OR embd_id=CONCAT(@model, '@Builtin')
+   OR embd_id=CONCAT(@model, '@', @instance, '@Builtin');
 """.strip()
 )
 PY

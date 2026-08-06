@@ -217,20 +217,60 @@ SELECT
   (SELECT COUNT(*) FROM llm_factories WHERE name='Builtin' AND status='1') AS builtin_factories,
   (SELECT COUNT(*) FROM llm WHERE fid='Builtin' AND llm_name={literal_model} AND model_type='embedding' AND status='1') AS builtin_models,
   (SELECT COUNT(*) FROM tenant) AS tenants,
-  (SELECT COUNT(*) FROM tenant_llm WHERE llm_factory='Builtin' AND llm_name={literal_model} AND model_type='embedding' AND status='1') AS tenant_models;
+  (SELECT COUNT(*) FROM tenant_llm WHERE llm_factory='Builtin' AND llm_name={literal_model} AND model_type='embedding' AND status='1') AS tenant_models,
+  (SELECT COUNT(*) FROM tenant_model_provider WHERE provider_name='Builtin') AS ui_providers,
+  (
+    SELECT COUNT(*)
+    FROM tenant_model_instance i
+    JOIN tenant_model_provider p ON p.id=i.provider_id
+    WHERE p.provider_name='Builtin' AND i.instance_name='default' AND i.status='active'
+  ) AS ui_instances,
+  (
+    SELECT COUNT(*)
+    FROM tenant_model m
+    JOIN tenant_model_provider p ON p.id=m.provider_id
+    JOIN tenant_model_instance i ON i.id=m.instance_id
+    WHERE p.provider_name='Builtin'
+      AND i.instance_name='default'
+      AND m.model_name={literal_model}
+      AND m.model_type='embedding'
+      AND m.status='active'
+  ) AS ui_models,
+  (
+    SELECT COUNT(*)
+    FROM tenant
+    WHERE embd_id=CONCAT({literal_model}, '@default@Builtin')
+  ) AS tenant_default_models;
 """.strip()
     command = f'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -D rag_flow -N -B -e {shlex.quote(sql)}'
     result = run_local_command(["docker", "exec", mysql_container, "sh", "-lc", command])
     if result.returncode != 0:
         raise RuntimeError(f"RAGFlow model table check failed: {result.stderr.strip()[:800]}")
     parts = result.stdout.strip().split()
-    if len(parts) < 4:
+    if len(parts) < 8:
         raise RuntimeError(f"RAGFlow model table check returned unexpected output: {result.stdout.strip()[:800]}")
-    factory_count, model_count, tenant_count, tenant_model_count = [int(item) for item in parts[:4]]
-    ok = factory_count >= 1 and model_count >= 1 and tenant_model_count >= tenant_count
+    (
+        factory_count,
+        model_count,
+        tenant_count,
+        tenant_model_count,
+        ui_provider_count,
+        ui_instance_count,
+        ui_model_count,
+        tenant_default_count,
+    ) = [int(item) for item in parts[:8]]
+    ok = (
+        factory_count >= 1
+        and model_count >= 1
+        and tenant_model_count >= tenant_count
+        and ui_provider_count >= tenant_count
+        and ui_instance_count >= tenant_count
+        and ui_model_count >= tenant_count
+        and tenant_default_count >= tenant_count
+    )
     if not ok:
         raise RuntimeError(
-            "RAGFlow Builtin embedding is not visible in model tables; run ./bootstrap.sh ragflow-model-sync."
+            "RAGFlow Builtin embedding is not visible to the model settings API; run ./bootstrap.sh ragflow-model-sync."
         )
     return {
         "ok": True,
@@ -240,6 +280,10 @@ SELECT
         "builtin_models": model_count,
         "tenants": tenant_count,
         "tenant_models": tenant_model_count,
+        "ui_providers": ui_provider_count,
+        "ui_instances": ui_instance_count,
+        "ui_models": ui_model_count,
+        "tenant_default_models": tenant_default_count,
     }
 
 

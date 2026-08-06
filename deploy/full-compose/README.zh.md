@@ -226,8 +226,9 @@ PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
 `down` 会停止服务但保留 Docker volume。清空数据请手动删除对应 volume。
 
 `smoke` 会按真实浏览器路径登录 WebUI，确认 extension sidecar、PSKA Product API、
-Eidolia Hermes Gateway backend、数据集列表、RAGFlow Builtin embedding 生成配置和
-模型表投影可用。设置 `PSKA_SMOKE_RUN_EIDOLIA=1` 后会额外创建一个很小的 Eidolia 项目，
+Eidolia Hermes Gateway backend、数据集列表、RAGFlow Builtin embedding 生成配置、
+旧 `tenant_llm` 兼容表和新 `tenant_model_*` UI 投影表可用。设置
+`PSKA_SMOKE_RUN_EIDOLIA=1` 后会额外创建一个很小的 Eidolia 项目，
 通过 Hermes Gateway 异步生成一个 thought 节点。
 
 如果 RAGFlow 的模型配置页找不到内置 embedding，先更新到包含本段的版本，然后重新生成
@@ -238,6 +239,12 @@ Eidolia Hermes Gateway backend、数据集列表、RAGFlow Builtin embedding 生
 ./bootstrap.sh ragflow-up
 ./bootstrap.sh ragflow-model-sync
 ```
+
+`ragflow-model-sync` 会同步三层状态：`service_conf.yaml.template` 的 Builtin TEI 配置、
+RAGFlow 旧模型表，以及 v0.26 模型设置页使用的新 `tenant_model_provider` /
+`tenant_model_instance` / `tenant_model` 表。同步后刷新
+`http://<server>:8080/user-setting/model`，Embedding 下拉应出现
+`BAAI/bge-small-en-v1.5`。
 
 生成的 `.runtime/ragflow-service_conf.yaml.template` 中应包含：
 

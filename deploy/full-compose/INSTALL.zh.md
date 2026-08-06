@@ -479,15 +479,18 @@ git pull --ff-only
 ```
 
 如果配置已经完整，但 `http://<server>:8080/user-setting/model` 里仍然不显示 Builtin
-embedding，说明 RAGFlow 的租户模型表还没有投影这条内置模型。执行：
+embedding，说明 RAGFlow 的租户模型表还没有投影这条内置模型。RAGFlow v0.26 的页面
+不仅依赖旧 `tenant_llm`，还依赖新的 `tenant_model_provider` /
+`tenant_model_instance` / `tenant_model`。执行：
 
 ```bash
 ./bootstrap.sh ragflow-model-sync
 ./bootstrap.sh smoke
 ```
 
-`smoke` 会检查 `llm_factories`、`llm`、`tenant_llm` 三张表中是否有
-`BAAI/bge-small-en-v1.5 / Builtin`。通过后刷新 RAGFlow 页面。
+`smoke` 会检查 `llm_factories`、`llm`、`tenant_llm`、`tenant_model_*` 和 tenant
+默认 embedding 是否都指向 `BAAI/bge-small-en-v1.5@default@Builtin`。通过后刷新
+RAGFlow 页面。
 
 WebUI 显示 `pska off`，但 `pska-api` / `eidolia` 容器看起来是 running/healthy：
 
