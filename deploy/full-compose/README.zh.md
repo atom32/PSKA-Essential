@@ -92,8 +92,8 @@ cp .env.example .env
 - `RAGFLOW_TEI_BASE_URL` 可以留空，脚本会让 RAGFlow 通过 Docker 私有网络访问
   `http://pska-embedding:80`，不需要把 embedding 暴露到局域网。
 - 弱网或公司网络需要代理/镜像源时，优先在 `.env` 配置 `HTTP_PROXY`、
-  `HTTPS_PROXY`、`NO_PROXY`、`PIP_INDEX_URL`、`UV_DEFAULT_INDEX`，不要手改
-  Dockerfile 或 git remote。
+  `HTTPS_PROXY`、`NO_PROXY`、`NPM_CONFIG_REGISTRY`、`PIP_INDEX_URL`、
+  `UV_DEFAULT_INDEX`，不要手改 Dockerfile 或 git remote。
 
 可用下面命令生成 Gateway token：
 

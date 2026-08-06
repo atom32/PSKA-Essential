@@ -197,6 +197,8 @@ services:
     build:
       context: ${EIDOLIA_REPO:-./.runtime/repos/InfinityCanvas}
       dockerfile: Dockerfile
+      args:
+        NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-}
     image: pska-full/eidolia:${PSKA_FULL_IMAGE_TAG:-local}
     network_mode: "service:hermes-webui"
     depends_on:

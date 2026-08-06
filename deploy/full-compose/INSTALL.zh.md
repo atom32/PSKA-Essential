@@ -189,6 +189,7 @@ HTTP_PROXY=http://<proxy-host>:<proxy-port>
 HTTPS_PROXY=http://<proxy-host>:<proxy-port>
 ALL_PROXY=http://<proxy-host>:<proxy-port>
 NO_PROXY=localhost,127.0.0.1,::1,pska-embedding,host.docker.internal,<server-lan-cidr>
+NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
 ```
