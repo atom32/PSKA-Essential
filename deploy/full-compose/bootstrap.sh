@@ -547,6 +547,28 @@ reattach_webui_sidecars() {
   suite_compose up -d --no-deps --force-recreate pska-api eidolia
 }
 
+check_webui_sidecars() {
+  log "checking WebUI loopback sidecars from hermes-webui container"
+  suite_compose exec -T hermes-webui sh -lc '
+    set -eu
+    for url in http://127.0.0.1:8765/api/health http://127.0.0.1:8797/health; do
+      ok=0
+      for attempt in $(seq 1 30); do
+        if curl -fsS "$url" >/dev/null; then
+          ok=1
+          break
+        fi
+        sleep 1
+      done
+      if [ "$ok" != "1" ]; then
+        echo "Sidecar health check failed: $url" >&2
+        exit 1
+      fi
+    done
+  '
+  log "WebUI loopback sidecars are reachable"
+}
+
 ragflow_compose() {
   local profiles=("${DOC_ENGINE:-elasticsearch}" "${DEVICE:-cpu}")
   local item
@@ -748,6 +770,14 @@ cmd_up() {
   log "starting PSKA suite compose"
   suite_up
   reattach_webui_sidecars
+  check_webui_sidecars
+}
+
+cmd_sidecars() {
+  load_env
+  resolve_paths
+  reattach_webui_sidecars
+  check_webui_sidecars
 }
 
 cmd_embedding_up() {
@@ -802,19 +832,21 @@ case "${cmd:-up}" in
   up) cmd_up ;;
   ragflow-up) cmd_ragflow_up ;;
   ragflow-model-sync) cmd_ragflow_model_sync ;;
+  sidecars) cmd_sidecars ;;
   down) cmd_down ;;
   status) cmd_status ;;
   logs) cmd_logs "$@" ;;
   smoke) cmd_smoke "$@" ;;
   *)
     cat <<'USAGE'
-Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|ragflow-model-sync|up|status|logs|smoke|down]
+Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|ragflow-model-sync|up|sidecars|status|logs|smoke|down]
 
   init        Clone/check repos and generate Hermes/PSKA config.
   embedding-up  Start the local embedding service only.
   ragflow-up  Start only RAGFlow so you can create the first API key.
   ragflow-model-sync  Sync Builtin TEI embedding metadata into RAGFlow's model tables.
   up          Start RAGFlow, then PSKA suite when RAGFLOW_API_KEY is set.
+  sidecars    Reattach pska-api/eidolia to the current Hermes-WebUI network namespace.
   status      Show both compose projects.
   logs        Follow PSKA suite logs; pass service names after logs.
   smoke       Run browser-facing WebUI/extension/PSKA/Eidolia smoke checks.

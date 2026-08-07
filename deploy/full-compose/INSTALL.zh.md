@@ -353,6 +353,7 @@ PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
 ```bash
 curl -sS -o /dev/null -w "webui:%{http_code}\n" http://127.0.0.1:8787/
 docker exec pska-full-hermes-webui-1 curl -fsS http://127.0.0.1:8765/api/health | jq .
+docker exec pska-full-hermes-webui-1 curl -fsS http://127.0.0.1:8797/health | jq .
 ```
 
 `webui` 返回 `302` 是正常的，表示未登录时跳转到登录流程。
@@ -389,6 +390,57 @@ cd ~/pska-demo/PSKA-Essential/deploy/full-compose
 
 4. 在管理员 PowerShell 执行 `refresh-wsl-portproxy.ps1`。
 5. 打开 `http://127.0.0.1:8787` 或局域网 `http://<Windows-LAN-IP>:8787`。
+
+如果只是重启或重建了 `hermes-webui`，不要把 `eidolia`、`pska-api` 和 WebUI 混在一个
+`docker compose restart ...` 里同时重启。`pska-api` 和 `eidolia` 使用
+`network_mode: service:hermes-webui`，WebUI 换了网络命名空间以后，它们必须重新挂回去：
+
+```bash
+./bootstrap.sh sidecars
+```
+
+浏览器 console 里如果出现：
+
+```text
+/api/extensions/pska-mini/sidecar/... 502
+/api/extensions/eidolia/sidecar/... 502
+```
+
+优先执行上面的 `sidecars`，再刷新页面。`Banner not shown`、`Tracking Prevention`
+通常不是故障根因。
+
+### Windows 桌面快捷脚本
+
+为了演示机日常使用，可以把整个 `deploy/full-compose/windows/` 文件夹复制到桌面或固定位置，
+也可以在原目录里直接双击运行。不要只复制单个 `.cmd`，这些脚本依赖同目录下的
+`_pska-wsl-run.cmd` helper：
+
+- `pska-start.cmd`：启动 RAGFlow、embedding、Hermes、WebUI、PSKA、Eidolia，并显示状态。
+- `pska-stop.cmd`：停止整套服务但保留数据。
+- `pska-status.cmd`：查看服务状态。
+- `pska-smoke.cmd`：运行基础 smoke test。
+- `pska-fix-sidecars.cmd`：WebUI 能打开但 PSKA chip / Eidolia 报 502 时使用。
+- `pska-refresh-portproxy.cmd`：刷新 Windows 到 WSL 的端口转发；需要管理员终端。
+- `pska-stop-and-shutdown-wsl.cmd`：先停服务，再执行 `wsl --shutdown`。
+
+默认脚本假设：
+
+```text
+WSL distro: Ubuntu-24.04
+PSKA path: ~/pska-demo/PSKA-Essential/deploy/full-compose
+```
+
+如果不同，复制：
+
+```text
+windows/pska-demo-env.cmd.example -> windows/pska-demo-env.cmd
+```
+
+然后修改其中的 `PSKA_WSL_DISTRO` 和 `PSKA_WSL_COMPOSE_DIR`。
+
+WSL 不会因为关闭终端就一定停止。只要 Docker Desktop、compose 容器、systemd 或后台进程仍在，
+WSL2 VM 可能继续运行。演示结束后建议先运行 `pska-stop.cmd`。如果要明确释放 WSL2 VM，
+再运行 `pska-stop-and-shutdown-wsl.cmd`。
 
 ## 10. 更新代码
 
@@ -500,10 +552,18 @@ WebUI 显示 `pska off`，但 `pska-api` / `eidolia` 容器看起来是 running/
 
 这通常是 `hermes-webui` 被单独重建后，`network_mode: service:hermes-webui` 的 sidecar
 还挂在旧网络命名空间。新版 `./bootstrap.sh up` 会自动重建 `pska-api` 和 `eidolia`；
-老版本可手动执行：
+也可以单独执行：
 
 ```bash
-docker compose --project-name pska-full --env-file .env -f docker-compose.yml up -d --no-deps --force-recreate pska-api eidolia
+./bootstrap.sh sidecars
+```
+
+不要只看 `docker compose ps` 的 healthy 状态。Eidolia/PSKA API 自己 healthy，只说明它们
+容器内部能响应；WebUI extension 需要的是从 `hermes-webui` 容器内部访问 loopback：
+
+```bash
+docker compose --project-name pska-full --env-file .env -f docker-compose.yml exec hermes-webui sh -lc \
+  'curl -fsS http://127.0.0.1:8765/api/health && curl -fsS http://127.0.0.1:8797/health'
 ```
 
 局域网无法访问 `8787` 或 `9222`：

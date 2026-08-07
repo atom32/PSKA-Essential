@@ -217,6 +217,7 @@ RAGFlow -> PSKA embedding container -> local TEI model
 ./bootstrap.sh ragflow-up
 ./bootstrap.sh ragflow-model-sync
 ./bootstrap.sh up
+./bootstrap.sh sidecars
 PSKA_FULL_BUILD=1 ./bootstrap.sh up
 ./bootstrap.sh status
 ./bootstrap.sh smoke
@@ -226,6 +227,18 @@ PSKA_SMOKE_RUN_EIDOLIA=1 ./bootstrap.sh smoke
 ```
 
 `down` 会停止服务但保留 Docker volume。清空数据请手动删除对应 volume。
+
+`sidecars` 用于修复 WebUI extension 访问 PSKA Product API / Eidolia 的 loopback 链路。
+`pska-api` 和 `eidolia` 使用 `network_mode: service:hermes-webui`，所以 WebUI 被重启
+或重建后，这两个 sidecar 容器要重新挂回当前 WebUI 网络命名空间。出现
+`/api/extensions/.../sidecar/... 502` 时，优先执行：
+
+```bash
+./bootstrap.sh sidecars
+```
+
+不要只看 `docker compose ps` 的 healthy 状态；正确检查点是从 `hermes-webui` 容器内部
+访问 `127.0.0.1:8765` 和 `127.0.0.1:8797`。`./bootstrap.sh sidecars` 会自动做这个检查。
 
 `smoke` 会按真实浏览器路径登录 WebUI，确认 extension sidecar、PSKA Product API、
 Eidolia Hermes Gateway backend、数据集列表、RAGFlow Builtin embedding 生成配置、
@@ -290,3 +303,25 @@ deploy/full-compose/.runtime
 pska-mini -> http://127.0.0.1:8765
 eidolia -> http://127.0.0.1:8797
 ```
+
+## Windows 快捷入口
+
+WSL 演示机可以使用 `windows/` 目录下的批处理文件，不必每次进 WSL 手动执行。建议把整个
+`windows/` 文件夹复制到桌面或固定位置，因为这些脚本依赖同目录下的 `_pska-wsl-run.cmd`
+helper：
+
+- `pska-start.cmd`：启动全套服务并显示状态。
+- `pska-stop.cmd`：停止服务，保留 Docker volume。
+- `pska-status.cmd`：查看服务状态。
+- `pska-smoke.cmd`：运行基础 smoke test。
+- `pska-fix-sidecars.cmd`：WebUI 能打开但 PSKA chip / Eidolia 报 502 时使用。
+- `pska-refresh-portproxy.cmd`：刷新 Windows 到 WSL 的端口转发，需要管理员终端。
+- `pska-stop-and-shutdown-wsl.cmd`：先停服务，再执行 `wsl --shutdown`。
+
+默认假设 WSL distro 是 `Ubuntu-24.04`，项目路径是
+`~/pska-demo/PSKA-Essential/deploy/full-compose`。如果不同，复制
+`windows/pska-demo-env.cmd.example` 为 `windows/pska-demo-env.cmd` 后修改。
+
+WSL 不会因为关闭终端就一定自动停止。只要 Docker Desktop、compose 容器或后台服务还在，
+WSL2 VM 可能继续运行。演示结束后建议先运行 `pska-stop.cmd`；需要明确释放 WSL 时再运行
+`pska-stop-and-shutdown-wsl.cmd`。

@@ -47,6 +47,10 @@ Hermes、Eidolia、RAGFlow 和 memory/review 后端通过稳定协议协作。
 | 红楼梦 Hermes high readable | `ccfc1782831711f193b5db2a53339036` | 1 doc / 1 chunk | 小型连通性测试 |
 | 红楼梦 Hermes UI full | `2906ace8830b11f189366f73247a116f` | 1 doc / 1695 chunks | Eidolia 文学创作证据 demo |
 | 海康威视年报测试 | `ca1e8d527f4c11f189366f73247a116f` | 3 docs / 2183 chunks | 旧金融/年报 demo |
+| Demo-合同 | `0e55f99c913611f1a5cbf98514240dc5` | 2 docs / 25 chunks | Eidolia 文档生成/审核 demo |
+| Demo-投标文件 | `283308aa913611f1a5cbf98514240dc5` | 4 docs / 57 chunks | Eidolia 文档生成/审核 demo |
+| Demo-研究报告 | `3d8df322913611f1a5cbf98514240dc5` | 2 docs / 176 chunks | Eidolia 文档生成/审核 demo |
+| Demo-运营报告 | `5f61dc3e913611f1a5cbf98514240dc5` | 2 docs / 14 chunks | Eidolia 文档生成/审核 demo |
 
 Embedding/indexing 由 RAGFlow dataset 自己配置。PSKA 只记录和传递 scope，不在
 WebUI 或 Eidolia 中硬编码 embedding 服务。
@@ -133,6 +137,63 @@ Hermes 或 API
 - 用户在对话里明确表达的低风险记忆，可以走 conversation memory auto-apply。
 - 文档 digest、冲突、高风险、批处理抽取和不确定候选，进入 review。
 - Review 是异常收件箱，不是日常必须清理的工作台。
+
+### 5. Eidolia 文档生成/审核
+
+2026-08-06 已跑通一个四类文档、八条链路的 Eidolia 源项目：
+
+```text
+eidolia-document-generation-audit-demo-20260806
+```
+
+在此基础上，当前演示 baseline 已拆成 1 个综合展示项目和 8 个分项目：
+
+```text
+pska-docdemo-00-overview-20260806
+pska-docdemo-01-contract-generation-20260806
+pska-docdemo-02-contract-review-20260806
+pska-docdemo-03-bid-generation-20260806
+pska-docdemo-04-bid-review-20260806
+pska-docdemo-05-research-generation-20260806
+pska-docdemo-06-research-review-20260806
+pska-docdemo-07-analysis-generation-20260806
+pska-docdemo-08-analysis-review-20260806
+```
+
+它展示的是 PSKA 作为 evidence/governance 胶水层、Eidolia 作为画布工作区、
+Hermes 作为生成执行器的组合路径：
+
+```text
+本地文档/审核规范
+  -> RAGFlow dataset
+  -> PSKA retrieval probe
+  -> Eidolia Evidence 节点
+  -> Hermes 生成 Draft 或 Audit Report
+  -> Eidolia Scorecard / 画布交付物
+```
+
+已验证四类文档：
+
+- 合同；
+- 投标文件；
+- 研究报告；
+- 运营报告。
+
+每类均完成过基础链路：
+
+```text
+PSKA 查询 -> Evidence -> Eidolia Run -> Draft
+PSKA 查询 -> Evidence -> Eidolia Run -> Audit Report -> Scorecard
+```
+
+9 项目版本用于现场 drill-down 展示。生成分项目采用
+`章节 -> PSKA 查询 -> Evidence -> 草稿 v1 -> 修改意见 -> 草稿 v2 -> 合并正文`；
+审核分项目按各自 `审核要点与规范.md` 分段审查，逐段查询证据，再合并为
+`Audit Report` 和 `Scorecard`。当前 Evidence 节点来自真实 PSKA/RAGFlow retrieval
+probe；Draft/Audit 节点复用已实跑 Hermes 输出，并保留 pending 节点供现场重新运行。
+
+完整设计和实跑记录见
+`/Users/xudawei/novel/docs/eidolia-document-generation-audit-demos.md`。
 
 ## 当前不是 Demo 范围
 

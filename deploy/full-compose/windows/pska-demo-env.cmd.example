@@ -1,0 +1,8 @@
+@echo off
+rem Copy this file to pska-demo-env.cmd and edit it if the WSL distro or path differs.
+
+set "PSKA_WSL_DISTRO=Ubuntu-24.04"
+set "PSKA_WSL_COMPOSE_DIR=~/pska-demo/PSKA-Essential/deploy/full-compose"
+
+rem Set to 1 when these scripts are called by another automation and should not pause.
+set "PSKA_NO_PAUSE=0"

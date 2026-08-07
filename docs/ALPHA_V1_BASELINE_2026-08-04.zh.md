@@ -159,6 +159,8 @@ http://127.0.0.1:8765
 
 主要文档：
 
+- [`CEO_ALPHA_PRODUCT_BRIEF.zh.md`](CEO_ALPHA_PRODUCT_BRIEF.zh.md): 面向 CEO、
+  客户演示和内部评审的 Alpha 产品简报，回答架构、交付物、平台和核心能力。
 - [`ALPHA_COMPOSE_DEPLOYMENT.zh.md`](ALPHA_COMPOSE_DEPLOYMENT.zh.md): Docker
   Compose Alpha A。覆盖 Hermes-WebUI + PSKA Product API + Eidolia，RAGFlow
   作为外部服务；Hermes Agent / PSKA MCP 容器内闭环仍属于 Alpha B。

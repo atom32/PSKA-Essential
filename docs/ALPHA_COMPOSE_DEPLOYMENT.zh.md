@@ -39,6 +39,19 @@ network_mode: "service:hermes-webui"
 
 WebUI 的 extension root 使用 Docker named volume，`extensions.json` 和两个 extension 源码目录只读挂载进去。这样 WebUI 即使写 extension state，也不会污染源码仓库。
 
+运维注意：共享 WebUI 网络命名空间意味着 `pska-api` / `eidolia` 的 healthy 不等于 WebUI
+一定能访问它们。如果 `hermes-webui` 被重启或重建，这些 companion sidecar 可能还挂在旧的
+network namespace 上。表现通常是浏览器 console 里出现
+`/api/extensions/.../sidecar/... 502`，但 `docker compose ps` 仍显示容器 healthy。
+full-compose 里应执行：
+
+```bash
+./bootstrap.sh sidecars
+```
+
+或等价地强制重建 `pska-api` 和 `eidolia`。正确的低层检查是从 `hermes-webui` 容器内部
+curl `127.0.0.1:8765` 和 `127.0.0.1:8797`，而不是只看各容器自身 healthcheck。
+
 ## 启动
 
 ```bash
