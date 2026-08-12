@@ -36,6 +36,87 @@ Rules:
 - Retrieval adapters must not broaden dataset/document scope unless the caller
   explicitly passes that broader scope.
 
+## PersonalSourcePort
+
+The personal source layer is for user-authorized local folders and Obsidian
+vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
+general full-disk search daemon.
+
+The implemented M1-M10 source-safe contract uses SQLite metadata plus FTS5:
+
+```python
+list_roots(scope) -> list[SourceRoot]
+register_root(path, kind, permission_mode, label=None) -> SourceRoot
+scan(root_id, options) -> SourceScanResult
+search(query, scope, limit, filters=None, options=None) -> list[ContextPacket]
+read_source(source_ref) -> SourceContext
+neighbors(source_ref, strategy, limit) -> list[SourceNeighbor]
+duplicate_report(scope, mode, limit) -> DuplicateReport
+source_audit_run(scope, limit) -> SourceAuditReport
+saved_search_create(label, query, filters, scope) -> SavedSearch
+propose_tag(target_ref, tag, reason) -> SourceActionProposal
+apply_tag(proposal_id) -> SourceActionResult
+propose_comment(target_ref, body, reason) -> SourceActionProposal
+apply_comment(proposal_id) -> SourceActionResult
+propose_obsidian_moc(root_id, source_refs, moc_path, title, reason) -> SourceActionProposal
+apply_obsidian_moc(proposal_id) -> SourceActionResult
+source_memory_review_create(source_refs, text, memory_type, behavior_delta, memory_scope) -> ReviewRecord
+```
+
+The fuller vNext source-management contract adds native organizer operations
+and richer duplicate heuristics.
+
+Rules:
+
+- Source roots must be explicitly registered by the user or workspace config.
+  PSKA must not scan the user's whole home directory by default.
+- The canonical file content remains in the local folder or Obsidian vault.
+  PSKA indexes and sidecars are rebuildable source-management metadata, not
+  canonical documents.
+- Every search hit must return a normal PSKA `ContextPacket` with a `SourceRef`
+  that can be passed to `read_source`.
+- Source refs for local files must include provider role
+  `local_folder` or `obsidian_vault`, `root_id`, path relative to the root,
+  absolute-path debug metadata only when policy allows it, content hash, and
+  section coordinates when the hit is below file level.
+- Markdown and Obsidian headings should become section refs. PDF page numbers,
+  text line ranges, and extracted attachment refs should be preserved when the
+  extractor can provide them.
+- `read_only` roots may be scanned and searched only. Tags, comments, MOC
+  edits, file moves, and deletes are forbidden.
+- `sidecar_write` roots may store PSKA-owned tags/comments under a sidecar
+  location such as `.pska/` without modifying the original file.
+- `native_write` roots may write Obsidian frontmatter, tags, markdown comments,
+  or MOC links only after a PSKA proposal/policy decision allows the action.
+- Obsidian MOC writeback is implemented as a governed proposal/apply path:
+  proposal stores a preview in PSKA source-action metadata, and apply requires
+  an `obsidian_vault` root with `native_write` or `managed` permission. Apply
+  may create or update only the PSKA-managed MOC block delimited by explicit
+  markers inside the target Markdown note; existing user-authored note content
+  outside that block must be preserved.
+- Duplicate detection must be a report/proposal path. Public tools must not
+  delete, move, or merge user files as a side effect of duplicate search.
+- Obsidian is a source provider. It may provide markdown files, tags,
+  frontmatter, links, backlinks, attachments, and note coordinates, but it does
+  not own PSKA durable memory, Review, or agentic loop state.
+- Text extraction and OCR failures must be surfaced as source-object status and
+  action hints. They must not silently produce empty searchable content as if
+  indexing succeeded.
+- Embeddings are optional later caches. The source layer must work with
+  metadata, lexical search, exact duplicate reports, saved searches, and source
+  reads alone.
+- Neighbor expansion must be source-safe and deterministic. M4 uses indexed
+  Markdown/Obsidian outgoing links, backlinks, and same-folder neighbors before
+  any embedding or graph cache is introduced.
+- Source-to-memory promotion must create a governed Review item with explicit
+  Memory Card type and behavior delta. It must not directly write the memory
+  provider.
+
+The first implementation should prefer SQLite metadata plus FTS5/BM25 for the
+index. Tools such as MarkItDown, Docling, OCRmyPDF, Czkawka, dupeGuru, or
+rmlint may be adapters or workers, but their native output must be normalized
+before reaching Product API, MCP, Hermes, or frontend code.
+
 ## MemoryPort
 
 ```python
@@ -100,7 +181,7 @@ Rules:
 
 ## Public MCP Contract
 
-The public tool surface is:
+The current public tool surface is:
 
 - `pska_workflow_start`
 - `pska_workflow_list`
@@ -109,9 +190,29 @@ The public tool surface is:
 - `pska_workflow_brief`
 - `pska_context_retrieve`
 - `pska_source_read`
+- `pska_source_root_list`
+- `pska_source_root_register`
+- `pska_source_scan`
+- `pska_source_search`
+- `pska_source_neighbors`
+- `pska_duplicate_report`
+- `pska_source_audit_run`
+- `pska_source_audit_job_enqueue`
+- `pska_source_audit_schedule_create`
+- `pska_source_audit_job_list`
+- `pska_source_audit_job_tick`
+- `pska_source_audit_job_run`
+- `pska_saved_search_create`
+- `pska_source_tag_propose`
+- `pska_source_tag_apply`
+- `pska_source_comment_propose`
+- `pska_source_comment_apply`
+- `pska_obsidian_moc_propose`
+- `pska_obsidian_moc_apply`
 - `pska_policy_get`
 - `pska_capabilities_get`
 - `pska_workspace_status`
+- `pska_jarvis_briefing`
 - `pska_runtime_diagnostics`
 - `pska_propose`
 - `pska_review_create`
@@ -207,6 +308,75 @@ the PSKA resume tool/API instead of requiring provider-specific inspection.
 memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
+
+The personal source layer has an M1-M10 source-management MCP surface:
+
+- `pska_source_root_list`
+- `pska_source_root_register`
+- `pska_source_scan`
+- `pska_source_search`
+- `pska_source_read`
+- `pska_source_neighbors`
+- `pska_duplicate_report`
+- `pska_source_audit_run`
+- `pska_source_audit_job_enqueue`
+- `pska_source_audit_schedule_create`
+- `pska_source_audit_job_list`
+- `pska_source_audit_job_tick`
+- `pska_source_audit_job_run`
+- `pska_saved_search_create`
+- `pska_source_tag_propose`
+- `pska_source_tag_apply`
+- `pska_source_comment_propose`
+- `pska_source_comment_apply`
+- `pska_obsidian_moc_propose`
+- `pska_obsidian_moc_apply`
+- `pska_source_memory_review_create`
+
+`pska_source_audit_run` is the read-only agentic routine entry point for local
+folders and Obsidian vaults. It returns root summaries, exact duplicate previews,
+unresolved links, unlinked Markdown notes, route candidates, and structured
+`next_actions`; it writes no source files, no memory, and no embeddings.
+`pska_source_audit_job_enqueue`, `pska_source_audit_schedule_create`,
+`pska_source_audit_job_list`, `pska_source_audit_job_tick`, and
+`pska_source_audit_job_run` provide a PSKA-owned proactive audit queue for the
+same routine. Jobs are stored as workflow metadata, surfaced through
+`pska_provider_jobs` and workspace status, can wait on wall-clock `due_at`, and
+keep the same no source-file write, no direct memory write, no embedding
+guarantee. `pska_source_audit_job_tick` only promotes due waiting jobs to queued
+jobs; scanning still requires running the explicit audit job.
+`pska_obsidian_moc_propose` and `pska_obsidian_moc_apply` provide the current
+native Obsidian writeback path. They collect explicit source refs into a MOC
+preview, then apply only the PSKA-managed Markdown block after native/managed
+vault permission is present. They do not edit arbitrary note text, write durable
+memory, or require embeddings.
+
+The remaining personal source-management capabilities are planned vNext surface
+and are not part of the current Alpha MCP registry until implemented: native
+Obsidian frontmatter/tag/comment writeback beyond the governed MOC block,
+move/delete proposals, background wakeup integration, and richer duplicate
+heuristics.
+
+`pska_source_read` is the common read tool for both RAGFlow source refs and
+personal source refs.
+
+## Assistant Layer
+
+Hermes is the primary agentic layer. PSKA does not own generation, but it exposes
+the dashboard-grade facts Hermes needs through `pska_workspace_status` and
+`pska_jarvis_briefing`.
+
+`pska_jarvis_briefing(scope, source_scope, audit_limit)` returns:
+
+- workspace status and provider/review/job summaries;
+- personal source roots plus an optional source audit snapshot;
+- prioritized source, memory, review, and workspace signals;
+- deduplicated PSKA `next_actions` with tool/API/view hints;
+- data-flow flags proving it does not write source files, write memory directly,
+  require embeddings, or generate final answer text.
+
+This is the M7 Hermes/Jarvis contract. It is intentionally an orchestration
+briefing, not a chat answer and not a direct provider interface.
 
 ## KB Gateway
 

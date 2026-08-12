@@ -29,6 +29,7 @@ from pska_essential.env_file import env_file_arg_parser, load_env_file
 from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
+from pska_essential.jarvis import build_jarvis_briefing
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -40,6 +41,13 @@ from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
+from pska_essential.source_audit_jobs import (
+    activate_due_source_audit_jobs,
+    enqueue_source_audit_job,
+    list_source_audit_jobs,
+    run_source_audit_job,
+    schedule_source_audit_job,
+)
 from pska_essential.workspace_status import build_workspace_status
 
 
@@ -78,6 +86,162 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_source_read(source_ref: dict[str, Any]):
         return to_jsonable(service.source_read(SourceRef.from_dict(source_ref)))
 
+    def pska_source_root_list():
+        return service.source_root_list()
+
+    def pska_source_root_register(
+        path: str,
+        kind: str = "local_folder",
+        permission_mode: str = "read_only",
+        label: str = "",
+    ):
+        return service.source_root_register(
+            path,
+            kind=kind,
+            permission_mode=permission_mode,
+            label=label or None,
+        )
+
+    def pska_source_scan(root_id: str, max_files: int = 1000, max_bytes: int = 1_000_000):
+        return service.source_scan(root_id, max_files=max_files, max_bytes=max_bytes)
+
+    def pska_source_search(
+        query: str,
+        scope: dict[str, Any] | None = None,
+        limit: int = 10,
+        filters: dict[str, Any] | None = None,
+    ):
+        return to_jsonable(service.source_search(query, scope or {}, limit=limit, filters=filters or {}))
+
+    def pska_source_neighbors(
+        source_ref: dict[str, Any],
+        strategy: str = "auto",
+        limit: int = 10,
+    ):
+        return to_jsonable(
+            service.source_neighbors(
+                SourceRef.from_dict(source_ref),
+                strategy=strategy,
+                limit=limit,
+            )
+        )
+
+    def pska_duplicate_report(
+        scope: dict[str, Any] | None = None,
+        mode: str = "exact_hash",
+        limit: int = 50,
+    ):
+        return to_jsonable(service.duplicate_report(scope or {}, mode=mode, limit=limit))
+
+    def pska_source_audit_run(scope: dict[str, Any] | None = None, limit: int = 20):
+        return to_jsonable(service.source_audit_run(scope or {}, limit=limit))
+
+    def pska_source_audit_job_enqueue(
+        scope: dict[str, Any] | None = None,
+        label: str = "",
+        priority: int = 0,
+        limit: int = 20,
+        cadence: str = "manual",
+        due_at: str = "",
+    ):
+        return enqueue_source_audit_job(
+            service,
+            scope=scope or {},
+            label=label,
+            priority=priority,
+            limit=limit,
+            cadence=cadence,
+            due_at=due_at,
+        )
+
+    def pska_source_audit_schedule_create(
+        scope: dict[str, Any] | None = None,
+        label: str = "",
+        priority: int = 0,
+        limit: int = 20,
+        cadence: str = "daily",
+        due_at: str = "",
+        now: str = "",
+    ):
+        return schedule_source_audit_job(
+            service,
+            scope=scope or {},
+            label=label,
+            priority=priority,
+            limit=limit,
+            cadence=cadence,
+            due_at=due_at,
+            now=now,
+        )
+
+    def pska_source_audit_job_list(status: str | None = None, limit: int = 50):
+        return list_source_audit_jobs(service, status=status or None, limit=limit)
+
+    def pska_source_audit_job_tick(now: str = "", limit: int = 20):
+        return activate_due_source_audit_jobs(service, now=now, limit=limit)
+
+    def pska_source_audit_job_run(run_id: str = ""):
+        return run_source_audit_job(service, run_id=run_id)
+
+    def pska_saved_search_create(
+        label: str,
+        query: str,
+        scope: dict[str, Any] | None = None,
+        filters: dict[str, Any] | None = None,
+        sort: str = "relevance",
+    ):
+        return service.saved_search_create(label, query, scope or {}, filters or {}, sort=sort)
+
+    def pska_source_tag_propose(
+        target_ref: dict[str, Any],
+        tag: str,
+        reason: str = "",
+        write_target: str = "sidecar",
+    ):
+        return service.source_tag_propose(
+            SourceRef.from_dict(target_ref),
+            tag,
+            reason=reason,
+            write_target=write_target,
+        )
+
+    def pska_source_tag_apply(proposal_id: str):
+        return service.source_tag_apply(proposal_id)
+
+    def pska_source_comment_propose(
+        target_ref: dict[str, Any],
+        body: str,
+        reason: str = "",
+        write_target: str = "sidecar",
+    ):
+        return service.source_comment_propose(
+            SourceRef.from_dict(target_ref),
+            body,
+            reason=reason,
+            write_target=write_target,
+        )
+
+    def pska_source_comment_apply(proposal_id: str):
+        return service.source_comment_apply(proposal_id)
+
+    def pska_obsidian_moc_propose(
+        root_id: str,
+        source_refs: list[dict[str, Any]],
+        moc_path: str = "PSKA MOC.md",
+        title: str = "",
+        reason: str = "",
+    ):
+        return service.source_obsidian_moc_propose(
+            root_id,
+            source_refs,
+            moc_path=moc_path,
+            title=title,
+            reason=reason,
+        )
+
+    def pska_obsidian_moc_apply(proposal_id: str):
+        return service.source_obsidian_moc_apply(proposal_id)
+
     def pska_policy_get():
         return build_workspace_policy_from_env().to_dict()
 
@@ -90,6 +254,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_provider_jobs(
         dataset_page_size: int = 50,
         digest_limit: int = 50,
+        source_audit_limit: int = 50,
         audit_limit: int = 50,
         include_ready: bool = True,
     ):
@@ -98,6 +263,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             build_kb_gateway_from_env(),
             dataset_page_size=dataset_page_size,
             digest_limit=digest_limit,
+            source_audit_limit=source_audit_limit,
             audit_limit=audit_limit,
             include_ready=include_ready,
         )
@@ -110,6 +276,25 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         return build_workspace_status(
             service=service,
             gateway=build_kb_gateway_from_env(),
+            dataset_page_size=dataset_page_size,
+            review_limit=review_limit,
+            workflow_limit=workflow_limit,
+        )
+
+    def pska_jarvis_briefing(
+        scope: dict[str, Any] | None = None,
+        source_scope: dict[str, Any] | None = None,
+        audit_limit: int = 20,
+        dataset_page_size: int = 30,
+        review_limit: int = 50,
+        workflow_limit: int = 50,
+    ):
+        return build_jarvis_briefing(
+            service=service,
+            gateway=build_kb_gateway_from_env(),
+            scope=scope or {},
+            source_scope=source_scope or None,
+            audit_limit=audit_limit,
             dataset_page_size=dataset_page_size,
             review_limit=review_limit,
             workflow_limit=workflow_limit,
@@ -147,6 +332,27 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_memory_review_from_workflow(run_id: str, intent: str = ""):
         return service.memory_review_from_workflow(run_id, intent)
+
+    def pska_source_memory_review_create(
+        source_refs: list[dict[str, Any]],
+        text: str,
+        memory_type: str = "source_route",
+        behavior_delta: str = "",
+        memory_scope: str = "workspace",
+        reason: str = "",
+        confidence: float = 0.82,
+        scope: dict[str, Any] | None = None,
+    ):
+        return service.source_memory_review_create(
+            source_refs,
+            text=text,
+            memory_type=memory_type,
+            behavior_delta=behavior_delta,
+            memory_scope=memory_scope,
+            reason=reason,
+            confidence=confidence,
+            scope=scope or {},
+        )
 
     def pska_memory_change_from_conversation(
         user_message: str,
@@ -673,11 +879,31 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_workflow_brief": pska_workflow_brief,
         "pska_context_retrieve": pska_context_retrieve,
         "pska_source_read": pska_source_read,
+        "pska_source_root_list": pska_source_root_list,
+        "pska_source_root_register": pska_source_root_register,
+        "pska_source_scan": pska_source_scan,
+        "pska_source_search": pska_source_search,
+        "pska_source_neighbors": pska_source_neighbors,
+        "pska_duplicate_report": pska_duplicate_report,
+        "pska_source_audit_run": pska_source_audit_run,
+        "pska_source_audit_job_enqueue": pska_source_audit_job_enqueue,
+        "pska_source_audit_schedule_create": pska_source_audit_schedule_create,
+        "pska_source_audit_job_list": pska_source_audit_job_list,
+        "pska_source_audit_job_tick": pska_source_audit_job_tick,
+        "pska_source_audit_job_run": pska_source_audit_job_run,
+        "pska_saved_search_create": pska_saved_search_create,
+        "pska_source_tag_propose": pska_source_tag_propose,
+        "pska_source_tag_apply": pska_source_tag_apply,
+        "pska_source_comment_propose": pska_source_comment_propose,
+        "pska_source_comment_apply": pska_source_comment_apply,
+        "pska_obsidian_moc_propose": pska_obsidian_moc_propose,
+        "pska_obsidian_moc_apply": pska_obsidian_moc_apply,
         "pska_policy_get": pska_policy_get,
         "pska_capabilities_get": pska_capabilities_get,
         "pska_migration_manifest": pska_migration_manifest,
         "pska_provider_jobs": pska_provider_jobs,
         "pska_workspace_status": pska_workspace_status,
+        "pska_jarvis_briefing": pska_jarvis_briefing,
         "pska_runtime_diagnostics": pska_runtime_diagnostics,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,
@@ -687,6 +913,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_review_revise": pska_review_revise,
         "pska_memory_search": pska_memory_search,
         "pska_memory_apply": pska_memory_apply,
+        "pska_source_memory_review_create": pska_source_memory_review_create,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_memory_delete_review": pska_memory_delete_review,

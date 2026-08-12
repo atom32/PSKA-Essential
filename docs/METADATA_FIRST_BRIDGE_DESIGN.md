@@ -57,10 +57,20 @@ should still be able to describe how a graph fact was produced.
 | RAGFlow | documents, chunks, embeddings, indexes, retrieval coordinates | dataset, document, chunk, content hash, title, published/ingested time where available |
 | Graphiti | episodes, entities, facts, relations, valid/invalid time | tenant/workspace/group, episode ID, upstream source refs, review/apply context |
 | Hermes | sessions, messages, tool calls, artifacts | session ID, message ID, selected PSKA scope, tool run IDs |
+| Local folders / Obsidian | user-owned files, Markdown notes, attachments, tags, links, comments | root ID, path, content hash, section coordinates, source permission mode |
 | PSKA | workflows, proposals, reviews, audit, policy decisions | normalized contracts and transient orchestration state |
 
 PSKA control records are allowed because they describe PSKA decisions. They must
 not be treated as the canonical storage location for provider data.
+
+For the personal knowledge architecture, local folders and Obsidian vaults are
+source providers, not memory providers. PSKA may keep a metadata ledger, FTS
+index, tags, comments, duplicate reports, and saved searches for those sources,
+but the canonical file content remains in the user-owned folder or vault.
+Sidecar annotations under `.pska/` and governed Obsidian MOC marker blocks are
+source-management metadata owned by PSKA's proposal/apply policy; they are not a
+license for PSKA or Hermes to rewrite arbitrary user content. See
+`PERSONAL_KNOWLEDGE_ARCHITECTURE.zh.md` for the To C source-management design.
 
 ## Provenance Envelope
 
@@ -229,17 +239,19 @@ When Hermes asks a scoped question through PSKA:
 
 ```text
 question + selected scope
-  -> RAGFlow retrieval over selected datasets/documents
+  -> source retrieval over selected RAGFlow datasets/documents,
+     local folders, and Obsidian vaults
   -> Graphiti search over selected tenant/workspace namespace
   -> optional graph expansion from returned facts/entities
-  -> provenance resolution from Graphiti episodes
-  -> fetch missing RAGFlow source evidence by SourceRef
+  -> provenance resolution from Graphiti episodes or memory metadata
+  -> fetch missing source evidence by SourceRef
   -> dedupe by provider coordinates and content hash
   -> return bounded context to Hermes
 ```
 
-Graphiti should not replace RAGFlow. Graphiti can suggest what related evidence
-may matter. RAGFlow remains the place PSKA reads document evidence from.
+Graphiti should not replace source retrieval. Graphiti can suggest what related
+evidence may matter. RAGFlow, local folders, and Obsidian remain the places PSKA
+reads source evidence from.
 
 Deduplication should prefer:
 

@@ -38,6 +38,7 @@ from pska_essential.env_file import preload_env_file
 from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
+from pska_essential.jarvis import build_jarvis_briefing
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -50,6 +51,13 @@ from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
+from pska_essential.source_audit_jobs import (
+    activate_due_source_audit_jobs,
+    enqueue_source_audit_job,
+    list_source_audit_jobs,
+    run_source_audit_job,
+    schedule_source_audit_job,
+)
 from pska_essential.workflow import WorkflowError, WorkflowService
 from pska_essential.workspace_status import build_workspace_status
 
@@ -61,6 +69,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/health"},
     {"method": "GET", "path": "/api/capabilities"},
     {"method": "GET", "path": "/api/workspace/status"},
+    {"method": "POST", "path": "/api/jarvis/briefing"},
     {"method": "GET", "path": "/api/provider/jobs"},
     {"method": "POST", "path": "/api/turn-context"},
     {"method": "POST", "path": "/api/ask"},
@@ -70,6 +79,28 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/digest-jobs/run-next"},
     {"method": "POST", "path": "/api/digest-jobs/{run_id}/run"},
     {"method": "POST", "path": "/api/workflows/{run_id}/memory-review"},
+    {"method": "POST", "path": "/api/sources/audit-jobs"},
+    {"method": "GET", "path": "/api/sources/audit-jobs"},
+    {"method": "POST", "path": "/api/sources/audit-schedules"},
+    {"method": "POST", "path": "/api/sources/audit-jobs/tick"},
+    {"method": "POST", "path": "/api/sources/audit-jobs/run-next"},
+    {"method": "POST", "path": "/api/sources/audit-jobs/{run_id}/run"},
+    {"method": "GET", "path": "/api/sources/roots"},
+    {"method": "POST", "path": "/api/sources/roots"},
+    {"method": "POST", "path": "/api/sources/roots/{root_id}/scan"},
+    {"method": "POST", "path": "/api/sources/search"},
+    {"method": "POST", "path": "/api/sources/neighbors"},
+    {"method": "POST", "path": "/api/sources/duplicates"},
+    {"method": "POST", "path": "/api/sources/audits/run"},
+    {"method": "POST", "path": "/api/sources/saved-searches"},
+    {"method": "POST", "path": "/api/sources/tags/proposals"},
+    {"method": "POST", "path": "/api/sources/tags/{proposal_id}/apply"},
+    {"method": "POST", "path": "/api/sources/comments/proposals"},
+    {"method": "POST", "path": "/api/sources/comments/{proposal_id}/apply"},
+    {"method": "POST", "path": "/api/sources/obsidian/moc/proposals"},
+    {"method": "POST", "path": "/api/sources/obsidian/moc/{proposal_id}/apply"},
+    {"method": "POST", "path": "/api/sources/memory-reviews"},
+    {"method": "POST", "path": "/api/sources/read"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
     {"method": "POST", "path": "/api/kb/ingest"},
@@ -579,6 +610,80 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, **result})
                 return
 
+            if method == "POST" and path == "/api/sources/audit-jobs":
+                payload = self._read_json()
+                result = enqueue_source_audit_job(
+                    state.service,
+                    scope=_optional_dict(payload, "scope"),
+                    label=str(payload.get("label") or ""),
+                    priority=int(payload.get("priority") or 0),
+                    limit=int(payload.get("limit") or 20),
+                    cadence=str(payload.get("cadence") or "manual"),
+                    due_at=str(payload.get("due_at") or ""),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/sources/audit-schedules":
+                payload = self._read_json()
+                result = schedule_source_audit_job(
+                    state.service,
+                    scope=_optional_dict(payload, "scope"),
+                    label=str(payload.get("label") or ""),
+                    priority=int(payload.get("priority") or 0),
+                    limit=int(payload.get("limit") or 20),
+                    cadence=str(payload.get("cadence") or "daily"),
+                    due_at=str(payload.get("due_at") or ""),
+                    now=str(payload.get("now") or ""),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            if method == "GET" and path == "/api/sources/audit-jobs":
+                status = str(query.get("status") or "")
+                limit = _int_param(query.get("limit"), 50)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "source_audit_jobs": list_source_audit_jobs(
+                            state.service,
+                            status=status or None,
+                            limit=limit,
+                        ),
+                    }
+                )
+                return
+
+            if method == "POST" and path == "/api/sources/audit-jobs/tick":
+                payload = self._read_json()
+                result = activate_due_source_audit_jobs(
+                    state.service,
+                    now=str(payload.get("now") or ""),
+                    limit=int(payload.get("limit") or 20),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "POST" and path == "/api/sources/audit-jobs/run-next":
+                result = run_source_audit_job(state.service)
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "POST" and path == "/api/jarvis/briefing":
+                payload = self._read_json()
+                briefing = build_jarvis_briefing(
+                    service=state.service,
+                    gateway=state.kb_gateway_factory(),
+                    scope=_optional_dict(payload, "scope"),
+                    source_scope=_optional_dict(payload, "source_scope"),
+                    audit_limit=int(payload.get("audit_limit") or 20),
+                    dataset_page_size=int(payload.get("dataset_page_size") or 30),
+                    review_limit=int(payload.get("review_limit") or 50),
+                    workflow_limit=int(payload.get("workflow_limit") or 50),
+                )
+                self._send_json({"ok": True, "briefing": briefing})
+                return
+
             digest_job_run = _match(path, "/api/digest-jobs/", "/run")
             if method == "POST" and digest_job_run:
                 result = run_digest_job(
@@ -586,6 +691,12 @@ def _handler_class(state: ProductApiState):
                     state.kb_gateway_factory(),
                     run_id=digest_job_run,
                 )
+                self._send_json({"ok": True, **result})
+                return
+
+            source_audit_job_run = _match(path, "/api/sources/audit-jobs/", "/run")
+            if method == "POST" and source_audit_job_run:
+                result = run_source_audit_job(state.service, run_id=source_audit_job_run)
                 self._send_json({"ok": True, **result})
                 return
 
@@ -665,6 +776,169 @@ def _handler_class(state: ProductApiState):
                 payload = self._read_json()
                 source = state.service.source_read(SourceRef.from_dict(payload.get("source_ref") or payload))
                 self._send_json({"ok": True, "source": to_jsonable(source)})
+                return
+
+            if method == "GET" and path == "/api/sources/roots":
+                self._send_json({"ok": True, "roots": state.service.source_root_list()})
+                return
+
+            if method == "POST" and path == "/api/sources/roots":
+                payload = self._read_json()
+                root = state.service.source_root_register(
+                    _required_str(payload, "path"),
+                    kind=str(payload.get("kind") or "local_folder"),
+                    permission_mode=str(payload.get("permission_mode") or "read_only"),
+                    label=str(payload.get("label") or "") or None,
+                )
+                self._send_json({"ok": True, "root": root}, HTTPStatus.CREATED)
+                return
+
+            source_scan_root = _match(path, "/api/sources/roots/", "/scan")
+            if method == "POST" and source_scan_root:
+                payload = self._read_json()
+                result = state.service.source_scan(
+                    source_scan_root,
+                    max_files=int(payload.get("max_files") or 1000),
+                    max_bytes=int(payload.get("max_bytes") or 1_000_000),
+                )
+                self._send_json({"ok": True, "scan": result})
+                return
+
+            if method == "POST" and path == "/api/sources/search":
+                payload = self._read_json()
+                packets = state.service.source_search(
+                    _required_str(payload, "query"),
+                    scope=_optional_dict(payload, "scope"),
+                    limit=int(payload.get("limit") or 10),
+                    filters=_optional_dict(payload, "filters"),
+                )
+                self._send_json(
+                    {
+                        "ok": True,
+                        "context_packets": to_jsonable(packets),
+                        "count": len(packets),
+                    }
+                )
+                return
+
+            if method == "POST" and path == "/api/sources/neighbors":
+                payload = self._read_json()
+                neighbors = state.service.source_neighbors(
+                    SourceRef.from_dict(payload.get("source_ref") or payload.get("target_ref") or {}),
+                    strategy=str(payload.get("strategy") or "auto"),
+                    limit=int(payload.get("limit") or 10),
+                )
+                self._send_json(
+                    {
+                        "ok": True,
+                        "neighbors": to_jsonable(neighbors),
+                        "count": len(neighbors),
+                    }
+                )
+                return
+
+            if method == "POST" and path == "/api/sources/duplicates":
+                payload = self._read_json()
+                report = state.service.duplicate_report(
+                    _optional_dict(payload, "scope"),
+                    mode=str(payload.get("mode") or "exact_hash"),
+                    limit=int(payload.get("limit") or 50),
+                )
+                self._send_json({"ok": True, "duplicate_report": to_jsonable(report)})
+                return
+
+            if method == "POST" and path == "/api/sources/audits/run":
+                payload = self._read_json()
+                audit = state.service.source_audit_run(
+                    scope=_optional_dict(payload, "scope"),
+                    limit=int(payload.get("limit") or 20),
+                )
+                self._send_json({"ok": True, "audit": to_jsonable(audit)})
+                return
+
+            if method == "POST" and path == "/api/sources/saved-searches":
+                payload = self._read_json()
+                saved = state.service.saved_search_create(
+                    _required_str(payload, "label"),
+                    _required_str(payload, "query"),
+                    scope=_optional_dict(payload, "scope"),
+                    filters=_optional_dict(payload, "filters"),
+                    sort=str(payload.get("sort") or "relevance"),
+                )
+                self._send_json({"ok": True, "saved_search": saved}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/sources/tags/proposals":
+                payload = self._read_json()
+                proposal = state.service.source_tag_propose(
+                    SourceRef.from_dict(payload.get("target_ref") or payload.get("source_ref") or {}),
+                    _required_str(payload, "tag"),
+                    reason=str(payload.get("reason") or ""),
+                    write_target=str(payload.get("write_target") or "sidecar"),
+                )
+                self._send_json({"ok": True, "proposal": proposal}, HTTPStatus.CREATED)
+                return
+
+            tag_apply_id = _match(path, "/api/sources/tags/", "/apply")
+            if method == "POST" and tag_apply_id:
+                applied = state.service.source_tag_apply(tag_apply_id)
+                self._send_json({"ok": True, "applied": applied})
+                return
+
+            if method == "POST" and path == "/api/sources/comments/proposals":
+                payload = self._read_json()
+                proposal = state.service.source_comment_propose(
+                    SourceRef.from_dict(payload.get("target_ref") or payload.get("source_ref") or {}),
+                    _required_str(payload, "body"),
+                    reason=str(payload.get("reason") or ""),
+                    write_target=str(payload.get("write_target") or "sidecar"),
+                )
+                self._send_json({"ok": True, "proposal": proposal}, HTTPStatus.CREATED)
+                return
+
+            comment_apply_id = _match(path, "/api/sources/comments/", "/apply")
+            if method == "POST" and comment_apply_id:
+                applied = state.service.source_comment_apply(comment_apply_id)
+                self._send_json({"ok": True, "applied": applied})
+                return
+
+            if method == "POST" and path == "/api/sources/obsidian/moc/proposals":
+                payload = self._read_json()
+                source_refs = payload.get("source_refs") or []
+                if not isinstance(source_refs, list):
+                    raise ApiError("source_refs must be a list", HTTPStatus.BAD_REQUEST)
+                proposal = state.service.source_obsidian_moc_propose(
+                    _required_str(payload, "root_id"),
+                    source_refs,
+                    moc_path=str(payload.get("moc_path") or "PSKA MOC.md"),
+                    title=str(payload.get("title") or ""),
+                    reason=str(payload.get("reason") or ""),
+                )
+                self._send_json({"ok": True, "proposal": proposal}, HTTPStatus.CREATED)
+                return
+
+            moc_apply_id = _match(path, "/api/sources/obsidian/moc/", "/apply")
+            if method == "POST" and moc_apply_id:
+                applied = state.service.source_obsidian_moc_apply(moc_apply_id)
+                self._send_json({"ok": True, "applied": applied})
+                return
+
+            if method == "POST" and path == "/api/sources/memory-reviews":
+                payload = self._read_json()
+                source_refs = payload.get("source_refs") or []
+                if not isinstance(source_refs, list):
+                    raise ApiError("source_refs must be a list", HTTPStatus.BAD_REQUEST)
+                created = state.service.source_memory_review_create(
+                    source_refs,
+                    text=_required_str(payload, "text"),
+                    memory_type=str(payload.get("memory_type") or "source_route"),
+                    behavior_delta=_required_str(payload, "behavior_delta"),
+                    memory_scope=str(payload.get("memory_scope") or "workspace"),
+                    reason=str(payload.get("reason") or ""),
+                    confidence=float(payload.get("confidence") or 0.82),
+                    scope=_optional_dict(payload, "scope"),
+                )
+                self._send_json({"ok": True, **created}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/memory/search":

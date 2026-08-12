@@ -45,6 +45,20 @@ from pska_essential.governance import (
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.runtime_context import build_runtime_memory_scope
+from pska_essential.source_registry import SQLiteSourceRegistry, is_personal_source_ref
+
+
+SOURCE_PROMOTION_ORIGIN = "source_promotion"
+MEMORY_CARD_TYPES = {
+    "identity",
+    "preference",
+    "project_state",
+    "working_habit",
+    "source_route",
+    "correction",
+    "exclusion",
+}
+MEMORY_CARD_SCOPES = {"global", "workspace", "project", "folder"}
 
 
 class WorkflowError(RuntimeError):
@@ -63,10 +77,12 @@ class WorkflowService:
         retrieval: RetrievalPort,
         memory: MemoryPort,
         store: SQLiteReviewStore,
+        source_registry: SQLiteSourceRegistry | None = None,
     ) -> None:
         self.retrieval = retrieval
         self.memory = memory
         self.store = store
+        self.source_registry = source_registry
 
     def start(self, intent: str, scope: dict[str, Any] | None = None) -> WorkflowRun:
         run = WorkflowRun(
@@ -102,7 +118,10 @@ class WorkflowService:
 
     def source_read(self, source_ref: SourceRef | dict[str, Any]) -> SourceContext:
         ref = source_ref if isinstance(source_ref, SourceRef) else SourceRef.from_dict(source_ref)
-        source = self.retrieval.read_source(ref)
+        if is_personal_source_ref(ref):
+            source = self._source_registry().read_source(ref)
+        else:
+            source = self.retrieval.read_source(ref)
         self.store.add_audit_event(
             audit_event(
                 "source.read",
@@ -121,6 +140,309 @@ class WorkflowService:
             )
         )
         return source
+
+    def source_root_list(self) -> list[dict[str, Any]]:
+        return self._source_registry().list_roots()
+
+    def source_root_register(
+        self,
+        path: str,
+        *,
+        kind: str = "local_folder",
+        permission_mode: str = "read_only",
+        label: str | None = None,
+    ) -> dict[str, Any]:
+        root = self._source_registry().register_root(
+            path,
+            kind=kind,
+            permission_mode=permission_mode,
+            label=label,
+        )
+        self.store.add_audit_event(
+            audit_event(
+                "source.root.register",
+                "source_root",
+                root["root_id"],
+                kind=root["kind"],
+                permission_mode=root["permission_mode"],
+                label=root["label"],
+                path=root["absolute_path"],
+                writes_source_files=False,
+            )
+        )
+        return root
+
+    def source_scan(self, root_id: str, *, max_files: int = 1000, max_bytes: int = 1_000_000) -> dict[str, Any]:
+        result = self._source_registry().scan(root_id, max_files=max_files, max_bytes=max_bytes)
+        self.store.add_audit_event(
+            audit_event(
+                "source.scan",
+                "source_root",
+                root_id,
+                counts=result.get("counts") or {},
+                active_object_count=result.get("active_object_count") or 0,
+                writes_source_files=False,
+                embedding_required=False,
+            )
+        )
+        return result
+
+    def source_search(
+        self,
+        query: str,
+        scope: dict[str, Any] | None = None,
+        limit: int = 10,
+        filters: dict[str, Any] | None = None,
+    ) -> list[ContextPacket]:
+        packets = self._source_registry().search(query, scope or {}, limit=limit, filters=filters or {})
+        self.store.add_audit_event(
+            audit_event(
+                "source.search",
+                "source",
+                "personal_source",
+                query=query,
+                count=len(packets),
+                scope=scope or {},
+                filters=filters or {},
+                embedding_required=False,
+            )
+        )
+        return packets
+
+    def source_neighbors(
+        self,
+        source_ref: SourceRef | dict[str, Any],
+        *,
+        strategy: str = "auto",
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        ref = source_ref if isinstance(source_ref, SourceRef) else SourceRef.from_dict(source_ref)
+        neighbors = self._source_registry().neighbors(ref, strategy=strategy, limit=limit)
+        self.store.add_audit_event(
+            audit_event(
+                "source.neighbors",
+                "source",
+                ref.document_id or ref.source_id or "personal_source",
+                strategy=strategy,
+                count=len(neighbors),
+                source_ref=to_jsonable(ref),
+                writes_source_files=False,
+                embedding_required=False,
+            )
+        )
+        return neighbors
+
+    def duplicate_report(
+        self,
+        scope: dict[str, Any] | None = None,
+        *,
+        mode: str = "exact_hash",
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        report = self._source_registry().duplicate_report(scope or {}, mode=mode, limit=limit)
+        self.store.add_audit_event(
+            audit_event(
+                "source.duplicate_report",
+                "source",
+                report.get("report_id") or "duplicate_report",
+                mode=mode,
+                scope=scope or {},
+                group_count=report.get("group_count") or 0,
+                duplicate_file_count=report.get("duplicate_file_count") or 0,
+                writes_source_files=False,
+                delete_move_merge_supported=False,
+            )
+        )
+        return report
+
+    def source_audit_run(self, scope: dict[str, Any] | None = None, *, limit: int = 20) -> dict[str, Any]:
+        audit = self._source_registry().audit(scope or {}, limit=limit)
+        self.store.add_audit_event(
+            audit_event(
+                "source.audit.run",
+                "source",
+                audit.get("audit_id") or "source_audit",
+                scope=scope or {},
+                root_count=audit.get("root_count") or 0,
+                duplicate_group_count=(audit.get("duplicate_preview") or {}).get("group_count") or 0,
+                unresolved_link_count=(audit.get("unresolved_links") or {}).get("count") or 0,
+                unlinked_markdown_count=(audit.get("unlinked_markdown") or {}).get("count") or 0,
+                route_candidate_count=len(audit.get("route_candidates") or []),
+                next_action_count=len(audit.get("next_actions") or []),
+                writes_source_files=False,
+                writes_memory_directly=False,
+                embedding_required=False,
+            )
+        )
+        return audit
+
+    def saved_search_create(
+        self,
+        label: str,
+        query: str,
+        scope: dict[str, Any] | None = None,
+        filters: dict[str, Any] | None = None,
+        *,
+        sort: str = "relevance",
+    ) -> dict[str, Any]:
+        saved = self._source_registry().saved_search_create(
+            label,
+            query,
+            scope or {},
+            filters or {},
+            sort=sort,
+        )
+        self.store.add_audit_event(
+            audit_event(
+                "source.saved_search.create",
+                "source_search",
+                saved["search_id"],
+                label=saved["label"],
+                query=saved["query"],
+                scope=saved["scope"],
+                filters=saved["filters"],
+                sort=saved["sort"],
+                writes_source_files=False,
+            )
+        )
+        return saved
+
+    def source_tag_propose(
+        self,
+        target_ref: SourceRef | dict[str, Any],
+        tag: str,
+        *,
+        reason: str = "",
+        write_target: str = "sidecar",
+    ) -> dict[str, Any]:
+        ref = target_ref if isinstance(target_ref, SourceRef) else SourceRef.from_dict(target_ref)
+        proposal = self._source_registry().propose_tag(
+            ref,
+            tag,
+            reason=reason,
+            write_target=write_target,
+        )
+        self.store.add_audit_event(
+            audit_event(
+                "source.tag.propose",
+                "source_action",
+                proposal["proposal_id"],
+                target=proposal["target"],
+                tag=proposal["payload"].get("tag"),
+                reason=reason,
+                write_target=write_target,
+                writes_source_files=False,
+            )
+        )
+        return proposal
+
+    def source_tag_apply(self, proposal_id: str) -> dict[str, Any]:
+        result = self._source_registry().apply_tag(proposal_id)
+        self.store.add_audit_event(
+            audit_event(
+                "source.tag.apply",
+                "source_action",
+                proposal_id,
+                target=result["proposal"]["target"],
+                tag=result["record"].get("name"),
+                already_applied=result.get("already_applied", False),
+                writes_source_files=False,
+                writes_sidecar=True,
+            )
+        )
+        return result
+
+    def source_comment_propose(
+        self,
+        target_ref: SourceRef | dict[str, Any],
+        body: str,
+        *,
+        reason: str = "",
+        write_target: str = "sidecar",
+    ) -> dict[str, Any]:
+        ref = target_ref if isinstance(target_ref, SourceRef) else SourceRef.from_dict(target_ref)
+        proposal = self._source_registry().propose_comment(
+            ref,
+            body,
+            reason=reason,
+            write_target=write_target,
+        )
+        self.store.add_audit_event(
+            audit_event(
+                "source.comment.propose",
+                "source_action",
+                proposal["proposal_id"],
+                target=proposal["target"],
+                reason=reason,
+                write_target=write_target,
+                writes_source_files=False,
+            )
+        )
+        return proposal
+
+    def source_comment_apply(self, proposal_id: str) -> dict[str, Any]:
+        result = self._source_registry().apply_comment(proposal_id)
+        self.store.add_audit_event(
+            audit_event(
+                "source.comment.apply",
+                "source_action",
+                proposal_id,
+                target=result["proposal"]["target"],
+                already_applied=result.get("already_applied", False),
+                writes_source_files=False,
+                writes_sidecar=True,
+            )
+        )
+        return result
+
+    def source_obsidian_moc_propose(
+        self,
+        root_id: str,
+        source_refs: list[SourceRef | dict[str, Any]],
+        *,
+        moc_path: str = "PSKA MOC.md",
+        title: str = "",
+        reason: str = "",
+    ) -> dict[str, Any]:
+        refs = [ref if isinstance(ref, SourceRef) else SourceRef.from_dict(ref) for ref in source_refs]
+        proposal = self._source_registry().propose_obsidian_moc(
+            root_id,
+            refs,
+            moc_path=moc_path,
+            title=title,
+            reason=reason,
+        )
+        self.store.add_audit_event(
+            audit_event(
+                "source.obsidian_moc.propose",
+                "source_action",
+                proposal["proposal_id"],
+                target=proposal["target"],
+                link_count=proposal["payload"].get("link_count") or 0,
+                moc_path=proposal["payload"].get("moc_path") or "",
+                reason=reason,
+                writes_source_files=False,
+            )
+        )
+        return proposal
+
+    def source_obsidian_moc_apply(self, proposal_id: str) -> dict[str, Any]:
+        result = self._source_registry().apply_obsidian_moc(proposal_id)
+        self.store.add_audit_event(
+            audit_event(
+                "source.obsidian_moc.apply",
+                "source_action",
+                proposal_id,
+                target=result["proposal"]["target"],
+                moc_path=result["record"].get("path") or "",
+                link_count=result["record"].get("link_count") or 0,
+                changed=result["record"].get("changed", False),
+                already_applied=result.get("already_applied", False),
+                writes_source_files=result["data_flow"].get("writes_source_files", False),
+                writes_sidecar=False,
+            )
+        )
+        return result
 
     def propose(self, run_id: str, kind: str, intent: str = "") -> Proposal:
         normalized = kind.strip().lower()
@@ -232,6 +554,134 @@ class WorkflowService:
                 "policy": policy.to_dict(),
             },
             "artifact": self.workflow_artifact(run_id),
+        }
+
+    def source_memory_review_create(
+        self,
+        source_refs: list[SourceRef | dict[str, Any]],
+        *,
+        text: str,
+        memory_type: str = "source_route",
+        behavior_delta: str,
+        memory_scope: str = "workspace",
+        reason: str = "",
+        confidence: float = 0.82,
+        scope: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a governed Memory Card candidate from explicit source evidence."""
+
+        self._ensure_memory_operation_supported("apply")
+        normalized_text = text.strip()
+        normalized_behavior = behavior_delta.strip()
+        normalized_type = _normalize_memory_card_type(memory_type)
+        normalized_scope = _normalize_memory_card_scope(memory_scope)
+        if not normalized_text:
+            raise WorkflowError("source memory review requires text")
+        if not normalized_behavior:
+            raise WorkflowError("source memory review requires behavior_delta")
+        refs = _source_refs_from_input(source_refs)
+        if not refs:
+            raise WorkflowError("source memory review requires source_refs")
+        policy = build_workspace_policy_from_env()
+        requested_governance_action = policy.action_for("memory_patch", origin=SOURCE_PROMOTION_ORIGIN)
+        governance_action = requested_governance_action
+        run = self.start(
+            f"source memory candidate: {normalized_type}",
+            {
+                **dict(scope or {}),
+                "operation": "memory_patch",
+                "origin": SOURCE_PROMOTION_ORIGIN,
+                "memory_type": normalized_type,
+                "memory_scope": normalized_scope,
+            },
+        )
+        run.context_packets.extend(self._context_packets_for_source_refs(run.run_id, refs))
+        run.metadata["source_memory_candidate"] = {
+            "schema": "pska.memory_card_candidate.v1",
+            "memory_type": normalized_type,
+            "behavior_delta": normalized_behavior,
+            "memory_scope": normalized_scope,
+            "reason": reason,
+            "source_count": len(refs),
+        }
+        run.updated_at = utc_now_iso()
+        self.store.save_workflow(run)
+
+        memory_patch = MemoryPatch(
+            text=normalized_text,
+            source_refs=refs,
+            confidence=float(confidence),
+            metadata={
+                "origin": SOURCE_PROMOTION_ORIGIN,
+                "memory_type": normalized_type,
+                "behavior_delta": normalized_behavior,
+                "memory_scope": normalized_scope,
+                "display_text": normalized_text,
+                "reason": reason,
+                "source_promotion": {
+                    "schema": "pska.source_memory_promotion.v1",
+                    "source_count": len(refs),
+                    "source_refs": to_jsonable(refs),
+                },
+            },
+        )
+        proposal = self._create_memory_patch_proposal(
+            run,
+            intent=reason or f"Promote {normalized_type} from source evidence",
+            memory_patch=memory_patch,
+        )
+        if _proposal_triage_review_recommended(proposal):
+            governance_action = MANUAL_REVIEW
+        review = self.review_create(proposal.proposal_id)
+        review_decision = None
+        memory_apply = None
+        if governance_action in {AUTO_ACCEPT, AUTO_APPLY}:
+            review_decision = self.review_decide(
+                review.review_id,
+                "accept",
+                f"accepted by workspace policy: {governance_action}",
+            )
+            if governance_action == AUTO_APPLY:
+                memory_apply = self.memory_apply(review.review_id)
+        self.store.add_audit_event(
+            audit_event(
+                "source.memory_review.create",
+                "review",
+                review.review_id,
+                run_id=run.run_id,
+                proposal_id=proposal.proposal_id,
+                memory_type=normalized_type,
+                memory_scope=normalized_scope,
+                source_count=len(refs),
+                governance_action=governance_action,
+                writes_memory_directly=False,
+            )
+        )
+        return {
+            "proposal": to_jsonable(proposal),
+            "review": self.store.get_review_record(review.review_id),
+            "review_decision": to_jsonable(review_decision),
+            "memory_apply": to_jsonable(memory_apply),
+            "memory_card": {
+                "schema": "pska.memory_card_candidate.v1",
+                "text": normalized_text,
+                "type": normalized_type,
+                "behavior_delta": normalized_behavior,
+                "scope": normalized_scope,
+                "source_refs": to_jsonable(refs),
+                "confidence": float(confidence),
+                "status": "pending_review" if memory_apply is None else "applied",
+            },
+            "governance": {
+                "origin": SOURCE_PROMOTION_ORIGIN,
+                "action": governance_action,
+                "requested_action": requested_governance_action,
+                "triage_override": governance_action != requested_governance_action,
+                "durable_proposal": True,
+                "writes_memory_directly": False,
+                "policy": policy.to_dict(),
+            },
+            "artifact": self.workflow_artifact(run.run_id),
         }
 
     def memory_delete_review(self, memory_fact: MemoryFact | dict[str, Any], reason: str = "") -> dict[str, Any]:
@@ -883,6 +1333,30 @@ class WorkflowService:
             return False
         return target_id in _proposal_semantic_target_ids(proposal)
 
+    def _context_packets_for_source_refs(self, run_id: str, source_refs: list[SourceRef]) -> list[ContextPacket]:
+        packets: list[ContextPacket] = []
+        for index, ref in enumerate(source_refs, start=1):
+            source = self.source_read(ref)
+            snippet = str(source.text or "").strip()
+            if len(snippet) > 1200:
+                snippet = snippet[:1200].rstrip() + "\n..."
+            packets.append(
+                ContextPacket(
+                    context_id=f"ctx_source_memory_{index}_{ref.chunk_id or ref.source_id or ref.document_id or index}",
+                    text=snippet,
+                    source_ref=source.source_ref,
+                    score=1.0,
+                    title=source.source_ref.title or ref.title or _source_display_id(ref),
+                    metadata={
+                        "origin": SOURCE_PROMOTION_ORIGIN,
+                        "run_id": run_id,
+                        "source_memory_candidate": True,
+                        **dict(source.metadata or {}),
+                    },
+                )
+            )
+        return packets
+
     def workflow_artifact(self, run_id: str) -> dict[str, Any]:
         run = self.store.get_workflow(run_id)
         return self._build_workflow_artifact(run)
@@ -1305,13 +1779,44 @@ class WorkflowService:
             "applied": to_jsonable(apply_result),
         }
 
+    def _source_registry(self) -> SQLiteSourceRegistry:
+        if self.source_registry is None:
+            raise WorkflowError("personal source registry is not configured")
+        return self.source_registry
+
 
 def build_fake_service(db_path: str = ":memory:") -> WorkflowService:
     return WorkflowService(
         retrieval=FakeRetrievalAdapter(),
         memory=FakeMemoryAdapter(),
         store=SQLiteReviewStore(db_path),
+        source_registry=SQLiteSourceRegistry(":memory:"),
     )
+
+
+def _normalize_memory_card_type(memory_type: str) -> str:
+    normalized = (memory_type or "").strip().lower()
+    if normalized not in MEMORY_CARD_TYPES:
+        raise WorkflowError(
+            "memory_type must be one of: " + ", ".join(sorted(MEMORY_CARD_TYPES))
+        )
+    return normalized
+
+
+def _normalize_memory_card_scope(memory_scope: str) -> str:
+    normalized = (memory_scope or "workspace").strip().lower()
+    if normalized not in MEMORY_CARD_SCOPES:
+        raise WorkflowError(
+            "memory_scope must be one of: " + ", ".join(sorted(MEMORY_CARD_SCOPES))
+        )
+    return normalized
+
+
+def _source_refs_from_input(source_refs: list[SourceRef | dict[str, Any]]) -> list[SourceRef]:
+    refs = []
+    for item in source_refs or []:
+        refs.append(item if isinstance(item, SourceRef) else SourceRef.from_dict(item))
+    return _unique_source_refs(refs)
 
 
 def _memory_runtime_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -332,6 +332,43 @@ def _next_actions(
             )
         )
 
+    due_source_audit_jobs = _due_source_audit_jobs(provider_jobs)
+    if due_source_audit_jobs:
+        job = due_source_audit_jobs[0]
+        actions.append(
+            _action(
+                "activate_due_source_audit_jobs",
+                "Activate due source audits",
+                (
+                    f"{len(due_source_audit_jobs)} scheduled source audit job(s) are due. "
+                    "Ticking the scheduler only updates PSKA job metadata; it does not scan, write source files, or write memory."
+                ),
+                api="POST /api/sources/audit-jobs/tick",
+                tool="pska_source_audit_job_tick",
+                view="sources",
+                params={"run_id": str(job.get("job_id") or ""), "due_at": str(job.get("due_at") or "")},
+            )
+        )
+
+    source_audit_jobs = _pending_source_audit_jobs(provider_jobs)
+    if source_audit_jobs:
+        job = source_audit_jobs[0]
+        job_id = str(job.get("job_id") or "")
+        actions.append(
+            _action(
+                "run_source_audit_job",
+                "Run source audit job",
+                (
+                    f"{len(source_audit_jobs)} source audit job(s) are queued. "
+                    "Source audit is read-only, requires no embeddings, and never writes source files or memory directly."
+                ),
+                api=f"POST /api/sources/audit-jobs/{job_id}/run" if job_id else "POST /api/sources/audit-jobs/run-next",
+                tool="pska_source_audit_job_run",
+                view="sources",
+                params={"run_id": job_id} if job_id else {},
+            )
+        )
+
     digest_jobs = _pending_digest_jobs(provider_jobs)
     if digest_jobs:
         job = digest_jobs[0]
@@ -373,6 +410,30 @@ def _pending_digest_jobs(provider_jobs: dict[str, Any] | None) -> list[dict[str,
         dict(job)
         for job in jobs
         if job.get("kind") == "pska_digest_job" and str(job.get("status") or "") in {"queued", "waiting"}
+    ]
+
+
+def _pending_source_audit_jobs(provider_jobs: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not provider_jobs:
+        return []
+    jobs = provider_jobs.get("jobs") or []
+    return [
+        dict(job)
+        for job in jobs
+        if job.get("kind") == "pska_source_audit_job" and str(job.get("status") or "") == "queued"
+    ]
+
+
+def _due_source_audit_jobs(provider_jobs: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not provider_jobs:
+        return []
+    jobs = provider_jobs.get("jobs") or []
+    return [
+        dict(job)
+        for job in jobs
+        if job.get("kind") == "pska_source_audit_job"
+        and str(job.get("status") or "") == "waiting"
+        and bool(job.get("due"))
     ]
 
 

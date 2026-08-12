@@ -15,6 +15,11 @@ candidate memory, review, and durable export.
 - Start by calling `pska_workspace_status` unless the user explicitly asks for
   a specific low-level tool. Follow its `next_actions` tool/API/view hints and
   safe parameters instead of inspecting provider state directly.
+- When the user asks what is stuck, what to inspect next, or wants a broad
+  workspace/source briefing, call `pska_jarvis_briefing`. Treat it as the
+  Hermes/Jarvis dashboard contract: it ranks source, memory, review, and
+  workspace priorities without generating final answer text or writing source
+  files.
 - Use `pska_runtime_diagnostics` when provider configuration, backend health,
   or adapter contract readiness needs troubleshooting. Do not call provider
   health endpoints directly.
@@ -68,6 +73,34 @@ candidate memory, review, and durable export.
 - Do not call `pska_memory_apply` until a review has status `accepted`.
 - Use `pska_workflow_artifact` or `pska_workflow_brief` to inspect transient
   work products without export side effects.
+- When personal source-layer capabilities are available, treat Obsidian vaults
+  and local folders as PSKA source scopes, not as memory backends. Use PSKA
+  source tools to search/read/propose tags/comments; do not use direct
+  filesystem, Obsidian, or shell file operations for PSKA personal-knowledge
+  workflows.
+- For local folder or Obsidian questions, search/read the selected source scope
+  before answering. When a note or file is clearly central, use
+  `pska_source_neighbors` to inspect linked, backlink, or same-folder sources
+  before broadening to the entire vault. Use durable memory for project state,
+  preferences, source routes, and corrections; do not substitute memory text for
+  source evidence when the user asks what is inside files.
+- For file organization work, run `pska_source_audit_run` for an immediate
+  read-only check, queue ad-hoc checks with `pska_source_audit_job_enqueue`, or
+  create wall-clock recurring checks with `pska_source_audit_schedule_create`.
+  Inspect jobs with `pska_source_audit_job_list`; when workspace/Jarvis says a
+  scheduled audit is due, call `pska_source_audit_job_tick`, then run the queued
+  job with `pska_source_audit_job_run`. Follow audit `next_actions` for
+  duplicate review, unresolved links, unlinked notes, and source-route memory
+  candidates. Propose tags, comments, saved searches, MOC updates, and duplicate
+  reports before any heavier operation. Do not delete, move, merge, or natively
+  edit user files unless PSKA policy/tool output explicitly authorizes that
+  action.
+- For Obsidian organization, use `pska_obsidian_moc_propose` to create a
+  governed MOC writeback preview from explicit source refs. Only call
+  `pska_obsidian_moc_apply` when the selected root is an Obsidian vault with
+  `native_write` or `managed` permission and the user/tool action clearly asks
+  to apply the MOC. This tool updates only the PSKA-managed MOC block, not the
+  rest of the note.
 - If the user says to remember, correct, clarify, or forget something in chat,
   call `pska_memory_change_from_conversation`; do not send them to Review for
   ordinary corrections.
@@ -79,6 +112,10 @@ candidate memory, review, and durable export.
   correction was recorded; do not claim the backend fact was rewritten in place.
 - If a user wants an existing transient workflow to become durable memory, call
   `pska_memory_review_from_workflow`; do not write memory directly.
+- If inspected local-folder or Obsidian evidence should affect future behavior,
+  call `pska_source_memory_review_create` with explicit `memory_type`,
+  `behavior_delta`, and source refs. Prefer `source_route` and `project_state`
+  for source-derived memory; do not promote generic file summaries.
 - If an existing durable memory must be changed outside the normal conversation
   flow, start from a `pska_memory_search` result and call
   `pska_memory_update_review`; do not call backend update tools directly.

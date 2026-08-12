@@ -3,6 +3,7 @@ const LOCALE = "zh-CN";
 const messages = {
   "view.home": "首页",
   "view.kb": "知识库",
+  "view.sources": "资料源",
   "view.ask": "提问",
   "view.reader": "来源",
   "view.writing": "写作",
@@ -37,6 +38,21 @@ const messages = {
   "toast.noUnreadyDocuments": "没有需要解析的文档。",
   "toast.parseStarted": "解析已开始。",
   "toast.kbReadyAskUpdated": "知识库已就绪，提问范围已更新。",
+  "toast.sourceRootRegistered": "资料源已注册。",
+  "toast.sourceScanCompleted": "资料源扫描完成。",
+  "toast.sourceAuditCompleted": "资料源审计完成。",
+  "toast.sourceAuditJobsActivated": "到期资料源审计已入队。",
+  "toast.sourceAuditJobCompleted": "资料源审计队列已运行。",
+  "toast.sourceMemoryReviewCreated": "资料源记忆审核已创建。",
+  "toast.sourceSavedSearchCreated": "资料源查询已保存。",
+  "toast.sourceSelected": "资料源已选中。",
+  "toast.sourceSelectRequired": "请先选择一个资料源。",
+  "toast.sourceTagProposalCreated": "标签提议已创建。",
+  "toast.sourceTagApplied": "标签已写入 sidecar。",
+  "toast.sourceCommentProposalCreated": "Comment 提议已创建。",
+  "toast.sourceCommentApplied": "Comment 已写入 sidecar。",
+  "toast.obsidianMocProposalCreated": "Obsidian MOC 提议已创建。",
+  "toast.sourceQueryRequired": "请输入资料源查询。",
   "empty.datasetsUnavailable": "知识库不可用。",
   "empty.datasets": "尚未加载知识库。",
   "empty.documents": "尚未加载文档。",
@@ -58,6 +74,13 @@ const messages = {
   "empty.noRetrievalProbe": "尚未运行检索探针。",
   "empty.noMemoryProbe": "尚未运行记忆探针。",
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
+  "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
+  "empty.sourcesUnavailable": "资料源不可用。",
+  "empty.sources": "尚未加载资料源。",
+  "empty.noSourceAudit": "尚未运行资料源审计。",
+  "empty.noSourceAuditActions": "没有资料源审计动作。",
+  "empty.noSourceSearchResults": "没有匹配的资料源结果。",
+  "empty.noSelectedSource": "从搜索结果或审计清单中选择一个 source。",
   "empty.noAskDocuments": "所选范围尚未加载文档。",
   "empty.selectDataset": "请选择知识库。",
   "empty.noContext": "所选范围没有检索到上下文。",
@@ -82,6 +105,7 @@ const messages = {
   "button.tracking": "跟踪中...",
   "button.openStatus": "打开状态",
   "button.reloadStatus": "刷新状态",
+  "button.refreshJarvis": "刷新 Jarvis",
   "button.checkReadiness": "检查就绪",
   "button.upload": "上传",
   "button.open": "打开",
@@ -89,6 +113,11 @@ const messages = {
   "button.openWriting": "打开写作",
   "button.openAsk": "打开提问",
   "button.openReview": "打开异常审核",
+  "button.register": "注册",
+  "button.scan": "扫描",
+  "button.audit": "审计",
+  "button.search": "搜索",
+  "button.annotate": "标注",
   "button.memoryReview": "创建异常审核",
   "button.applyMemory": "应用记忆",
   "button.applyMemoryUpdate": "应用记忆更新",
@@ -154,6 +183,7 @@ const messages = {
   "heading.productAcceptance": "产品验收",
   "heading.memoryProbe": "记忆探针",
   "heading.liveClosedLoop": "实时闭环",
+  "heading.jarvisBar": "Jarvis Bar",
 };
 
 function t(key, fallback = "") {
@@ -178,6 +208,25 @@ const state = {
   currentAskResult: null,
   diagnostics: null,
   workspaceStatus: null,
+  jarvisBriefing: null,
+  jarvisError: "",
+  jarvisLoading: false,
+  sourceRoots: [],
+  sourceRootError: "",
+  sourceAudit: null,
+  sourceAuditScope: {},
+  sourceSearchResults: [],
+  sourceSearchError: "",
+  sourceSearchCount: null,
+  activeSourceRootId: "",
+  sourceScanResults: {},
+  selectedSourceRef: null,
+  selectedSourceTitle: "",
+  sourceSavedSearch: null,
+  sourceTagProposal: null,
+  sourceTagApply: null,
+  sourceCommentProposal: null,
+  sourceCommentApply: null,
   componentCheck: null,
   productEval: null,
   retrievalProbe: null,
@@ -200,6 +249,7 @@ const state = {
 const titles = {
   home: t("view.home"),
   kb: t("view.kb"),
+  sources: t("view.sources"),
   ask: t("view.ask"),
   reader: t("view.reader"),
   writing: t("view.writing"),
@@ -320,6 +370,10 @@ function bindForms() {
   const askForm = document.getElementById("ask-form");
   askForm.elements.dataset_ids.addEventListener("input", handleAskScopeInput);
   askForm.elements.document_ids.addEventListener("input", handleAskScopeInput);
+  document.getElementById("source-root-form").addEventListener("submit", registerSourceRoot);
+  document.getElementById("source-search-form").addEventListener("submit", searchSources);
+  document.getElementById("source-saved-search-form").addEventListener("submit", saveSourceSearch);
+  document.getElementById("source-annotation-form").addEventListener("submit", handleSourceAnnotation);
 }
 
 async function applyAskResult(result, options = {}) {
@@ -362,6 +416,13 @@ function bindRefresh() {
   document.getElementById("ask-add-dataset").addEventListener("click", () => addAskDataset());
   document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
   document.getElementById("ask-check-readiness").addEventListener("click", () => checkAskReadiness());
+  document.getElementById("reload-sources").addEventListener("click", loadSourceRoots);
+  document.getElementById("run-source-audit").addEventListener("click", () => runSourceAudit());
+  document.getElementById("source-root-filter").addEventListener("change", (event) => {
+    state.activeSourceRootId = event.currentTarget.value || "";
+    renderSourceRootPickers();
+    renderSources();
+  });
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
   document.getElementById("review-status-filter").addEventListener("change", (event) => {
     state.reviewStatus = event.currentTarget.value || "";
@@ -390,6 +451,7 @@ async function refreshAll() {
     loadCapabilities(),
     loadDiagnostics(),
     loadWorkspaceStatus(),
+    loadSourceRoots(),
     loadDatasets(),
     loadReviews(),
     loadPendingReviews(),
@@ -467,6 +529,7 @@ async function loadWorkspaceStatus() {
     const payload = await api("/api/workspace/status");
     state.workspaceStatus = payload.workspace_status || null;
     renderHome();
+    await loadJarvisBriefing({ silent: true });
   } catch (error) {
     state.workspaceStatus = {
       status: "error",
@@ -481,6 +544,293 @@ async function loadWorkspaceStatus() {
     renderHome();
     showToast(error.message);
   }
+}
+
+async function loadJarvisBriefing(options = {}) {
+  state.jarvisLoading = true;
+  renderJarvisBar();
+  try {
+    const payload = await api("/api/jarvis/briefing", { method: "POST", body: {} });
+    state.jarvisBriefing = payload.briefing || null;
+    state.jarvisError = "";
+  } catch (error) {
+    state.jarvisBriefing = null;
+    state.jarvisError = error.message;
+    if (!options.silent) showToast(error.message);
+  } finally {
+    state.jarvisLoading = false;
+    renderJarvisBar();
+  }
+}
+
+async function loadSourceRoots() {
+  try {
+    const payload = await api("/api/sources/roots");
+    state.sourceRoots = payload.roots || [];
+    state.sourceRootError = "";
+    if (state.activeSourceRootId && !state.sourceRoots.some((root) => root.root_id === state.activeSourceRootId)) {
+      state.activeSourceRootId = "";
+    }
+    renderSourceRootPickers();
+    renderSources();
+    renderHome();
+  } catch (error) {
+    state.sourceRoots = [];
+    state.sourceRootError = error.message;
+    renderSourceRootPickers();
+    renderSources();
+    showToast(error.message);
+  }
+}
+
+async function registerSourceRoot(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const payload = await api("/api/sources/roots", {
+    method: "POST",
+    body: {
+      path: form.get("path"),
+      kind: form.get("kind") || "auto",
+      permission_mode: form.get("permission_mode") || "read_only",
+      label: form.get("label") || "",
+    },
+  });
+  event.currentTarget.reset();
+  if (payload.root && payload.root.root_id) {
+    state.activeSourceRootId = payload.root.root_id;
+  }
+  await loadSourceRoots();
+  await runSourceAudit(sourceScopeFromRootId(state.activeSourceRootId));
+  await loadJarvisBriefing({ silent: true });
+  showToast(t("toast.sourceRootRegistered"));
+}
+
+async function scanSourceRoot(rootId) {
+  const normalized = String(rootId || "").trim();
+  if (!normalized) return;
+  const payload = await api(`/api/sources/roots/${encodeURIComponent(normalized)}/scan`, {
+    method: "POST",
+    body: { max_files: 1000 },
+  });
+  state.sourceScanResults[normalized] = payload.scan || null;
+  state.activeSourceRootId = normalized;
+  await loadSourceRoots();
+  await runSourceAudit(sourceScopeFromRootId(normalized));
+  await loadAuditEvents("source.scan");
+  await loadJarvisBriefing({ silent: true });
+  showToast(t("toast.sourceScanCompleted"));
+}
+
+async function runSourceAudit(scopeOverride = undefined) {
+  const scope = scopeOverride === undefined ? sourceScopeFromRootId(state.activeSourceRootId) : scopeOverride || {};
+  const payload = await api("/api/sources/audits/run", {
+    method: "POST",
+    body: { scope, limit: 20 },
+  });
+  state.sourceAudit = payload.audit || null;
+  state.sourceAuditScope = scope;
+  if (scope && Array.isArray(scope.root_ids) && scope.root_ids.length === 1) {
+    state.activeSourceRootId = scope.root_ids[0];
+  }
+  renderSourceRootPickers();
+  renderSources();
+  await loadJarvisBriefing({ silent: true });
+  showToast(t("toast.sourceAuditCompleted"));
+}
+
+async function runSourceAuditJob(runId = "") {
+  const path = runId
+    ? `/api/sources/audit-jobs/${encodeURIComponent(runId)}/run`
+    : "/api/sources/audit-jobs/run-next";
+  const payload = await api(path, { method: "POST", body: {} });
+  if (payload.source_audit) {
+    state.sourceAudit = payload.source_audit;
+    state.sourceAuditScope = payload.source_audit.scope || {};
+  }
+  renderSources();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("source.audit_job.run");
+  showToast(t("toast.sourceAuditJobCompleted"));
+}
+
+async function tickSourceAuditJobs() {
+  const payload = await api("/api/sources/audit-jobs/tick", {
+    method: "POST",
+    body: {},
+  });
+  await loadWorkspaceStatus();
+  await loadAuditEvents("source.audit_job.due");
+  showToast(t("toast.sourceAuditJobsActivated"));
+  return payload;
+}
+
+async function searchSources(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const query = String(form.get("query") || "").trim();
+  if (!query) {
+    showToast(t("toast.sourceQueryRequired"));
+    return;
+  }
+  const rootId = String(form.get("root_id") || "").trim();
+  const payload = await api("/api/sources/search", {
+    method: "POST",
+    body: {
+      query,
+      scope: sourceScopeFromRootId(rootId),
+      limit: Number(form.get("limit") || 10),
+    },
+  });
+  state.sourceSearchResults = payload.context_packets || [];
+  state.sourceSearchCount = payload.count || 0;
+  state.sourceSearchError = "";
+  const saveQuery = document.getElementById("source-save-query");
+  if (saveQuery) saveQuery.value = query;
+  const saveRoot = document.getElementById("source-save-root");
+  if (saveRoot) saveRoot.value = rootId;
+  renderSources();
+}
+
+async function saveSourceSearch(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const query = String(form.get("query") || "").trim();
+  if (!query) {
+    showToast(t("toast.sourceQueryRequired"));
+    return;
+  }
+  const rootId = String(form.get("root_id") || "").trim();
+  const payload = await api("/api/sources/saved-searches", {
+    method: "POST",
+    body: {
+      label: form.get("label"),
+      query,
+      scope: sourceScopeFromRootId(rootId),
+      sort: form.get("sort") || "relevance",
+    },
+  });
+  state.sourceSavedSearch = payload.saved_search || null;
+  renderSourceTools();
+  await loadAuditEvents("source.saved_search.create");
+  showToast(t("toast.sourceSavedSearchCreated"));
+}
+
+async function handleSourceAnnotation(event) {
+  event.preventDefault();
+  const submitter = event.submitter;
+  const action = submitter ? submitter.value : "";
+  if (!state.selectedSourceRef) {
+    showToast(t("toast.sourceSelectRequired"));
+    return;
+  }
+  if (action === "tag_propose") {
+    await proposeSourceTag(new FormData(event.currentTarget));
+    return;
+  }
+  if (action === "tag_apply") {
+    await applySourceTag();
+    return;
+  }
+  if (action === "comment_propose") {
+    await proposeSourceComment(new FormData(event.currentTarget));
+    return;
+  }
+  if (action === "comment_apply") {
+    await applySourceComment();
+  }
+}
+
+async function proposeSourceTag(form) {
+  const tag = String(form.get("tag") || "").trim();
+  if (!tag) {
+    showToast("请输入标签。");
+    return;
+  }
+  const payload = await api("/api/sources/tags/proposals", {
+    method: "POST",
+    body: {
+      target_ref: state.selectedSourceRef,
+      tag,
+      reason: form.get("tag_reason") || "",
+      write_target: "sidecar",
+    },
+  });
+  state.sourceTagProposal = payload.proposal || null;
+  state.sourceTagApply = null;
+  renderSourceTools();
+  await loadAuditEvents("source.tag.propose");
+  showToast(t("toast.sourceTagProposalCreated"));
+}
+
+async function applySourceTag() {
+  const proposalId = state.sourceTagProposal && state.sourceTagProposal.proposal_id;
+  if (!proposalId) {
+    showToast("没有可应用的标签提议。");
+    return;
+  }
+  const payload = await api(`/api/sources/tags/${encodeURIComponent(proposalId)}/apply`, { method: "POST", body: {} });
+  state.sourceTagApply = payload.applied || null;
+  if (state.sourceTagApply && state.sourceTagApply.proposal) {
+    state.sourceTagProposal = state.sourceTagApply.proposal;
+  }
+  renderSourceTools();
+  await loadAuditEvents("source.tag.apply");
+  showToast(t("toast.sourceTagApplied"));
+}
+
+async function proposeSourceComment(form) {
+  const body = String(form.get("comment") || "").trim();
+  if (!body) {
+    showToast("请输入 Comment。");
+    return;
+  }
+  const payload = await api("/api/sources/comments/proposals", {
+    method: "POST",
+    body: {
+      target_ref: state.selectedSourceRef,
+      body,
+      reason: form.get("comment_reason") || "",
+      write_target: "sidecar",
+    },
+  });
+  state.sourceCommentProposal = payload.proposal || null;
+  state.sourceCommentApply = null;
+  renderSourceTools();
+  await loadAuditEvents("source.comment.propose");
+  showToast(t("toast.sourceCommentProposalCreated"));
+}
+
+async function applySourceComment() {
+  const proposalId = state.sourceCommentProposal && state.sourceCommentProposal.proposal_id;
+  if (!proposalId) {
+    showToast("没有可应用的 Comment 提议。");
+    return;
+  }
+  const payload = await api(`/api/sources/comments/${encodeURIComponent(proposalId)}/apply`, { method: "POST", body: {} });
+  state.sourceCommentApply = payload.applied || null;
+  if (state.sourceCommentApply && state.sourceCommentApply.proposal) {
+    state.sourceCommentProposal = state.sourceCommentApply.proposal;
+  }
+  renderSourceTools();
+  await loadAuditEvents("source.comment.apply");
+  showToast(t("toast.sourceCommentApplied"));
+}
+
+function selectSourceForAnnotation(sourceRef, title = "", options = {}) {
+  if (!sourceRef) return;
+  state.selectedSourceRef = sourceRef;
+  state.selectedSourceTitle = title || sourceRef.title || sourceRef.path || "";
+  state.sourceTagProposal = null;
+  state.sourceTagApply = null;
+  state.sourceCommentProposal = null;
+  state.sourceCommentApply = null;
+  renderSourceTools();
+  if (!options.silent) showToast(t("toast.sourceSelected"));
+}
+
+function sourceScopeFromRootId(rootId) {
+  const normalized = String(rootId || "").trim();
+  return normalized ? { root_ids: [normalized] } : {};
 }
 
 async function loadDatasets() {
@@ -626,6 +976,98 @@ function renderHome() {
     t("empty.noResumableAsks"),
     resumableAskCard,
   );
+  renderJarvisBar();
+}
+
+function renderJarvisBar() {
+  const container = document.getElementById("jarvis-bar");
+  if (!container) return;
+  container.classList.toggle("empty-list", !state.jarvisBriefing && !state.jarvisLoading && !state.jarvisError);
+  container.replaceChildren();
+  if (state.jarvisLoading && !state.jarvisBriefing) {
+    container.textContent = "Jarvis briefing 正在加载。";
+    return;
+  }
+  if (state.jarvisError) {
+    container.append(
+      el("div", { className: "jarvis-header" }, [
+        el("div", {}, [
+          el("h2", {}, t("heading.jarvisBar")),
+          el("p", {}, state.jarvisError),
+        ]),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadJarvisBriefing() }, t("button.refreshJarvis")),
+      ]),
+    );
+    return;
+  }
+  const briefing = state.jarvisBriefing;
+  if (!briefing) {
+    container.textContent = t("empty.noJarvisBriefing");
+    return;
+  }
+  const summary = briefing.summary || {};
+  const priorities = (briefing.priorities || []).slice(0, 4);
+  const actions = (briefing.next_actions || []).slice(0, 3);
+  container.append(
+    el("div", { className: "jarvis-header" }, [
+      el("div", {}, [
+        el("p", { className: "eyebrow" }, "Hermes briefing"),
+        el("h2", {}, t("heading.jarvisBar")),
+      ]),
+      el("div", { className: "meta-row" }, [
+        el("span", { className: `tag ${statusClass(briefing.status)}` }, readableName(briefing.status || "unknown")),
+        el("span", { className: "tag" }, `sources ${summary.source_root_count || 0}`),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadJarvisBriefing() }, t("button.refreshJarvis")),
+      ]),
+    ]),
+  );
+  container.append(
+    el("div", { className: "jarvis-stats" }, [
+      jarvisStat("重复组", summary.duplicate_group_count || 0),
+      jarvisStat("断链", summary.unresolved_link_count || 0),
+      jarvisStat("孤立笔记", summary.unlinked_markdown_count || 0),
+      jarvisStat("待审核", summary.pending_review_count || 0),
+    ]),
+  );
+  if (priorities.length) {
+    container.append(el("div", { className: "jarvis-priorities" }, priorities.map(jarvisPriorityRow)));
+  }
+  if (actions.length) {
+    container.append(el("div", { className: "jarvis-actions" }, actions.map(jarvisActionRow)));
+  }
+}
+
+function jarvisStat(label, value) {
+  return el("div", { className: "jarvis-stat" }, [
+    el("span", {}, label),
+    el("strong", {}, String(value)),
+  ]);
+}
+
+function jarvisPriorityRow(priority) {
+  return el("div", { className: "jarvis-priority-row" }, [
+    el("span", { className: `tag ${prioritySeverityClass(priority.severity)}` }, readableName(priority.severity || "info")),
+    el("div", {}, [
+      el("strong", {}, priority.title || readableName(priority.code || "priority")),
+      el("p", {}, priority.reason || ""),
+    ]),
+  ]);
+}
+
+function jarvisActionRow(action) {
+  return el("div", { className: "jarvis-action-row" }, [
+    el("div", {}, [
+      el("strong", {}, action.label || readableName(action.action || "action")),
+      el("p", {}, action.reason || action.tool || action.api || ""),
+    ]),
+    el("button", { className: workspaceActionButtonClass(action), type: "button", onclick: () => openWorkspaceAction(action) }, workspaceActionButtonLabel(action)),
+  ]);
+}
+
+function prioritySeverityClass(severity) {
+  if (severity === "critical") return "failed";
+  if (severity === "warning" || severity === "setup") return "pending";
+  return "ready";
 }
 
 function workspaceActionCard(action) {
@@ -658,6 +1100,15 @@ function workspaceActionButtonLabel(action) {
     resume_blocked_ask: t("button.resume"),
     resume_ingest_loop: t("button.resumeLoop"),
     review_pending_durable_knowledge: t("button.review"),
+    review_duplicates: t("button.inspect"),
+    inspect_unresolved_links: t("button.inspect"),
+    inspect_unlinked_notes: t("button.source"),
+    create_source_route_memory: t("button.review"),
+    propose_obsidian_moc: t("button.review"),
+    register_source_root: t("button.upload"),
+    scan_source_root: t("button.track"),
+    activate_due_source_audit_jobs: t("button.track"),
+    run_source_audit_job: t("button.audit"),
     run_file_to_work_product_loop: t("button.start"),
     run_agentic_question: t("button.ask"),
     track_ingestion_status: t("button.track"),
@@ -673,6 +1124,8 @@ function workspaceActionButtonClass(action) {
   return [
     "apply_accepted_memory",
     "parse_documents",
+    "activate_due_source_audit_jobs",
+    "run_source_audit_job",
     "resume_blocked_ask",
     "resume_ingest_loop",
     "run_file_to_work_product_loop",
@@ -720,6 +1173,56 @@ async function openWorkspaceAction(action) {
   }
   if (action.action === "review_pending_durable_knowledge" && params.review_id) {
     await openReview(params.review_id);
+    return;
+  }
+  if (action.action === "register_source_root") {
+    openView("sources");
+    showToast(action.reason || "请注册一个本地文件夹或 Obsidian vault。");
+    return;
+  }
+  if (action.action === "scan_source_root" && params.root_id) {
+    openView("sources");
+    await scanSourceRoot(params.root_id);
+    return;
+  }
+  if (action.action === "review_duplicates" || action.action === "inspect_unresolved_links") {
+    openView("sources");
+    await runSourceAudit(params.scope || {});
+    return;
+  }
+  if (action.action === "run_source_audit_job") {
+    openView("sources");
+    await runSourceAuditJob(params.run_id || "");
+    return;
+  }
+  if (action.action === "activate_due_source_audit_jobs") {
+    openView("sources");
+    await tickSourceAuditJobs();
+    return;
+  }
+  if (action.action === "inspect_unlinked_notes") {
+    openView("sources");
+    if (params.source_ref) {
+      state.sourceSearchResults = [
+        {
+          title: params.source_ref.title || params.source_ref.path || "source",
+          text: action.reason || "",
+          source_ref: params.source_ref,
+          score: 1,
+          metadata: params.source_ref.metadata || {},
+        },
+      ];
+      state.sourceSearchCount = 1;
+      renderSources();
+    }
+    return;
+  }
+  if (action.action === "create_source_route_memory") {
+    await createSourceMemoryReview(params);
+    return;
+  }
+  if (action.action === "propose_obsidian_moc") {
+    await proposeObsidianMoc(params);
     return;
   }
   if (action.action === "upload_documents" || action.action === "create_or_upload_knowledge_base") {
@@ -1275,6 +1778,319 @@ function renderClosedLoopProbe() {
 
 function renderDatasets() {
   renderList(document.getElementById("datasets-list"), state.datasets, t("empty.datasets"), datasetCard);
+}
+
+function renderSources() {
+  const rootsList = document.getElementById("source-roots-list");
+  if (!rootsList) return;
+  if (state.sourceRootError) {
+    renderList(rootsList, [], t("empty.sourcesUnavailable"));
+  } else {
+    renderList(rootsList, state.sourceRoots, t("empty.sources"), sourceRootCard);
+  }
+
+  const searchStatus = document.getElementById("source-search-status");
+  const searchText =
+    state.sourceSearchCount === null
+      ? "未搜索"
+      : state.sourceSearchError
+        ? "搜索失败"
+        : `命中 ${state.sourceSearchCount}`;
+  searchStatus.textContent = searchText;
+  searchStatus.className = `tag ${state.sourceSearchError ? "failed" : state.sourceSearchCount === null ? "" : "ready"}`;
+  renderList(
+    document.getElementById("source-search-results"),
+    state.sourceSearchResults,
+    state.sourceSearchCount === null ? "尚未搜索资料源。" : t("empty.noSourceSearchResults"),
+    sourceSearchResultCard,
+  );
+
+  renderSourceAudit();
+  renderSourceTools();
+}
+
+function renderSourceRootPickers() {
+  ["source-root-filter", "source-search-root", "source-save-root"].forEach((id) => {
+    const picker = document.getElementById(id);
+    if (!picker) return;
+    const previous = id === "source-root-filter" ? state.activeSourceRootId : picker.value || "";
+    picker.replaceChildren(el("option", { value: "" }, "全部资料源"));
+    state.sourceRoots.forEach((root) => {
+      picker.append(el("option", { value: root.root_id }, sourceRootLabel(root)));
+    });
+    picker.value = state.sourceRoots.some((root) => root.root_id === previous) ? previous : "";
+  });
+}
+
+function renderSourceTools() {
+  const selection = document.getElementById("source-selection-card");
+  const selectionStatus = document.getElementById("source-selection-status");
+  const savedStatus = document.getElementById("source-saved-search-status");
+  const tagStatus = document.getElementById("source-tag-status");
+  const commentStatus = document.getElementById("source-comment-status");
+  if (!selection || !selectionStatus || !savedStatus || !tagStatus || !commentStatus) return;
+
+  selection.replaceChildren();
+  if (!state.selectedSourceRef) {
+    selection.className = "empty-list";
+    selection.textContent = t("empty.noSelectedSource");
+    selectionStatus.textContent = "未选择";
+    selectionStatus.className = "tag";
+  } else {
+    selection.className = "source-selection-card";
+    selectionStatus.textContent = "已选择";
+    selectionStatus.className = "tag ready";
+    selection.append(
+      el("strong", {}, state.selectedSourceTitle || state.selectedSourceRef.title || state.selectedSourceRef.path || "source"),
+      el("p", {}, sourceRefPath(state.selectedSourceRef)),
+      el("div", { className: "meta-row" }, [
+        el("span", { className: "tag" }, state.selectedSourceRef.adapter || "source"),
+        state.selectedSourceRef.chunk_id ? el("span", { className: "tag" }, shortId(state.selectedSourceRef.chunk_id)) : null,
+      ]),
+    );
+  }
+
+  renderSourceToolStatus(savedStatus, state.sourceSavedSearch, savedSearchSummary, "尚未保存查询。");
+  renderSourceToolStatus(tagStatus, state.sourceTagApply || state.sourceTagProposal, sourceActionSummary, "没有标签提议。");
+  renderSourceToolStatus(
+    commentStatus,
+    state.sourceCommentApply || state.sourceCommentProposal,
+    sourceActionSummary,
+    "没有 Comment 提议。",
+  );
+}
+
+function renderSourceToolStatus(container, value, renderer, emptyText) {
+  container.replaceChildren();
+  if (!value) {
+    container.className = "source-tool-status empty-list";
+    container.textContent = emptyText;
+    return;
+  }
+  container.className = "source-tool-status";
+  container.append(renderer(value));
+}
+
+function savedSearchSummary(saved) {
+  return el("div", {}, [
+    el("strong", {}, saved.label || "saved search"),
+    el("p", {}, saved.query || ""),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag ready" }, shortId(saved.search_id || "")),
+      el("span", { className: "tag" }, saved.sort || "relevance"),
+    ]),
+  ]);
+}
+
+function sourceActionSummary(value) {
+  const proposal = value.proposal || value;
+  const record = value.record || null;
+  const payload = proposal.payload || {};
+  const text = record && (record.name || record.body) ? record.name || record.body : payload.tag || payload.body || "";
+  return el("div", {}, [
+    el("strong", {}, `${readableName(proposal.action || "source_action")} ${proposal.status || ""}`.trim()),
+    el("p", {}, text),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: `tag ${proposal.status === "applied" ? "ready" : "pending"}` }, proposal.status || "pending"),
+      el("span", { className: "tag" }, proposal.write_target || "sidecar"),
+      value.already_applied ? el("span", { className: "tag" }, "already applied") : null,
+    ]),
+  ]);
+}
+
+function renderSourceAudit() {
+  const audit = state.sourceAudit;
+  const summary = document.getElementById("source-audit-summary");
+  const status = document.getElementById("source-audit-status");
+  const actions = document.getElementById("source-audit-actions");
+  const details = document.getElementById("source-audit-details");
+  summary.replaceChildren();
+  actions.replaceChildren();
+  details.replaceChildren();
+  if (!audit) {
+    status.textContent = "未运行";
+    status.className = "tag";
+    summary.className = "source-audit-grid empty-list";
+    summary.textContent = t("empty.noSourceAudit");
+    renderList(actions, [], t("empty.noSourceAuditActions"));
+    return;
+  }
+
+  const duplicate = audit.duplicate_preview || {};
+  const unresolved = audit.unresolved_links || {};
+  const unlinked = audit.unlinked_markdown || {};
+  const routes = audit.route_candidates || [];
+  status.textContent = `roots ${audit.root_count || 0}`;
+  status.className = "tag ready";
+  summary.className = "source-audit-grid";
+  [
+    ["资料源", audit.root_count || 0],
+    ["重复组", duplicate.group_count || 0],
+    ["断链", unresolved.count || 0],
+    ["孤立笔记", unlinked.count || 0],
+    ["路线候选", routes.length],
+  ].forEach(([label, value]) => summary.append(sourceAuditStat(label, value)));
+
+  renderList(actions, audit.next_actions || [], t("empty.noSourceAuditActions"), sourceAuditActionCard);
+  details.append(
+    sourceAuditSection("重复文件", duplicate.groups || [], duplicateGroupCard),
+    sourceAuditSection("断链", unresolved.items || [], unresolvedLinkCard),
+    sourceAuditSection("孤立 Markdown", unlinked.items || [], sourceCandidateCard),
+    sourceAuditSection("路线候选", routes, sourceCandidateCard),
+  );
+}
+
+function sourceRootCard(root) {
+  const scan = state.sourceScanResults[root.root_id] || null;
+  const counts = scan && scan.counts ? scan.counts : null;
+  const tags = [
+    el("span", { className: "tag" }, root.kind || "source"),
+    el("span", { className: "tag" }, root.permission_mode || "read_only"),
+    el("span", { className: `tag ${root.last_scan_at ? "ready" : "pending"}` }, root.last_scan_at ? "scanned" : "needs scan"),
+    el("span", { className: "tag" }, `objects ${root.active_object_count || 0}`),
+  ];
+  if (counts) tags.push(el("span", { className: "tag ready" }, `indexed ${counts.indexed || 0}`));
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, sourceRootLabel(root)), el("p", {}, root.absolute_path || "")]),
+      el("span", { className: "tag" }, shortId(root.root_id || "")),
+    ]),
+    el("div", { className: "meta-row" }, tags),
+    el("div", { className: "card-actions" }, [
+      el("button", { className: "secondary-button", type: "button", onclick: () => scanSourceRoot(root.root_id) }, t("button.scan")),
+      el(
+        "button",
+        { className: "secondary-button", type: "button", onclick: () => runSourceAudit(sourceScopeFromRootId(root.root_id)) },
+        t("button.audit"),
+      ),
+    ]),
+  ]);
+}
+
+function sourceAuditStat(label, value) {
+  return el("div", { className: "source-audit-stat" }, [el("span", {}, label), el("strong", {}, String(value))]);
+}
+
+function sourceAuditActionCard(action) {
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, action.label || readableName(action.action || "action")), el("p", {}, action.reason || "")]),
+      el("span", { className: "tag" }, action.tool || action.api || readableName(action.action || "")),
+    ]),
+    el("div", { className: "card-actions" }, [
+      el("button", { className: workspaceActionButtonClass(action), type: "button", onclick: () => openWorkspaceAction(action) }, workspaceActionButtonLabel(action)),
+    ]),
+  ]);
+}
+
+function sourceAuditSection(title, items, renderer) {
+  const container = el("section", { className: "source-detail-section" }, [el("h3", {}, title)]);
+  const list = el("div", { className: "list" });
+  renderList(list, items, "没有项目。", renderer);
+  container.append(list);
+  return container;
+}
+
+function duplicateGroupCard(group) {
+  const members = group.members || [];
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, `exact hash ${shortId(group.content_hash || "")}`),
+        el("p", {}, `${members.length} 个文件，${formatBytes(group.size || 0)}`),
+      ]),
+      el("span", { className: "tag pending" }, "duplicate"),
+    ]),
+    el(
+      "div",
+      { className: "list" },
+      members.map((member) =>
+	        el("div", { className: "source-member-row" }, [
+	          el("span", {}, `${member.root_label || member.root_kind || "root"} / ${member.path || ""}`),
+	          member.source_ref
+	            ? el("div", { className: "button-row compact-actions" }, [
+	                el(
+	                  "button",
+	                  { className: "secondary-button", type: "button", onclick: () => selectSourceForAnnotation(member.source_ref, member.title || member.path) },
+	                  t("button.annotate"),
+	                ),
+	                el("button", { className: "secondary-button", type: "button", onclick: () => readSource(member.source_ref) }, t("button.source")),
+	              ])
+	            : null,
+	        ]),
+      ),
+    ),
+  ]);
+}
+
+function unresolvedLinkCard(item) {
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, item.target_text || item.link_text || "unresolved link"),
+        el("p", {}, `${item.root_label || item.root_kind || "root"} / ${item.source_path || ""}`),
+      ]),
+      el("span", { className: "tag pending" }, item.link_kind || "link"),
+    ]),
+    item.link_text ? el("p", {}, item.link_text) : null,
+  ]);
+}
+
+function sourceCandidateCard(item) {
+  const ref = item.source_ref || null;
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, item.title || item.path || "source"), el("p", {}, `${item.root_label || item.root_kind || "root"} / ${item.path || ""}`)]),
+      el("span", { className: "tag" }, item.relation || item.object_kind || "source"),
+    ]),
+    item.reason ? el("p", {}, item.reason) : null,
+	    ref
+	      ? el("div", { className: "card-actions" }, [
+	          el("button", { className: "secondary-button", type: "button", onclick: () => selectSourceForAnnotation(ref, item.title || item.path) }, t("button.annotate")),
+	          el("button", { className: "secondary-button", type: "button", onclick: () => readSource(ref) }, t("button.source")),
+	        ])
+      : null,
+  ]);
+}
+
+function sourceSearchResultCard(packet) {
+  const ref = packet.source_ref || {};
+  const metadata = packet.metadata || {};
+  const lineRange = metadata.line_start ? `L${metadata.line_start}${metadata.line_end ? `-L${metadata.line_end}` : ""}` : "";
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [el("h3", {}, packet.title || ref.title || ref.path || "source"), el("p", {}, ref.path || metadata.path || "")]),
+      el("span", { className: "tag ready" }, `${Math.round(Number(packet.score || 0) * 100)}%`),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, ref.adapter || metadata.root_kind || "source"),
+      lineRange ? el("span", { className: "tag" }, lineRange) : null,
+      metadata.extraction_status ? el("span", { className: "tag" }, metadata.extraction_status) : null,
+    ]),
+	    el("p", { className: "source-result-snippet" }, packet.text || ""),
+	    el("div", { className: "card-actions" }, [
+	      el("button", { className: "secondary-button", type: "button", onclick: () => selectSourceForAnnotation(ref, packet.title || ref.title || ref.path) }, t("button.annotate")),
+	      el("button", { className: "secondary-button", type: "button", onclick: () => readSource(ref) }, t("button.source")),
+	    ]),
+  ]);
+}
+
+function sourceRootLabel(root) {
+  return root.label || root.absolute_path || shortId(root.root_id || "");
+}
+
+function sourceRefPath(sourceRef) {
+  const metadata = sourceRef.metadata || {};
+  const root = metadata.root_label || metadata.root_kind || sourceRef.adapter || "source";
+  const path = sourceRef.path || metadata.path || sourceRef.title || "";
+  return `${root}${path ? ` / ${path}` : ""}`;
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function renderDocuments(documents) {
@@ -2844,6 +3660,45 @@ function auditSummary(event) {
   if (event.action === "source.read") {
     return `Source opened from ${metadata.adapter || "adapter"} ${shortId(metadata.document_id || metadata.source_id || event.target_id || "")}.`;
   }
+  if (event.action === "source.scan") {
+    return `Scanned source root ${metadata.root_label || shortId(event.target_id || "")} with ${metadata.indexed || metadata.indexed_count || metadata.object_count || 0} indexed item(s).`;
+  }
+  if (event.action === "source.audit.run") {
+    return `Source audit found ${metadata.duplicate_group_count || 0} duplicate group(s), ${metadata.unresolved_link_count || 0} unresolved link(s), and ${metadata.unlinked_markdown_count || 0} unlinked note(s).`;
+  }
+  if (event.action === "source.audit_job.enqueue") {
+    return `Queued source audit job ${shortId(event.target_id || "")}.`;
+  }
+  if (event.action === "source.audit_job.due") {
+    return `Activated due source audit job ${shortId(event.target_id || "")}.`;
+  }
+  if (event.action === "source.audit_job.run") {
+    return `Source audit job ${metadata.status || "recorded"} for ${shortId(event.target_id || "")}.`;
+  }
+  if (event.action === "source.obsidian_moc.propose") {
+    return `Obsidian MOC proposal created for ${metadata.moc_path || "MOC"} with ${metadata.link_count || 0} link(s).`;
+  }
+  if (event.action === "source.obsidian_moc.apply") {
+    return `Obsidian MOC ${metadata.changed ? "updated" : "checked"} at ${metadata.moc_path || "MOC"}.`;
+  }
+  if (event.action === "source.memory_review.create") {
+    return `Source memory review created for ${metadata.memory_type || "source_route"} with ${metadata.source_count || 0} source(s).`;
+  }
+  if (event.action === "source.saved_search.create") {
+    return `Saved source search ${metadata.label || event.target_id || ""}.`;
+  }
+  if (event.action === "source.tag.propose") {
+    return `Proposed source tag ${metadata.tag || ""}.`;
+  }
+  if (event.action === "source.tag.apply") {
+    return `Applied source tag ${metadata.tag || ""}.`;
+  }
+  if (event.action === "source.comment.propose") {
+    return "Proposed source comment.";
+  }
+  if (event.action === "source.comment.apply") {
+    return "Applied source comment.";
+  }
   if (event.action === "retrieval.probe") {
     return `Retrieval probe ${metadata.status || "recorded"} with ${metadata.context_count || 0} context packet(s).`;
   }
@@ -3141,7 +3996,68 @@ async function createMemoryReviewFromRun(runId = "") {
   showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : "异常审核已创建。");
 }
 
+async function createSourceMemoryReview(params = {}) {
+  const sourceRefs = params.source_refs || (params.source_ref ? [params.source_ref] : []);
+  if (!sourceRefs.length) {
+    openView("sources");
+    showToast("没有可提升为记忆的资料源。");
+    return;
+  }
+  const payload = await api("/api/sources/memory-reviews", {
+    method: "POST",
+    body: {
+      source_refs: sourceRefs,
+      text: params.text || "Route related questions to this source before broad search.",
+      memory_type: params.memory_type || "source_route",
+      behavior_delta: params.behavior_delta || "Inspect this source before broad search for related questions.",
+      memory_scope: params.memory_scope || "workspace",
+      reason: params.reason || "source route candidate",
+      confidence: params.confidence || 0.82,
+      scope: params.scope || {},
+    },
+  });
+  setReviewStatusFilter("");
+  if (payload.review) {
+    syncReviewRecord(payload.review);
+    state.focusReviewId = payload.review.review_id;
+  }
+  if (payload.review && payload.memory_apply) {
+    syncMemoryApply(payload.review.review_id, payload.memory_apply);
+  }
+  await loadReviews();
+  await loadPendingReviews();
+  await loadWorkflows();
+  await loadWorkspaceStatus();
+  await loadAuditEvents(payload.memory_apply ? memoryApplyAction(payload.memory_apply) : "source.memory_review.create");
+  openView("review");
+  showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : t("toast.sourceMemoryReviewCreated"));
+}
+
+async function proposeObsidianMoc(params = {}) {
+  const sourceRefs = params.source_refs || (params.source_ref ? [params.source_ref] : []);
+  if (!params.root_id || !sourceRefs.length) {
+    openView("sources");
+    showToast("没有可生成 MOC 的 Obsidian 资料源。");
+    return;
+  }
+  await api("/api/sources/obsidian/moc/proposals", {
+    method: "POST",
+    body: {
+      root_id: params.root_id,
+      source_refs: sourceRefs,
+      moc_path: params.moc_path || "PSKA MOC.md",
+      title: params.title || "PSKA MOC",
+      reason: params.reason || "Obsidian MOC candidate",
+    },
+  });
+  await loadWorkspaceStatus();
+  await loadAuditEvents("source.obsidian_moc.propose");
+  openView("activity");
+  showToast(t("toast.obsidianMocProposalCreated"));
+}
+
 async function readSource(sourceRef) {
+  selectSourceForAnnotation(sourceRef, sourceRef.title || sourceRef.path || "", { silent: true });
   const payload = await api("/api/sources/read", { method: "POST", body: { source_ref: sourceRef } });
   state.reader = payload.source || null;
   renderReader();

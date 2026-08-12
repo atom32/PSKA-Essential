@@ -254,16 +254,68 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/memory/search"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
+        self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
         self.assertIn(("POST", "/api/digest"), contract_routes)
         self.assertIn(("POST", "/api/digest-jobs"), contract_routes)
         self.assertIn(("GET", "/api/digest-jobs"), contract_routes)
         self.assertIn(("POST", "/api/digest-jobs/run-next"), contract_routes)
         self.assertIn(("POST", "/api/digest-jobs/{run_id}/run"), contract_routes)
         self.assertIn(("POST", "/api/workflows/{run_id}/memory-review"), contract_routes)
+        self.assertIn(("POST", "/api/sources/audit-jobs"), contract_routes)
+        self.assertIn(("GET", "/api/sources/audit-jobs"), contract_routes)
+        self.assertIn(("POST", "/api/sources/audit-schedules"), contract_routes)
+        self.assertIn(("POST", "/api/sources/audit-jobs/tick"), contract_routes)
+        self.assertIn(("POST", "/api/sources/audit-jobs/run-next"), contract_routes)
+        self.assertIn(("POST", "/api/sources/audit-jobs/{run_id}/run"), contract_routes)
+        self.assertIn(("GET", "/api/sources/roots"), contract_routes)
+        self.assertIn(("POST", "/api/sources/roots"), contract_routes)
+        self.assertIn(("POST", "/api/sources/roots/{root_id}/scan"), contract_routes)
+        self.assertIn(("POST", "/api/sources/search"), contract_routes)
+        self.assertIn(("POST", "/api/sources/neighbors"), contract_routes)
+        self.assertIn(("POST", "/api/sources/duplicates"), contract_routes)
+        self.assertIn(("POST", "/api/sources/audits/run"), contract_routes)
+        self.assertIn(("POST", "/api/sources/saved-searches"), contract_routes)
+        self.assertIn(("POST", "/api/sources/tags/proposals"), contract_routes)
+        self.assertIn(("POST", "/api/sources/tags/{proposal_id}/apply"), contract_routes)
+        self.assertIn(("POST", "/api/sources/comments/proposals"), contract_routes)
+        self.assertIn(("POST", "/api/sources/comments/{proposal_id}/apply"), contract_routes)
+        self.assertIn(("POST", "/api/sources/obsidian/moc/proposals"), contract_routes)
+        self.assertIn(("POST", "/api/sources/obsidian/moc/{proposal_id}/apply"), contract_routes)
+        self.assertIn(("POST", "/api/sources/memory-reviews"), contract_routes)
+        self.assertIn(("POST", "/api/sources/read"), contract_routes)
         self.assertIn(("POST", "/api/turn-context"), contract_routes)
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["apply"]["supported"])
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["update"]["supported"])
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
+        source_layer = capabilities["capabilities"]["source_layer"]
+        self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
+        self.assertEqual(source_layer["status"], "m10_obsidian_moc_writeback")
+        self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_run", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_job_enqueue", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_schedule_create", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_job_list", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_job_tick", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_job_run", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_saved_search_create", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_tag_propose", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_tag_apply", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_comment_propose", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_comment_apply", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_obsidian_moc_propose", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_obsidian_moc_apply", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_memory_review_create", source_layer["mcp_tools"]["implemented"])
+        self.assertFalse(source_layer["embedding_required"])
+        assistant_layer = capabilities["capabilities"]["assistant_layer"]
+        self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
+        self.assertEqual(assistant_layer["status"], "m10_jarvis_obsidian_moc_writeback")
+        self.assertEqual(assistant_layer["primary_agent"], "Hermes")
+        self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_job_tick", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_audit_job_run", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_obsidian_moc_propose", assistant_layer["mcp_tools"]["implemented"])
         search_view = capabilities["capabilities"]["memory"]["search_view"]
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
         self.assertTrue(search_view["default_filters_superseded"])
@@ -333,6 +385,7 @@ class ProductApiTests(unittest.TestCase):
             source_audit["events"][0]["metadata"]["document_id"],
             asked["context_packets"][0]["source_ref"]["document_id"],
         )
+
         workflows = self._get_json("/api/workflows?limit=5")
         self.assertEqual(workflows["workflows"][0]["run_id"], asked["run"]["run_id"])
         self.assertEqual(workflows["workflows"][0]["metadata"]["agentic_loop"]["review_id"], review_id)
@@ -487,6 +540,231 @@ class ProductApiTests(unittest.TestCase):
             ["memory.apply", "memory.update", "memory.delete"],
         )
         self.assertEqual(lifecycle["lifecycle"]["latest_event"]["action"], "memory.delete")
+
+    def test_product_api_personal_source_root_scan_search_and_read(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Vault"
+            root_path.mkdir()
+            (root_path / ".obsidian").mkdir()
+            (root_path / "Architecture.md").write_text(
+                "# Architecture\n\n"
+                "## Hermes\n\n"
+                "Hermes reads PSKA personal source evidence before synthesizing answers.\n"
+                "Related note: [[Evidence]].\n",
+                encoding="utf-8",
+            )
+            (root_path / "Evidence.md").write_text(
+                "# Evidence\n\nSource evidence for Hermes product answers.\n",
+                encoding="utf-8",
+            )
+
+            registered = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_path), "kind": "auto", "permission_mode": "native_write"},
+            )
+            roots = self._get_json("/api/sources/roots")
+            scanned = self._post_json(
+                f"/api/sources/roots/{registered['root']['root_id']}/scan",
+                {"max_files": 10},
+            )
+            searched = self._post_json(
+                "/api/sources/search",
+                {"query": "Hermes personal source", "scope": {"root_ids": [registered["root"]["root_id"]]}},
+            )
+            architecture_packet = next(
+                packet
+                for packet in searched["context_packets"]
+                if packet["source_ref"]["path"] == "Architecture.md"
+            )
+            duplicate = self._post_json(
+                "/api/sources/duplicates",
+                {"scope": {"root_ids": [registered["root"]["root_id"]]}},
+            )
+            source_audit = self._post_json(
+                "/api/sources/audits/run",
+                {"scope": {"root_ids": [registered["root"]["root_id"]]}, "limit": 10},
+            )
+            queued_audit_job = self._post_json(
+                "/api/sources/audit-jobs",
+                {
+                    "scope": {"root_ids": [registered["root"]["root_id"]]},
+                    "label": "Daily Hermes source audit",
+                    "priority": 5,
+                    "limit": 10,
+                    "cadence": "daily",
+                },
+            )
+            queued_jobs = self._get_json("/api/sources/audit-jobs?status=queued")
+            audit_job_result = self._post_json("/api/sources/audit-jobs/run-next", {})
+            rerun_completed_job = self._post_json(
+                f"/api/sources/audit-jobs/{queued_audit_job['job']['run_id']}/run",
+                {},
+            )
+            scheduled_audit = self._post_json(
+                "/api/sources/audit-schedules",
+                {
+                    "scope": {"root_ids": [registered["root"]["root_id"]]},
+                    "label": "Scheduled Hermes source audit",
+                    "priority": 4,
+                    "limit": 10,
+                    "cadence": "daily",
+                    "due_at": "2000-01-01T00:00:00+00:00",
+                },
+            )
+            ticked_audits = self._post_json(
+                "/api/sources/audit-jobs/tick",
+                {"now": "2000-01-01T00:00:01+00:00", "limit": 5},
+            )
+            scheduled_audit_run = self._post_json("/api/sources/audit-jobs/run-next", {})
+            jarvis = self._post_json(
+                "/api/jarvis/briefing",
+                {"source_scope": {"root_ids": [registered["root"]["root_id"]]}, "audit_limit": 10},
+            )
+            saved = self._post_json(
+                "/api/sources/saved-searches",
+                {
+                    "label": "Hermes source evidence",
+                    "query": "Hermes personal source",
+                    "scope": {"root_ids": [registered["root"]["root_id"]]},
+                },
+            )
+            source = self._post_json(
+                "/api/sources/read",
+                {"source_ref": architecture_packet["source_ref"]},
+            )
+            neighbors = self._post_json(
+                "/api/sources/neighbors",
+                {"source_ref": architecture_packet["source_ref"], "strategy": "links"},
+            )
+            tag_proposal = self._post_json(
+                "/api/sources/tags/proposals",
+                {
+                    "target_ref": architecture_packet["source_ref"],
+                    "tag": "project/hermes",
+                    "reason": "matches project source scope",
+                },
+            )
+            tag_apply = self._post_json(
+                f"/api/sources/tags/{tag_proposal['proposal']['proposal_id']}/apply",
+                {},
+            )
+            comment_proposal = self._post_json(
+                "/api/sources/comments/proposals",
+                {
+                    "target_ref": architecture_packet["source_ref"],
+                    "body": "Useful source evidence for Hermes answers.",
+                },
+            )
+            comment_apply = self._post_json(
+                f"/api/sources/comments/{comment_proposal['proposal']['proposal_id']}/apply",
+                {},
+            )
+            moc_proposal = self._post_json(
+                "/api/sources/obsidian/moc/proposals",
+                {
+                    "root_id": registered["root"]["root_id"],
+                    "source_refs": [architecture_packet["source_ref"]],
+                    "moc_path": "Maps/PSKA Index",
+                    "title": "PSKA Index",
+                    "reason": "collect source-route notes",
+                },
+            )
+            moc_apply = self._post_json(
+                f"/api/sources/obsidian/moc/{moc_proposal['proposal']['proposal_id']}/apply",
+                {},
+            )
+            memory_review = self._post_json(
+                "/api/sources/memory-reviews",
+                {
+                    "source_refs": [architecture_packet["source_ref"]],
+                    "text": "For Hermes source-layer design questions, inspect the Architecture note first.",
+                    "memory_type": "source_route",
+                    "behavior_delta": "Route future Hermes source-layer design questions to the Architecture note before broad search.",
+                    "memory_scope": "project",
+                    "reason": "stable project source route",
+                },
+            )
+            sidecar_entries = [
+                json.loads(line)
+                for line in (root_path / ".pska" / "annotations.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            source_after_apply = (root_path / "Architecture.md").read_text(encoding="utf-8")
+            moc_text = (root_path / "Maps" / "PSKA Index.md").read_text(encoding="utf-8")
+
+        self.assertTrue(registered["ok"])
+        self.assertEqual(registered["root"]["kind"], "obsidian_vault")
+        self.assertEqual(registered["root"]["permission_mode"], "native_write")
+        self.assertEqual(len(roots["roots"]), 1)
+        self.assertEqual(scanned["scan"]["counts"]["indexed"], 2)
+        self.assertGreaterEqual(searched["count"], 1)
+        self.assertEqual(duplicate["duplicate_report"]["group_count"], 0)
+        self.assertEqual(source_audit["audit"]["schema"], "pska.source_audit.v1")
+        self.assertEqual(source_audit["audit"]["root_count"], 1)
+        self.assertEqual(source_audit["audit"]["duplicate_preview"]["group_count"], 0)
+        self.assertIn("Architecture.md", {item["path"] for item in source_audit["audit"]["route_candidates"]})
+        self.assertIn("create_source_route_memory", {item["action"] for item in source_audit["audit"]["next_actions"]})
+        self.assertEqual(queued_audit_job["status"], "queued")
+        self.assertEqual(queued_audit_job["source_audit_job"]["request"]["cadence"], "daily")
+        self.assertEqual(queued_jobs["source_audit_jobs"][0]["job"]["run_id"], queued_audit_job["job"]["run_id"])
+        self.assertEqual(audit_job_result["status"], "completed")
+        self.assertEqual(audit_job_result["source_audit"]["schema"], "pska.source_audit.v1")
+        self.assertEqual(audit_job_result["source_audit"]["root_count"], 1)
+        self.assertEqual(
+            audit_job_result["source_audit_job"]["result_audit_id"],
+            audit_job_result["source_audit"]["audit_id"],
+        )
+        self.assertFalse(audit_job_result["source_audit"]["data_flow"]["writes_source_files"])
+        self.assertEqual(rerun_completed_job["status"], "completed")
+        self.assertIsNone(rerun_completed_job["source_audit"])
+        self.assertEqual(scheduled_audit["status"], "waiting")
+        self.assertEqual(scheduled_audit["source_audit_job"]["schedule_mode"], "scheduled")
+        self.assertEqual(ticked_audits["status"], "activated")
+        self.assertEqual(ticked_audits["activated_count"], 1)
+        self.assertEqual(scheduled_audit_run["status"], "completed")
+        self.assertEqual(scheduled_audit_run["source_audit"]["schema"], "pska.source_audit.v1")
+        self.assertEqual(scheduled_audit_run["next_job"]["status"], "waiting")
+        self.assertEqual(
+            scheduled_audit_run["next_job"]["source_audit_job"]["previous_run_id"],
+            scheduled_audit_run["job"]["run_id"],
+        )
+        self.assertEqual(jarvis["briefing"]["schema"], "pska.jarvis_briefing.v1")
+        self.assertEqual(jarvis["briefing"]["agent"]["primary"], "Hermes")
+        self.assertEqual(jarvis["briefing"]["source_layer"]["root_count"], 1)
+        self.assertIn("create_source_route_memory", {item["action"] for item in jarvis["briefing"]["next_actions"]})
+        self.assertFalse(jarvis["briefing"]["data_flow"]["writes_source_files"])
+        self.assertEqual(saved["saved_search"]["label"], "Hermes source evidence")
+        self.assertEqual(architecture_packet["source_ref"]["adapter"], "obsidian_vault")
+        self.assertIn("Hermes reads PSKA personal source evidence", source["source"]["text"])
+        self.assertEqual(neighbors["count"], 1)
+        self.assertEqual(neighbors["neighbors"][0]["path"], "Evidence.md")
+        self.assertEqual(neighbors["neighbors"][0]["relation"], "outgoing_link")
+        self.assertEqual(tag_apply["applied"]["proposal"]["status"], "applied")
+        self.assertEqual(tag_apply["applied"]["record"]["name"], "project/hermes")
+        self.assertEqual(comment_apply["applied"]["proposal"]["status"], "applied")
+        self.assertIn("Hermes answers", comment_apply["applied"]["record"]["body"])
+        self.assertEqual(moc_proposal["proposal"]["action"], "obsidian_moc")
+        self.assertEqual(moc_proposal["proposal"]["payload"]["link_count"], 1)
+        self.assertTrue(moc_apply["applied"]["data_flow"]["writes_source_files"])
+        self.assertIn("<!-- PSKA:MOC:BEGIN -->", moc_text)
+        self.assertIn("[[Architecture|Hermes]]", moc_text)
+        self.assertEqual(memory_review["proposal"]["kind"], "memory_patch")
+        self.assertEqual(memory_review["review"]["status"], "pending")
+        self.assertIsNone(memory_review["memory_apply"])
+        self.assertEqual(memory_review["memory_card"]["type"], "source_route")
+        self.assertEqual(memory_review["memory_card"]["scope"], "project")
+        self.assertIn("Route future Hermes", memory_review["memory_card"]["behavior_delta"])
+        self.assertEqual(memory_review["proposal"]["memory_patch"]["metadata"]["origin"], "source_promotion")
+        self.assertEqual(memory_review["artifact"]["traceability"]["source_count"], 1)
+        self.assertEqual([entry["action"] for entry in sidecar_entries], ["tag", "comment"])
+        self.assertIn("Hermes reads PSKA personal source evidence", source_after_apply)
+        actions = {event.action for event in self.service.store.list_audit_events(limit=80)}
+        self.assertIn("source.audit.run", actions)
+        self.assertIn("source.audit_job.enqueue", actions)
+        self.assertIn("source.audit_job.due", actions)
+        self.assertIn("source.audit_job.run", actions)
+        self.assertIn("source.obsidian_moc.propose", actions)
+        self.assertIn("source.obsidian_moc.apply", actions)
 
     def test_turn_context_route_assembles_evidence_and_memory_without_ask(self):
         self.service.memory.facts.append(
@@ -1436,6 +1714,69 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source_inspection_limit", html)
         self.assertIn("来源检查", html)
         self.assertIn("use_kg", html)
+        self.assertIn('data-view="sources"', html)
+        self.assertIn('id="sources"', html)
+        self.assertIn("资料源", html)
+        self.assertIn("source-root-form", html)
+        self.assertIn("source-root-filter", html)
+        self.assertIn("source-search-form", html)
+        self.assertIn("source-search-root", html)
+        self.assertIn("source-saved-search-form", html)
+        self.assertIn("source-save-root", html)
+        self.assertIn("source-annotation-form", html)
+        self.assertIn("source-selection-card", html)
+        self.assertIn("source-tag-status", html)
+        self.assertIn("source-comment-status", html)
+        self.assertIn("source-audit-summary", html)
+        self.assertIn("source-audit-actions", html)
+        self.assertIn("source-audit-details", html)
+        self.assertIn('/api/sources/roots', script)
+        self.assertIn('/api/sources/roots/${encodeURIComponent(normalized)}/scan', script)
+        self.assertIn('/api/sources/search', script)
+        self.assertIn('/api/sources/audits/run', script)
+        self.assertIn('/api/sources/audit-jobs/tick', script)
+        self.assertIn('/api/sources/audit-jobs/run-next', script)
+        self.assertIn('/api/sources/audit-jobs/${encodeURIComponent(runId)}/run', script)
+        self.assertIn('/api/sources/saved-searches', script)
+        self.assertIn('/api/sources/tags/proposals', script)
+        self.assertIn('/api/sources/tags/${encodeURIComponent(proposalId)}/apply', script)
+        self.assertIn('/api/sources/comments/proposals', script)
+        self.assertIn('/api/sources/comments/${encodeURIComponent(proposalId)}/apply', script)
+        self.assertIn('/api/sources/obsidian/moc/proposals', script)
+        self.assertIn('/api/sources/memory-reviews', script)
+        self.assertIn("function loadSourceRoots", script)
+        self.assertIn("function renderSources", script)
+        self.assertIn("function runSourceAudit", script)
+        self.assertIn("async function runSourceAuditJob", script)
+        self.assertIn("async function tickSourceAuditJobs", script)
+        self.assertIn("async function searchSources", script)
+        self.assertIn("async function saveSourceSearch", script)
+        self.assertIn("async function handleSourceAnnotation", script)
+        self.assertIn("async function proposeSourceTag", script)
+        self.assertIn("async function applySourceTag", script)
+        self.assertIn("async function proposeSourceComment", script)
+        self.assertIn("async function applySourceComment", script)
+        self.assertIn("async function proposeObsidianMoc", script)
+        self.assertIn("function selectSourceForAnnotation", script)
+        self.assertIn("async function scanSourceRoot", script)
+        self.assertIn("async function createSourceMemoryReview", script)
+        self.assertIn('action.action === "scan_source_root"', script)
+        self.assertIn('action.action === "propose_obsidian_moc"', script)
+        self.assertIn('action.action === "review_duplicates" || action.action === "inspect_unresolved_links"', script)
+        self.assertIn('openView("sources");', script)
+        self.assertIn('<option value="source.scan">source.scan</option>', html)
+        self.assertIn('<option value="source.audit.run">source.audit.run</option>', html)
+        self.assertIn('<option value="source.audit_job.enqueue">source.audit_job.enqueue</option>', html)
+        self.assertIn('<option value="source.audit_job.due">source.audit_job.due</option>', html)
+        self.assertIn('<option value="source.audit_job.run">source.audit_job.run</option>', html)
+        self.assertIn('<option value="source.saved_search.create">source.saved_search.create</option>', html)
+        self.assertIn('<option value="source.tag.propose">source.tag.propose</option>', html)
+        self.assertIn('<option value="source.tag.apply">source.tag.apply</option>', html)
+        self.assertIn('<option value="source.comment.propose">source.comment.propose</option>', html)
+        self.assertIn('<option value="source.comment.apply">source.comment.apply</option>', html)
+        self.assertIn('<option value="source.obsidian_moc.propose">source.obsidian_moc.propose</option>', html)
+        self.assertIn('<option value="source.obsidian_moc.apply">source.obsidian_moc.apply</option>', html)
+        self.assertIn('<option value="source.memory_review.create">source.memory_review.create</option>', html)
         self.assertIn('data-view="reader"', html)
         self.assertIn('data-view="writing"', html)
         self.assertIn('data-view="activity"', html)
@@ -1499,6 +1840,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('apply_accepted_memory: t("button.apply")', script)
         self.assertIn('wait_for_resumable_ask: t("button.track")', script)
         self.assertIn('action.action === "wait_for_resumable_ask"', script)
+        self.assertIn('action.action === "activate_due_source_audit_jobs"', script)
         self.assertIn("openBlockedAskRun", script)
         self.assertIn("askResultFromResumableRecord", script)
         self.assertIn("button.openAsk", script)
@@ -1611,6 +1953,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('return "eval.run"', script)
         self.assertIn('event.action === "eval.run"', script)
         self.assertIn('/api/workspace/status', script)
+        self.assertIn('/api/jarvis/briefing', script)
+        self.assertIn('function loadJarvisBriefing', script)
+        self.assertIn('function renderJarvisBar', script)
+        self.assertIn('id="jarvis-bar"', html)
         self.assertIn('loadWorkspaceStatus', script)
         self.assertIn('workspaceActionCard', script)
         self.assertIn('openWorkspaceAction', script)

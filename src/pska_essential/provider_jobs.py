@@ -6,6 +6,7 @@ from typing import Any
 from pska_essential.contracts import to_jsonable, utc_now_iso
 from pska_essential.digest_jobs import list_digest_jobs
 from pska_essential.readiness import evaluate_kb_readiness
+from pska_essential.source_audit_jobs import list_source_audit_jobs
 
 
 def build_provider_job_status(
@@ -14,6 +15,7 @@ def build_provider_job_status(
     *,
     dataset_page_size: int = 50,
     digest_limit: int = 50,
+    source_audit_limit: int = 50,
     audit_limit: int = 50,
     include_ready: bool = True,
 ) -> dict[str, Any]:
@@ -23,12 +25,15 @@ def build_provider_job_status(
         raise ValueError("dataset_page_size must be greater than 0")
     if digest_limit < 1:
         raise ValueError("digest_limit must be greater than 0")
+    if source_audit_limit < 1:
+        raise ValueError("source_audit_limit must be greater than 0")
     if audit_limit < 1:
         raise ValueError("audit_limit must be greater than 0")
     kb_jobs, kb_error = _kb_jobs(gateway, page_size=dataset_page_size, include_ready=include_ready)
     digest_jobs = _digest_jobs(service, limit=digest_limit)
+    source_audit_jobs = _source_audit_jobs(service, limit=source_audit_limit)
     recent_provider_events = _recent_provider_events(service, limit=audit_limit)
-    jobs = [*kb_jobs, *digest_jobs]
+    jobs = [*kb_jobs, *digest_jobs, *source_audit_jobs]
     if not include_ready:
         jobs = [job for job in jobs if job.get("status") != "ready"]
     summary = _job_summary(jobs, kb_error)
@@ -51,7 +56,7 @@ def build_provider_job_status(
         "error": kb_error,
         "note": (
             "PSKA reports normalized job state from provider readiness, audit, and explicit digest metadata. "
-            "It does not own or replace provider-native queues."
+            "It also reports PSKA-owned source audit jobs. It does not own or replace provider-native queues."
         ),
     }
 
@@ -165,6 +170,57 @@ def _digest_jobs(service: Any, *, limit: int) -> list[dict[str, Any]]:
     return jobs
 
 
+def _source_audit_jobs(service: Any, *, limit: int) -> list[dict[str, Any]]:
+    jobs: list[dict[str, Any]] = []
+    for item in list_source_audit_jobs(service, limit=limit):
+        run = dict(item.get("job") or {})
+        source_audit_job = dict(item.get("source_audit_job") or {})
+        request = dict(source_audit_job.get("request") or {})
+        scope = dict(request.get("scope") or (run.get("scope") or {}).get("source_scope") or {})
+        status = str(source_audit_job.get("status") or run.get("status") or "unknown")
+        summary = dict(source_audit_job.get("summary") or {})
+        due_at = str(source_audit_job.get("due_at") or request.get("due_at") or "")
+        due = _source_audit_due(status, due_at)
+        jobs.append(
+            {
+                "kind": "pska_source_audit_job",
+                "job_id": str(run.get("run_id") or ""),
+                "provider": "pska",
+                "status": status,
+                "phase": status,
+                "progress": _source_audit_progress(status),
+                "label": str(request.get("label") or ""),
+                "cadence": str(request.get("cadence") or "manual"),
+                "schedule_mode": str(source_audit_job.get("schedule_mode") or "ad_hoc"),
+                "due_at": due_at,
+                "due": due,
+                "series_id": str(source_audit_job.get("series_id") or ""),
+                "previous_run_id": str(source_audit_job.get("previous_run_id") or ""),
+                "next_run_id": str(source_audit_job.get("next_run_id") or ""),
+                "scope": to_jsonable(scope),
+                "root_ids": _string_list(scope.get("root_ids") or scope.get("root_id") or []),
+                "source_kinds": _string_list(scope.get("source_kinds") or scope.get("source_kind") or []),
+                "priority": int(source_audit_job.get("priority") or 0),
+                "attempt_count": int(source_audit_job.get("attempt_count") or 0),
+                "result_audit_id": str(source_audit_job.get("result_audit_id") or ""),
+                "last_status": str(source_audit_job.get("last_status") or ""),
+                "last_message": str(source_audit_job.get("last_message") or ""),
+                "summary": to_jsonable(summary),
+                "next_actions": _source_audit_next_actions(status, due=due),
+                "message": str(source_audit_job.get("last_message") or ""),
+                "created_at": str(source_audit_job.get("created_at") or run.get("created_at") or ""),
+                "updated_at": str(source_audit_job.get("updated_at") or run.get("updated_at") or ""),
+                "data_flow": {
+                    "source": "personal_source_roots",
+                    "writes_source_files": False,
+                    "writes_memory_directly": False,
+                    "embedding_required": False,
+                },
+            }
+        )
+    return jobs
+
+
 def _recent_provider_events(service: Any, *, limit: int) -> list[dict[str, Any]]:
     provider_actions = {"kb.ingest", "kb.parse", "kb.dataset.create", "kb.dataset.delete"}
     events = [
@@ -252,6 +308,34 @@ def _digest_next_actions(status: str) -> list[str]:
     return []
 
 
+def _source_audit_progress(status: str) -> float:
+    if status == "completed":
+        return 1.0
+    if status == "running":
+        return 0.5
+    if status == "queued":
+        return 0.0
+    if status == "failed":
+        return 0.0
+    return 0.0
+
+
+def _source_audit_next_actions(status: str, *, due: bool = False) -> list[str]:
+    if status == "waiting":
+        return ["activate_due_source_audit_job"] if due else ["wait_until_due"]
+    if status == "queued":
+        return ["run_source_audit_job"]
+    if status == "failed":
+        return ["inspect_failure"]
+    return []
+
+
+def _source_audit_due(status: str, due_at: str) -> bool:
+    if status != "waiting" or not str(due_at or "").strip():
+        return False
+    return str(due_at) <= utc_now_iso()
+
+
 def _unique_strings(values: list[str]) -> list[str]:
     result: list[str] = []
     seen: set[str] = set()
@@ -264,5 +348,7 @@ def _unique_strings(values: list[str]) -> list[str]:
     return result
 
 
-def _string_list(values: list[Any]) -> list[str]:
+def _string_list(values: list[Any] | Any) -> list[str]:
+    if isinstance(values, str):
+        values = [values]
     return [str(value) for value in values or [] if str(value or "").strip()]

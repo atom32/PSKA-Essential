@@ -21,8 +21,29 @@ EXPECTED_TOOLS = {
     "pska_workflow_artifact",
     "pska_workflow_brief",
     "pska_workspace_status",
+    "pska_jarvis_briefing",
     "pska_context_retrieve",
     "pska_source_read",
+    "pska_source_root_list",
+    "pska_source_root_register",
+    "pska_source_scan",
+    "pska_source_search",
+    "pska_source_neighbors",
+    "pska_duplicate_report",
+    "pska_source_audit_run",
+    "pska_source_audit_job_enqueue",
+    "pska_source_audit_schedule_create",
+    "pska_source_audit_job_list",
+    "pska_source_audit_job_tick",
+    "pska_source_audit_job_run",
+    "pska_saved_search_create",
+    "pska_source_tag_propose",
+    "pska_source_tag_apply",
+    "pska_source_comment_propose",
+    "pska_source_comment_apply",
+    "pska_obsidian_moc_propose",
+    "pska_obsidian_moc_apply",
+    "pska_source_memory_review_create",
     "pska_policy_get",
     "pska_capabilities_get",
     "pska_migration_manifest",
@@ -295,6 +316,13 @@ class McpContractTests(unittest.TestCase):
         policy = capabilities["tool_policy"]["tools"]
         self.assertTrue(policy["pska_memory_apply"]["requires_accepted_review"])
         self.assertTrue(policy["pska_digest_job_run"]["requires_ready_scope"])
+        self.assertFalse(policy["pska_source_audit_job_run"]["writes_source_files"])
+        self.assertFalse(policy["pska_source_audit_job_run"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_source_audit_job_run"]["embedding_required"])
+        self.assertTrue(policy["pska_source_audit_schedule_create"]["wall_clock_schedule"])
+        self.assertTrue(policy["pska_source_audit_job_tick"]["wall_clock_tick"])
+        self.assertTrue(policy["pska_obsidian_moc_apply"]["writes_source_files"])
+        self.assertTrue(policy["pska_obsidian_moc_apply"]["requires_native_permission"])
         self.assertEqual(policy["pska_kb_ingest_files"]["access"], "write")
         proposal = tools["pska_propose"](run["run_id"], "memory_patch", "mcp memory")
         artifact = tools["pska_workflow_artifact"](run["run_id"])

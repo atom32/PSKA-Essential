@@ -9,6 +9,7 @@ from pska_essential.adapters.ragflow import RagflowRetrievalAdapter
 from pska_essential.adapters.sqlite import SQLiteMemoryAdapter
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.review_store import SQLiteReviewStore
+from pska_essential.source_registry import SQLiteSourceRegistry
 from pska_essential.workflow import WorkflowService
 
 
@@ -56,6 +57,7 @@ def build_service_from_env() -> WorkflowService:
         retrieval=retrieval,
         memory=memory,
         store=SQLiteReviewStore(os.getenv("PSKA_REVIEW_DB", ".pska-essential/review.sqlite3")),
+        source_registry=SQLiteSourceRegistry(os.getenv("PSKA_SOURCE_DB", ".pska-essential/sources.sqlite3")),
     )
 
 

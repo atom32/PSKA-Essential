@@ -15,8 +15,8 @@ connects independent AI systems into a coherent, auditable knowledge workspace.
 - Hermes is the first supported agent host for v1. Other agents may be added
   later through adapter contracts, but do not make FastReAct-specific jobs,
   prompts, or assumptions part of the core product.
-- RAGFlow, Graphiti, embedding services, LLM providers, and future company
-  GraphRAG systems stay behind adapters.
+- RAGFlow, local folders, Obsidian vaults, Graphiti, embedding services, LLM
+  providers, and future company GraphRAG systems stay behind adapters.
 - A mature frontend and the PSKA glue layer are both required product surfaces:
   the frontend owns user workflows, and the glue layer owns backend orchestration,
   review gates, normalized contracts, audit, and MCP/tool access.

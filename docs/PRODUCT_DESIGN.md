@@ -215,11 +215,18 @@ V1 frontend should focus on:
   sources, work products, conversation memory, and resumable workflows.
 - Work Products: sourced briefs, source manifests, exports, and durable-review
   creation from selected transient results.
+- Personal Sources: local folder and Obsidian root registration, scanning,
+  no-embedding search, saved searches, tag/comment proposal and sidecar apply,
+  governed Obsidian MOC proposal/apply, duplicate/link/source-route audit,
+  proactive read-only audit jobs, wall-clock due/tick scheduling, source
+  reading, and governed source-to-memory promotion.
 - Review: exception inbox for uncertain, risky, conflicting, broad destructive,
   ambiguous destructive, or batch-derived durable knowledge changes.
 - Activity: audit trail across workflow, review, memory, and export events.
 - Knowledge: a PSKA readiness/status summary plus embedded or linked RAGFlow
   knowledge-base console.
+- Home/Jarvis Bar: a compact Hermes briefing over workspace status, source audit,
+  review, memory cues, and PSKA next actions.
 - Components: RAGFlow, Hermes, Graphiti, embedding, LLM, capability, and
   diagnostic status with links to native consoles where appropriate.
 - Settings: workspace policy, tenant/workspace context, and provider

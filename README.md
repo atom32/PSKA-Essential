@@ -7,7 +7,7 @@ systems through small adapter contracts and keeps the workflow safe:
 ```text
 Hermes Agent
   -> PSKA-Essential MCP
-    -> Retrieval Adapter: RAGFlow / Company GraphRAG
+    -> Retrieval Adapter: RAGFlow / Local folders / Obsidian / Company GraphRAG
     -> Memory Adapter: SQLite / Graphiti / Company GraphRAG
     -> Review Store: SQLite
     -> Export: Markdown / JSON
@@ -17,6 +17,8 @@ The product promise is workflow closure:
 
 - run Hermes-first agent workflows through PSKA MCP tools;
 - retrieve context from an external KB;
+- retrieve context from user-authorized local folders and Obsidian vaults
+  through a metadata-first source layer;
 - optionally create/populate that external KB through thin MCP glue;
 - let an agent propose digest, memory, or writing artifacts;
 - govern and audit long-term memory changes, with pending review reserved for
@@ -55,6 +57,18 @@ Read these first when deciding how to use or extend the project:
 - [Long-Term Stability Design](docs/LONG_TERM_STABILITY_DESIGN.md): temporal
   knowledge, conflict handling, review triage, context budgets, background
   jobs, permissions, and migration.
+- [Personal Knowledge Architecture](docs/PERSONAL_KNOWLEDGE_ARCHITECTURE.zh.md):
+  vNext design for Obsidian, local folders, no-embedding retrieval, file
+  tagging/commenting/dedup, and Hermes-first personal assistant workflows.
+- [PSKA Agentic System Technical Proposal](docs/PSKA_AGENTIC_SYSTEM_TECHNICAL_PROPOSAL.zh.md):
+  complete Chinese technical proposal for the agentic cognitive system,
+  including characteristics, target users, scenarios, architecture, memory,
+  RAG strategy, governance, open-source component strategy, and roadmap.
+- [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
+  engineering plan for upgrading the current PSKA-Essential M10 baseline into
+  the proposal through adapter-first changes, mature component reuse,
+  build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
+  gates.
 - [Metadata-First Bridge Design](docs/METADATA_FIRST_BRIDGE_DESIGN.md): the
   no-central-ledger data ownership model and the Graphiti-to-RAGFlow provenance
   contract.
@@ -376,9 +390,31 @@ Operational loop tools:
 - `pska_policy_get`
 - `pska_capabilities_get`
 - `pska_runtime_diagnostics`
+- `pska_jarvis_briefing`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
+- `pska_source_root_list`
+- `pska_source_root_register`
+- `pska_source_scan`
+- `pska_source_search`
+- `pska_source_neighbors`
+- `pska_source_read`
+- `pska_duplicate_report`
+- `pska_source_audit_run`
+- `pska_source_audit_job_enqueue`
+- `pska_source_audit_schedule_create`
+- `pska_source_audit_job_list`
+- `pska_source_audit_job_tick`
+- `pska_source_audit_job_run`
+- `pska_saved_search_create`
+- `pska_source_tag_propose`
+- `pska_source_tag_apply`
+- `pska_source_comment_propose`
+- `pska_source_comment_apply`
+- `pska_obsidian_moc_propose`
+- `pska_obsidian_moc_apply`
+- `pska_source_memory_review_create`
 - `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
@@ -422,6 +458,55 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
+The personal source tools provide the M1-M10 no-embedding local source loop:
+register a user-authorized local folder or Obsidian vault, scan rebuildable
+metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
+`.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
+read exact source sections through the existing `pska_source_read`. This path
+writes PSKA index metadata only; it does not modify source files, write memory,
+or require embeddings. M2 adds `pska_duplicate_report` for exact hash duplicate
+groups and `pska_saved_search_create` for reusable local source views; these
+also write only PSKA registry metadata and never delete, move, merge, or edit
+source files. M3 adds `pska_source_tag_propose`/`pska_source_tag_apply` and
+`pska_source_comment_propose`/`pska_source_comment_apply`; apply writes only
+`.pska/annotations.jsonl` for roots with sidecar/native/managed permission, and
+still leaves the original source files untouched. M4 adds `pska_source_neighbors`
+for outgoing links, backlinks, and same-folder neighbors from local Markdown or
+Obsidian notes, again without embeddings or source-file writes. M5 adds
+`pska_source_memory_review_create`, which turns explicit source refs into a
+governed Memory Card candidate with `memory_type`, `behavior_delta`, and Review;
+it does not write the memory provider directly. M6 adds
+`pska_source_audit_run`, a read-only folder/vault audit that reports root
+summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
+unlinked Markdown notes, source-route candidates, and concrete `next_actions`
+for Hermes/WebUI to follow.
+M7 adds `pska_jarvis_briefing`, a Hermes-facing briefing contract that composes
+workspace status, source audit findings, memory/review cues, and prioritized
+`next_actions` into a dashboard-ready payload. It does not generate answer text,
+write source files, write memory directly, or require embeddings.
+M8 adds `pska_source_audit_job_enqueue`, `pska_source_audit_job_list`, and
+`pska_source_audit_job_run` as the Jarvis-friendly proactive audit surface. Jobs
+live as PSKA workflow metadata, can be listed through `pska_provider_jobs` and
+workspace status, run the same read-only audit, never write source files or
+memory directly, and do not require embeddings. M9 adds
+`pska_source_audit_schedule_create` and `pska_source_audit_job_tick`: scheduled
+jobs wait on `due_at`, the tick turns due jobs into queued jobs, and recurring
+cadences create the next waiting job after a run completes. This gives Hermes a
+wall-clock scheduler contract without a hidden background source-file scanner.
+M10 adds `pska_obsidian_moc_propose` and `pska_obsidian_moc_apply` for governed
+Obsidian MOC writeback. Proposal builds a preview from explicit source refs and
+writes only PSKA registry metadata; apply requires an `obsidian_vault` root with
+`native_write` or `managed` permission and updates only the PSKA-managed MOC
+block in the target Markdown note. It does not rewrite the rest of the note,
+write memory directly, or require embeddings.
+The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
+panel: users can register local folders or Obsidian vaults, scan them, run
+read-only audits, inspect duplicate/link/route candidates, search through
+SQLite FTS5, save reusable searches, select exact source sections for
+tag/comment proposals, apply sidecar annotations when permitted, and promote
+source-route candidates into Review without touching original files. Obsidian
+MOC actions from source audits create a governed MOC proposal before any native
+vault write is applied.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_change_from_conversation` is the daily Hermes path for user-driven
 memory add, correction, clarification, or deletion. It still creates proposal,
@@ -468,6 +553,7 @@ See:
 
 - `AGENTS.md`
 - `docs/PRODUCT_DESIGN.md`
+- `docs/SYSTEM_ARCHITECTURE_VISION.zh.md`
 - `docs/FEASIBILITY_AUDIT.md`
 - `docs/ADAPTER_CONTRACTS.md`
 - `docs/DEMO_RUNBOOK.md`
@@ -497,6 +583,7 @@ Implemented Alpha routes:
 
 - `GET /api/health`
 - `GET /api/capabilities`
+- `GET /api/migration/manifest`
 - `GET /api/policy`
 - `GET /api/runtime/diagnostics`
 - `GET /api/workspace/status`
@@ -519,17 +606,41 @@ Implemented Alpha routes:
 - `POST /api/kb/datasets/{dataset_id}/parse`
 - `GET /api/kb/datasets/{dataset_id}/documents/{document_id}/graph`
 - `POST /api/ask`
+- `POST /api/turn-context`
 - `POST /api/digest`
 - `POST /api/digest-jobs`
 - `GET /api/digest-jobs`
 - `POST /api/digest-jobs/run-next`
 - `POST /api/digest-jobs/{run_id}/run`
+- `POST /api/jarvis/briefing`
+- `GET /api/provider/jobs`
 - `GET /api/workflows`
 - `GET /api/workflows/resumable-asks`
 - `GET /api/workflows/{run_id}`
 - `POST /api/workflows/{run_id}/resume-ask`
 - `POST /api/workflows/{run_id}/memory-review`
 - `GET /api/workflows/{run_id}/export`
+- `GET /api/sources/roots`
+- `POST /api/sources/roots`
+- `POST /api/sources/roots/{root_id}/scan`
+- `POST /api/sources/search`
+- `POST /api/sources/neighbors`
+- `POST /api/sources/duplicates`
+- `POST /api/sources/audits/run`
+- `POST /api/sources/audit-jobs`
+- `GET /api/sources/audit-jobs`
+- `POST /api/sources/audit-schedules`
+- `POST /api/sources/audit-jobs/tick`
+- `POST /api/sources/audit-jobs/run-next`
+- `POST /api/sources/audit-jobs/{run_id}/run`
+- `POST /api/sources/saved-searches`
+- `POST /api/sources/tags/proposals`
+- `POST /api/sources/tags/{proposal_id}/apply`
+- `POST /api/sources/comments/proposals`
+- `POST /api/sources/comments/{proposal_id}/apply`
+- `POST /api/sources/obsidian/moc/proposals`
+- `POST /api/sources/obsidian/moc/{proposal_id}/apply`
+- `POST /api/sources/memory-reviews`
 - `POST /api/sources/read`
 - `POST /api/memory/search`
 - `POST /api/memory/conversation-change`
@@ -580,24 +691,36 @@ cancelled ingestion stays a cleanup/status issue instead of becoming a fake
 answer. Knowledge Bases exposes explicit Delete and Delete All cleanup actions
 through Product API for development maintenance, not as the demo/product start
 path.
-Home loads `/api/workspace/status` to show product-level next actions, including
-ready-to-ask scopes, ingestion waits, resumable Ask workflows, pending reviews,
-and accepted durable memory awaiting apply. Each next action includes stable
-PSKA tool/API/view hints and safe parameters, so Hermes and the frontend can
-navigate the workflow without inspecting provider internals. In an empty
-workspace, the first action points to the full file-to-work-product loop
-(`pska_ingest_loop` / `POST /api/ingest-loop`) rather than a provider-native
-setup step; Home opens the Knowledge Bases Run Loop form with the safe loop
-defaults ready. Mutating frontend
-actions refresh this status after completion so the Home guidance follows the
-current workflow state. Workspace status reports both aggregate KB readiness and
-per-dataset readiness, so a newly uploaded processing dataset does not hide
+Home loads `/api/workspace/status` and `/api/jarvis/briefing`. The Jarvis Bar
+shows Hermes-ready priorities across workspace status, personal source audit,
+review, and memory cues; it also exposes the first safe next actions without
+requiring the UI to inspect provider internals. Workspace status still shows
+product-level next actions, including ready-to-ask scopes, ingestion waits,
+resumable Ask workflows, pending reviews, and accepted durable memory awaiting
+apply. Each next action includes stable PSKA tool/API/view hints and safe
+parameters. In an empty workspace, the first action points to the full
+file-to-work-product loop (`pska_ingest_loop` / `POST /api/ingest-loop`) rather
+than a provider-native setup step; Home opens the Knowledge Bases Run Loop form
+with the safe loop defaults ready. Mutating frontend actions refresh this status
+after completion so the Home guidance follows the current workflow state.
+Workspace status reports both aggregate KB readiness and per-dataset readiness,
+so a newly uploaded processing dataset does not hide
 other ready datasets from Ask. Workspace status also translates lower-level
 ingestion job actions such as `start_parse` into stable product actions such as
 `parse_documents`. Home next-action buttons can prefill Ask scope and check
 readiness, start document parsing, open and track blocked Ask workflows, resume
 ready blocked Ask workflows, open pending reviews, and apply already accepted
 durable memory through Product API routes.
+
+The Sources panel is the landing surface for personal source actions from
+Jarvis: `register_source_root` opens registration, `scan_source_root` scans the
+selected root, duplicate/link actions rerun source audit, and source-route
+actions create governed Review candidates through `/api/sources/memory-reviews`.
+The same panel lets users save a source search and run the explicit
+tag/comment proposal -> sidecar apply path through `/api/sources/tags/*` and
+`/api/sources/comments/*`. Obsidian MOC actions create governed proposals
+through `/api/sources/obsidian/moc/proposals`; apply is a separate native-write
+route and only updates the PSKA-managed marker block in the target note.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,

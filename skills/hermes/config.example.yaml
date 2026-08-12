@@ -11,7 +11,7 @@ mcp_servers:
     tools:
       include:
         # Daily Hermes/WebUI surface:
-        # WebUI -> Hermes -> PSKA-Essential -> RAGFlow / other KB providers.
+        # WebUI -> Hermes -> PSKA-Essential -> RAGFlow / local sources / other KB providers.
         # Keep provider admin, ingest, eval, delete, and manual apply tools out
         # of the normal chat entry. They remain available through PSKA operator
         # surfaces or a deliberately broader admin profile.
@@ -25,6 +25,26 @@ mcp_servers:
         - pska_retrieval_probe
         - pska_context_retrieve
         - pska_source_read
+        - pska_source_root_list
+        - pska_source_root_register
+        - pska_source_scan
+        - pska_source_search
+        - pska_source_neighbors
+        - pska_duplicate_report
+        - pska_source_audit_run
+        - pska_source_audit_job_enqueue
+        - pska_source_audit_schedule_create
+        - pska_source_audit_job_list
+        - pska_source_audit_job_tick
+        - pska_source_audit_job_run
+        - pska_saved_search_create
+        - pska_source_tag_propose
+        - pska_source_tag_apply
+        - pska_source_comment_propose
+        - pska_source_comment_apply
+        - pska_obsidian_moc_propose
+        - pska_obsidian_moc_apply
+        - pska_source_memory_review_create
         - pska_agentic_question_start
         - pska_agentic_question_resumable
         - pska_agentic_question_resume
@@ -36,3 +56,4 @@ mcp_servers:
         - pska_provider_jobs
         - pska_runtime_diagnostics
         - pska_component_check
+        - pska_jarvis_briefing

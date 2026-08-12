@@ -19,6 +19,7 @@
         <nav class="nav">
           <button class="nav-item active" data-view="home">首页</button>
           <button class="nav-item" data-view="kb">知识库</button>
+          <button class="nav-item" data-view="sources">资料源</button>
           <button class="nav-item" data-view="ask">提问</button>
           <button class="nav-item" data-view="reader">来源</button>
           <button class="nav-item" data-view="writing">写作</button>
@@ -54,9 +55,11 @@
               <span>最近运行</span>
               <strong id="metric-run">无</strong>
             </div>
-          </div>
+	          </div>
 
-          <div class="work-band">
+	          <div id="jarvis-bar" class="jarvis-bar empty-list">Jarvis briefing 尚未加载。</div>
+
+	          <div class="work-band">
             <div>
               <h2>下一步</h2>
               <div id="home-next-actions" class="list empty-list">尚未加载工作区状态。</div>
@@ -220,6 +223,165 @@
           <div id="documents-list" class="list"></div>
         </section>
 
+        <section id="sources" class="view">
+          <div class="sources-layout">
+            <form id="source-root-form" class="panel">
+              <h2>注册资料源</h2>
+              <label>
+                文件夹路径
+                <input name="path" autocomplete="off" placeholder="/Users/me/Notes" required />
+              </label>
+              <div class="form-row">
+                <label>
+                  类型
+                  <select name="kind">
+                    <option value="auto">auto</option>
+                    <option value="local_folder">local_folder</option>
+                    <option value="obsidian_vault">obsidian_vault</option>
+                  </select>
+                </label>
+                <label>
+                  权限
+                  <select name="permission_mode">
+                    <option value="read_only">read_only</option>
+                    <option value="sidecar_write">sidecar_write</option>
+                    <option value="native_write">native_write</option>
+                    <option value="managed">managed</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                显示名
+                <input name="label" autocomplete="off" placeholder="可选" />
+              </label>
+              <button type="submit" class="primary-button">注册</button>
+            </form>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h2>资料源</h2>
+                <div class="status-strip">
+                  <button id="reload-sources" class="secondary-button" type="button">重新加载</button>
+                  <button id="run-source-audit" class="primary-button" type="button">运行审计</button>
+                </div>
+              </div>
+              <label>
+                审计范围
+                <select id="source-root-filter">
+                  <option value="">全部资料源</option>
+                </select>
+              </label>
+              <div id="source-roots-list" class="list empty-list">尚未加载资料源。</div>
+            </div>
+          </div>
+
+          <div class="sources-layout">
+            <form id="source-search-form" class="panel">
+              <h2>无 embedding 搜索</h2>
+              <label>
+                查询
+                <input name="query" autocomplete="off" placeholder="Hermes Obsidian 记忆" required />
+              </label>
+              <div class="form-row">
+                <label>
+                  范围
+                  <select id="source-search-root" name="root_id">
+                    <option value="">全部资料源</option>
+                  </select>
+                </label>
+	                <label>
+	                  数量
+	                  <input name="limit" type="number" min="1" max="30" value="10" />
+	                </label>
+	              </div>
+	              <button type="submit" class="primary-button">搜索</button>
+	            </form>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h2>搜索结果</h2>
+                <span id="source-search-status" class="tag">未搜索</span>
+              </div>
+	              <div id="source-search-results" class="list empty-list">尚未搜索资料源。</div>
+	            </div>
+	          </div>
+
+          <div class="sources-layout">
+            <form id="source-saved-search-form" class="panel">
+              <h2>保存查询</h2>
+              <label>
+                名称
+                <input name="label" autocomplete="off" placeholder="PSKA 架构资料" required />
+              </label>
+              <label>
+                查询
+                <input id="source-save-query" name="query" autocomplete="off" required />
+              </label>
+              <div class="form-row">
+                <label>
+                  范围
+                  <select id="source-save-root" name="root_id">
+                    <option value="">全部资料源</option>
+                  </select>
+                </label>
+                <label>
+                  排序
+                  <select name="sort">
+                    <option value="relevance">relevance</option>
+                    <option value="mtime_desc">mtime_desc</option>
+                  </select>
+                </label>
+              </div>
+              <button type="submit" class="secondary-button">保存查询</button>
+              <div id="source-saved-search-status" class="source-tool-status empty-list">尚未保存查询。</div>
+            </form>
+
+            <form id="source-annotation-form" class="panel">
+              <div class="panel-header">
+                <h2>标签和 Comment</h2>
+                <span id="source-selection-status" class="tag">未选择</span>
+              </div>
+              <div id="source-selection-card" class="empty-list">从搜索结果或审计清单中选择一个 source。</div>
+              <label>
+                标签
+                <input name="tag" autocomplete="off" placeholder="project/pska" />
+              </label>
+              <label>
+                标签原因
+                <input name="tag_reason" autocomplete="off" placeholder="可选" />
+              </label>
+              <div class="button-row">
+                <button name="source_action" value="tag_propose" type="submit" class="secondary-button">提议标签</button>
+                <button name="source_action" value="tag_apply" type="submit" class="primary-button">应用标签</button>
+              </div>
+              <div id="source-tag-status" class="source-tool-status empty-list">没有标签提议。</div>
+              <label>
+                Comment
+                <textarea name="comment" rows="3" placeholder="对这个文件或段落的备注"></textarea>
+              </label>
+              <label>
+                Comment 原因
+                <input name="comment_reason" autocomplete="off" placeholder="可选" />
+              </label>
+              <div class="button-row">
+                <button name="source_action" value="comment_propose" type="submit" class="secondary-button">提议 Comment</button>
+                <button name="source_action" value="comment_apply" type="submit" class="primary-button">应用 Comment</button>
+              </div>
+              <div id="source-comment-status" class="source-tool-status empty-list">没有 Comment 提议。</div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>资料源审计</h2>
+              <span id="source-audit-status" class="tag">未运行</span>
+            </div>
+            <div id="source-audit-summary" class="source-audit-grid empty-list">尚未运行资料源审计。</div>
+            <div id="source-audit-actions" class="list source-audit-actions"></div>
+            <div id="source-audit-details" class="source-audit-details"></div>
+          </div>
+        </section>
+
         <section id="ask" class="view">
           <form id="ask-form" class="panel ask-panel">
             <h2>限定范围提问</h2>
@@ -378,6 +540,19 @@
                     <option value="memory.apply">memory.apply</option>
                     <option value="memory.update">memory.update</option>
                     <option value="memory.delete">memory.delete</option>
+                    <option value="source.scan">source.scan</option>
+                    <option value="source.audit.run">source.audit.run</option>
+                    <option value="source.audit_job.enqueue">source.audit_job.enqueue</option>
+                    <option value="source.audit_job.due">source.audit_job.due</option>
+                    <option value="source.audit_job.run">source.audit_job.run</option>
+                    <option value="source.saved_search.create">source.saved_search.create</option>
+                    <option value="source.tag.propose">source.tag.propose</option>
+                    <option value="source.tag.apply">source.tag.apply</option>
+                    <option value="source.comment.propose">source.comment.propose</option>
+                    <option value="source.comment.apply">source.comment.apply</option>
+                    <option value="source.obsidian_moc.propose">source.obsidian_moc.propose</option>
+                    <option value="source.obsidian_moc.apply">source.obsidian_moc.apply</option>
+                    <option value="source.memory_review.create">source.memory_review.create</option>
                     <option value="eval.run">eval.run</option>
                     <option value="workflow.export">workflow.export</option>
                   </select>
