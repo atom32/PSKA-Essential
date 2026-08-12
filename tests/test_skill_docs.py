@@ -73,6 +73,14 @@ class SkillDocsTests(unittest.TestCase):
 
         for phrase in [
             "PersonalSourcePort",
+            "Upgrade Adapter Slots",
+            "ExtractionPort",
+            "SearchIndexPort",
+            "DedupPort",
+            "ThoughtArtifactPort",
+            "ObservabilityPort",
+            "WorkflowPort",
+            "CloudSourcePort",
             "register_root",
             "duplicate_report",
             "read_only",

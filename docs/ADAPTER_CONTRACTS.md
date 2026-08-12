@@ -117,6 +117,174 @@ index. Tools such as MarkItDown, Docling, OCRmyPDF, Czkawka, dupeGuru, or
 rmlint may be adapters or workers, but their native output must be normalized
 before reaching Product API, MCP, Hermes, or frontend code.
 
+## Upgrade Adapter Slots
+
+The agentic system upgrade plan adds provider slots without making optional
+components part of the default runtime. `/api/capabilities` and
+`pska_capabilities_get` expose these slots under `adapter_slots` with schema
+`pska.adapter_slots.v1`.
+
+Rules:
+
+- Slot availability is discovery, not permission. A discovered CLI or Python
+  package still cannot bypass PSKA scope, Review, or Audit.
+- `status=available` means the core or optional provider can be called by a
+  future adapter. It does not mean public Product API/MCP tools already expose
+  that provider.
+- `status=unavailable` means the optional package or CLI is absent. PSKA must
+  not silently degrade to fake output.
+- `status=planned` means the slot is reserved but no adapter exists yet.
+- External provider names such as MarkItDown, Docling, fclones, Graphiti, Zep,
+  Mem0, Temporal, or OpenTelemetry must not leak native schemas to callers.
+
+### ExtractionPort
+
+```python
+extract(source_object, options) -> ExtractionResult
+```
+
+Provider slots:
+
+- `builtin_text`: implemented default for Markdown, plain text, and code.
+- `markitdown`: planned optional extra for broad file-to-Markdown conversion.
+- `docling`: planned optional extra for PDF/layout/table/OCR-sensitive parsing.
+- `tika`: planned optional extra or service adapter for broad enterprise file
+  type extraction.
+
+Rules:
+
+- Extractors return PSKA sections and warnings, not provider-native documents.
+- Extraction failures must set source-object parse status and expose a clear
+  action hint.
+- Extracted sections must preserve `SourceRef` coordinates such as path,
+  heading, page, line range, content hash, and extractor metadata.
+
+### SearchIndexPort
+
+```python
+index(source_object, sections, options) -> IndexResult
+search(query, scope, filters, limit) -> list[ContextPacket]
+```
+
+Provider slots:
+
+- `sqlite_fts5`: implemented default local-first BM25 index.
+- `tantivy`: planned local high-performance full-text adapter.
+- `meilisearch`: planned service adapter for typo tolerant/server search.
+- `recoll`: planned desktop-search adapter/reference.
+
+Rules:
+
+- Search results must return PSKA `ContextPacket` and `SourceRef`.
+- Search adapters must honor source scope and permission filters.
+- Embedding indexes remain optional caches, not a prerequisite for local source
+  retrieval.
+
+### DedupPort
+
+```python
+report(scope, mode, options) -> DuplicateReport
+```
+
+Provider slots:
+
+- `exact_hash`: implemented default.
+- `fclones`: planned CLI adapter for hash duplicate groups and JSON reports.
+- `czkawka`: planned CLI/GUI reference for duplicate and media similarity.
+- `dupeguru`: planned fuzzy duplicate reference.
+- `rmlint`: planned advanced duplicate lint report adapter.
+
+Rules:
+
+- Dedup adapters produce reports and proposals only.
+- Delete, move, merge, hardlink, or symlink actions must be separate
+  destructive-review flows and are not part of `DedupPort.report`.
+
+### ThoughtArtifactPort
+
+```python
+read_context(refs, options) -> list[ThoughtArtifactContext]
+propose_memory(refs, intent) -> ReviewRecord
+```
+
+Provider slots:
+
+- `eidolia_project_files`: planned file adapter for thought/artifact nodes and
+  agentic traces.
+- `eidolia_product_api`: planned live canvas adapter.
+
+Rules:
+
+- Eidolia remains `thought` / `artifact` at the user-visible node level.
+- Belief, decision, source route, and memory are metadata/trace projections,
+  not new mandatory node types.
+- PSKA stores references and trace, not a canonical copy of the Eidolia canvas.
+
+### ObservabilityPort
+
+```python
+emit_trace(event) -> None
+emit_metric(metric) -> None
+```
+
+Provider slots:
+
+- `sqlite_audit`: implemented governance audit baseline.
+- `opentelemetry`: planned optional trace/metric exporter.
+- `phoenix`: planned LLM/RAG tracing target.
+- `ragas`: planned RAG evaluation target.
+- `deepeval`: planned LLM workflow evaluation target.
+
+Rules:
+
+- Audit remains the user-facing governance ledger.
+- Observability adapters may export traces and metrics, but cannot become the
+  authoritative memory/source/review store.
+
+### WorkflowPort
+
+```python
+enqueue(job) -> JobRecord
+tick(now, limit) -> TickResult
+run(job_id) -> JobResult
+```
+
+Provider slots:
+
+- `sqlite_jobs`: implemented job ledger and explicit tick.
+- `watchdog_tick`: planned authorized-root filesystem event trigger.
+- `system_cron_launchd`: planned external scheduler trigger.
+- `temporal`: future durable execution backend for long-running jobs.
+
+Rules:
+
+- Background triggers must only operate on authorized source roots.
+- Tick may enqueue work; it must not silently scan full disk or write memory.
+- Temporal is a backend for job durability, not the PSKA workflow contract.
+
+### CloudSourcePort
+
+```python
+list_roots(scope) -> list[CloudSourceRoot]
+search(query, scope, filters, limit) -> list[ContextPacket]
+read_source(source_ref) -> SourceContext
+```
+
+Provider slots:
+
+- `google_drive`
+- `box`
+- `sharepoint`
+- `notion`
+- `zotero`
+
+Rules:
+
+- Cloud sources must normalize to the same `SourceRef`, permission, Review, and
+  Audit model as local folders and Obsidian vaults.
+- Connector/plugin availability must not imply broad account-wide scanning.
+- Cloud writes, if ever supported, must use explicit proposal/apply flows.
+
 ## MemoryPort
 
 ```python

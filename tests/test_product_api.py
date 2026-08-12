@@ -308,6 +308,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_obsidian_moc_apply", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_memory_review_create", source_layer["mcp_tools"]["implemented"])
         self.assertFalse(source_layer["embedding_required"])
+        self.assertIn("extraction", source_layer["adapter_slots"])
+        self.assertIn("builtin_text", source_layer["adapter_slots"]["extraction"])
+        self.assertIn("markitdown", source_layer["adapter_slots"]["extraction"])
+        self.assertIn("dedup", source_layer["adapter_slots"])
+        self.assertIn("fclones", source_layer["adapter_slots"]["dedup"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
         self.assertEqual(assistant_layer["status"], "m10_jarvis_obsidian_moc_writeback")
@@ -347,6 +352,26 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(lineage["schema"], "pska.memory_lineage.v1")
         self.assertFalse(lineage["pska_authoritative_mapping_table"])
         self.assertIn("fact_or_edge_metadata", lineage["provider_carriers"])
+        adapter_slots = capabilities["capabilities"]["adapter_slots"]
+        self.assertEqual(adapter_slots["schema"], "pska.adapter_slots.v1")
+        self.assertEqual(adapter_slots["default_dependency_policy"], "stdlib_first_optional_adapters")
+        self.assertIn("SourceRef", adapter_slots["core_owns"])
+        self.assertIn("Memory Card envelope", adapter_slots["core_owns"])
+        self.assertEqual(adapter_slots["slots"]["extraction"]["contract"], "ExtractionPort")
+        self.assertEqual(adapter_slots["slots"]["dedup"]["contract"], "DedupPort")
+        self.assertEqual(adapter_slots["slots"]["thought_artifact"]["contract"], "ThoughtArtifactPort")
+        self.assertEqual(adapter_slots["slots"]["observability"]["contract"], "ObservabilityPort")
+        self.assertIn("builtin_text", adapter_slots["summary"]["extraction"]["available"])
+        self.assertIn("sqlite_fts5", adapter_slots["summary"]["search_index"]["available"])
+        self.assertIn("exact_hash", adapter_slots["summary"]["dedup"]["available"])
+        markitdown = _adapter_provider(adapter_slots, "extraction", "markitdown")
+        self.assertIn(markitdown["status"], {"available", "unavailable"})
+        self.assertNotEqual(markitdown["status"], "planned")
+        self.assertEqual(markitdown["integration"], "python_optional_extra")
+        fclones = _adapter_provider(adapter_slots, "dedup", "fclones")
+        self.assertIn(fclones["status"], {"available", "unavailable"})
+        self.assertEqual(fclones["integration"], "external_cli")
+        self.assertFalse(fclones["safety"]["delete_move_merge_supported"])
         self.assertEqual(capabilities["capabilities"]["tool_policy"]["mode"], "soft_constraints")
         self.assertTrue(
             capabilities["capabilities"]["tool_policy"]["tools"]["pska_memory_apply"]["requires_accepted_review"]
@@ -2534,6 +2559,13 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
             self.fail(exc.read().decode("utf-8"))
+
+
+def _adapter_provider(adapter_slots: dict, slot_name: str, provider_name: str) -> dict:
+    for provider in adapter_slots["slots"][slot_name]["providers"]:
+        if provider["name"] == provider_name:
+            return provider
+    raise AssertionError(f"adapter provider not found: {slot_name}/{provider_name}")
 
 
 if __name__ == "__main__":

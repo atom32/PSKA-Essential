@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.util
+import shutil
 from typing import Any
 
 from pska_essential.governance import MEMORY_PRIMARY_USER_PATH, REVIEW_QUEUE_ROLE
@@ -338,6 +340,7 @@ def product_capabilities(*, memory_adapter: Any) -> dict[str, Any]:
         "memory": memory_capabilities(memory_adapter),
         "source_layer": source_layer_contract(),
         "assistant_layer": assistant_layer_contract(),
+        "adapter_slots": adapter_slots_contract(),
         "tool_policy": tool_policy(),
     }
 
@@ -469,6 +472,34 @@ def source_layer_contract() -> dict[str, Any]:
             ],
             "planned": [],
         },
+        "adapter_slots": {
+            "extraction": [
+                "builtin_text",
+                "markitdown",
+                "docling",
+                "tika",
+            ],
+            "search_index": [
+                "sqlite_fts5",
+                "tantivy",
+                "meilisearch",
+                "recoll",
+            ],
+            "dedup": [
+                "exact_hash",
+                "fclones",
+                "czkawka",
+                "dupeguru",
+                "rmlint",
+            ],
+            "cloud_source": [
+                "google_drive",
+                "box",
+                "sharepoint",
+                "notion",
+                "zotero",
+            ],
+        },
         "safety": {
             "scans_full_disk_by_default": False,
             "writes_source_files_by_default": False,
@@ -500,6 +531,32 @@ def assistant_layer_contract() -> dict[str, Any]:
             ],
             "planned": [
                 "approximate_duplicate_report",
+                "pska_source_extract_job_enqueue",
+                "pska_source_extract_job_list",
+                "pska_source_extract_job_run",
+                "pska_memory_card_list",
+                "pska_memory_why_used",
+                "pska_eidolia_context_read",
+                "pska_trace_query",
+            ],
+        },
+        "adapter_slots": {
+            "thought_artifact": [
+                "eidolia_project_files",
+                "eidolia_product_api",
+            ],
+            "observability": [
+                "sqlite_audit",
+                "opentelemetry",
+                "phoenix",
+                "ragas",
+                "deepeval",
+            ],
+            "workflow": [
+                "sqlite_jobs",
+                "watchdog_tick",
+                "system_cron_launchd",
+                "temporal",
             ],
         },
         "safety": {
@@ -508,6 +565,249 @@ def assistant_layer_contract() -> dict[str, Any]:
             "writes_memory_directly": False,
             "follows_pska_next_actions": True,
         },
+    }
+
+
+def adapter_slots_contract() -> dict[str, Any]:
+    """Return planned adapter slots without loading optional heavy dependencies."""
+
+    slots = {
+        "extraction": {
+            "contract": "ExtractionPort",
+            "purpose": "Convert source files into PSKA sections and source-safe text.",
+            "default_provider": "builtin_text",
+            "providers": [
+                _provider(
+                    "builtin_text",
+                    status="available",
+                    maturity="implemented",
+                    integration="core",
+                    supports=["markdown", "text", "code"],
+                ),
+                _python_provider(
+                    "markitdown",
+                    module="markitdown",
+                    extra="extract-markitdown",
+                    maturity="planned",
+                    supports=["office", "pdf", "html", "audio_transcript_candidates"],
+                ),
+                _python_provider(
+                    "docling",
+                    module="docling",
+                    extra="extract-docling",
+                    maturity="planned",
+                    supports=["pdf_layout", "tables", "ocr_candidates"],
+                ),
+                _python_provider(
+                    "tika",
+                    module="tika",
+                    extra="extract-tika",
+                    maturity="planned",
+                    supports=["broad_enterprise_file_types"],
+                ),
+            ],
+        },
+        "search_index": {
+            "contract": "SearchIndexPort",
+            "purpose": "Index and search source sections behind PSKA scope and SourceRef contracts.",
+            "default_provider": "sqlite_fts5",
+            "providers": [
+                _provider(
+                    "sqlite_fts5",
+                    status="available",
+                    maturity="implemented",
+                    integration="core",
+                    supports=["metadata", "bm25", "snippet", "local_first"],
+                ),
+                _python_provider(
+                    "tantivy",
+                    module="tantivy",
+                    extra="search-tantivy",
+                    maturity="planned",
+                    supports=["large_local_full_text_index"],
+                ),
+                _service_provider(
+                    "meilisearch",
+                    env_keys=["MEILISEARCH_URL", "MEILI_MASTER_KEY"],
+                    maturity="planned",
+                    supports=["typo_tolerant_search", "server_mode"],
+                ),
+                _cli_provider(
+                    "recoll",
+                    command="recoll",
+                    maturity="planned",
+                    supports=["desktop_full_text_search"],
+                ),
+            ],
+        },
+        "dedup": {
+            "contract": "DedupPort",
+            "purpose": "Produce normalized duplicate reports without destructive file actions.",
+            "default_provider": "exact_hash",
+            "providers": [
+                _provider(
+                    "exact_hash",
+                    status="available",
+                    maturity="implemented",
+                    integration="core",
+                    supports=["exact_content_hash"],
+                    safety={"delete_move_merge_supported": False},
+                ),
+                _cli_provider(
+                    "fclones",
+                    command="fclones",
+                    maturity="planned",
+                    supports=["hash_duplicate_groups", "json_report"],
+                    safety={"delete_move_merge_supported": False},
+                ),
+                _cli_provider(
+                    "czkawka",
+                    command="czkawka_cli",
+                    maturity="planned",
+                    supports=["duplicate_files", "media_similarity_candidates"],
+                    safety={"delete_move_merge_supported": False},
+                ),
+                _cli_provider(
+                    "dupeguru",
+                    command="dupeguru",
+                    maturity="planned",
+                    supports=["fuzzy_filename_content_review"],
+                    safety={"delete_move_merge_supported": False},
+                ),
+                _cli_provider(
+                    "rmlint",
+                    command="rmlint",
+                    maturity="planned",
+                    supports=["advanced_duplicate_lint_report"],
+                    safety={"delete_move_merge_supported": False},
+                ),
+            ],
+        },
+        "thought_artifact": {
+            "contract": "ThoughtArtifactPort",
+            "purpose": "Expose Eidolia thought/artifact refs as source-safe PSKA context and trace inputs.",
+            "default_provider": "",
+            "providers": [
+                _provider(
+                    "eidolia_project_files",
+                    status="planned",
+                    maturity="planned",
+                    integration="file_adapter",
+                    supports=["thought_refs", "artifact_refs", "agentic_traces"],
+                ),
+                _service_provider(
+                    "eidolia_product_api",
+                    env_keys=["EIDOLIA_API_BASE_URL"],
+                    maturity="planned",
+                    supports=["live_canvas_context"],
+                ),
+            ],
+        },
+        "observability": {
+            "contract": "ObservabilityPort",
+            "purpose": "Export PSKA audit/trace/eval signals without replacing PSKA audit.",
+            "default_provider": "sqlite_audit",
+            "providers": [
+                _provider(
+                    "sqlite_audit",
+                    status="available",
+                    maturity="implemented",
+                    integration="core",
+                    supports=["governance_audit"],
+                ),
+                _python_provider(
+                    "opentelemetry",
+                    module="opentelemetry",
+                    extra="observability",
+                    maturity="planned",
+                    supports=["trace_export", "metrics"],
+                ),
+                _python_provider(
+                    "phoenix",
+                    module="phoenix",
+                    extra="observability",
+                    maturity="planned",
+                    supports=["llm_rag_tracing"],
+                ),
+                _python_provider(
+                    "ragas",
+                    module="ragas",
+                    extra="eval",
+                    maturity="planned",
+                    supports=["rag_evaluation"],
+                ),
+                _python_provider(
+                    "deepeval",
+                    module="deepeval",
+                    extra="eval",
+                    maturity="planned",
+                    supports=["llm_workflow_evaluation"],
+                ),
+            ],
+        },
+        "workflow": {
+            "contract": "WorkflowPort",
+            "purpose": "Run source audit, extraction, digest, and future long jobs safely.",
+            "default_provider": "sqlite_jobs",
+            "providers": [
+                _provider(
+                    "sqlite_jobs",
+                    status="available",
+                    maturity="implemented",
+                    integration="core",
+                    supports=["job_ledger", "explicit_tick", "recurring_source_audit"],
+                ),
+                _python_provider(
+                    "watchdog_tick",
+                    module="watchdog",
+                    extra="watch",
+                    maturity="planned",
+                    supports=["authorized_root_file_events"],
+                ),
+                _provider(
+                    "system_cron_launchd",
+                    status="planned",
+                    maturity="planned",
+                    integration="external_scheduler",
+                    supports=["periodic_tick"],
+                ),
+                _python_provider(
+                    "temporal",
+                    module="temporalio",
+                    extra="workflow-temporal",
+                    maturity="future",
+                    supports=["durable_execution", "long_running_jobs"],
+                ),
+            ],
+        },
+        "cloud_source": {
+            "contract": "CloudSourcePort",
+            "purpose": "Normalize cloud connectors into PSKA source roots and SourceRefs.",
+            "default_provider": "",
+            "providers": [
+                _connector_provider("google_drive"),
+                _connector_provider("box"),
+                _connector_provider("sharepoint"),
+                _connector_provider("notion"),
+                _connector_provider("zotero"),
+            ],
+        },
+    }
+    return {
+        "schema": "pska.adapter_slots.v1",
+        "principle": "optional_components_do_not_define_pska_semantics_or_bypass_policy",
+        "core_owns": [
+            "SourceRef",
+            "Memory Card envelope",
+            "Review",
+            "Policy",
+            "Audit",
+            "Trace",
+            "provider-neutral contracts",
+        ],
+        "default_dependency_policy": "stdlib_first_optional_adapters",
+        "slots": slots,
+        "summary": _adapter_slots_summary(slots),
     }
 
 
@@ -638,3 +938,127 @@ def _conversation_update_strategies(raw: dict[str, Any]) -> list[str]:
         if strategy and strategy not in strategies:
             strategies.append(strategy)
     return strategies
+
+
+def _provider(
+    name: str,
+    *,
+    status: str,
+    maturity: str,
+    integration: str,
+    supports: list[str],
+    safety: dict[str, Any] | None = None,
+    reason: str = "",
+    install_hint: str = "",
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "name": name,
+        "status": status,
+        "available": status == "available",
+        "maturity": maturity,
+        "integration": integration,
+        "supports": list(supports),
+    }
+    if reason:
+        payload["reason"] = reason
+    if install_hint:
+        payload["install_hint"] = install_hint
+    if safety:
+        payload["safety"] = dict(safety)
+    return payload
+
+
+def _python_provider(
+    name: str,
+    *,
+    module: str,
+    extra: str,
+    maturity: str,
+    supports: list[str],
+    safety: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    available = importlib.util.find_spec(module) is not None
+    return _provider(
+        name,
+        status="available" if available else "unavailable",
+        maturity=maturity,
+        integration="python_optional_extra",
+        supports=supports,
+        safety=safety,
+        reason="" if available else f"Python module `{module}` is not installed.",
+        install_hint=f"Install PSKA optional extra `{extra}`.",
+    )
+
+
+def _cli_provider(
+    name: str,
+    *,
+    command: str,
+    maturity: str,
+    supports: list[str],
+    safety: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    path = shutil.which(command)
+    payload = _provider(
+        name,
+        status="available" if path else "unavailable",
+        maturity=maturity,
+        integration="external_cli",
+        supports=supports,
+        safety=safety,
+        reason="" if path else f"CLI command `{command}` was not found on PATH.",
+        install_hint=f"Install `{command}` and keep it on PATH.",
+    )
+    payload["command"] = command
+    if path:
+        payload["path"] = path
+    return payload
+
+
+def _service_provider(
+    name: str,
+    *,
+    env_keys: list[str],
+    maturity: str,
+    supports: list[str],
+    safety: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _provider(
+        name,
+        status="planned",
+        maturity=maturity,
+        integration="external_service",
+        supports=supports,
+        safety=safety,
+        reason="Service adapters are planned; availability is not inferred without a concrete adapter.",
+        install_hint="Configure the future service adapter and required environment variables.",
+    ) | {"env_keys": list(env_keys)}
+
+
+def _connector_provider(name: str) -> dict[str, Any]:
+    return _provider(
+        name,
+        status="planned",
+        maturity="future",
+        integration="mcp_or_plugin_connector",
+        supports=["cloud_source_root", "source_ref_mapping"],
+        reason="Cloud connector slot is planned; no PSKA adapter is installed yet.",
+        install_hint="Use an approved connector/plugin later and normalize it through CloudSourcePort.",
+    )
+
+
+def _adapter_slots_summary(slots: dict[str, Any]) -> dict[str, Any]:
+    summary: dict[str, Any] = {}
+    for slot_name, slot in slots.items():
+        providers = list(slot.get("providers") or [])
+        summary[slot_name] = {
+            "contract": slot.get("contract"),
+            "default_provider": slot.get("default_provider") or "",
+            "available": [provider["name"] for provider in providers if provider.get("available")],
+            "planned": [
+                provider["name"]
+                for provider in providers
+                if provider.get("status") in {"planned", "unavailable"}
+            ],
+        }
+    return summary

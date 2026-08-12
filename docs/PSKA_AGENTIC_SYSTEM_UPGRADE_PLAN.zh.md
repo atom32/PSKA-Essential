@@ -527,9 +527,9 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 
 ### P0 Backlog
 
-- [ ] Add adapter slot definitions to `ADAPTER_CONTRACTS.md`.
-- [ ] Add planned slots to `source_layer_contract()` and `assistant_layer_contract()`.
-- [ ] Add tests that planned slots do not imply installed capability.
+- [x] Add adapter slot definitions to `ADAPTER_CONTRACTS.md`.
+- [x] Add planned slots to `source_layer_contract()` and `assistant_layer_contract()`.
+- [x] Add tests that planned slots do not imply installed capability.
 
 ### P1 Backlog
 
