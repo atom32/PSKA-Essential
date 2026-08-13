@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M13 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M14 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -78,6 +78,10 @@ Rules:
   canonical documents.
 - Every search hit must return a normal PSKA `ContextPacket` with a `SourceRef`
   that can be passed to `read_source`.
+- `pska_source_search` is lexical and embedding-free. The default SQLite FTS5
+  path exposes a ranking envelope (`lexical_rank`, `rank_boost`, `match_reason`)
+  plus plain/highlighted snippet metadata, and can fall back to LIKE matches for
+  path/title/body route queries.
 - Source collections are PSKA-owned selectors, not copied files. A collection
   may hold explicit personal `SourceRef`s or a reusable search selector, and
   resolve back into normal `ContextPacket` payloads without embeddings.
@@ -518,7 +522,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M13 source-management MCP surface:
+The personal source layer has an M1-M14 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
@@ -588,11 +592,15 @@ Comment marker block.
 named reusable bundles over explicit SourceRefs or search selectors. They write
 only source-registry metadata and resolve into normal context packets for
 Hermes/RAG workflows.
+`pska_source_search` returns ranked local lexical context packets with
+`match_reason`, `rank_boost`, `lexical_rank`, `snippet_plain`, and
+`snippet_highlighted` metadata. It still does not require embeddings.
 
 The remaining personal source-management capabilities are planned vNext surface
 and are not part of the current Alpha MCP registry until implemented: native
 Obsidian richer frontmatter fields, move/delete proposals, background wakeup
-integration, ranking improvements, MOC grouping, and richer duplicate heuristics.
+integration, stronger ranking adapters, MOC grouping, and richer duplicate
+heuristics.
 
 `pska_source_read` is the common read tool for both RAGFlow source refs and
 personal source refs.

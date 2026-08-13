@@ -224,6 +224,10 @@ class SQLiteSourceRegistry:
         root_ids = _scope_strings(scope, "root_ids", "root_id")
         kinds = _scope_strings(scope, "source_kinds", "source_kind")
         path_prefixes = _scope_strings(filters, "path_prefixes", "path_prefix")
+        object_kinds = _scope_strings(filters, "object_kinds", "object_kind")
+        extraction_statuses = _scope_strings(filters, "extraction_statuses", "extraction_status")
+        terms = _query_terms(query)
+        boost_sql, boost_params = _search_boost_sql(terms)
 
         where = ["source_fts MATCH ?", "o.status = 'active'"]
         params: list[Any] = [fts_query]
@@ -236,31 +240,68 @@ class SQLiteSourceRegistry:
         for prefix in path_prefixes:
             where.append("o.path LIKE ?")
             params.append(f"{prefix.rstrip('/')}%")
-        params.append(limit)
+        if object_kinds:
+            where.append(f"o.kind IN ({','.join('?' for _ in object_kinds)})")
+            params.extend(object_kinds)
+        if extraction_statuses:
+            where.append(f"o.extraction_status IN ({','.join('?' for _ in extraction_statuses)})")
+            params.extend(extraction_statuses)
+        query_limit = max(limit * 3, limit)
+        query_params = boost_params + params + [query_limit]
         with self.lock:
             try:
                 rows = self.conn.execute(
                     f"""
-                    SELECT f.section_id, f.object_id, f.root_id, f.title AS fts_title,
-                           snippet(source_fts, 4, '', '', '...', 18) AS snippet,
-                           bm25(source_fts) AS rank,
-                           o.path, o.kind AS object_kind, o.content_hash, o.extraction_status,
-                           s.section_type, s.heading_path, s.line_start, s.line_end,
-                           s.title AS section_title,
-                           r.kind AS root_kind, r.permission_mode, r.label AS root_label
-                    FROM source_fts f
-                    JOIN source_objects o ON o.object_id = f.object_id
-                    JOIN source_sections s ON s.section_id = f.section_id
-                    JOIN source_roots r ON r.root_id = f.root_id
-                    WHERE {' AND '.join(where)}
-                    ORDER BY rank
+                    SELECT *,
+                           lexical_rank - rank_boost AS final_rank
+                    FROM (
+                        SELECT f.section_id, f.object_id, f.root_id, f.title AS fts_title,
+                               snippet(source_fts, 4, '', '', '...', 30) AS snippet_plain,
+                               snippet(source_fts, 4, '[', ']', '...', 30) AS snippet_highlighted,
+                               bm25(source_fts, 0.0, 0.0, 0.0, 4.0, 1.0) AS lexical_rank,
+                               {boost_sql} AS rank_boost,
+                               o.path, o.title AS object_title, o.kind AS object_kind,
+                               o.content_hash, o.extraction_status,
+                               s.section_type, s.heading_path, s.line_start, s.line_end,
+                               s.title AS section_title,
+                               r.kind AS root_kind, r.permission_mode, r.label AS root_label,
+                               o.mtime AS object_mtime
+                        FROM source_fts f
+                        JOIN source_objects o ON o.object_id = f.object_id
+                        JOIN source_sections s ON s.section_id = f.section_id
+                        JOIN source_roots r ON r.root_id = f.root_id
+                        WHERE {' AND '.join(where)}
+                    )
+                    ORDER BY final_rank ASC, lexical_rank ASC, rank_boost DESC, path COLLATE NOCASE
                     LIMIT ?
                     """,
-                    params,
+                    query_params,
                 ).fetchall()
             except sqlite3.OperationalError:
-                return self._like_search(query, root_ids=root_ids, kinds=kinds, limit=limit)
-        return [_packet_from_search_row(row, index) for index, row in enumerate(rows, start=1)]
+                return self._like_search(
+                    query,
+                    root_ids=root_ids,
+                    kinds=kinds,
+                    path_prefixes=path_prefixes,
+                    object_kinds=object_kinds,
+                    extraction_statuses=extraction_statuses,
+                    limit=limit,
+                )
+            rows = list(rows)
+            rows.extend(
+                self._like_search_rows(
+                    query,
+                    root_ids=root_ids,
+                    kinds=kinds,
+                    path_prefixes=path_prefixes,
+                    object_kinds=object_kinds,
+                    extraction_statuses=extraction_statuses,
+                    exclude_section_ids=[str(row["section_id"]) for row in rows],
+                    limit=limit,
+                )
+            )
+            rows = sorted(rows, key=_search_row_sort_key)[:limit]
+        return [_packet_from_search_row(row, index, query_terms=terms) for index, row in enumerate(rows, start=1)]
 
     def read_source(self, source_ref: SourceRef) -> SourceContext:
         section_id = (
@@ -2233,44 +2274,95 @@ class SQLiteSourceRegistry:
         *,
         root_ids: list[str],
         kinds: list[str],
+        path_prefixes: list[str] | None = None,
+        object_kinds: list[str] | None = None,
+        extraction_statuses: list[str] | None = None,
         limit: int,
     ) -> list[ContextPacket]:
         terms = _query_terms(query)
-        if not terms:
+        rows = self._like_search_rows(
+            query,
+            root_ids=root_ids,
+            kinds=kinds,
+            path_prefixes=path_prefixes or [],
+            object_kinds=object_kinds or [],
+            extraction_statuses=extraction_statuses or [],
+            limit=limit,
+        )
+        return [
+            _packet_from_search_row(row, index, query_terms=terms)
+            for index, row in enumerate(rows, start=1)
+        ]
+
+    def _like_search_rows(
+        self,
+        query: str,
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        path_prefixes: list[str],
+        object_kinds: list[str],
+        extraction_statuses: list[str],
+        limit: int,
+        exclude_section_ids: list[str] | None = None,
+    ) -> list[sqlite3.Row]:
+        terms = _query_terms(query)
+        if not terms or limit <= 0:
             return []
+        boost_sql, boost_params = _search_boost_sql(terms)
         where = ["o.status = 'active'"]
-        params: list[Any] = []
+        params: list[Any] = boost_params
         if root_ids:
             where.append(f"f.root_id IN ({','.join('?' for _ in root_ids)})")
             params.extend(root_ids)
         if kinds:
             where.append(f"r.kind IN ({','.join('?' for _ in kinds)})")
             params.extend(kinds)
+        for prefix in path_prefixes:
+            where.append("o.path LIKE ?")
+            params.append(f"{prefix.rstrip('/')}%")
+        if object_kinds:
+            where.append(f"o.kind IN ({','.join('?' for _ in object_kinds)})")
+            params.extend(object_kinds)
+        if extraction_statuses:
+            where.append(f"o.extraction_status IN ({','.join('?' for _ in extraction_statuses)})")
+            params.extend(extraction_statuses)
+        if exclude_section_ids:
+            where.append(f"f.section_id NOT IN ({','.join('?' for _ in exclude_section_ids)})")
+            params.extend(exclude_section_ids)
         like_clauses = []
         for term in terms:
-            like_clauses.append("(f.title LIKE ? OR f.body LIKE ? OR o.path LIKE ?)")
-            params.extend([f"%{term}%", f"%{term}%", f"%{term}%"])
+            like_clauses.append("(f.title LIKE ? OR f.body LIKE ? OR o.path LIKE ? OR s.heading_path LIKE ?)")
+            params.extend([f"%{term}%", f"%{term}%", f"%{term}%", f"%{term}%"])
         where.append("(" + " OR ".join(like_clauses) + ")")
         params.append(limit)
-        rows = self.conn.execute(
+        return self.conn.execute(
             f"""
-            SELECT f.section_id, f.object_id, f.root_id, f.title AS fts_title,
-                   substr(f.body, 1, 220) AS snippet, 0.0 AS rank,
-                   o.path, o.kind AS object_kind, o.content_hash, o.extraction_status,
-                   s.section_type, s.heading_path, s.line_start, s.line_end,
-                   s.title AS section_title,
-                   r.kind AS root_kind, r.permission_mode, r.label AS root_label
-            FROM source_fts f
-            JOIN source_objects o ON o.object_id = f.object_id
-            JOIN source_sections s ON s.section_id = f.section_id
-            JOIN source_roots r ON r.root_id = f.root_id
-            WHERE {' AND '.join(where)}
-            ORDER BY o.mtime DESC
+            SELECT *,
+                   lexical_rank - rank_boost AS final_rank
+            FROM (
+                SELECT f.section_id, f.object_id, f.root_id, f.title AS fts_title,
+                       substr(f.body, 1, 260) AS snippet_plain,
+                       substr(f.body, 1, 260) AS snippet_highlighted,
+                       0.0 AS lexical_rank,
+                       {boost_sql} AS rank_boost,
+                       o.path, o.title AS object_title, o.kind AS object_kind,
+                       o.content_hash, o.extraction_status,
+                       s.section_type, s.heading_path, s.line_start, s.line_end,
+                       s.title AS section_title,
+                       r.kind AS root_kind, r.permission_mode, r.label AS root_label,
+                       o.mtime AS object_mtime
+                FROM source_fts f
+                JOIN source_objects o ON o.object_id = f.object_id
+                JOIN source_sections s ON s.section_id = f.section_id
+                JOIN source_roots r ON r.root_id = f.root_id
+                WHERE {' AND '.join(where)}
+            )
+            ORDER BY final_rank ASC, rank_boost DESC, object_mtime DESC, path COLLATE NOCASE
             LIMIT ?
             """,
             params,
         ).fetchall()
-        return [_packet_from_search_row(row, index) for index, row in enumerate(rows, start=1)]
 
     def _duplicate_members(
         self,
@@ -2526,27 +2618,40 @@ def _source_collection_payload(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
-def _packet_from_search_row(row: sqlite3.Row, index: int) -> ContextPacket:
+def _packet_from_search_row(row: sqlite3.Row, index: int, *, query_terms: list[str] | None = None) -> ContextPacket:
     ref = _source_ref_from_row(row)
-    text = str(row["snippet"] or "")
+    text = str(_row_value(row, "snippet_plain") or _row_value(row, "snippet") or "")
     title = str(row["section_title"] or row["fts_title"] or row["path"])
-    rank = float(row["rank"] or 0.0)
+    lexical_rank = float(_row_value(row, "lexical_rank") or _row_value(row, "rank") or 0.0)
+    rank_boost = float(_row_value(row, "rank_boost") or 0.0)
+    final_rank = float(_row_value(row, "final_rank") or (lexical_rank - rank_boost))
+    match_reason = _search_match_reason(row, query_terms or [])
     return ContextPacket(
         context_id=f"ctx_source_{index}_{row['section_id']}",
         text=text,
         source_ref=ref,
-        score=1.0 / (1.0 + abs(rank)),
+        score=1.0 / (1.0 + abs(final_rank)),
         title=title,
         metadata={
             "source_layer": "personal",
-            "rank": rank,
+            "rank": final_rank,
+            "lexical_rank": lexical_rank,
+            "rank_boost": rank_boost,
+            "match_reason": match_reason,
+            "snippet_plain": text,
+            "snippet_highlighted": str(_row_value(row, "snippet_highlighted") or text),
             "root_id": row["root_id"],
             "root_kind": row["root_kind"],
             "path": row["path"],
+            "object_title": _row_value(row, "object_title") or "",
             "section_id": row["section_id"],
+            "section_title": row["section_title"] or "",
+            "heading_path": row["heading_path"] or "",
+            "section_type": row["section_type"] or "",
             "line_start": row["line_start"],
             "line_end": row["line_end"],
             "extraction_status": row["extraction_status"],
+            "embedding_required": False,
         },
     )
 
@@ -3038,6 +3143,54 @@ def _normalize_collection_selector(selector: dict[str, Any]) -> dict[str, Any]:
         "limit": min(limit, 100),
         "sort": str(payload.get("sort") or "relevance"),
     }
+
+
+def _search_boost_sql(terms: list[str]) -> tuple[str, list[Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    for term in terms[:8]:
+        pattern = f"%{term}%"
+        clauses.append("CASE WHEN lower(f.title) LIKE lower(?) THEN 0.70 ELSE 0 END")
+        params.append(pattern)
+        clauses.append("CASE WHEN lower(o.title) LIKE lower(?) THEN 0.55 ELSE 0 END")
+        params.append(pattern)
+        clauses.append("CASE WHEN lower(o.path) LIKE lower(?) THEN 0.45 ELSE 0 END")
+        params.append(pattern)
+        clauses.append("CASE WHEN lower(s.heading_path) LIKE lower(?) THEN 0.35 ELSE 0 END")
+        params.append(pattern)
+    if not clauses:
+        return "0.0", []
+    return "(" + " + ".join(clauses) + ")", params
+
+
+def _search_match_reason(row: sqlite3.Row, terms: list[str]) -> str:
+    title = str(_row_value(row, "section_title") or _row_value(row, "fts_title") or "")
+    object_title = str(_row_value(row, "object_title") or "")
+    path = str(_row_value(row, "path") or "")
+    heading = str(_row_value(row, "heading_path") or "")
+    haystacks = [
+        ("section_title", title),
+        ("object_title", object_title),
+        ("path", path),
+        ("heading_path", heading),
+    ]
+    for label, value in haystacks:
+        if any(term.lower() in value.lower() for term in terms if term):
+            return label
+    return "body"
+
+
+def _search_row_sort_key(row: sqlite3.Row) -> tuple[float, float, float, float, str]:
+    lexical_rank = float(_row_value(row, "lexical_rank") or _row_value(row, "rank") or 0.0)
+    rank_boost = float(_row_value(row, "rank_boost") or 0.0)
+    final_rank = float(_row_value(row, "final_rank") or (lexical_rank - rank_boost))
+    object_mtime = float(_row_value(row, "object_mtime") or 0.0)
+    path = str(_row_value(row, "path") or "")
+    return (final_rank, lexical_rank, -rank_boost, -object_mtime, path.lower())
+
+
+def _row_value(row: sqlite3.Row, key: str) -> Any:
+    return row[key] if key in row.keys() else None
 
 
 def _render_moc_block(title: str, targets: list[dict[str, Any]]) -> str:

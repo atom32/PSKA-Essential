@@ -317,7 +317,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m13_source_collections")
+        self.assertEqual(source_layer["status"], "m14_fts_ranking_snippets")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -352,6 +352,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("markitdown", source_layer["adapter_slots"]["extraction"])
         self.assertIn("dedup", source_layer["adapter_slots"])
         self.assertIn("fclones", source_layer["adapter_slots"]["dedup"])
+        sqlite_search = next(
+            provider
+            for provider in capabilities["capabilities"]["adapter_slots"]["slots"]["search_index"]["providers"]
+            if provider["name"] == "sqlite_fts5"
+        )
+        self.assertIn("title_path_boost", sqlite_search["supports"])
+        self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
         self.assertEqual(assistant_layer["status"], "m10_jarvis_obsidian_moc_writeback")
@@ -373,6 +380,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_trace_query", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_project_trace_import", assistant_layer["mcp_tools"]["implemented"])
         tool_policy = capabilities["capabilities"]["tool_policy"]["tools"]
+        self.assertEqual(tool_policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
+        self.assertTrue(tool_policy["pska_source_search"]["snippet_metadata"])
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_sidecar"], "write_target_dependent")
         self.assertIn(
@@ -902,6 +911,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(scanned["scan"]["counts"]["indexed"], 2)
         self.assertEqual(scanned["scan"]["extraction"]["extractor"], "auto")
         self.assertGreaterEqual(searched["count"], 1)
+        self.assertIn("match_reason", architecture_packet["metadata"])
+        self.assertIn("rank_boost", architecture_packet["metadata"])
+        self.assertIn("snippet_plain", architecture_packet["metadata"])
+        self.assertIn("snippet_highlighted", architecture_packet["metadata"])
+        self.assertFalse(architecture_packet["metadata"]["embedding_required"])
         self.assertEqual(duplicate["duplicate_report"]["group_count"], 0)
         self.assertEqual(source_audit["audit"]["schema"], "pska.source_audit.v1")
         self.assertEqual(source_audit["audit"]["root_count"], 1)

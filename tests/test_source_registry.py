@@ -43,6 +43,55 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertIn("Hermes should search Obsidian", source.text)
         self.assertFalse(source.metadata["writes_source_files"])
 
+    def test_source_search_exposes_ranked_snippet_metadata_and_title_boost(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "Hermes.md").write_text(
+                "# Hermes\n\nHermes ranking signal should prefer title matches.\n",
+                encoding="utf-8",
+            )
+            (root_path / "body.md").write_text(
+                "# Notes\n\nHermes Hermes Hermes ranking body-only match.\n",
+                encoding="utf-8",
+            )
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+
+            packets = registry.search("Hermes", {"root_ids": [root["root_id"]]}, limit=2)
+
+        self.assertEqual(packets[0].source_ref.path, "Hermes.md")
+        self.assertEqual(packets[0].metadata["match_reason"], "section_title")
+        self.assertGreater(packets[0].metadata["rank_boost"], 0)
+        self.assertIn("lexical_rank", packets[0].metadata)
+        self.assertIn("snippet_plain", packets[0].metadata)
+        self.assertIn("[Hermes]", packets[0].metadata["snippet_highlighted"])
+        self.assertFalse(packets[0].metadata["embedding_required"])
+
+    def test_source_search_path_fallback_finds_filename_matches(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "hermes-route.md").write_text(
+                "# Notes\n\nThis body intentionally omits the filename terms.\n",
+                encoding="utf-8",
+            )
+            (root_path / "body.md").write_text(
+                "# Body\n\nHermes route appears in body text several times: Hermes route Hermes route.\n",
+                encoding="utf-8",
+            )
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+
+            packets = registry.search("hermes route", {"root_ids": [root["root_id"]]}, limit=1)
+
+        self.assertEqual(len(packets), 1)
+        self.assertEqual(packets[0].source_ref.path, "hermes-route.md")
+        self.assertEqual(packets[0].metadata["match_reason"], "path")
+        self.assertGreater(packets[0].metadata["rank_boost"], 0)
+
     def test_neighbors_use_obsidian_links_backlinks_and_same_folder(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir) / "Vault"

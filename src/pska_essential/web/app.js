@@ -2500,8 +2500,10 @@ function sourceSearchResultCard(packet) {
       el("span", { className: "tag" }, ref.adapter || metadata.root_kind || "source"),
       lineRange ? el("span", { className: "tag" }, lineRange) : null,
       metadata.extraction_status ? el("span", { className: "tag" }, metadata.extraction_status) : null,
+      metadata.match_reason ? el("span", { className: "tag" }, metadata.match_reason) : null,
+      Number(metadata.rank_boost || 0) > 0 ? el("span", { className: "tag ready" }, `+${Number(metadata.rank_boost).toFixed(2)}`) : null,
     ]),
-	    el("p", { className: "source-result-snippet" }, packet.text || ""),
+	    el("p", { className: "source-result-snippet" }, metadata.snippet_highlighted || packet.text || ""),
 	    el("div", { className: "card-actions" }, [
 	      el("button", { className: "secondary-button", type: "button", onclick: () => selectSourceForAnnotation(ref, packet.title || ref.title || ref.path) }, t("button.annotate")),
 	      el("button", { className: "secondary-button", type: "button", onclick: () => readSource(ref) }, t("button.source")),

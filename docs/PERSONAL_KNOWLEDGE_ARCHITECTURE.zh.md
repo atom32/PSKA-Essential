@@ -669,6 +669,8 @@ Hermes 的默认行为：
   的 `write_target=obsidian_markdown_comment` 落地，只追加 PSKA Comment marker block。
 - Done: Source collections 已通过 `pska_source_collection_create/list/resolve`
   落地，可保存手动 SourceRef 或无 embedding search selector，并展开为 ContextPacket。
+- Done: FTS ranking/snippet 已增强，`pska_source_search` 会输出 `match_reason`、
+  `rank_boost`、plain/highlighted snippet，并用 path/title/body LIKE fallback 补 filename route 查询。
 - Pending: 项目 handoff 摘要自动化、后台 wakeup 集成。
 - 所有写动作仍走 PSKA proposal/review/policy。
 
@@ -679,7 +681,7 @@ Hermes 的默认行为：
 - Done: 输出 priority codes，如 duplicate、断链、孤立笔记、source route、pending review、workspace action。
 - Done: briefing 不生成最终回答、不写源文件、不直接写 memory、不需要 embedding。
 - Done: WebUI Home 首屏增加 Jarvis Bar，加载 `/api/jarvis/briefing`，展示 priority、source audit 数字和前三个安全 action。
-- Done: WebUI 增加 Sources 面板，支持 root 注册、扫描、资料源 audit、FTS 搜索、saved search、source collections、source read、tag/comment proposal -> sidecar apply、Obsidian frontmatter tag apply、Obsidian markdown comment apply，并承接 Jarvis source actions。
+- Done: WebUI 增加 Sources 面板，支持 root 注册、扫描、资料源 audit、带 ranking/snippet cue 的 FTS 搜索、saved search、source collections、source read、tag/comment proposal -> sidecar apply、Obsidian frontmatter tag apply、Obsidian markdown comment apply，并承接 Jarvis source actions。
 
 ### M8: Proactive Source Audit Jobs
 

@@ -63,6 +63,8 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "access": "read",
         "durable": False,
         "embedding_required": False,
+        "ranking": "sqlite_fts5_bm25_title_path_boost",
+        "snippet_metadata": True,
     },
     "pska_source_neighbors": {
         "category": "source",
@@ -672,7 +674,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m13_source_collections",
+        "status": "m14_fts_ranking_snippets",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -874,7 +876,7 @@ def adapter_slots_contract() -> dict[str, Any]:
                     status="available",
                     maturity="implemented",
                     integration="core",
-                    supports=["metadata", "bm25", "snippet", "local_first"],
+                    supports=["metadata", "bm25", "snippet", "title_path_boost", "like_fallback", "local_first"],
                 ),
                 _python_provider(
                     "tantivy",

@@ -405,6 +405,8 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_source_watch_once"]["writes_memory_directly"])
         self.assertTrue(policy["pska_source_audit_schedule_create"]["wall_clock_schedule"])
         self.assertTrue(policy["pska_source_audit_job_tick"]["wall_clock_tick"])
+        self.assertEqual(policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
+        self.assertTrue(policy["pska_source_search"]["snippet_metadata"])
         self.assertFalse(policy["pska_source_collection_create"]["writes_source_files"])
         self.assertTrue(policy["pska_source_collection_create"]["writes_source_registry"])
         self.assertFalse(policy["pska_source_collection_resolve"]["embedding_required"])

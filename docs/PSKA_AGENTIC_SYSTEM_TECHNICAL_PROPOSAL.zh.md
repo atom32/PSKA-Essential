@@ -467,6 +467,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 - RAGFlow adapter。
 - SQLite Review/Memory。
 - Source registry、FTS5、source read/search/neighbors。
+- Source search ranking/snippets with BM25, title/path/heading boost, match reason, highlighted snippets, and LIKE fallback.
 - Source audit jobs/scheduler。
 - Obsidian MOC proposal/apply。
 - Obsidian frontmatter tag proposal/apply through source tag write target.
@@ -492,7 +493,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 - Richer Obsidian frontmatter fields and MOC grouping.
 - 更强 source route learning。
 - MarkItDown/Docling/Tika adapter。
-- Saved search 已有；source collections 已有第一版，后续增强 grouping/ranking。
+- Saved search/source collections 已有；后续增强 grouping 和可选强搜索 adapter。
 
 ### Phase 3: Agentic Workspace
 

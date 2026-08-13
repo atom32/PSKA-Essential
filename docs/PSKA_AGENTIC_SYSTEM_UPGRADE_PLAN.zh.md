@@ -20,12 +20,13 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M13 级别的 source-safe baseline：
+当前仓库已经具备 M14 级别的 source-safe baseline：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
 | Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
+| Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
 | File governance | 已有 exact hash duplicate report、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
 | Obsidian | 已有 MOC propose/apply，只写 PSKA marker block；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
@@ -681,8 +682,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: Obsidian frontmatter tag native write proposal/apply through `pska_source_tag_propose/apply`.
 - Done: Obsidian markdown comment native write proposal/apply through `pska_source_comment_propose/apply`.
 - Done: Source collections for named reusable bundles over explicit SourceRefs or no-embedding search selectors.
+- Done: FTS ranking/snippet improvements with BM25, title/path/heading boost, match reasons, highlighted snippets, and LIKE fallback.
 - MOC grouping：folder/tag/topic/project。
-- Better search ranking：FTS5 snippet、filters、path/title weights。
 - 评估 Tantivy/Meilisearch adapter，但不替换默认。
 
 验收：
@@ -783,7 +784,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Obsidian frontmatter/tag native write proposal/apply.
 - [x] Obsidian markdown comment native write proposal/apply.
 - [x] Source collections.
-- [ ] FTS ranking improvements.
+- [x] FTS ranking improvements.
 - [ ] Evaluate Tantivy adapter.
 
 ### P4 Backlog

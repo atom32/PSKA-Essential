@@ -75,9 +75,15 @@ Last updated: 2026-07-15
 > bundle or no-embedding search selector, then materialize it back into normal
 > `ContextPacket` payloads for Hermes/RAG workflows. Product API and WebUI expose
 > collection create/resolve. Collections write only PSKA registry metadata and do
-> not copy, move, delete, or edit source files. Next useful source-governance
-> steps are FTS ranking/snippets, richer frontmatter fields, MOC grouping, and
-> richer duplicate heuristics.
+> not copy, move, delete, or edit source files.
+>
+> Update, 2026-08-13: Source search ranking/snippets are now implemented as M14.
+> `pska_source_search` keeps the no-embedding SQLite FTS5 path but adds weighted
+> BM25/title/path/heading ranking, `match_reason`, `lexical_rank`, `rank_boost`,
+> plain/highlighted snippet metadata, and a LIKE fallback for filename-style
+> route queries. WebUI source result cards expose the match reason and boost.
+> Next useful source-governance steps are richer frontmatter fields, MOC
+> grouping, stronger ranking adapters, and richer duplicate heuristics.
 
 This document is the handoff point for a fresh Codex conversation.
 

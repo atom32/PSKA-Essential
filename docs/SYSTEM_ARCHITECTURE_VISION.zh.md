@@ -377,7 +377,7 @@ flowchart TD
 
 ## Current Baseline
 
-截至 2026-08-13，当前可验证的系统状态是 M13 source governance baseline。
+截至 2026-08-13，当前可验证的系统状态是 M14 source governance baseline。
 
 | 能力 | 当前状态 |
 | --- | --- |
@@ -389,6 +389,7 @@ flowchart TD
 | RAGFlow | 作为 KB/retrieval backend 保留 |
 | SQLite Memory + Review | 当前轻量闭环可用 |
 | Personal Source Layer | 已支持 local folder/Obsidian root、scan、FTS5 search、read、neighbors |
+| Source Search | 已支持 BM25、title/path/heading boost、match reason、highlighted snippet、LIKE fallback |
 | Source Audit | 已支持 duplicate preview、unresolved links、unlinked notes、source-route candidates |
 | Source Audit Jobs | 已支持 enqueue/list/run、due tick、recurring cadence |
 | Obsidian MOC | 已支持 proposal/apply，只写 PSKA-managed marker block |
@@ -546,6 +547,7 @@ source audit
 - Obsidian comment apply 可在 `native_write/managed` vault 中显式追加 PSKA Comment block；
 - Obsidian MOC apply 写目标 note 的 PSKA marker block；
 - Source collections 可保存手动 SourceRef 或搜索 selector，并按需展开成 retrieval context；
+- Source search 可输出 match reason、rank boost 和 highlighted snippet；
 - duplicate report 不删除、不移动、不合并。
 
 ### 6. Proactive Jarvis Loop
