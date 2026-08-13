@@ -1,0 +1,283 @@
+from __future__ import annotations
+
+from typing import Any
+
+from pska_essential.audit import audit_event
+from pska_essential.contracts import to_jsonable, utc_now_iso
+from pska_essential.memory_briefing import build_memory_briefing
+
+
+MEMORY_REVIEW_QUEUE_SCHEMA = "pska.memory_review_queue.v1"
+MEMORY_REVIEW_QUEUE_GROUP_SCHEMA = "pska.memory_review_queue_group.v1"
+
+GROUP_DEFINITIONS = (
+    ("accepted_unapplied", "Accepted Memory Waiting To Apply", "accepted memory reviews can be applied"),
+    ("pending_reviews", "Pending Durable Knowledge Reviews", "pending review decisions need user attention"),
+    ("needs_edit", "Reviews Needing Revision", "reviews were marked needs_edit and require revision"),
+    ("memory_health", "Memory Health Issues", "Memory Cards need quality/stale/conflict inspection"),
+    ("memory_focus", "Memory Focus Items", "recent or risky memories should be inspected"),
+)
+
+
+def build_memory_review_queue(
+    service: Any,
+    *,
+    scope: dict[str, Any] | None = None,
+    review_limit: int = 50,
+    health_limit: int = 20,
+    focus_limit: int = 20,
+    audit: bool = True,
+) -> dict[str, Any]:
+    normalized_scope = dict(scope or {})
+    reviews = service.store.list_reviews(limit=max(0, int(review_limit)))
+    briefing = build_memory_briefing(
+        service,
+        scope=normalized_scope,
+        card_limit=max(0, int(focus_limit)),
+        health_limit=max(0, int(health_limit)),
+        trace_limit=max(0, int(focus_limit)),
+        audit=False,
+    )
+    groups = _groups(reviews, briefing)
+    summary = _summary(groups)
+    result = {
+        "schema": MEMORY_REVIEW_QUEUE_SCHEMA,
+        "status": _status(summary),
+        "created_at": utc_now_iso(),
+        "scope": normalized_scope,
+        "summary": summary,
+        "groups": to_jsonable(groups),
+        "next_actions": _next_actions(groups),
+        "data_flow": {
+            "writes_memory_directly": False,
+            "writes_source_files": False,
+            "embedding_required": False,
+            "generates_answer_text": False,
+        },
+        "limitations": [
+            "Memory Review Queue is a read-only grouping view over Review records and Memory Briefing.",
+            "It does not approve, revise, apply, or write durable memory directly.",
+            "Health and focus groups are inspection queues; any durable change still goes through Review.",
+        ],
+    }
+    if audit:
+        service.store.add_audit_event(
+            audit_event(
+                "memory.review_queue",
+                "memory_scope",
+                str(normalized_scope.get("memory_namespace") or "workspace"),
+                status=result["status"],
+                group_count=len(groups),
+                item_count=summary["item_count"],
+                accepted_unapplied_count=summary["accepted_unapplied_count"],
+                pending_review_count=summary["pending_review_count"],
+                memory_health_count=summary["memory_health_count"],
+                writes_memory_directly=False,
+            )
+        )
+    return to_jsonable(result)
+
+
+def _groups(reviews: list[dict[str, Any]], briefing: dict[str, Any]) -> list[dict[str, Any]]:
+    pending = [review for review in reviews if review.get("status") == "pending"]
+    accepted_unapplied = [
+        review
+        for review in reviews
+        if review.get("status") == "accepted"
+        and not review.get("memory_apply")
+        and _durable_review(review)
+    ]
+    needs_edit = [review for review in reviews if review.get("status") == "needs_edit"]
+    health_issues = ((briefing.get("health") or {}).get("top_issues") or [])[:10]
+    focus_items = (briefing.get("focus_items") or [])[:10]
+    grouped = [
+        _review_group("accepted_unapplied", accepted_unapplied, "high"),
+        _review_group("pending_reviews", pending, "medium"),
+        _review_group("needs_edit", needs_edit, "medium"),
+        _health_group(health_issues),
+        _focus_group(focus_items),
+    ]
+    return [group for group in grouped if group["count"]]
+
+
+def _review_group(code: str, reviews: list[dict[str, Any]], severity: str) -> dict[str, Any]:
+    return _group(
+        code,
+        severity,
+        [
+            {
+                "item_type": "review",
+                "review_id": str(review.get("review_id") or ""),
+                "status": str(review.get("status") or ""),
+                "proposal_kind": str((review.get("proposal") or {}).get("kind") or ""),
+                "title": str((review.get("proposal") or {}).get("title") or review.get("review_id") or ""),
+                "reason": str((review.get("proposal") or {}).get("body") or ""),
+                "source_count": int(review.get("source_count") or len(review.get("source_refs") or [])),
+                "next_actions": _review_actions(review),
+            }
+            for review in reviews
+        ],
+    )
+
+
+def _health_group(issues: list[dict[str, Any]]) -> dict[str, Any]:
+    return _group(
+        "memory_health",
+        "medium",
+        [
+            {
+                "item_type": "memory_health_issue",
+                "issue_id": str(issue.get("issue_id") or ""),
+                "issue_type": str(issue.get("type") or ""),
+                "severity": str(issue.get("severity") or ""),
+                "title": str(issue.get("title") or ""),
+                "reason": str(issue.get("reason") or ""),
+                "memory_ids": [str(memory_id) for memory_id in issue.get("memory_ids") or [] if str(memory_id)],
+                "next_actions": issue.get("next_actions") or [],
+            }
+            for issue in issues
+        ],
+    )
+
+
+def _focus_group(items: list[dict[str, Any]]) -> dict[str, Any]:
+    return _group(
+        "memory_focus",
+        "low",
+        [
+            {
+                "item_type": "memory_focus_item",
+                "memory_id": str(item.get("memory_id") or ""),
+                "title": str(item.get("display_text") or item.get("memory_id") or ""),
+                "reason": ", ".join(item.get("reason_codes") or []),
+                "attention_score": int(item.get("attention_score") or 0),
+                "issue_types": item.get("issue_types") or [],
+                "next_actions": item.get("next_actions") or [],
+            }
+            for item in items
+        ],
+    )
+
+
+def _group(code: str, severity: str, items: list[dict[str, Any]]) -> dict[str, Any]:
+    title, reason = _definition(code)
+    return {
+        "schema": MEMORY_REVIEW_QUEUE_GROUP_SCHEMA,
+        "code": code,
+        "title": title,
+        "reason": reason,
+        "severity": severity,
+        "count": len(items),
+        "items": to_jsonable(items),
+    }
+
+
+def _definition(code: str) -> tuple[str, str]:
+    for item_code, title, reason in GROUP_DEFINITIONS:
+        if item_code == code:
+            return title, reason
+    return code, code
+
+
+def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = {group["code"]: group["count"] for group in groups}
+    return {
+        "group_count": len(groups),
+        "item_count": sum(group["count"] for group in groups),
+        "accepted_unapplied_count": counts.get("accepted_unapplied", 0),
+        "pending_review_count": counts.get("pending_reviews", 0),
+        "needs_edit_count": counts.get("needs_edit", 0),
+        "memory_health_count": counts.get("memory_health", 0),
+        "memory_focus_count": counts.get("memory_focus", 0),
+    }
+
+
+def _status(summary: dict[str, Any]) -> str:
+    if summary["accepted_unapplied_count"]:
+        return "apply_ready"
+    if summary["pending_review_count"] or summary["needs_edit_count"] or summary["memory_health_count"]:
+        return "action_required"
+    if summary["memory_focus_count"]:
+        return "review"
+    return "ready"
+
+
+def _next_actions(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for group in groups:
+        first = (group.get("items") or [{}])[0]
+        if group["code"] == "accepted_unapplied" and first.get("review_id"):
+            actions.append(
+                {
+                    "action": "apply_accepted_memory",
+                    "label": "Apply accepted memory",
+                    "tool": "pska_memory_apply",
+                    "api": f"POST /api/reviews/{first['review_id']}/apply-memory",
+                    "view": "review",
+                    "params": {"review_id": first["review_id"]},
+                }
+            )
+        elif group["code"] in {"pending_reviews", "needs_edit"} and first.get("review_id"):
+            actions.append(
+                {
+                    "action": "review_pending_durable_knowledge",
+                    "label": "Open review",
+                    "tool": "pska_review_get",
+                    "api": f"GET /api/reviews/{first['review_id']}",
+                    "view": "review",
+                    "params": {"review_id": first["review_id"]},
+                }
+            )
+        elif group["code"] == "memory_health":
+            actions.append(
+                {
+                    "action": "inspect_memory_health",
+                    "label": "Inspect memory health",
+                    "tool": "pska_memory_health_scan",
+                    "api": "GET /api/memory/health",
+                    "view": "memory",
+                }
+            )
+        elif group["code"] == "memory_focus" and first.get("memory_id"):
+            actions.append(
+                {
+                    "action": "inspect_memory_timeline",
+                    "label": "Inspect memory timeline",
+                    "tool": "pska_memory_timeline",
+                    "api": f"GET /api/memory/{first['memory_id']}/timeline",
+                    "view": "memory",
+                    "params": {"memory_id": first["memory_id"]},
+                }
+            )
+    return actions
+
+
+def _review_actions(review: dict[str, Any]) -> list[dict[str, Any]]:
+    review_id = str(review.get("review_id") or "")
+    actions = [
+        {
+            "action": "open_review",
+            "label": "Open review",
+            "tool": "pska_review_get",
+            "api": f"GET /api/reviews/{review_id}",
+            "view": "review",
+            "params": {"review_id": review_id},
+        }
+    ]
+    if review.get("status") == "accepted" and not review.get("memory_apply") and _durable_review(review):
+        actions.append(
+            {
+                "action": "apply_accepted_memory",
+                "label": "Apply accepted memory",
+                "tool": "pska_memory_apply",
+                "api": f"POST /api/reviews/{review_id}/apply-memory",
+                "view": "review",
+                "params": {"review_id": review_id},
+            }
+        )
+    return actions
+
+
+def _durable_review(review: dict[str, Any]) -> bool:
+    kind = str((review.get("proposal") or {}).get("kind") or "")
+    return kind in {"memory_patch", "memory_update", "memory_delete"}

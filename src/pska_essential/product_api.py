@@ -50,6 +50,7 @@ from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.memory_briefing import build_memory_briefing
 from pska_essential.memory_health import scan_memory_health
+from pska_essential.memory_review_queue import build_memory_review_queue
 from pska_essential.memory_timeline import build_memory_timeline
 from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
@@ -120,6 +121,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/memory/cards"},
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
     {"method": "GET", "path": "/api/memory/briefing"},
+    {"method": "GET", "path": "/api/memory/review-queue"},
     {"method": "GET", "path": "/api/memory/health"},
     {"method": "GET", "path": "/api/memory/use-traces"},
     {"method": "GET", "path": "/api/memory/{memory_id}/use-trace"},
@@ -1107,6 +1109,17 @@ def _handler_class(state: ProductApiState):
                     card_limit=_int_param(query.get("card_limit"), 30),
                     health_limit=_int_param(query.get("health_limit"), 20),
                     trace_limit=_int_param(query.get("trace_limit"), 30),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "GET" and path == "/api/memory/review-queue":
+                result = build_memory_review_queue(
+                    state.service,
+                    scope=_query_scope(query),
+                    review_limit=_int_param(query.get("review_limit"), 50),
+                    health_limit=_int_param(query.get("health_limit"), 20),
+                    focus_limit=_int_param(query.get("focus_limit"), 20),
                 )
                 self._send_json({"ok": True, **result})
                 return

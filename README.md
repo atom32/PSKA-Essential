@@ -422,6 +422,7 @@ Operational loop tools:
 - `pska_memory_card_list`
 - `pska_memory_card_get`
 - `pska_memory_briefing`
+- `pska_memory_review_queue`
 - `pska_memory_health_scan`
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
@@ -517,7 +518,12 @@ panel beside use traces, so operators can inspect a card's ledger without
 leaving the daily memory surface. P2-6 adds `pska_memory_briefing` and
 `GET /api/memory/briefing`, a derived memory attention view for Hermes/Jarvis
 and WebUI that summarizes active cards, health issues, recent use traces, focus
-items, and safe next actions without writing durable memory. M6 adds
+items, and safe next actions without writing durable memory. P2-7 adds
+`pska_memory_review_queue` and `GET /api/memory/review-queue`, a
+read-only grouped maintenance view over pending/accepted Review records, Memory
+Briefing focus items, and health issues. Hermes/Jarvis and the WebUI Review
+page can use it to triage memory work without approving, applying, or writing
+memory directly. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

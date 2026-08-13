@@ -1201,6 +1201,40 @@ class ProductApiTests(unittest.TestCase):
         audit = self._get_json("/api/audit?limit=10&action=memory.briefing")
         self.assertEqual(audit["events"][0]["metadata"]["focus_count"], len(briefing["focus_items"]))
 
+    def test_memory_review_queue_route_groups_review_and_health_work(self):
+        asked = self._post_json(
+            "/api/ask",
+            {
+                "question": "Create a sourced brief",
+                "dataset_ids": ["demo"],
+                "limit": 1,
+                "proposal_kind": "memory_patch",
+                "create_review": True,
+            },
+        )
+        review_id = asked["review"]["review_id"]
+        self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "accept", "reason": "ready"})
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-raw",
+                text="Raw memory missing envelope fields.",
+                metadata={},
+            )
+        )
+
+        queue = self._get_json("/api/memory/review-queue?review_limit=20&health_limit=10&focus_limit=10")
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertTrue(queue["ok"])
+        self.assertEqual(queue["schema"], "pska.memory_review_queue.v1")
+        self.assertEqual(queue["status"], "apply_ready")
+        self.assertEqual(groups["accepted_unapplied"]["items"][0]["review_id"], review_id)
+        self.assertIn("memory_health", groups)
+        self.assertFalse(queue["data_flow"]["writes_memory_directly"])
+        self.assertEqual(queue["next_actions"][0]["tool"], "pska_memory_apply")
+        audit = self._get_json("/api/audit?limit=10&action=memory.review_queue")
+        self.assertEqual(audit["events"][0]["metadata"]["accepted_unapplied_count"], 1)
+
     def test_memory_health_route_reports_quality_stale_and_conflict(self):
         self.service.memory.facts.extend(
             [
@@ -2027,6 +2061,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("audit-action-filter", html)
         self.assertIn("source.read", html)
         self.assertIn("review-status-filter", html)
+        self.assertIn("记忆维护队列", html)
+        self.assertIn("memory-review-queue-summary", html)
+        self.assertIn("reload-memory-review-queue", html)
         self.assertIn("memory.search", html)
         self.assertIn("needs_edit", html)
         self.assertIn("review.revise", html)
@@ -2086,11 +2123,15 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/sources/obsidian/moc/proposals', script)
         self.assertIn('/api/sources/memory-reviews', script)
         self.assertIn('/api/memory/briefing?card_limit=30&health_limit=20&trace_limit=30', script)
+        self.assertIn('/api/memory/review-queue?review_limit=50&health_limit=20&focus_limit=20', script)
         self.assertIn('/api/memory/${encodeURIComponent(selected)}/timeline?limit=50', script)
         self.assertIn("function loadSourceRoots", script)
         self.assertIn("function renderSources", script)
         self.assertIn("async function loadMemoryBriefing", script)
         self.assertIn("function memoryBriefingItemCard", script)
+        self.assertIn("async function loadMemoryReviewQueue", script)
+        self.assertIn("function memoryReviewQueueGroupCard", script)
+        self.assertIn("async function runMemoryReviewQueueAction", script)
         self.assertIn("async function openMemoryTimeline", script)
         self.assertIn("function memoryTimelineCard", script)
         self.assertIn("pska.memory_timeline.v1", script)

@@ -281,6 +281,14 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "audit_backed": True,
         "writes_memory_directly": False,
     },
+    "pska_memory_review_queue": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "writes_memory_directly": False,
+        "groups_review_work": True,
+    },
     "pska_memory_use_trace": {
         "category": "memory",
         "access": "read",
@@ -422,6 +430,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "card_view": memory_card_view_contract(),
         "health_view": memory_health_view_contract(),
         "briefing_view": memory_briefing_view_contract(),
+        "review_queue_view": memory_review_queue_view_contract(),
         "attribution_view": memory_attribution_view_contract(),
         "suggestion_view": memory_suggestion_view_contract(),
         "use_trace_view": memory_use_trace_view_contract(),
@@ -635,6 +644,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_memory_card_get",
                 "pska_memory_health_scan",
                 "pska_memory_briefing",
+                "pska_memory_review_queue",
                 "pska_memory_use_trace",
                 "pska_memory_why_used",
                 "pska_memory_timeline",
@@ -1080,6 +1090,20 @@ def memory_briefing_view_contract() -> dict[str, Any]:
             "inspect_memory_why_used",
             "create_memory_update_review",
         ],
+    }
+
+
+def memory_review_queue_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_review_queue_view.v1",
+        "api": "GET /api/memory/review-queue",
+        "mcp_tool": "pska_memory_review_queue",
+        "output_schema": "pska.memory_review_queue.v1",
+        "group_schema": "pska.memory_review_queue_group.v1",
+        "groups": ["accepted_unapplied", "pending_reviews", "needs_edit", "memory_health", "memory_focus"],
+        "principle": "read-only grouping view over Review records and Memory Briefing",
+        "writes_memory_directly": False,
+        "next_actions": ["open_review", "apply_accepted_memory", "inspect_memory_health", "inspect_memory_timeline"],
     }
 
 

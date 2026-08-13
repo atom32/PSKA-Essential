@@ -70,6 +70,7 @@ EXPECTED_TOOLS = {
     "pska_memory_card_list",
     "pska_memory_card_get",
     "pska_memory_briefing",
+    "pska_memory_review_queue",
     "pska_memory_health_scan",
     "pska_memory_use_trace",
     "pska_memory_why_used",
@@ -322,6 +323,8 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(capabilities["memory"]["card_view"]["mcp_tools"]["list"], "pska_memory_card_list")
         self.assertEqual(capabilities["memory"]["briefing_view"]["schema"], "pska.memory_briefing_view.v1")
         self.assertEqual(capabilities["memory"]["briefing_view"]["mcp_tool"], "pska_memory_briefing")
+        self.assertEqual(capabilities["memory"]["review_queue_view"]["schema"], "pska.memory_review_queue_view.v1")
+        self.assertEqual(capabilities["memory"]["review_queue_view"]["mcp_tool"], "pska_memory_review_queue")
         self.assertEqual(capabilities["memory"]["health_view"]["schema"], "pska.memory_health_view.v1")
         self.assertEqual(capabilities["memory"]["health_view"]["mcp_tool"], "pska_memory_health_scan")
         self.assertEqual(capabilities["memory"]["use_trace_view"]["schema"], "pska.memory_use_trace_view.v1")
@@ -397,6 +400,9 @@ class McpContractTests(unittest.TestCase):
         memory_briefing = tools["pska_memory_briefing"]({}, card_limit=10, health_limit=10, trace_limit=10)
         self.assertEqual(memory_briefing["schema"], "pska.memory_briefing.v1")
         self.assertIn(applied["target_id"], memory_briefing["summary"]["top_focus_memory_ids"])
+        memory_review_queue = tools["pska_memory_review_queue"]({}, review_limit=10, health_limit=10, focus_limit=10)
+        self.assertEqual(memory_review_queue["schema"], "pska.memory_review_queue.v1")
+        self.assertGreaterEqual(memory_review_queue["summary"]["memory_focus_count"], 1)
         memory_health = tools["pska_memory_health_scan"]({}, limit=10)
         self.assertEqual(memory_health["schema"], "pska.memory_health.v1")
         memory_attribution = tools["pska_workflow_memory_attribution"](run["run_id"])

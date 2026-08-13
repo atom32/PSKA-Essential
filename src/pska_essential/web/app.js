@@ -33,6 +33,7 @@ const messages = {
   "toast.productEvalCompleted": "产品验收已完成。",
   "toast.memoryProbeRecorded": "记忆探针已记录。",
   "toast.memoryBriefingLoaded": "记忆简报已加载。",
+  "toast.memoryReviewQueueLoaded": "记忆维护队列已加载。",
   "toast.memoryCardsLoaded": "记忆卡片已加载。",
   "toast.memoryHealthLoaded": "记忆健康扫描已加载。",
   "toast.memoryAttributionLoaded": "记忆归因已加载。",
@@ -83,6 +84,7 @@ const messages = {
   "empty.noRetrievalProbe": "尚未运行检索探针。",
   "empty.noMemoryProbe": "尚未运行记忆探针。",
   "empty.noMemoryBriefing": "没有需要关注的记忆。",
+  "empty.noMemoryReviewQueue": "没有需要处理的记忆维护项。",
   "empty.noMemoryCards": "没有匹配的记忆卡片。",
   "empty.noMemoryHealthIssues": "没有匹配的记忆健康问题。",
   "empty.noMemoryAttribution": "这个结果没有使用长期记忆。",
@@ -256,6 +258,8 @@ const state = {
   memoryProbe: null,
   memoryBriefing: null,
   memoryBriefingError: "",
+  memoryReviewQueue: null,
+  memoryReviewQueueError: "",
   memoryCards: [],
   memoryCardsError: "",
   memoryCardStatus: "active",
@@ -480,6 +484,7 @@ function bindRefresh() {
     renderSources();
   });
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
+  document.getElementById("reload-memory-review-queue").addEventListener("click", () => loadMemoryReviewQueue({ toast: true }));
   document.getElementById("review-status-filter").addEventListener("change", (event) => {
     state.reviewStatus = event.currentTarget.value || "";
     loadReviews();
@@ -527,6 +532,7 @@ async function refreshAll() {
     loadSourceRoots(),
     loadDatasets(),
     loadReviews(),
+    loadMemoryReviewQueue(),
     loadMemoryBriefing(),
     loadMemoryCards(),
     loadMemoryHealth(),
@@ -970,6 +976,21 @@ async function loadReviews() {
   } catch (error) {
     renderList(document.getElementById("reviews-list"), [], t("empty.reviewsUnavailable"));
     showToast(error.message);
+  }
+}
+
+async function loadMemoryReviewQueue(options = {}) {
+  try {
+    const payload = await api("/api/memory/review-queue?review_limit=50&health_limit=20&focus_limit=20");
+    state.memoryReviewQueue = payload;
+    state.memoryReviewQueueError = "";
+    renderMemoryReviewQueue(payload);
+    if (options.toast) showToast(t("toast.memoryReviewQueueLoaded"));
+  } catch (error) {
+    state.memoryReviewQueue = null;
+    state.memoryReviewQueueError = error.message;
+    renderMemoryReviewQueue();
+    if (options.toast) showToast(error.message);
   }
 }
 
@@ -2369,6 +2390,29 @@ function renderDocuments(documents) {
 
 function renderReviews() {
   renderList(document.getElementById("reviews-list"), state.reviewView, t("empty.reviews"), reviewCard);
+}
+
+function renderMemoryReviewQueue(payload = null) {
+  const list = document.getElementById("memory-review-queue-list");
+  const summary = document.getElementById("memory-review-queue-summary");
+  if (!list || !summary) return;
+  if (state.memoryReviewQueueError) {
+    summary.className = "job-status failed";
+    summary.textContent = state.memoryReviewQueueError;
+    renderList(list, [], t("empty.noMemoryReviewQueue"));
+    return;
+  }
+  const queue = payload || state.memoryReviewQueue;
+  if (!queue) {
+    summary.className = "job-status pending";
+    summary.textContent = "尚未加载记忆维护队列。";
+    renderList(list, [], t("empty.noMemoryReviewQueue"));
+    return;
+  }
+  const data = queue.summary || {};
+  summary.className = queue.status === "ready" ? "job-status ready" : "job-status pending";
+  summary.textContent = `${data.group_count || 0} 组 / ${data.item_count || 0} 项 / accepted ${data.accepted_unapplied_count || 0} / pending ${data.pending_review_count || 0}`;
+  renderList(list, queue.groups || [], t("empty.noMemoryReviewQueue"), memoryReviewQueueGroupCard);
 }
 
 function renderMemoryCards(payload = null) {
@@ -3873,6 +3917,53 @@ function syncReviewRecord(review, options = {}) {
   return true;
 }
 
+function memoryReviewQueueGroupCard(group) {
+  const items = group.items || [];
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, group.title || group.code || "memory queue"),
+        el("p", {}, group.reason || ""),
+      ]),
+      el("span", { className: `tag ${statusClass(group.severity || "pending")}` }, `${group.count || 0} items`),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, group.code || "group"),
+      el("span", { className: "tag" }, group.severity || "review"),
+    ]),
+    items.length ? el("div", { className: "source-list" }, items.slice(0, 5).map(memoryReviewQueueItemRow)) : null,
+  ]);
+}
+
+function memoryReviewQueueItemRow(item) {
+  const actions = (item.next_actions || []).slice(0, 3);
+  const memoryId = item.memory_id || (item.memory_ids && item.memory_ids[0]) || "";
+  return el("p", {}, [
+    el("strong", {}, item.title || item.review_id || item.issue_id || memoryId || item.item_type || "item"),
+    item.reason ? ` · ${item.reason}` : "",
+    el("br"),
+    item.review_id ? el("span", { className: "tag" }, shortId(item.review_id)) : null,
+    memoryId ? el("span", { className: "tag" }, shortId(memoryId)) : null,
+    item.status ? el("span", { className: "tag" }, item.status) : null,
+    item.issue_type ? el("span", { className: "tag pending" }, item.issue_type) : null,
+    actions.length
+      ? el("span", { className: "card-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
+      : null,
+  ]);
+}
+
+function memoryReviewQueueActionButton(action, item) {
+  return el(
+    "button",
+    {
+      className: "secondary-button",
+      type: "button",
+      onclick: () => runMemoryReviewQueueAction(action, item),
+    },
+    action.label || action.action || t("button.inspect"),
+  );
+}
+
 function reviewCard(review) {
   const proposal = review.proposal || {};
   const sourceRefs = review.source_refs || proposal.source_refs || [];
@@ -4621,6 +4712,41 @@ async function openReview(reviewId) {
   renderHome();
   document.querySelector('.nav-item[data-view="review"]').click();
   showToast("异常审核已打开。");
+}
+
+async function runMemoryReviewQueueAction(action, item = {}) {
+  const params = action.params || {};
+  const reviewId = params.review_id || item.review_id || "";
+  const memoryId = params.memory_id || item.memory_id || (item.memory_ids && item.memory_ids[0]) || "";
+  if (action.action === "apply_accepted_memory" && reviewId) {
+    await openReview(reviewId);
+    await applyMemory(reviewId);
+    await loadMemoryReviewQueue();
+    return;
+  }
+  if ((action.tool === "pska_review_get" || action.action === "open_review" || action.action === "review_pending_durable_knowledge") && reviewId) {
+    await openReview(reviewId);
+    return;
+  }
+  if (action.tool === "pska_memory_health_scan" || action.action === "inspect_memory_health") {
+    openView("memory");
+    await loadMemoryHealth({ toast: true });
+    return;
+  }
+  if (action.tool === "pska_memory_timeline" && memoryId) {
+    await openMemoryTimeline(memoryId);
+    return;
+  }
+  if (action.tool === "pska_memory_why_used" && memoryId) {
+    await explainMemoryWhyUsed(memoryId);
+    openView("memory");
+    return;
+  }
+  if (memoryId) {
+    await inspectMemoryCard(memoryId);
+    return;
+  }
+  showToast(action.label || action.action || "无法执行该操作。");
 }
 
 async function exportCurrent(format) {

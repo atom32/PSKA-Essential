@@ -6,6 +6,7 @@ from uuid import uuid4
 from pska_essential.audit import audit_event
 from pska_essential.contracts import to_jsonable, utc_now_iso
 from pska_essential.memory_briefing import build_memory_briefing
+from pska_essential.memory_review_queue import build_memory_review_queue
 from pska_essential.workspace_status import build_workspace_status
 
 
@@ -48,6 +49,7 @@ def build_jarvis_briefing(
         audit_limit=audit_limit,
     )
     memory_briefing, memory_briefing_error = _memory_briefing(service, normalized_scope)
+    memory_review_queue, memory_review_queue_error = _memory_review_queue(service, normalized_scope)
     priorities = _briefing_priorities(
         workspace_status=workspace_status,
         roots=roots,
@@ -56,8 +58,10 @@ def build_jarvis_briefing(
         source_audit_error=source_audit_error,
         memory_briefing=memory_briefing,
         memory_briefing_error=memory_briefing_error,
+        memory_review_queue=memory_review_queue,
+        memory_review_queue_error=memory_review_queue_error,
     )
-    next_actions = _briefing_next_actions(workspace_status, audit, memory_briefing, priorities)
+    next_actions = _briefing_next_actions(workspace_status, audit, memory_briefing, memory_review_queue, priorities)
     briefing_id = f"jarvis_{uuid4().hex}"
     status = _briefing_status(priorities, workspace_status)
     briefing = {
@@ -70,11 +74,21 @@ def build_jarvis_briefing(
             "role": "orchestrates PSKA tools; does not own source files, memory, or generation policy",
         },
         "scope": normalized_scope,
-        "summary": _briefing_summary(workspace_status, roots, audit, memory_briefing, priorities, next_actions),
+        "summary": _briefing_summary(
+            workspace_status,
+            roots,
+            audit,
+            memory_briefing,
+            memory_review_queue,
+            priorities,
+            next_actions,
+        ),
         "priorities": priorities,
         "memory_layer": {
             "briefing": memory_briefing,
             "briefing_error": memory_briefing_error,
+            "review_queue": memory_review_queue,
+            "review_queue_error": memory_review_queue_error,
         },
         "source_layer": {
             "root_count": len(roots),
@@ -104,6 +118,8 @@ def build_jarvis_briefing(
             source_audit_available=audit is not None,
             memory_briefing_available=memory_briefing is not None,
             memory_focus_count=((memory_briefing or {}).get("summary") or {}).get("focus_count", 0),
+            memory_review_queue_available=memory_review_queue is not None,
+            memory_review_queue_item_count=((memory_review_queue or {}).get("summary") or {}).get("item_count", 0),
             writes_source_files=False,
             writes_memory_directly=False,
             embedding_required=False,
@@ -154,6 +170,13 @@ def _memory_briefing(service: Any, scope: dict[str, Any]) -> tuple[dict[str, Any
         return None, {"type": exc.__class__.__name__, "message": str(exc)}
 
 
+def _memory_review_queue(service: Any, scope: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
+    try:
+        return build_memory_review_queue(service, scope=scope, audit=False), None
+    except Exception as exc:  # noqa: BLE001 - Jarvis should surface memory queue failures.
+        return None, {"type": exc.__class__.__name__, "message": str(exc)}
+
+
 def _briefing_priorities(
     *,
     workspace_status: dict[str, Any],
@@ -163,6 +186,8 @@ def _briefing_priorities(
     source_audit_error: dict[str, str] | None,
     memory_briefing: dict[str, Any] | None,
     memory_briefing_error: dict[str, str] | None,
+    memory_review_queue: dict[str, Any] | None,
+    memory_review_queue_error: dict[str, str] | None,
 ) -> list[dict[str, Any]]:
     priorities: list[dict[str, Any]] = []
     if source_root_error:
@@ -181,6 +206,16 @@ def _briefing_priorities(
                 "memory_briefing_error",
                 "Memory briefing could not run.",
                 memory_briefing_error["message"],
+            )
+        )
+    if memory_review_queue_error:
+        priorities.append(
+            _priority(
+                "warning",
+                "memory",
+                "memory_review_queue_error",
+                "Memory review queue could not run.",
+                memory_review_queue_error["message"],
             )
         )
     if not roots and not source_root_error:
@@ -257,6 +292,35 @@ def _briefing_priorities(
                 )
             )
     reviews = workspace_status.get("reviews") or {}
+    if memory_review_queue:
+        queue_summary = memory_review_queue.get("summary") or {}
+        if queue_summary.get("accepted_unapplied_count"):
+            priorities.append(
+                _priority(
+                    "warning",
+                    "memory",
+                    "apply_grouped_memory_reviews",
+                    "Accepted memory reviews are grouped and ready to apply.",
+                    f"{queue_summary.get('accepted_unapplied_count')} accepted durable review(s) are waiting.",
+                    next_action=(memory_review_queue.get("next_actions") or [None])[0],
+                )
+            )
+        elif queue_summary.get("item_count"):
+            priorities.append(
+                _priority(
+                    "info",
+                    "memory",
+                    "inspect_memory_review_queue",
+                    "Memory review queue has grouped maintenance items.",
+                    f"{queue_summary.get('item_count')} item(s) across {queue_summary.get('group_count')} group(s).",
+                    next_action={
+                        "action": "inspect_memory_review_queue",
+                        "tool": "pska_memory_review_queue",
+                        "api": "GET /api/memory/review-queue",
+                        "view": "review",
+                    },
+                )
+            )
     if memory_briefing:
         memory_summary = memory_briefing.get("summary") or {}
         if memory_summary.get("conflict_issue_count"):
@@ -360,6 +424,7 @@ def _briefing_next_actions(
     workspace_status: dict[str, Any],
     source_audit: dict[str, Any] | None,
     memory_briefing: dict[str, Any] | None,
+    memory_review_queue: dict[str, Any] | None,
     priorities: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
@@ -369,6 +434,8 @@ def _briefing_next_actions(
     for action in (source_audit or {}).get("next_actions") or []:
         actions.append(_normalize_source_action(action))
     for action in (memory_briefing or {}).get("next_actions") or []:
+        actions.append(dict(action))
+    for action in (memory_review_queue or {}).get("next_actions") or []:
         actions.append(dict(action))
     for action in workspace_status.get("next_actions") or []:
         actions.append(dict(action))
@@ -412,6 +479,7 @@ def _briefing_summary(
     roots: list[dict[str, Any]],
     source_audit: dict[str, Any] | None,
     memory_briefing: dict[str, Any] | None,
+    memory_review_queue: dict[str, Any] | None,
     priorities: list[dict[str, Any]],
     next_actions: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -420,6 +488,7 @@ def _briefing_summary(
     unresolved = audit.get("unresolved_links") or {}
     unlinked = audit.get("unlinked_markdown") or {}
     memory_summary = (memory_briefing or {}).get("summary") or {}
+    queue_summary = (memory_review_queue or {}).get("summary") or {}
     return {
         "workspace_status": workspace_status.get("status"),
         "source_root_count": len(roots),
@@ -432,6 +501,8 @@ def _briefing_summary(
         "memory_focus_count": memory_summary.get("focus_count", 0),
         "memory_issue_count": memory_summary.get("issue_count", 0),
         "memory_recent_use_count": memory_summary.get("recent_use_count", 0),
+        "memory_review_queue_group_count": queue_summary.get("group_count", 0),
+        "memory_review_queue_item_count": queue_summary.get("item_count", 0),
         "priority_count": len(priorities),
         "next_action_count": len(next_actions),
     }

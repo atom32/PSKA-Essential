@@ -584,9 +584,13 @@ Hermes 的默认行为：
 - Done: P2-6 已新增 `pska_memory_briefing` 与 `GET /api/memory/briefing`；
   它把 active cards、health issues、recent use traces 和 timeline/why-used
   next actions 合并成 Hermes/Jarvis/WebUI 的记忆注意力摘要，不直接写 Memory。
+- Done: P2-7 已新增 `pska_memory_review_queue` 与
+  `GET /api/memory/review-queue`；它把 pending/accepted Review records、
+  Memory Briefing focus items 和 health issues 分组到 WebUI “记忆维护队列”，只读 triage，
+  不 approve/apply/write Memory。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
-- Pending: 批量候选去重、UI review 队列分组、从 folder audit 自动生成候选。
+- Pending: 批量候选去重、从 folder audit 自动生成候选。
 
 ### M6: Agentic Routines
 

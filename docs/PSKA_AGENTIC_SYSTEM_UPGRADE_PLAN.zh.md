@@ -264,7 +264,11 @@ snapshot、lifecycle change audit、candidate-use trace 和 SourceRef anchor 合
 `GET /api/memory/briefing` 与 `pska_memory_briefing` 将 active cards、health
 issues、recent use traces 和 timeline/why-used next actions 合并为 Hermes/Jarvis
 可读的记忆注意力摘要；WebUI “记忆”面板新增“记忆简报”。它仍然是派生视图，
-不直接写 durable memory。
+不直接写 durable memory。P2 的第七块已落地为 Memory Review Queue：
+`GET /api/memory/review-queue` 与 `pska_memory_review_queue` 将 pending/accepted
+Review records、Memory Briefing focus items 和 health issues 分组成只读维护队列；
+WebUI “异常审核”面板新增“记忆维护队列”。它只帮助 triage，不 approve/apply/write
+memory。
 
 新增 Product API / MCP：
 
@@ -272,6 +276,7 @@ issues、recent use traces 和 timeline/why-used next actions 合并为 Hermes/J
 GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
 GET  /api/memory/briefing
+GET  /api/memory/review-queue
 GET  /api/memory/health
 GET  /api/memory/use-traces
 GET  /api/memory/{memory_id}/use-trace
@@ -285,6 +290,7 @@ POST /api/memory/cards/{memory_id}/refresh-review
 pska_memory_card_list
 pska_memory_card_get
 pska_memory_briefing
+pska_memory_review_queue
 pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
