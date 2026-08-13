@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -44,6 +44,14 @@ live-fclones-smoke:
 	@PYTHONPATH=src $(PYTHON) scripts/fclones_smoke.py; code=$$?; \
 	if [ "$$code" = "77" ]; then \
 		echo "fclones optional CLI unavailable; set PSKA_FCLONES_BIN or add fclones to PATH."; \
+		exit 0; \
+	fi; \
+	exit "$$code"
+
+live-czkawka-smoke:
+	@PYTHONPATH=src $(PYTHON) scripts/czkawka_smoke.py; code=$$?; \
+	if [ "$$code" = "77" ]; then \
+		echo "Czkawka optional CLI unavailable; set PSKA_CZKAWKA_BIN or add czkawka_cli to PATH."; \
 		exit 0; \
 	fi; \
 	exit "$$code"

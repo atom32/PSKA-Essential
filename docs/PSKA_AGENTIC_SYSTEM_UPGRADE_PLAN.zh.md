@@ -37,13 +37,13 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 都没有安装在默认环境中。因此升级必须采用 optional extras 和 adapter loading，不能把
 第三方组件变成核心启动前提。
 
-2026-08-13 更新：P1 的第一批 optional adapter 已接入代码路径。MarkItDown 和 fclones
+2026-08-13 更新：P1 的第一批 optional adapter 已接入代码路径。MarkItDown、fclones 和 Czkawka
 仍不属于默认依赖；PSKA 现在会通过 capabilities/diagnostics 报告它们是 `available` 还是
 `unavailable`，并在缺失时保持 core 功能可用。fclones 可由 `PSKA_FCLONES_BIN`
-显式指定，或从 `PATH` 自动发现。资料源抽取也已经有 PSKA-owned job
-ledger、Product API、MCP tool、workspace next action 和 WebUI 入口；任务运行时只写
-可重建的 source index metadata/FTS sections，不改用户源文件，不直写 memory，不要求
-embedding。
+显式指定可执行 binary，Czkawka 可由 `PSKA_CZKAWKA_BIN` 显式指定可执行 binary，
+二者也可从 `PATH` 自动发现。资料源抽取也已经有 PSKA-owned job ledger、Product API、
+MCP tool、workspace next action 和 WebUI 入口；任务运行时只写可重建的 source index
+metadata/FTS sections，不改用户源文件，不直写 memory，不要求 embedding。
 
 ## 3. Target Requirements
 
@@ -354,6 +354,7 @@ pska_source_extract_job_run
 mode:
   exact_hash
   fclones_hash
+  czkawka_hash
   filename_fuzzy
   size_name_version
   text_similarity
@@ -451,19 +452,20 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 
 - 新增 `src/pska_essential/extraction.py` 和 `adapters/extraction/markitdown.py`。
 - 新增 source extraction job routes/tools。
-- 新增 `src/pska_essential/dedup.py` 和 `adapters/dedup/fclones.py`。
-- `pska_duplicate_report(mode="fclones_hash")` 返回 dry-run normalized report。
+- 新增 `src/pska_essential/dedup.py` 和 `adapters/dedup/fclones.py` / `adapters/dedup/czkawka.py`。
+- `pska_duplicate_report(mode="fclones_hash"|"czkawka_hash")` 返回 dry-run normalized report。
 - `component_check` 报告外部 CLI/Python optional package availability。
 
 依赖：
 
 - Python extra: `extract-markitdown`。
-- CLI: `fclones` 通过 `PSKA_FCLONES_BIN` 或 `command -v` 发现。
+- CLI: `fclones` 通过可执行的 `PSKA_FCLONES_BIN` 或 `command -v` 发现。
+- CLI: `czkawka_cli` 通过可执行的 `PSKA_CZKAWKA_BIN` 或 `command -v` 发现。
 
 验收：
 
-- 未安装 MarkItDown/Docling/fclones 时，diagnostics 明确 `unavailable`，核心测试仍过。
-- 安装后，PDF/DOCX/HTML 能生成 text sections；fclones JSON 能归一化成 duplicate report。
+- 未安装 MarkItDown/Docling/fclones/Czkawka 时，diagnostics 明确 `unavailable`，核心测试仍过。
+- 安装后，PDF/DOCX/HTML 能生成 text sections；fclones/Czkawka JSON 能归一化成 duplicate report。
 - 任何 dedup action 都不删除文件。
 
 2026-08-13 P3-1 更新：已在项目 `.venv` 中安装 `extract-markitdown` optional
@@ -504,6 +506,22 @@ make live-fclones-smoke
 临时 source root、scan 三个文件、调用 `pska_duplicate_report(mode="fclones_hash")`，
 并要求至少返回一个 duplicate group。2026-08-13 本机 Homebrew 安装尝试因
 `formulae.brew.sh` API 下载超时未完成，当前仍以 unavailable 状态暴露。
+
+2026-08-13 P3-3b 更新：新增 Czkawka CLI adapter 作为 fclones 的同槽位 fallback。
+`czkawka_hash` 模式通过 `czkawka_cli dup -d ... -m 1 -W -M -N -C report.json`
+读取 compact JSON report，只归一化 duplicate groups，不调用任何 delete/move/hard-link
+动作。新增 `scripts/czkawka_smoke.py` 与 Make target `live-czkawka-smoke`。验收命令：
+
+```bash
+make live-czkawka-smoke
+```
+
+当 `czkawka_cli` 不在 `PATH` 且未设置 `PSKA_CZKAWKA_BIN` 时，smoke 输出
+`status=unavailable` 并以退出码 77 表示可选依赖缺失；当 CLI 可用时，它会注册
+临时 source root、scan 三个文件、调用 `pska_duplicate_report(mode="czkawka_hash")`，
+并要求至少返回一个 duplicate group。本机已确认 Czkawka 12.0.1 release 提供
+`mac_czkawka_cli_arm64` 预编译二进制，但 2026-08-13 直接下载该 asset 时 GitHub
+连接超时；因此当前代码路径已落地，真实 live 验收等待 CLI 安装恢复。
 
 2026-08-13 P3-4 更新：新增 `adapters/extraction/docling.py`，`extract_source_file`
 现在支持显式 `extractor="docling"`，用于 PDF/layout/table/OCR-sensitive
@@ -634,6 +652,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Extend `pska_duplicate_report` mode beyond `exact_hash`.
 - [x] Add bounded watchdog bridge for authorized source-root events.
 - [x] Add fclones env override and live smoke for CLI-backed duplicate reports.
+- [x] Add Czkawka CLI adapter fallback and live smoke for CLI-backed duplicate reports.
 
 ### P2 Backlog
 

@@ -756,8 +756,9 @@ def adapter_slots_contract() -> dict[str, Any]:
                 _cli_provider(
                     "czkawka",
                     command="czkawka_cli",
-                    maturity="planned",
-                    supports=["duplicate_files", "media_similarity_candidates"],
+                    env_key="PSKA_CZKAWKA_BIN",
+                    maturity="implemented",
+                    supports=["hash_duplicate_groups", "json_report", "media_similarity_candidates"],
                     safety={"delete_move_merge_supported": False},
                 ),
                 _cli_provider(
@@ -1228,13 +1229,13 @@ def _env_command_path(env_key: str) -> str:
     if not raw:
         return ""
     path = Path(raw).expanduser()
-    return str(path) if path.is_file() else ""
+    return str(path) if path.is_file() and os.access(path, os.X_OK) else ""
 
 
 def _cli_missing_reason(command: str, env_key: str) -> str:
     if not env_key:
         return f"CLI command `{command}` was not found on PATH."
-    return f"CLI command `{command}` was not found on PATH and `{env_key}` does not point to a file."
+    return f"CLI command `{command}` was not found on PATH and `{env_key}` does not point to an executable file."
 
 
 def _cli_install_hint(command: str, env_key: str) -> str:

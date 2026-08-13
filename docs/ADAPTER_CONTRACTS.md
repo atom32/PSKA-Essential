@@ -193,9 +193,13 @@ Provider slots:
 
 - `exact_hash`: implemented default.
 - `fclones`: implemented CLI adapter for hash duplicate groups and JSON
-  reports. It uses `PSKA_FCLONES_BIN` when set, otherwise `PATH`, and returns
-  `status=unavailable` when no command can be found.
-- `czkawka`: planned CLI/GUI reference for duplicate and media similarity.
+  reports. It uses `PSKA_FCLONES_BIN` when it points to an executable binary,
+  otherwise `PATH`, and returns `status=unavailable` when no command can be
+  found.
+- `czkawka`: implemented CLI adapter for hash duplicate groups and JSON reports.
+  It uses `PSKA_CZKAWKA_BIN` when it points to an executable binary, otherwise
+  `PATH`, and returns `status=unavailable` when no command can be found. Media
+  similarity remains a planned extension behind the same provider family.
 - `dupeguru`: planned fuzzy duplicate reference.
 - `rmlint`: planned advanced duplicate lint report adapter.
 

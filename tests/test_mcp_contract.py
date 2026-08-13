@@ -339,6 +339,14 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(capabilities["adapter_slots"]["slots"]["dedup"]["contract"], "DedupPort")
         self.assertEqual(capabilities["adapter_slots"]["slots"]["thought_artifact"]["contract"], "ThoughtArtifactPort")
         self.assertIn("fclones", capabilities["adapter_slots"]["summary"]["dedup"]["planned"])
+        czkawka = next(
+            provider
+            for provider in capabilities["adapter_slots"]["slots"]["dedup"]["providers"]
+            if provider["name"] == "czkawka"
+        )
+        self.assertIn(czkawka["status"], {"available", "unavailable"})
+        self.assertEqual(czkawka["integration"], "external_cli")
+        self.assertEqual(czkawka["env_key"], "PSKA_CZKAWKA_BIN")
         self.assertEqual(capabilities["tool_policy"]["mode"], "soft_constraints")
         policy = capabilities["tool_policy"]["tools"]
         self.assertTrue(policy["pska_memory_apply"]["requires_accepted_review"])

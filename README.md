@@ -478,10 +478,12 @@ writes PSKA index metadata only; it does not modify source files, write memory,
 or require embeddings. M2 adds `pska_duplicate_report` for exact hash duplicate
 groups and `pska_saved_search_create` for reusable local source views; these
 also write only PSKA registry metadata and never delete, move, merge, or edit
-source files. External fclones reports use `PSKA_FCLONES_BIN` when set, then
-fall back to `PATH`; `make live-fclones-smoke` verifies the CLI-backed
-`fclones_hash` duplicate path when fclones is installed and exits 77 when the
-optional CLI is unavailable. M3 adds `pska_source_tag_propose`/`pska_source_tag_apply` and
+source files. External fclones reports use `PSKA_FCLONES_BIN` when it points to
+an executable binary, then fall back to `PATH`; external Czkawka reports use
+`PSKA_CZKAWKA_BIN`, then `PATH`. `make live-fclones-smoke` and
+`make live-czkawka-smoke` verify the CLI-backed `fclones_hash`/`czkawka_hash`
+duplicate paths when the optional CLIs are installed and exit 77 when
+unavailable. M3 adds `pska_source_tag_propose`/`pska_source_tag_apply` and
 `pska_source_comment_propose`/`pska_source_comment_apply`; apply writes only
 `.pska/annotations.jsonl` for roots with sidecar/native/managed permission, and
 still leaves the original source files untouched. M4 adds `pska_source_neighbors`

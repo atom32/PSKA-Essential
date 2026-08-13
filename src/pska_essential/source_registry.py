@@ -12,7 +12,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from pska_essential.contracts import ContextPacket, SourceContext, SourceRef, to_jsonable, utc_now_iso
-from pska_essential.dedup import DedupError, fclones_duplicate_report
+from pska_essential.dedup import DedupError, czkawka_duplicate_report, fclones_duplicate_report
 from pska_essential.extraction import (
     TEXT_EXTENSIONS,
     ExtractionError,
@@ -330,8 +330,10 @@ class SQLiteSourceRegistry:
         kinds = _scope_strings(scope, "source_kinds", "source_kind")
         if mode == "fclones_hash":
             return self._fclones_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
+        if mode == "czkawka_hash":
+            return self._czkawka_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode != "exact_hash":
-            raise SourceRegistryError("duplicate report mode must be exact_hash or fclones_hash")
+            raise SourceRegistryError("duplicate report mode must be exact_hash, fclones_hash, or czkawka_hash")
         where = ["o.status = 'active'", "o.content_hash != ''"]
         params: list[Any] = []
         if root_ids:
@@ -1651,16 +1653,54 @@ class SQLiteSourceRegistry:
         kinds: list[str],
         limit: int,
     ) -> dict[str, Any]:
+        return self._external_duplicate_report(
+            scope,
+            root_ids=root_ids,
+            kinds=kinds,
+            limit=limit,
+            mode="fclones_hash",
+            provider="fclones",
+            adapter=fclones_duplicate_report,
+        )
+
+    def _czkawka_duplicate_report(
+        self,
+        scope: dict[str, Any],
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        limit: int,
+    ) -> dict[str, Any]:
+        return self._external_duplicate_report(
+            scope,
+            root_ids=root_ids,
+            kinds=kinds,
+            limit=limit,
+            mode="czkawka_hash",
+            provider="czkawka",
+            adapter=czkawka_duplicate_report,
+        )
+
+    def _external_duplicate_report(
+        self,
+        scope: dict[str, Any],
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        limit: int,
+        mode: str,
+        provider: str,
+        adapter: Any,
+    ) -> dict[str, Any]:
         roots = self._duplicate_report_roots(root_ids=root_ids, kinds=kinds)
-        report_id = _stable_id("dup_report", f"{utc_now_iso()}:fclones_hash:{json.dumps(scope, sort_keys=True)}")
+        report_id = _stable_id("dup_report", f"{utc_now_iso()}:{mode}:{json.dumps(scope, sort_keys=True)}")
         now = utc_now_iso()
         try:
-            adapter_report = fclones_duplicate_report(
+            adapter_report = adapter(
                 [Path(root["absolute_path"]) for root in roots],
                 limit=limit,
             )
         except DedupError as exc:
-            adapter_report = None
             status = "error"
             message = str(exc)
             groups = []
@@ -1679,11 +1719,11 @@ class SQLiteSourceRegistry:
                 INSERT INTO duplicate_reports(report_id, mode, scope_json, created_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (report_id, "fclones_hash", json.dumps(scope, sort_keys=True), now),
+                (report_id, mode, json.dumps(scope, sort_keys=True), now),
             )
             payload_groups = []
             for index, group in enumerate(groups, start=1):
-                members = self._fclones_members_from_group(group)
+                members = self._external_members_from_group(group, reason=f"{mode}_group")
                 if len(members) < 2:
                     continue
                 group_id = _stable_id("dup", f"{report_id}:{index}:{json.dumps(group, sort_keys=True)}")
@@ -1697,7 +1737,15 @@ class SQLiteSourceRegistry:
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, 'reported')
                     """,
-                    (group_id, report_id, "fclones_hash", float(group.get("confidence") or 1.0), content_hash, size, len(members)),
+                    (
+                        group_id,
+                        report_id,
+                        mode,
+                        float(group.get("confidence") or 1.0),
+                        content_hash,
+                        size,
+                        len(members),
+                    ),
                 )
                 for member in members:
                     self.conn.execute(
@@ -1712,7 +1760,7 @@ class SQLiteSourceRegistry:
                             member["object_id"],
                             member["root_id"],
                             member["path"],
-                            "fclones_hash_group",
+                            f"{mode}_group",
                             member.get("content_hash") or content_hash,
                             int(member.get("size") or size),
                         ),
@@ -1721,7 +1769,7 @@ class SQLiteSourceRegistry:
                     {
                         "group_id": group_id,
                         "index": index,
-                        "method": "fclones_hash",
+                        "method": mode,
                         "confidence": float(group.get("confidence") or 1.0),
                         "content_hash": content_hash,
                         "size": size,
@@ -1732,8 +1780,8 @@ class SQLiteSourceRegistry:
             self.conn.commit()
         return {
             "report_id": report_id,
-            "mode": "fclones_hash",
-            "provider": "fclones",
+            "mode": mode,
+            "provider": provider,
             "status": status,
             "message": message,
             "scope": scope,
@@ -1769,15 +1817,15 @@ class SQLiteSourceRegistry:
             ).fetchall()
         return [_root_payload(row) for row in rows]
 
-    def _fclones_members_from_group(self, group: dict[str, Any]) -> list[dict[str, Any]]:
+    def _external_members_from_group(self, group: dict[str, Any], *, reason: str) -> list[dict[str, Any]]:
         members = []
         for member in group.get("members") or []:
-            rel = self._resolve_fclones_member(member)
+            rel = self._resolve_external_duplicate_member(member, reason=reason)
             if rel is not None:
                 members.append(rel)
         return members
 
-    def _resolve_fclones_member(self, member: dict[str, Any]) -> dict[str, Any] | None:
+    def _resolve_external_duplicate_member(self, member: dict[str, Any], *, reason: str) -> dict[str, Any] | None:
         absolute = str(member.get("absolute_path") or member.get("path") or "")
         if not absolute:
             return None
@@ -1805,7 +1853,7 @@ class SQLiteSourceRegistry:
             root_path = Path(row["absolute_path"]).resolve()
             candidate = (root_path / str(row["path"])).resolve()
             if candidate == resolved_path:
-                return _duplicate_member_payload(row) | {"reason": "fclones_hash_group"}
+                return _duplicate_member_payload(row) | {"reason": reason}
         return None
 
     def _upsert_object(

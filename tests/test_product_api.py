@@ -414,6 +414,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(fclones["status"], {"available", "unavailable"})
         self.assertEqual(fclones["integration"], "external_cli")
         self.assertFalse(fclones["safety"]["delete_move_merge_supported"])
+        czkawka = _adapter_provider(adapter_slots, "dedup", "czkawka")
+        self.assertIn(czkawka["status"], {"available", "unavailable"})
+        self.assertEqual(czkawka["integration"], "external_cli")
+        self.assertEqual(czkawka["env_key"], "PSKA_CZKAWKA_BIN")
+        self.assertFalse(czkawka["safety"]["delete_move_merge_supported"])
         self.assertEqual(capabilities["capabilities"]["tool_policy"]["mode"], "soft_constraints")
         self.assertTrue(
             capabilities["capabilities"]["tool_policy"]["tools"]["pska_memory_apply"]["requires_accepted_review"]
