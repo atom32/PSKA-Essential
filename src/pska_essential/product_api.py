@@ -800,6 +800,7 @@ def _handler_class(state: ProductApiState):
                     source_scan_root,
                     max_files=int(payload.get("max_files") or 1000),
                     max_bytes=int(payload.get("max_bytes") or 1_000_000),
+                    extractor=str(payload.get("extractor") or "auto"),
                 )
                 self._send_json({"ok": True, "scan": result})
                 return

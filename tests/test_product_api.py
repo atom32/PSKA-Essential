@@ -590,7 +590,7 @@ class ProductApiTests(unittest.TestCase):
             roots = self._get_json("/api/sources/roots")
             scanned = self._post_json(
                 f"/api/sources/roots/{registered['root']['root_id']}/scan",
-                {"max_files": 10},
+                {"max_files": 10, "extractor": "auto"},
             )
             searched = self._post_json(
                 "/api/sources/search",
@@ -722,6 +722,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(registered["root"]["permission_mode"], "native_write")
         self.assertEqual(len(roots["roots"]), 1)
         self.assertEqual(scanned["scan"]["counts"]["indexed"], 2)
+        self.assertEqual(scanned["scan"]["extraction"]["extractor"], "auto")
         self.assertGreaterEqual(searched["count"], 1)
         self.assertEqual(duplicate["duplicate_report"]["group_count"], 0)
         self.assertEqual(source_audit["audit"]["schema"], "pska.source_audit.v1")

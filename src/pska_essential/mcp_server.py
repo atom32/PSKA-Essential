@@ -102,8 +102,13 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             label=label or None,
         )
 
-    def pska_source_scan(root_id: str, max_files: int = 1000, max_bytes: int = 1_000_000):
-        return service.source_scan(root_id, max_files=max_files, max_bytes=max_bytes)
+    def pska_source_scan(
+        root_id: str,
+        max_files: int = 1000,
+        max_bytes: int = 1_000_000,
+        extractor: str = "auto",
+    ):
+        return service.source_scan(root_id, max_files=max_files, max_bytes=max_bytes, extractor=extractor)
 
     def pska_source_search(
         query: str,

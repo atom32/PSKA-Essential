@@ -12,6 +12,14 @@ from typing import Any
 from urllib.parse import unquote
 
 from pska_essential.contracts import ContextPacket, SourceContext, SourceRef, to_jsonable, utc_now_iso
+from pska_essential.dedup import DedupError, fclones_duplicate_report
+from pska_essential.extraction import (
+    TEXT_EXTENSIONS,
+    ExtractionError,
+    ExtractionResult,
+    ExtractionWarning,
+    extract_source_file,
+)
 
 
 PERSONAL_SOURCE_ADAPTERS = {"local_folder", "obsidian_vault"}
@@ -30,30 +38,6 @@ SKIP_DIRS = {
     "__pycache__",
     "node_modules",
 }
-TEXT_EXTENSIONS = {
-    ".css",
-    ".csv",
-    ".html",
-    ".js",
-    ".json",
-    ".jsx",
-    ".log",
-    ".md",
-    ".mdown",
-    ".markdown",
-    ".mjs",
-    ".py",
-    ".rst",
-    ".text",
-    ".toml",
-    ".ts",
-    ".tsx",
-    ".txt",
-    ".xml",
-    ".yaml",
-    ".yml",
-}
-
 
 class SourceRegistryError(ValueError):
     """Raised when the personal source registry refuses an unsafe operation."""
@@ -151,6 +135,7 @@ class SQLiteSourceRegistry:
         *,
         max_files: int = 1000,
         max_bytes: int = 1_000_000,
+        extractor: str = "auto",
     ) -> dict[str, Any]:
         root = self.get_root(root_id)
         root_path = Path(root["absolute_path"])
@@ -186,7 +171,7 @@ class SQLiteSourceRegistry:
                     rel_path = file_path.relative_to(root_path).as_posix()
                     scanned_paths.append(rel_path)
                     try:
-                        result = self._index_file(root, file_path, rel_path, max_bytes=max_bytes)
+                        result = self._index_file(root, file_path, rel_path, max_bytes=max_bytes, extractor=extractor)
                     except OSError as exc:
                         counts["errors"] += 1
                         self._upsert_error_object(root, file_path, rel_path, str(exc))
@@ -210,6 +195,10 @@ class SQLiteSourceRegistry:
                 "writes_source_files": False,
                 "writes_index": True,
                 "embedding_required": False,
+            },
+            "extraction": {
+                "extractor": extractor or "auto",
+                "optional_adapters_allowed": (extractor or "auto") in {"auto", "markitdown"},
             },
         }
 
@@ -282,10 +271,12 @@ class SQLiteSourceRegistry:
                 """
                 SELECT s.*, s.title AS section_title,
                        o.path, o.content_hash, o.extraction_status,
+                       f.body AS indexed_body,
                        r.root_id, r.kind AS root_kind, r.absolute_path, r.permission_mode, r.label AS root_label
                 FROM source_sections s
                 JOIN source_objects o ON o.object_id = s.object_id
                 JOIN source_roots r ON r.root_id = o.root_id
+                LEFT JOIN source_fts f ON f.section_id = s.section_id
                 WHERE s.section_id = ?
                 """,
                 (section_id,),
@@ -299,6 +290,14 @@ class SQLiteSourceRegistry:
                 source_ref=source_ref,
                 text="",
                 metadata=_source_metadata(row) | {"missing": True},
+            )
+        indexed_body = str(row["indexed_body"] or "")
+        suffix = Path(str(row["path"])).suffix.lower()
+        if indexed_body and suffix not in TEXT_EXTENSIONS and str(row["section_type"] or "") != "file_metadata":
+            return SourceContext(
+                source_ref=_source_ref_from_row(row),
+                text=indexed_body,
+                metadata=_source_metadata(row) | {"line_count": max(len(indexed_body.splitlines()), 1)},
             )
         text = _read_text_file(file_path, max_bytes=5_000_000)
         if text is None:
@@ -324,13 +323,15 @@ class SQLiteSourceRegistry:
         mode: str = "exact_hash",
         limit: int = 50,
     ) -> dict[str, Any]:
-        if mode != "exact_hash":
-            raise SourceRegistryError("duplicate report mode must be exact_hash in M3")
         if limit <= 0:
             return _empty_duplicate_report(mode)
         scope = dict(scope or {})
         root_ids = _scope_strings(scope, "root_ids", "root_id")
         kinds = _scope_strings(scope, "source_kinds", "source_kind")
+        if mode == "fclones_hash":
+            return self._fclones_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
+        if mode != "exact_hash":
+            raise SourceRegistryError("duplicate report mode must be exact_hash or fclones_hash")
         where = ["o.status = 'active'", "o.content_hash != ''"]
         params: list[Any] = []
         if root_ids:
@@ -1539,20 +1540,21 @@ class SQLiteSourceRegistry:
         rel_path: str,
         *,
         max_bytes: int,
+        extractor: str,
     ) -> str:
         stat = file_path.stat()
         object_id = _stable_id("obj", f"{root['root_id']}:{rel_path}")
         content_hash = _file_hash(file_path)
         mime = mimetypes.guess_type(file_path.name)[0] or ""
-        suffix = file_path.suffix.lower()
-        text = None
+        extraction = _extract_file(file_path, max_bytes=max_bytes, extractor=extractor)
+        text = extraction.text if extraction and extraction.status == "indexed" else None
         extraction_status = "unsupported"
-        if suffix in TEXT_EXTENSIONS:
-            if stat.st_size <= max_bytes:
-                text = _read_text_file(file_path, max_bytes=max_bytes)
-                extraction_status = "indexed" if text is not None else "error"
-            else:
-                extraction_status = "too_large"
+        error = ""
+        if extraction is not None:
+            extraction_status = extraction.status
+            error = _extraction_warning_summary(extraction)
+        elif file_path.suffix.lower() in TEXT_EXTENSIONS and stat.st_size > max_bytes:
+            extraction_status = "too_large"
         title = _title_for_file(file_path, text)
         self._upsert_object(
             root,
@@ -1566,12 +1568,12 @@ class SQLiteSourceRegistry:
             content_hash=content_hash,
             title=title,
             extraction_status=extraction_status,
-            error="",
+            error=error,
         )
         self.conn.execute("DELETE FROM source_sections WHERE object_id = ?", (object_id,))
         self.conn.execute("DELETE FROM source_fts WHERE object_id = ?", (object_id,))
         self.conn.execute("DELETE FROM source_links WHERE object_id = ?", (object_id,))
-        sections = _sections_for_file(object_id, file_path, text)
+        sections = _sections_for_extraction(object_id, file_path, extraction, text)
         for section in sections:
             self.conn.execute(
                 """
@@ -1640,6 +1642,171 @@ class SQLiteSourceRegistry:
         if extraction_status == "unsupported":
             return "unsupported"
         return "metadata_only"
+
+    def _fclones_duplicate_report(
+        self,
+        scope: dict[str, Any],
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        limit: int,
+    ) -> dict[str, Any]:
+        roots = self._duplicate_report_roots(root_ids=root_ids, kinds=kinds)
+        report_id = _stable_id("dup_report", f"{utc_now_iso()}:fclones_hash:{json.dumps(scope, sort_keys=True)}")
+        now = utc_now_iso()
+        try:
+            adapter_report = fclones_duplicate_report(
+                [Path(root["absolute_path"]) for root in roots],
+                limit=limit,
+            )
+        except DedupError as exc:
+            adapter_report = None
+            status = "error"
+            message = str(exc)
+            groups = []
+            command: list[str] = []
+            metadata: dict[str, Any] = {"error_type": exc.__class__.__name__}
+        else:
+            payload = adapter_report.to_dict()
+            status = str(payload.get("status") or "ok")
+            message = str(payload.get("message") or "")
+            command = [str(item) for item in payload.get("command") or []]
+            metadata = dict(payload.get("metadata") or {})
+            groups = payload.get("groups") or []
+        with self.lock:
+            self.conn.execute(
+                """
+                INSERT INTO duplicate_reports(report_id, mode, scope_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (report_id, "fclones_hash", json.dumps(scope, sort_keys=True), now),
+            )
+            payload_groups = []
+            for index, group in enumerate(groups, start=1):
+                members = self._fclones_members_from_group(group)
+                if len(members) < 2:
+                    continue
+                group_id = _stable_id("dup", f"{report_id}:{index}:{json.dumps(group, sort_keys=True)}")
+                content_hash = str(group.get("content_hash") or "")
+                size = int(group.get("size") or max((int(member.get("size") or 0) for member in members), default=0))
+                self.conn.execute(
+                    """
+                    INSERT INTO duplicate_groups(
+                        group_id, report_id, method, confidence, content_hash, size,
+                        member_count, action_status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'reported')
+                    """,
+                    (group_id, report_id, "fclones_hash", float(group.get("confidence") or 1.0), content_hash, size, len(members)),
+                )
+                for member in members:
+                    self.conn.execute(
+                        """
+                        INSERT INTO duplicate_members(
+                            group_id, object_id, root_id, path, reason, content_hash, size
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            group_id,
+                            member["object_id"],
+                            member["root_id"],
+                            member["path"],
+                            "fclones_hash_group",
+                            member.get("content_hash") or content_hash,
+                            int(member.get("size") or size),
+                        ),
+                    )
+                payload_groups.append(
+                    {
+                        "group_id": group_id,
+                        "index": index,
+                        "method": "fclones_hash",
+                        "confidence": float(group.get("confidence") or 1.0),
+                        "content_hash": content_hash,
+                        "size": size,
+                        "member_count": len(members),
+                        "members": members,
+                    }
+                )
+            self.conn.commit()
+        return {
+            "report_id": report_id,
+            "mode": "fclones_hash",
+            "provider": "fclones",
+            "status": status,
+            "message": message,
+            "scope": scope,
+            "group_count": len(payload_groups),
+            "duplicate_file_count": sum(max(group["member_count"] - 1, 0) for group in payload_groups),
+            "groups": payload_groups,
+            "command": command,
+            "metadata": metadata,
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_index": True,
+                "delete_move_merge_supported": False,
+            },
+        }
+
+    def _duplicate_report_roots(self, *, root_ids: list[str], kinds: list[str]) -> list[dict[str, Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        if root_ids:
+            where.append(f"root_id IN ({','.join('?' for _ in root_ids)})")
+            params.extend(root_ids)
+        if kinds:
+            where.append(f"kind IN ({','.join('?' for _ in kinds)})")
+            params.extend(kinds)
+        with self.lock:
+            rows = self.conn.execute(
+                f"""
+                SELECT * FROM source_roots
+                WHERE {' AND '.join(where)}
+                ORDER BY label COLLATE NOCASE, absolute_path COLLATE NOCASE
+                """,
+                params,
+            ).fetchall()
+        return [_root_payload(row) for row in rows]
+
+    def _fclones_members_from_group(self, group: dict[str, Any]) -> list[dict[str, Any]]:
+        members = []
+        for member in group.get("members") or []:
+            rel = self._resolve_fclones_member(member)
+            if rel is not None:
+                members.append(rel)
+        return members
+
+    def _resolve_fclones_member(self, member: dict[str, Any]) -> dict[str, Any] | None:
+        absolute = str(member.get("absolute_path") or member.get("path") or "")
+        if not absolute:
+            return None
+        with self.lock:
+            rows = self.conn.execute(
+                """
+                SELECT o.object_id, o.root_id, o.path, o.title, o.kind AS object_kind,
+                       o.content_hash, o.size, o.extraction_status,
+                       r.kind AS root_kind, r.label AS root_label, r.permission_mode, r.absolute_path,
+                       s.section_id, s.title AS section_title, s.section_type,
+                       s.heading_path, s.line_start, s.line_end
+                FROM source_objects o
+                JOIN source_roots r ON r.root_id = o.root_id
+                LEFT JOIN source_sections s ON s.section_id = (
+                    SELECT section_id FROM source_sections
+                    WHERE object_id = o.object_id
+                    ORDER BY line_start ASC, section_id ASC
+                    LIMIT 1
+                )
+                WHERE o.status = 'active'
+                """
+            ).fetchall()
+        resolved_path = Path(absolute).expanduser().resolve()
+        for row in rows:
+            root_path = Path(row["absolute_path"]).resolve()
+            candidate = (root_path / str(row["path"])).resolve()
+            if candidate == resolved_path:
+                return _duplicate_member_payload(row) | {"reason": "fclones_hash_group"}
+        return None
 
     def _upsert_object(
         self,
@@ -2231,6 +2398,7 @@ def _empty_duplicate_report(mode: str) -> dict[str, Any]:
     return {
         "report_id": "",
         "mode": mode,
+        "status": "empty",
         "scope": {},
         "group_count": 0,
         "duplicate_file_count": 0,
@@ -2456,6 +2624,63 @@ def _sections_for_file(object_id: str, file_path: Path, text: str | None) -> lis
             body=text,
         )
     ]
+
+
+def _sections_for_extraction(
+    object_id: str,
+    file_path: Path,
+    extraction: ExtractionResult | None,
+    text: str | None,
+) -> list[dict[str, Any]]:
+    if extraction is None or not extraction.sections:
+        return _sections_for_file(object_id, file_path, text)
+    if file_path.suffix.lower() in {".md", ".markdown", ".mdown"}:
+        sections = _markdown_sections(object_id, extraction.text)
+        if sections:
+            return sections
+    sections = []
+    for index, extracted in enumerate(extraction.sections, start=1):
+        body = extracted.text
+        sections.append(
+            _section(
+                object_id,
+                key=f"{extraction.extractor}:{index}:{extracted.title}",
+                section_type=extracted.section_type,
+                heading_path=extracted.heading_path,
+                line_start=max(int(extracted.line_start or 1), 1),
+                line_end=max(int(extracted.line_end or extracted.line_start or 1), 1),
+                title=extracted.title or file_path.stem or file_path.name,
+                body=body,
+            )
+        )
+    return sections
+
+
+def _extract_file(file_path: Path, *, max_bytes: int, extractor: str) -> ExtractionResult | None:
+    try:
+        return extract_source_file(file_path, max_bytes=max_bytes, extractor=extractor)
+    except ExtractionError as exc:
+        return ExtractionResult(
+            text="",
+            sections=[],
+            extractor=extractor or "auto",
+            status="error",
+            warnings=[
+                ExtractionWarning(code="extractor_error", message=str(exc))
+            ],
+        )
+
+
+def _extraction_warning_summary(extraction: ExtractionResult) -> str:
+    warnings = []
+    for warning in extraction.warnings:
+        if isinstance(warning, dict):
+            message = str(warning.get("message") or warning.get("code") or "")
+        else:
+            message = warning.message
+        if message:
+            warnings.append(message)
+    return "; ".join(warnings[:3])
 
 
 def _markdown_sections(object_id: str, text: str) -> list[dict[str, Any]]:

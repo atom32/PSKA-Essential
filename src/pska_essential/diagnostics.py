@@ -8,7 +8,7 @@ from urllib.request import urlopen
 
 from pska_essential.agentic_loop import run_agentic_question_with_readiness
 from pska_essential.audit import audit_event
-from pska_essential.capabilities import memory_capabilities
+from pska_essential.capabilities import adapter_slots_contract, memory_capabilities
 from pska_essential.contracts import to_jsonable
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.kb_scope import (
@@ -44,6 +44,7 @@ def build_runtime_diagnostics(*, service: Any, kb_gateway_factory: KbGatewayFact
         "governance": build_workspace_policy_from_env().to_dict(),
         "capabilities": {
             "memory": memory_capabilities(service.memory),
+            "adapter_slots": adapter_slots_contract(),
         },
         "checks": checks,
     }

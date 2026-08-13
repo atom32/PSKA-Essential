@@ -76,6 +76,7 @@ def run_component_check(
         "Runtime diagnostics completed.",
         required=False,
         providers=diagnostics.get("providers") or {},
+        adapter_slots=((diagnostics.get("capabilities") or {}).get("adapter_slots") or {}).get("summary") or {},
     )
 
     memory_probe = None

@@ -91,6 +91,8 @@ class ComponentCheckTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["diagnostics"]["status"], "ok")
+        self.assertIn("adapter_slots", result["steps"][0]["metadata"])
+        self.assertIn("extraction", result["steps"][0]["metadata"]["adapter_slots"])
         self.assertEqual(result["memory_probe"]["status"], "ok")
         self.assertEqual(result["retrieval_probe"]["status"], "ok")
         self.assertEqual(result["closed_loop_probe"]["status"], "ok")

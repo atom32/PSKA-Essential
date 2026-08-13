@@ -1,0 +1,1 @@
+"""Optional duplicate-detection adapters."""

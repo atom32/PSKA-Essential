@@ -124,6 +124,10 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(checks["memory_provider"]["status"], "ok")
         self.assertEqual(checks["memory_provider"]["metadata"]["provider"], "sqlite")
         self.assertEqual(checks["memory_search_contract"]["status"], "ok")
+        adapter_slots = diagnostics["capabilities"]["adapter_slots"]
+        self.assertEqual(adapter_slots["schema"], "pska.adapter_slots.v1")
+        self.assertIn("builtin_text", adapter_slots["summary"]["extraction"]["available"])
+        self.assertIn("exact_hash", adapter_slots["summary"]["dedup"]["available"])
 
     def test_memory_probe_rejects_fake_as_live_proof(self):
         service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))

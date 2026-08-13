@@ -172,8 +172,20 @@ class WorkflowService:
         )
         return root
 
-    def source_scan(self, root_id: str, *, max_files: int = 1000, max_bytes: int = 1_000_000) -> dict[str, Any]:
-        result = self._source_registry().scan(root_id, max_files=max_files, max_bytes=max_bytes)
+    def source_scan(
+        self,
+        root_id: str,
+        *,
+        max_files: int = 1000,
+        max_bytes: int = 1_000_000,
+        extractor: str = "auto",
+    ) -> dict[str, Any]:
+        result = self._source_registry().scan(
+            root_id,
+            max_files=max_files,
+            max_bytes=max_bytes,
+            extractor=extractor,
+        )
         self.store.add_audit_event(
             audit_event(
                 "source.scan",
@@ -181,6 +193,7 @@ class WorkflowService:
                 root_id,
                 counts=result.get("counts") or {},
                 active_object_count=result.get("active_object_count") or 0,
+                extractor=extractor,
                 writes_source_files=False,
                 embedding_required=False,
             )

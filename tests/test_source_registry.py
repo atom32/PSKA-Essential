@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from pska_essential.mcp_server import tool_registry
 from pska_essential.source_registry import SQLiteSourceRegistry, SourceRegistryError
@@ -147,6 +148,59 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertEqual(saved["label"], "Duplicate notes")
         self.assertEqual(saved["scope"]["root_ids"], [root["root_id"]])
         self.assertFalse(saved["data_flow"]["writes_source_files"])
+
+    def test_fclones_duplicate_report_mode_is_safe_when_cli_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "a.md").write_text("# A\n\nSame.\n", encoding="utf-8")
+            (root_path / "b.md").write_text("# B\n\nSame.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+
+            report = registry.duplicate_report({"root_ids": [root["root_id"]]}, mode="fclones_hash")
+
+        self.assertEqual(report["mode"], "fclones_hash")
+        self.assertEqual(report["provider"], "fclones")
+        self.assertEqual(report["status"], "unavailable")
+        self.assertEqual(report["group_count"], 0)
+        self.assertFalse(report["data_flow"]["writes_source_files"])
+
+    def test_scan_can_index_converted_non_text_when_extractor_available(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            source = root_path / "brief.pdf"
+            source.write_bytes(b"%PDF fake")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+
+            with patch("pska_essential.source_registry.extract_source_file") as extract:
+                extract.return_value = Mock(
+                    text="Converted PSKA source body",
+                    status="indexed",
+                    extractor="markitdown",
+                    warnings=[],
+                    sections=[
+                        Mock(
+                            section_type="converted_file",
+                            title="brief",
+                            text="Converted PSKA source body",
+                            heading_path="",
+                            line_start=1,
+                            line_end=1,
+                        )
+                    ],
+                )
+                scan = registry.scan(root["root_id"], extractor="markitdown")
+            packets = registry.search("Converted PSKA", {"root_ids": [root["root_id"]]})
+            source_context = registry.read_source(packets[0].source_ref)
+
+        self.assertEqual(scan["counts"]["indexed"], 1)
+        self.assertEqual(scan["extraction"]["extractor"], "markitdown")
+        self.assertEqual(packets[0].source_ref.path, "brief.pdf")
+        self.assertIn("Converted PSKA", source_context.text)
 
     def test_mcp_duplicate_report_and_saved_search_create_audit_records(self):
         with tempfile.TemporaryDirectory() as temp_dir:

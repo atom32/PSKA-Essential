@@ -37,6 +37,10 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 都没有安装在默认环境中。因此升级必须采用 optional extras 和 adapter loading，不能把
 第三方组件变成核心启动前提。
 
+2026-08-13 更新：P1 的第一批 optional adapter 已接入代码路径。MarkItDown 和 fclones
+仍不属于默认依赖；PSKA 现在会通过 capabilities/diagnostics 报告它们是 `available` 还是
+`unavailable`，并在缺失时保持 core 功能可用。
+
 ## 3. Target Requirements
 
 从技术方案推导，未来系统需要补齐这些能力：
@@ -180,15 +184,15 @@ fclones、Graphiti、Temporal 等 provider-native schema。
 
 ```toml
 [project.optional-dependencies]
-extract-markitdown = ["markitdown>=0.1,<0.2"]
-extract-docling = ["docling>=2,<3"]
-extract-tika = ["tika>=2,<3"]
-watch = ["watchdog>=4,<7"]
-observability = ["opentelemetry-api>=1,<2", "opentelemetry-sdk>=1,<2"]
+extract-markitdown = ["markitdown>=0.1.0,<1"]
+extract-docling = ["docling>=2.0.0,<3"]
+extract-tika = ["tika>=2.6.0,<3"]
+watch = ["watchdog>=4.0.0,<7"]
+observability = ["opentelemetry-api>=1.25.0,<2", "opentelemetry-sdk>=1.25.0,<2", "arize-phoenix>=8.0.0,<9"]
 eval = ["ragas>=0.2,<1", "deepeval>=1,<2"]
 memory-zep = ["zep-cloud>=3,<4"]
 memory-mem0 = ["mem0ai>=0.1,<1"]
-workflow-temporal = ["temporalio>=1,<2"]
+workflow-temporal = ["temporalio>=1.6.0,<2"]
 ```
 
 CLI tools such as `fclones`、`rmlint`、`czkawka_cli` should not be Python
@@ -533,12 +537,12 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 
 ### P1 Backlog
 
-- [ ] Add `ExtractionPort` dataclasses: `ExtractionResult`, `ExtractedSection`, `ExtractionWarning`.
+- [x] Add `ExtractionPort` dataclasses: `ExtractionResult`, `ExtractedSection`, `ExtractionWarning`.
 - [ ] Add source extract job ledger and API/MCP routes.
-- [ ] Add builtin extractor wrapper around current Markdown/txt/code behavior.
-- [ ] Add MarkItDown adapter behind optional import.
-- [ ] Add `DedupPort` and fclones CLI adapter behind command discovery.
-- [ ] Extend `pska_duplicate_report` mode beyond `exact_hash`.
+- [x] Add builtin extractor wrapper around current Markdown/txt/code behavior.
+- [x] Add MarkItDown adapter behind optional import.
+- [x] Add `DedupPort` and fclones CLI adapter behind command discovery.
+- [x] Extend `pska_duplicate_report` mode beyond `exact_hash`.
 
 ### P2 Backlog
 

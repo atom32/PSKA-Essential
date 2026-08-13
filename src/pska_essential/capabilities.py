@@ -588,7 +588,7 @@ def adapter_slots_contract() -> dict[str, Any]:
                     "markitdown",
                     module="markitdown",
                     extra="extract-markitdown",
-                    maturity="planned",
+                    maturity="implemented",
                     supports=["office", "pdf", "html", "audio_transcript_candidates"],
                 ),
                 _python_provider(
@@ -656,7 +656,7 @@ def adapter_slots_contract() -> dict[str, Any]:
                 _cli_provider(
                     "fclones",
                     command="fclones",
-                    maturity="planned",
+                    maturity="implemented",
                     supports=["hash_duplicate_groups", "json_report"],
                     safety={"delete_move_merge_supported": False},
                 ),

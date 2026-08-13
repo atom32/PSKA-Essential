@@ -146,7 +146,8 @@ extract(source_object, options) -> ExtractionResult
 Provider slots:
 
 - `builtin_text`: implemented default for Markdown, plain text, and code.
-- `markitdown`: planned optional extra for broad file-to-Markdown conversion.
+- `markitdown`: implemented optional extra for broad file-to-Markdown
+  conversion. The adapter loads only when the Python module is installed.
 - `docling`: planned optional extra for PDF/layout/table/OCR-sensitive parsing.
 - `tika`: planned optional extra or service adapter for broad enterprise file
   type extraction.
@@ -189,7 +190,8 @@ report(scope, mode, options) -> DuplicateReport
 Provider slots:
 
 - `exact_hash`: implemented default.
-- `fclones`: planned CLI adapter for hash duplicate groups and JSON reports.
+- `fclones`: implemented CLI adapter for hash duplicate groups and JSON
+  reports. It returns `status=unavailable` when the command is not on `PATH`.
 - `czkawka`: planned CLI/GUI reference for duplicate and media similarity.
 - `dupeguru`: planned fuzzy duplicate reference.
 - `rmlint`: planned advanced duplicate lint report adapter.
