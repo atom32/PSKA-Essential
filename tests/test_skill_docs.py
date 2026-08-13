@@ -313,6 +313,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_eidolia_context_read",
             "pska_eidolia_memory_review_create",
             "pska_trace_query",
+            "pska_eidolia_project_trace_import",
             "pska_memory_card_list",
             "pska_memory_card_get",
             "pska_agentic_question_start",

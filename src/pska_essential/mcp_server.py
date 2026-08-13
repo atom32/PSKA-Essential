@@ -25,6 +25,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.digest_jobs import enqueue_digest_job, list_digest_jobs, run_digest_job
+from pska_essential.eidolia_import import import_eidolia_project_traces
 from pska_essential.env_file import env_file_arg_parser, load_env_file
 from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
@@ -641,6 +642,22 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             limit=limit,
         )
 
+    def pska_eidolia_project_trace_import(
+        project_path: str = "",
+        workspace_path: str = "",
+        trace_paths: list[str] | None = None,
+        node_limit: int = 100,
+        trace_limit: int = 50,
+    ):
+        return import_eidolia_project_traces(
+            service,
+            project_path=project_path,
+            workspace_path=workspace_path,
+            trace_paths=trace_paths or [],
+            node_limit=node_limit,
+            trace_limit=trace_limit,
+        )
+
     def pska_memory_change_from_conversation(
         user_message: str,
         operation: str = "auto",
@@ -1218,6 +1235,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_eidolia_context_read": pska_eidolia_context_read,
         "pska_eidolia_memory_review_create": pska_eidolia_memory_review_create,
         "pska_trace_query": pska_trace_query,
+        "pska_eidolia_project_trace_import": pska_eidolia_project_trace_import,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_workflow_memory_attribution": pska_workflow_memory_attribution,

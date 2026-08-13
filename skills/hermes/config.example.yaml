@@ -53,6 +53,7 @@ mcp_servers:
         - pska_eidolia_context_read
         - pska_eidolia_memory_review_create
         - pska_trace_query
+        - pska_eidolia_project_trace_import
         - pska_agentic_question_start
         - pska_agentic_question_resumable
         - pska_agentic_question_resume

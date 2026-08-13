@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,6 +53,7 @@ EXPECTED_TOOLS = {
     "pska_eidolia_context_read",
     "pska_eidolia_memory_review_create",
     "pska_trace_query",
+    "pska_eidolia_project_trace_import",
     "pska_policy_get",
     "pska_capabilities_get",
     "pska_migration_manifest",
@@ -619,6 +621,55 @@ class McpContractTests(unittest.TestCase):
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("eidolia.context.read", actions)
         self.assertIn("eidolia.memory_review.create", actions)
+
+    def test_eidolia_project_trace_import_tool_reads_project_files_without_memory_writes(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_dir = Path(temp_dir) / "novel-x"
+            trace_dir = project_dir / "agentic-traces"
+            trace_dir.mkdir(parents=True)
+            (project_dir / "canvas-workspace.json").write_text(
+                json.dumps(
+                    {
+                        "projectId": "novel-x",
+                        "nodes": [
+                            {
+                                "id": "thought-1",
+                                "type": "thought",
+                                "data": {"kind": "thought", "title": "Decision", "content": "Keep thought/artifact small."},
+                            }
+                        ],
+                        "edges": [],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            (trace_dir / "trace-1.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "thought_candidate",
+                        "run_id": "trace-1",
+                        "project_id": "novel-x",
+                        "start_node_id": "thought-1",
+                        "content": "Small ontology.",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = tools["pska_eidolia_project_trace_import"](project_path=str(project_dir))
+
+        self.assertEqual(result["schema"], "pska.eidolia_project_trace_import.v1")
+        self.assertEqual(result["summary"]["imported_node_count"], 1)
+        self.assertEqual(result["summary"]["imported_trace_count"], 1)
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        trace = tools["pska_trace_query"](source_ref=result["nodes"][0]["source_ref"], limit=10)
+        self.assertEqual(trace["status"], "found")
+        actions = {event.action for event in service.store.list_audit_events(limit=20)}
+        self.assertIn("eidolia.project_trace.import", actions)
 
     def test_memory_change_from_conversation_tool_auto_applies(self):
         service = build_fake_service()

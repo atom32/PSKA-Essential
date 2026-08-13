@@ -7,6 +7,7 @@ import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import quote
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -291,6 +292,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/read"), contract_routes)
         self.assertIn(("POST", "/api/eidolia/context/read"), contract_routes)
         self.assertIn(("POST", "/api/eidolia/memory-reviews"), contract_routes)
+        self.assertIn(("POST", "/api/eidolia/project-traces/import"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
         self.assertIn(("GET", "/api/memory/health"), contract_routes)
@@ -356,9 +358,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_eidolia_context_read", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_memory_review_create", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_query", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_eidolia_project_trace_import", assistant_layer["mcp_tools"]["implemented"])
         thought_artifact = capabilities["capabilities"]["adapter_slots"]["slots"]["thought_artifact"]
         self.assertEqual(thought_artifact["providers"][0]["name"], "eidolia_source_ref_bridge")
         self.assertEqual(thought_artifact["providers"][0]["status"], "implemented")
+        self.assertEqual(thought_artifact["providers"][1]["name"], "eidolia_project_files")
+        self.assertEqual(thought_artifact["providers"][1]["status"], "implemented")
         search_view = capabilities["capabilities"]["memory"]["search_view"]
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
         self.assertTrue(search_view["default_filters_superseded"])
@@ -1365,6 +1370,60 @@ class ProductApiTests(unittest.TestCase):
         actions = {event.action for event in self.service.store.list_audit_events(limit=40)}
         self.assertIn("eidolia.context.read", actions)
         self.assertIn("eidolia.memory_review.create", actions)
+
+    def test_eidolia_project_trace_import_route_reads_project_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_dir = Path(temp_dir) / "novel-x"
+            trace_dir = project_dir / "agentic-traces"
+            trace_dir.mkdir(parents=True)
+            (project_dir / "canvas-workspace.json").write_text(
+                json.dumps(
+                    {
+                        "projectId": "novel-x",
+                        "nodes": [
+                            {
+                                "id": "thought-1",
+                                "type": "thought",
+                                "data": {"kind": "thought", "title": "Decision", "content": "Trace imports are read-only."},
+                            }
+                        ],
+                        "edges": [],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            (trace_dir / "trace-1.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "thought_candidate",
+                        "run_id": "trace-1",
+                        "project_id": "novel-x",
+                        "start_node_id": "thought-1",
+                        "content": "Imported trace should point back to thought-1.",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            imported = self._post_json(
+                "/api/eidolia/project-traces/import",
+                {"project_path": str(project_dir), "node_limit": 10, "trace_limit": 10},
+            )
+
+        self.assertTrue(imported["ok"])
+        self.assertEqual(imported["schema"], "pska.eidolia_project_trace_import.v1")
+        self.assertEqual(imported["summary"]["imported_node_count"], 1)
+        self.assertEqual(imported["summary"]["imported_trace_count"], 1)
+        self.assertFalse(imported["data_flow"]["writes_source_files"])
+        trace_ref = quote(json.dumps(imported["nodes"][0]["source_ref"]))
+        queried = self._get_json(f"/api/trace/query?source_ref={trace_ref}&limit=10")
+        self.assertTrue(queried["ok"])
+        self.assertEqual(queried["status"], "found")
+        actions = {event.action for event in self.service.store.list_audit_events(limit=20)}
+        self.assertIn("eidolia.project_trace.import", actions)
+        self.assertIn("eidolia.node.import", actions)
+        self.assertIn("eidolia.agentic_trace.import", actions)
 
     def test_memory_health_route_reports_quality_stale_and_conflict(self):
         self.service.memory.facts.extend(

@@ -34,6 +34,7 @@ from pska_essential.diagnostics import (
     run_retrieval_probe,
 )
 from pska_essential.digest_jobs import enqueue_digest_job, list_digest_jobs, run_digest_job
+from pska_essential.eidolia_import import import_eidolia_project_traces
 from pska_essential.env_file import preload_env_file
 from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
@@ -123,6 +124,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/read"},
     {"method": "POST", "path": "/api/eidolia/context/read"},
     {"method": "POST", "path": "/api/eidolia/memory-reviews"},
+    {"method": "POST", "path": "/api/eidolia/project-traces/import"},
     {"method": "GET", "path": "/api/memory/cards"},
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
     {"method": "GET", "path": "/api/memory/briefing"},
@@ -1098,6 +1100,19 @@ def _handler_class(state: ProductApiState):
                     metadata=_optional_dict(payload, "metadata"),
                 )
                 self._send_json({"ok": True, **created}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/eidolia/project-traces/import":
+                payload = self._read_json()
+                result = import_eidolia_project_traces(
+                    state.service,
+                    project_path=str(payload.get("project_path") or ""),
+                    workspace_path=str(payload.get("workspace_path") or ""),
+                    trace_paths=_optional_str_list(payload, "trace_paths"),
+                    node_limit=int(payload.get("node_limit") or 100),
+                    trace_limit=int(payload.get("trace_limit") or 50),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/memory/search":

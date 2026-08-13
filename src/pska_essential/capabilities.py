@@ -252,6 +252,17 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "requires_source_refs": True,
         "embedding_required": False,
     },
+    "pska_eidolia_project_trace_import": {
+        "category": "thought_artifact",
+        "access": "write",
+        "durable": False,
+        "reads_project_files": True,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "creates_review": False,
+        "embedding_required": False,
+        "audit_backed": True,
+    },
     "pska_agentic_question_start": {
         "category": "ask",
         "access": "write",
@@ -708,6 +719,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_eidolia_context_read",
                 "pska_eidolia_memory_review_create",
                 "pska_trace_query",
+                "pska_eidolia_project_trace_import",
             ],
             "planned": [
                 "approximate_duplicate_report",
@@ -873,10 +885,11 @@ def adapter_slots_contract() -> dict[str, Any]:
                 ),
                 _provider(
                     "eidolia_project_files",
-                    status="planned",
-                    maturity="planned",
+                    status="implemented",
+                    maturity="partial",
                     integration="file_adapter",
-                    supports=["project_file_read", "agentic_traces"],
+                    supports=["canvas_workspace_json", "agentic_trace_json", "source_ref_import", "audit_trace"],
+                    safety={"writes_canvas": False, "writes_memory_directly": False},
                 ),
                 _service_provider(
                     "eidolia_product_api",

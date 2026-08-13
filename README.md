@@ -422,6 +422,7 @@ Operational loop tools:
 - `pska_source_memory_candidates_from_audit`
 - `pska_eidolia_context_read`
 - `pska_eidolia_memory_review_create`
+- `pska_eidolia_project_trace_import`
 - `pska_memory_candidate_dedup`
 - `pska_memory_card_list`
 - `pska_memory_card_get`
@@ -565,7 +566,12 @@ durable memory directly. P4-1 adds `pska_trace_query` and
 `GET /api/trace/query`, a read-only derived trace view over audit and Review
 records. It can query by review, proposal, memory, target, action, or SourceRef,
 including Eidolia SourceRefs, without embeddings, source-file writes, durable
-memory writes, or hidden-causality claims.
+memory writes, or hidden-causality claims. P4-2 adds
+`pska_eidolia_project_trace_import` and
+`POST /api/eidolia/project-traces/import`, a read-only file adapter for explicit
+Eidolia project folders, `canvas-workspace.json`, and `agentic-traces/*.json`.
+It imports SourceRef/audit trace references only; PSKA still does not own or
+mutate the canvas.
 P1 adapter work adds `pska_source_extract_job_enqueue`,
 `pska_source_extract_job_list`, and `pska_source_extract_job_run` as the
 Jarvis-friendly source extraction queue. Jobs run `pska_source_scan` with the
@@ -741,7 +747,11 @@ Implemented Alpha routes:
 - `POST /api/sources/obsidian/moc/proposals`
 - `POST /api/sources/obsidian/moc/{proposal_id}/apply`
 - `POST /api/sources/memory-reviews`
+- `POST /api/sources/memory-candidates/from-audit`
 - `POST /api/sources/read`
+- `POST /api/eidolia/context/read`
+- `POST /api/eidolia/memory-reviews`
+- `POST /api/eidolia/project-traces/import`
 - `POST /api/memory/search`
 - `POST /api/memory/conversation-change`
 - `POST /api/memory/update-review`

@@ -206,6 +206,14 @@ def _event_source_refs(event: Any, metadata: dict[str, Any]) -> list[Any]:
                 "external_id": metadata.get("node_id") or "",
             }
         )
+    if str(getattr(event, "target_type", "") or "") == "eidolia_trace":
+        refs.append(
+            {
+                "adapter": "eidolia",
+                "source_id": metadata.get("project_id") or "",
+                "external_id": metadata.get("trace_id") or getattr(event, "target_id", "") or "",
+            }
+        )
     return refs
 
 

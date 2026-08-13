@@ -168,6 +168,12 @@ candidate memory, review, and durable export.
   came from, when it entered review, or how it connects to another PSKA object,
   call `pska_trace_query`. Treat it as a read-only ledger view over audit and
   review records; do not infer hidden model causality from missing trace data.
+- If the user explicitly asks to import or trace an Eidolia project export or
+  runtime project folder, call `pska_eidolia_project_trace_import` with the
+  project path, workspace JSON path, or selected agentic trace JSON paths. This
+  is a read-only project-file import into PSKA audit/source refs; it must not
+  mutate the canvas, copy the project into PSKA as canonical content, or create
+  memory reviews by itself.
 - If an existing durable memory must be changed outside the normal conversation
   flow, start from a `pska_memory_search` or `pska_memory_card_list` result and call
   `pska_memory_update_review`; do not call backend update tools directly.

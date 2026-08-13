@@ -356,13 +356,16 @@ Trace event: generated_from / cited_source / promoted_to_memory / superseded
 pska_eidolia_context_read              # Done: payload -> SourceRef(adapter="eidolia")
 pska_eidolia_memory_review_create      # Done: thought/artifact -> governed Memory Card review
 pska_trace_query                       # Done: audit/review/source/memory/Eidolia derived trace
+pska_eidolia_project_trace_import      # Done: explicit project files -> SourceRef/audit trace
 ```
 
 当前 v1 先提供 payload bridge：调用方传入 project/node/text/role/kind，PSKA 生成
-Eidolia SourceRef、audit 和 Review candidate，不读取、不复制、不修改 Eidolia project files。
+Eidolia SourceRef、audit 和 Review candidate，不复制、不修改 Eidolia project files。
 `pska_trace_query` 已可把 Eidolia context read、memory review create 和 Review record
-串成只读轨迹；后续再接 Eidolia existing project files / sidecar JSON 读取，不把 Eidolia
-数据复制成 PSKA canonical store。
+串成只读轨迹；`pska_eidolia_project_trace_import` 已可只读读取显式传入的
+Eidolia project folder、`canvas-workspace.json` 和 `agentic-traces/*.json`，把
+thought/artifact/trace 规范成 SourceRef 和 audit 记录，但不把 Eidolia 数据复制成 PSKA
+canonical store。
 
 ### 7.6 Source Extraction Jobs
 
@@ -637,6 +640,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: Eidolia node refs 转成 `SourceRef(adapter="eidolia")`。
 - Done: `pska_trace_query` 支持按 artifact/memory/source/review 找时间线。
 - Done: `pska_eidolia_memory_review_create` 从 thought/artifact 创建 Memory Card candidate。
+- Done: `pska_eidolia_project_trace_import` 只读导入 project files / agentic traces 的 SourceRef/audit。
 - Hermes skill 增加 specialist consultation 规则。
 - Specialist 先作为 tools/profile，不作为独立常驻 agent。
 
@@ -722,7 +726,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 - [x] Eidolia `SourceRef` adapter.
 - [x] `pska_trace_query` over audit/review/source/memory/Eidolia refs.
-- [ ] Thought/artifact trace import.
+- [x] Thought/artifact trace import from explicit Eidolia project files.
 - [x] Memory review creation from Eidolia thought.
 - [ ] Specialist tool profiles.
 
