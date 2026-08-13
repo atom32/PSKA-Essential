@@ -314,7 +314,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m10_obsidian_moc_writeback")
+        self.assertEqual(source_layer["status"], "m11_obsidian_frontmatter_tag_writeback")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -338,6 +338,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_memory_review_create", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_memory_candidates_from_audit", source_layer["mcp_tools"]["implemented"])
         self.assertFalse(source_layer["embedding_required"])
+        self.assertIn("obsidian_frontmatter_tags", source_layer["safety"]["native_write_targets"])
+        self.assertIn("obsidian_moc", source_layer["safety"]["native_write_targets"])
         self.assertIn("extraction", source_layer["adapter_slots"])
         self.assertIn("builtin_text", source_layer["adapter_slots"]["extraction"])
         self.assertIn("markitdown", source_layer["adapter_slots"]["extraction"])
@@ -363,6 +365,17 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_eidolia_memory_review_create", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_query", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_project_trace_import", assistant_layer["mcp_tools"]["implemented"])
+        tool_policy = capabilities["capabilities"]["tool_policy"]["tools"]
+        self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
+        self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_sidecar"], "write_target_dependent")
+        self.assertIn(
+            "obsidian_frontmatter",
+            tool_policy["pska_source_tag_apply"]["supports_write_targets"],
+        )
+        self.assertEqual(
+            tool_policy["pska_source_tag_apply"]["requires_native_permission_for"],
+            ["obsidian_frontmatter"],
+        )
         thought_artifact = capabilities["capabilities"]["adapter_slots"]["slots"]["thought_artifact"]
         self.assertEqual(thought_artifact["providers"][0]["name"], "eidolia_source_ref_bridge")
         self.assertEqual(thought_artifact["providers"][0]["status"], "implemented")
@@ -954,6 +967,74 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source.extraction_job.run", actions)
         self.assertIn("source.obsidian_moc.propose", actions)
         self.assertIn("source.obsidian_moc.apply", actions)
+
+    def test_product_api_obsidian_frontmatter_tag_writeback(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Vault"
+            root_path.mkdir()
+            (root_path / ".obsidian").mkdir()
+            note = root_path / "Alpha.md"
+            note.write_text(
+                "---\n"
+                "title: Alpha\n"
+                "tags: [existing, idea]\n"
+                "---\n"
+                "# Alpha\n\n"
+                "Hermes source note for PSKA frontmatter tags.\n",
+                encoding="utf-8",
+            )
+            registered = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_path), "kind": "auto", "permission_mode": "native_write"},
+            )
+            self._post_json(
+                f"/api/sources/roots/{registered['root']['root_id']}/scan",
+                {"max_files": 10},
+            )
+            searched = self._post_json(
+                "/api/sources/search",
+                {"query": "frontmatter tags", "scope": {"root_ids": [registered["root"]["root_id"]]}},
+            )
+            packet = searched["context_packets"][0]
+
+            tag_proposal = self._post_json(
+                "/api/sources/tags/proposals",
+                {
+                    "target_ref": packet["source_ref"],
+                    "tag": "project/hermes",
+                    "reason": "make the source route visible in Obsidian",
+                    "write_target": "obsidian_frontmatter",
+                },
+            )
+            tag_apply = self._post_json(
+                f"/api/sources/tags/{tag_proposal['proposal']['proposal_id']}/apply",
+                {},
+            )
+            tag_apply_again = self._post_json(
+                f"/api/sources/tags/{tag_proposal['proposal']['proposal_id']}/apply",
+                {},
+            )
+            note_text = note.read_text(encoding="utf-8")
+            sidecar_created = (root_path / ".pska").exists()
+            audit = self._get_json("/api/audit?limit=20&action=source.tag.apply")
+
+        self.assertEqual(tag_proposal["proposal"]["write_target"], "obsidian_frontmatter")
+        self.assertFalse(tag_proposal["proposal"]["data_flow"]["writes_source_files"])
+        self.assertTrue(tag_proposal["proposal"]["data_flow"]["may_write_source_files_on_apply"])
+        self.assertTrue(tag_apply["applied"]["data_flow"]["writes_source_files"])
+        self.assertTrue(tag_apply["applied"]["data_flow"]["writes_original_source_files"])
+        self.assertFalse(tag_apply["applied"]["data_flow"]["writes_sidecar"])
+        self.assertEqual(tag_apply["applied"]["data_flow"]["write_target"], "obsidian_frontmatter")
+        self.assertEqual(tag_apply["applied"]["record"]["frontmatter"]["tags"], ["existing", "idea", "project/hermes"])
+        self.assertTrue(tag_apply_again["applied"]["already_applied"])
+        self.assertFalse(tag_apply_again["applied"]["data_flow"]["writes_source_files"])
+        self.assertFalse(sidecar_created)
+        self.assertIn("title: Alpha", note_text)
+        self.assertIn("tags:\n  - existing\n  - idea\n  - project/hermes", note_text)
+        self.assertIn("---\n# Alpha", note_text)
+        apply_event = next(event for event in audit["events"] if event["action"] == "source.tag.apply")
+        self.assertEqual(apply_event["metadata"]["write_target"], "obsidian_frontmatter")
+        self.assertFalse(apply_event["metadata"]["writes_sidecar"])
 
     def test_source_watch_once_route_delegates_to_bounded_watcher(self):
         with tempfile.TemporaryDirectory() as temp_dir:

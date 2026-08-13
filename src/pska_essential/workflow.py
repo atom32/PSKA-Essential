@@ -350,7 +350,7 @@ class WorkflowService:
                 target=proposal["target"],
                 tag=proposal["payload"].get("tag"),
                 reason=reason,
-                write_target=write_target,
+                write_target=proposal.get("write_target") or write_target,
                 writes_source_files=False,
             )
         )
@@ -358,6 +358,7 @@ class WorkflowService:
 
     def source_tag_apply(self, proposal_id: str) -> dict[str, Any]:
         result = self._source_registry().apply_tag(proposal_id)
+        data_flow = result.get("data_flow") or {}
         self.store.add_audit_event(
             audit_event(
                 "source.tag.apply",
@@ -366,8 +367,9 @@ class WorkflowService:
                 target=result["proposal"]["target"],
                 tag=result["record"].get("name"),
                 already_applied=result.get("already_applied", False),
-                writes_source_files=False,
-                writes_sidecar=True,
+                write_target=data_flow.get("write_target") or result["proposal"].get("write_target") or "sidecar",
+                writes_source_files=data_flow.get("writes_source_files", False),
+                writes_sidecar=data_flow.get("writes_sidecar", False),
             )
         )
         return result

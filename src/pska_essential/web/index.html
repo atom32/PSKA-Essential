@@ -352,6 +352,13 @@
                 标签原因
                 <input name="tag_reason" autocomplete="off" placeholder="可选" />
               </label>
+              <label>
+                标签写入位置
+                <select name="tag_write_target">
+                  <option value="sidecar">sidecar</option>
+                  <option value="obsidian_frontmatter">Obsidian frontmatter</option>
+                </select>
+              </label>
               <div class="button-row">
                 <button name="source_action" value="tag_propose" type="submit" class="secondary-button">提议标签</button>
                 <button name="source_action" value="tag_apply" type="submit" class="primary-button">应用标签</button>

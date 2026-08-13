@@ -402,6 +402,16 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_source_watch_once"]["writes_memory_directly"])
         self.assertTrue(policy["pska_source_audit_schedule_create"]["wall_clock_schedule"])
         self.assertTrue(policy["pska_source_audit_job_tick"]["wall_clock_tick"])
+        self.assertEqual(policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
+        self.assertEqual(policy["pska_source_tag_apply"]["writes_sidecar"], "write_target_dependent")
+        self.assertEqual(
+            policy["pska_source_tag_apply"]["supports_write_targets"],
+            ["sidecar", "obsidian_frontmatter"],
+        )
+        self.assertEqual(
+            policy["pska_source_tag_apply"]["requires_native_permission_for"],
+            ["obsidian_frontmatter"],
+        )
         self.assertTrue(policy["pska_obsidian_moc_apply"]["writes_source_files"])
         self.assertTrue(policy["pska_obsidian_moc_apply"]["requires_native_permission"])
         self.assertEqual(policy["pska_kb_ingest_files"]["access"], "write")

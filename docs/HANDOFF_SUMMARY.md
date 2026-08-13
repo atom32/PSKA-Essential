@@ -52,6 +52,16 @@ Last updated: 2026-07-15
 > capability, so the WebUI can continue the batch-routed repair workflow directly
 > in the queue. Next useful product step: a richer batch edit/merge workbench and
 > cross-project semantic clustering.
+>
+> Update, 2026-08-13: the first Obsidian native metadata writeback slice is now
+> implemented. `pska_source_tag_propose` accepts
+> `write_target="obsidian_frontmatter"` for Markdown notes in an `obsidian_vault`;
+> `pska_source_tag_apply` requires `native_write` or `managed` permission, appends
+> a unique YAML frontmatter `tags` value, leaves note body text untouched, and
+> records write-target-specific `data_flow`/audit metadata. Sidecar remains the
+> default tag/comment path, comments are still sidecar-only, and next useful
+> source-governance steps are Obsidian comment native write, source collections,
+> and FTS ranking improvements.
 
 This document is the handoff point for a fresh Codex conversation.
 

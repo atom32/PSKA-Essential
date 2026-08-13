@@ -174,9 +174,11 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "access": "write",
         "durable": False,
         "writes_source_registry": True,
-        "writes_source_files": False,
-        "writes_sidecar": True,
-        "requires_sidecar_permission": True,
+        "writes_source_files": "write_target_dependent",
+        "writes_sidecar": "write_target_dependent",
+        "requires_sidecar_permission_for": ["sidecar"],
+        "supports_write_targets": ["sidecar", "obsidian_frontmatter"],
+        "requires_native_permission_for": ["obsidian_frontmatter"],
     },
     "pska_source_comment_propose": {
         "category": "source",
@@ -645,7 +647,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m10_obsidian_moc_writeback",
+        "status": "m11_obsidian_frontmatter_tag_writeback",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -715,6 +717,7 @@ def source_layer_contract() -> dict[str, Any]:
             "scans_full_disk_by_default": False,
             "writes_source_files_by_default": False,
             "delete_move_merge_supported": False,
+            "native_write_targets": ["obsidian_frontmatter_tags", "obsidian_moc"],
         },
     }
 

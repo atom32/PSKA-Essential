@@ -64,7 +64,7 @@ const messages = {
   "toast.sourceSelected": "资料源已选中。",
   "toast.sourceSelectRequired": "请先选择一个资料源。",
   "toast.sourceTagProposalCreated": "标签提议已创建。",
-  "toast.sourceTagApplied": "标签已写入 sidecar。",
+  "toast.sourceTagApplied": "标签已应用。",
   "toast.sourceCommentProposalCreated": "Comment 提议已创建。",
   "toast.sourceCommentApplied": "Comment 已写入 sidecar。",
   "toast.obsidianMocProposalCreated": "Obsidian MOC 提议已创建。",
@@ -876,7 +876,7 @@ async function proposeSourceTag(form) {
       target_ref: state.selectedSourceRef,
       tag,
       reason: form.get("tag_reason") || "",
-      write_target: "sidecar",
+      write_target: form.get("tag_write_target") || "sidecar",
     },
   });
   state.sourceTagProposal = payload.proposal || null;

@@ -290,6 +290,128 @@ class SourceRegistryTests(unittest.TestCase):
 
         self.assertFalse(sidecar_created)
 
+    def test_obsidian_frontmatter_tag_apply_requires_native_permission_and_preserves_note(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            note = vault / "Architecture.md"
+            note.write_text(
+                "---\n"
+                "title: Architecture\n"
+                "aliases: [Hermes Design]\n"
+                "---\n"
+                "# Architecture\n\n"
+                "Hermes needs PSKA native source tags.\n",
+                encoding="utf-8",
+            )
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(vault, kind="auto", permission_mode="native_write")
+            registry.scan(root["root_id"])
+            packet = registry.search("native source tags", {"root_ids": [root["root_id"]]})[0]
+
+            proposal = registry.propose_tag(
+                packet.source_ref,
+                "project/hermes",
+                reason="Obsidian tag should stay visible in the vault",
+                write_target="obsidian_frontmatter",
+            )
+            applied = registry.apply_tag(proposal["proposal_id"])
+            applied_again = registry.apply_tag(proposal["proposal_id"])
+            note_text = note.read_text(encoding="utf-8")
+            sidecar_created = (vault / ".pska").exists()
+
+        self.assertEqual(proposal["write_target"], "obsidian_frontmatter")
+        self.assertEqual(proposal["payload"]["schema"], "pska.obsidian_frontmatter_tag_proposal.v1")
+        self.assertEqual(proposal["payload"]["frontmatter_field"], "tags")
+        self.assertFalse(proposal["data_flow"]["writes_source_files"])
+        self.assertTrue(proposal["data_flow"]["may_write_source_files_on_apply"])
+        self.assertTrue(proposal["data_flow"]["requires_native_permission"])
+        self.assertTrue(applied["applied"])
+        self.assertEqual(applied["record"]["write_target"], "obsidian_frontmatter")
+        self.assertEqual(applied["record"]["frontmatter"]["field"], "tags")
+        self.assertEqual(applied["record"]["frontmatter"]["tags"], ["project/hermes"])
+        self.assertTrue(applied["data_flow"]["writes_source_files"])
+        self.assertTrue(applied["data_flow"]["writes_original_source_files"])
+        self.assertFalse(applied["data_flow"]["writes_sidecar"])
+        self.assertEqual(applied["data_flow"]["write_target"], "obsidian_frontmatter")
+        self.assertTrue(applied_again["already_applied"])
+        self.assertEqual(applied_again["record"]["write_target"], "obsidian_frontmatter")
+        self.assertFalse(applied_again["data_flow"]["writes_source_files"])
+        self.assertFalse(sidecar_created)
+        self.assertIn("title: Architecture", note_text)
+        self.assertIn("aliases: [Hermes Design]", note_text)
+        self.assertIn("tags:\n  - project/hermes", note_text)
+        self.assertIn("---\n# Architecture", note_text)
+        self.assertIn("Hermes needs PSKA native source tags.", note_text)
+
+    def test_obsidian_frontmatter_tag_apply_rejects_read_only_vault(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            note = vault / "Alpha.md"
+            original_text = "# Alpha\n\nHermes source note.\n"
+            note.write_text(original_text, encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(vault, kind="auto", permission_mode="read_only")
+            registry.scan(root["root_id"])
+            source_ref = registry.search("Hermes source", {"root_ids": [root["root_id"]]})[0].source_ref
+            proposal = registry.propose_tag(
+                source_ref,
+                "readonly",
+                write_target="obsidian_frontmatter",
+            )
+
+            with self.assertRaisesRegex(SourceRegistryError, "native_write or managed"):
+                registry.apply_tag(proposal["proposal_id"])
+            after_apply = note.read_text(encoding="utf-8")
+
+        self.assertEqual(after_apply, original_text)
+
+    def test_obsidian_frontmatter_tag_apply_is_noop_when_tag_already_exists(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            note = vault / "Alpha.md"
+            original_text = "---\ntags: [existing, project/hermes]\ntitle: Alpha\n---\n# Alpha\n\nHermes source note.\n"
+            note.write_text(original_text, encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(vault, kind="auto", permission_mode="native_write")
+            registry.scan(root["root_id"])
+            source_ref = registry.search("Hermes source", {"root_ids": [root["root_id"]]})[0].source_ref
+
+            proposal = registry.propose_tag(
+                source_ref,
+                "project/hermes",
+                write_target="obsidian_frontmatter",
+            )
+            applied = registry.apply_tag(proposal["proposal_id"])
+            after_apply = note.read_text(encoding="utf-8")
+
+        self.assertEqual(after_apply, original_text)
+        self.assertFalse(applied["record"]["frontmatter"]["changed"])
+        self.assertFalse(applied["data_flow"]["writes_source_files"])
+        self.assertEqual(applied["record"]["frontmatter"]["tags"], ["existing", "project/hermes"])
+
+    def test_obsidian_frontmatter_tag_proposal_rejects_non_obsidian_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "note.md").write_text("# Note\n\nHermes source note.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path, kind="local_folder", permission_mode="native_write")
+            registry.scan(root["root_id"])
+            source_ref = registry.search("Hermes source", {"root_ids": [root["root_id"]]})[0].source_ref
+
+            with self.assertRaisesRegex(SourceRegistryError, "obsidian_vault"):
+                registry.propose_tag(
+                    source_ref,
+                    "project/hermes",
+                    write_target="obsidian_frontmatter",
+                )
+
     def test_obsidian_moc_proposal_applies_only_with_native_permission(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir) / "Vault"
@@ -380,6 +502,44 @@ class SourceRegistryTests(unittest.TestCase):
         actions = {event.action for event in service.store.list_audit_events(limit=40)}
         self.assertIn("source.obsidian_moc.propose", actions)
         self.assertIn("source.obsidian_moc.apply", actions)
+
+    def test_mcp_frontmatter_tag_tool_applies_and_audits_native_write(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            note = vault / "Alpha.md"
+            note.write_text("# Alpha\n\nHermes source note for frontmatter tags.\n", encoding="utf-8")
+            service = build_fake_service()
+            tools = tool_registry(service)
+            root = tools["pska_source_root_register"](
+                str(vault),
+                kind="auto",
+                permission_mode="native_write",
+            )
+            tools["pska_source_scan"](root["root_id"])
+            packet = tools["pska_source_search"]("frontmatter tags", {"root_ids": [root["root_id"]]})[0]
+
+            proposal = tools["pska_source_tag_propose"](
+                packet["source_ref"],
+                "project/hermes",
+                reason="MCP frontmatter tag writeback",
+                write_target="frontmatter",
+            )
+            applied = tools["pska_source_tag_apply"](proposal["proposal_id"])
+            note_text = note.read_text(encoding="utf-8")
+
+        self.assertEqual(proposal["write_target"], "obsidian_frontmatter")
+        self.assertTrue(applied["data_flow"]["writes_source_files"])
+        self.assertFalse(applied["data_flow"]["writes_sidecar"])
+        self.assertIn("tags:\n  - project/hermes", note_text)
+        events = service.store.list_audit_events(limit=30)
+        apply_event = next(event for event in events if event.action == "source.tag.apply")
+        propose_event = next(event for event in events if event.action == "source.tag.propose")
+        self.assertEqual(propose_event.metadata["write_target"], "obsidian_frontmatter")
+        self.assertEqual(apply_event.metadata["write_target"], "obsidian_frontmatter")
+        self.assertTrue(apply_event.metadata["writes_source_files"])
+        self.assertFalse(apply_event.metadata["writes_sidecar"])
 
     def test_mcp_tag_and_comment_tools_create_audit_records(self):
         with tempfile.TemporaryDirectory() as temp_dir:

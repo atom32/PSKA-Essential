@@ -25,6 +25,8 @@ from pska_essential.extraction import (
 PERSONAL_SOURCE_ADAPTERS = {"local_folder", "obsidian_vault"}
 PERMISSION_MODES = {"read_only", "sidecar_write", "native_write", "managed"}
 NEIGHBOR_STRATEGIES = {"auto", "links", "backlinks", "folder"}
+SIDECAR_WRITE_TARGET = "sidecar"
+OBSIDIAN_FRONTMATTER_WRITE_TARGET = "obsidian_frontmatter"
 OBSIDIAN_MOC_WRITE_TARGET = "obsidian_moc"
 PSKA_MOC_BEGIN = "<!-- PSKA:MOC:BEGIN -->"
 PSKA_MOC_END = "<!-- PSKA:MOC:END -->"
@@ -514,14 +516,23 @@ class SQLiteSourceRegistry:
         normalized_tag = tag.strip()
         if not normalized_tag:
             raise SourceRegistryError("tag is required")
-        if write_target != "sidecar":
-            raise SourceRegistryError("tag write_target must be sidecar in M3")
+        normalized_write_target = _normalize_tag_write_target(write_target)
         target = self._target_for_ref(target_ref)
+        if normalized_write_target == OBSIDIAN_FRONTMATTER_WRITE_TARGET:
+            self._ensure_obsidian_frontmatter_tag_target(target)
         proposal_id = _stable_id(
             "src_prop",
-            f"tag:{target['root_id']}:{target['object_id']}:{target['section_id']}:{normalized_tag}:{utc_now_iso()}",
+            f"tag:{target['root_id']}:{target['object_id']}:{target['section_id']}:{normalized_tag}:{normalized_write_target}:{utc_now_iso()}",
         )
         payload = {"tag": normalized_tag}
+        if normalized_write_target == OBSIDIAN_FRONTMATTER_WRITE_TARGET:
+            payload.update(
+                {
+                    "schema": "pska.obsidian_frontmatter_tag_proposal.v1",
+                    "frontmatter_field": "tags",
+                    "mode": "append_unique_tag",
+                }
+            )
         proposal = self._create_action_proposal(
             proposal_id=proposal_id,
             action="tag",
@@ -529,7 +540,7 @@ class SQLiteSourceRegistry:
             target_ref=target_ref,
             payload=payload,
             reason=reason,
-            write_target=write_target,
+            write_target=normalized_write_target,
         )
         return proposal
 
@@ -543,8 +554,7 @@ class SQLiteSourceRegistry:
             raise SourceRegistryError("tag proposal payload is missing tag")
         existing = self._existing_tag_for_proposal(proposal_id)
         if existing:
-            return _applied_action_result(proposal, existing, already_applied=True)
-        self._ensure_sidecar_write_allowed(proposal)
+            return _applied_tag_result(proposal, existing, already_applied=True, changed=False)
         now = utc_now_iso()
         tag_id = _stable_id("tag", f"{proposal_id}:{tag}")
         record = {
@@ -554,24 +564,38 @@ class SQLiteSourceRegistry:
             "section_id": proposal["section_id"],
             "name": tag,
             "origin": "pska",
+            "write_target": proposal["write_target"],
             "status": "active",
             "proposal_id": proposal_id,
             "created_at": now,
         }
-        sidecar = self._append_sidecar_annotation(
-            proposal,
-            {"tag": tag, "tag_id": tag_id},
-            applied_at=now,
-        )
+        changed = False
+        if proposal["write_target"] == SIDECAR_WRITE_TARGET:
+            self._ensure_sidecar_write_allowed(proposal)
+            sidecar = self._append_sidecar_annotation(
+                proposal,
+                {"tag": tag, "tag_id": tag_id},
+                applied_at=now,
+            )
+            record["sidecar"] = sidecar
+            changed = True
+        elif proposal["write_target"] == OBSIDIAN_FRONTMATTER_WRITE_TARGET:
+            self._ensure_obsidian_frontmatter_tag_write_allowed(proposal)
+            frontmatter = self._apply_obsidian_frontmatter_tag(proposal, tag)
+            record["write_target"] = OBSIDIAN_FRONTMATTER_WRITE_TARGET
+            record["frontmatter"] = frontmatter
+            changed = bool(frontmatter.get("changed"))
+        else:
+            raise SourceRegistryError("tag apply supports sidecar or obsidian_frontmatter write_target")
         with self.lock:
             with self.conn:
                 self.conn.execute(
                     """
                     INSERT INTO source_tags(
                         tag_id, root_id, object_id, section_id, name, origin,
-                        status, proposal_id, created_at
+                        write_target, status, proposal_id, created_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(tag_id) DO NOTHING
                     """,
                     (
@@ -581,6 +605,7 @@ class SQLiteSourceRegistry:
                         proposal["section_id"],
                         tag,
                         "pska",
+                        proposal["write_target"],
                         "active",
                         proposal_id,
                         now,
@@ -589,8 +614,7 @@ class SQLiteSourceRegistry:
                 self._mark_action_proposal_applied(proposal_id, now)
         proposal["status"] = "applied"
         proposal["applied_at"] = now
-        record["sidecar"] = sidecar
-        return _applied_action_result(proposal, record, already_applied=False)
+        return _applied_tag_result(proposal, record, already_applied=False, changed=changed)
 
     def propose_comment(
         self,
@@ -603,7 +627,7 @@ class SQLiteSourceRegistry:
         normalized_body = body.strip()
         if not normalized_body:
             raise SourceRegistryError("comment body is required")
-        if write_target != "sidecar":
+        if write_target != SIDECAR_WRITE_TARGET:
             raise SourceRegistryError("comment write_target must be sidecar in M3")
         target = self._target_for_ref(target_ref)
         proposal_id = _stable_id(
@@ -617,7 +641,7 @@ class SQLiteSourceRegistry:
             target_ref=target_ref,
             payload={"body": normalized_body},
             reason=reason,
-            write_target=write_target,
+            write_target=SIDECAR_WRITE_TARGET,
         )
         return proposal
 
@@ -807,6 +831,35 @@ class SQLiteSourceRegistry:
             ],
         }
         return _applied_moc_result(proposal, record=record, already_applied=False, changed=changed)
+
+    def _apply_obsidian_frontmatter_tag(self, proposal: dict[str, Any], tag: str) -> dict[str, Any]:
+        root_path = Path(proposal["absolute_path"])
+        target_path = _path_inside_root(root_path, proposal["path"])
+        if not target_path.exists() or not target_path.is_file():
+            raise SourceRegistryError("Obsidian frontmatter tag apply requires an existing Markdown note")
+        before = target_path.read_text(encoding="utf-8")
+        after, frontmatter = _upsert_obsidian_frontmatter_tag(before, tag)
+        changed = before != after
+        if changed:
+            target_path.write_text(after, encoding="utf-8")
+        return {
+            "path": proposal["path"],
+            "absolute_path": str(target_path),
+            "field": "tags",
+            "tag": tag,
+            "changed": changed,
+            "tags": frontmatter["tags"],
+            "created_frontmatter": frontmatter["created_frontmatter"],
+            "write_target": OBSIDIAN_FRONTMATTER_WRITE_TARGET,
+            "next_actions": [
+                {
+                    "action": "scan_source_root",
+                    "tool": "pska_source_scan",
+                    "params": {"root_id": proposal["root_id"]},
+                    "reason": "frontmatter tag was written; rescan the vault to refresh indexed metadata.",
+                }
+            ],
+        }
 
     def neighbors(
         self,
@@ -1419,12 +1472,28 @@ class SQLiteSourceRegistry:
         return _action_proposal_from_row(row)
 
     def _ensure_sidecar_write_allowed(self, proposal: dict[str, Any]) -> None:
-        if proposal["write_target"] != "sidecar":
-            raise SourceRegistryError("only sidecar apply is supported in M3")
+        if proposal["write_target"] != SIDECAR_WRITE_TARGET:
+            raise SourceRegistryError("source action apply requires sidecar write_target")
         if proposal["permission_mode"] not in {"sidecar_write", "native_write", "managed"}:
             raise SourceRegistryError(
                 "source action apply requires permission_mode sidecar_write, native_write, or managed"
             )
+
+    def _ensure_obsidian_frontmatter_tag_target(self, target: dict[str, Any]) -> None:
+        if target["root_kind"] != "obsidian_vault":
+            raise SourceRegistryError("Obsidian frontmatter tag proposals require an obsidian_vault source root")
+        if Path(str(target["path"] or "")).suffix.lower() not in {".md", ".markdown", ".mdown"}:
+            raise SourceRegistryError("Obsidian frontmatter tag proposals require a Markdown note")
+
+    def _ensure_obsidian_frontmatter_tag_write_allowed(self, proposal: dict[str, Any]) -> None:
+        if proposal["write_target"] != OBSIDIAN_FRONTMATTER_WRITE_TARGET:
+            raise SourceRegistryError("Obsidian frontmatter tag apply requires obsidian_frontmatter write_target")
+        if proposal["root_kind"] != "obsidian_vault":
+            raise SourceRegistryError("Obsidian frontmatter tag apply requires an obsidian_vault source root")
+        if proposal["permission_mode"] not in {"native_write", "managed"}:
+            raise SourceRegistryError("Obsidian frontmatter tag apply requires permission_mode native_write or managed")
+        if Path(str(proposal["path"] or "")).suffix.lower() not in {".md", ".markdown", ".mdown"}:
+            raise SourceRegistryError("Obsidian frontmatter tag apply requires a Markdown note")
 
     def _ensure_obsidian_moc_write_allowed(self, proposal: dict[str, Any]) -> None:
         if proposal["write_target"] != OBSIDIAN_MOC_WRITE_TARGET:
@@ -2145,6 +2214,7 @@ class SQLiteSourceRegistry:
                 section_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 origin TEXT NOT NULL,
+                write_target TEXT NOT NULL DEFAULT 'sidecar',
                 status TEXT NOT NULL,
                 proposal_id TEXT NOT NULL,
                 created_at TEXT NOT NULL
@@ -2165,6 +2235,7 @@ class SQLiteSourceRegistry:
             """
         )
         self._ensure_column("source_links", "ordinal", "INTEGER NOT NULL DEFAULT 0")
+        self._ensure_column("source_tags", "write_target", "TEXT NOT NULL DEFAULT 'sidecar'")
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, definition: str) -> None:
@@ -2381,7 +2452,13 @@ def _action_proposal_payload(proposal: dict[str, Any], *, include_absolute_path:
         "data_flow": {
             "writes_source_files": False,
             "writes_original_source_files": False,
-            "writes_sidecar": proposal["write_target"] == "sidecar",
+            "writes_sidecar": False,
+            "write_target": proposal["write_target"],
+            "may_write_source_files_on_apply": proposal["write_target"]
+            in {OBSIDIAN_FRONTMATTER_WRITE_TARGET, OBSIDIAN_MOC_WRITE_TARGET},
+            "may_write_sidecar_on_apply": proposal["write_target"] == SIDECAR_WRITE_TARGET,
+            "requires_native_permission": proposal["write_target"]
+            in {OBSIDIAN_FRONTMATTER_WRITE_TARGET, OBSIDIAN_MOC_WRITE_TARGET},
             "requires_apply": proposal["status"] == "pending",
         },
     }
@@ -2405,7 +2482,31 @@ def _applied_action_result(
             "writes_source_files": False,
             "writes_original_source_files": False,
             "writes_sidecar": not already_applied,
-            "write_target": "sidecar",
+            "write_target": SIDECAR_WRITE_TARGET,
+        },
+    }
+
+
+def _applied_tag_result(
+    proposal: dict[str, Any],
+    record: dict[str, Any],
+    *,
+    already_applied: bool,
+    changed: bool,
+) -> dict[str, Any]:
+    write_target = str(proposal.get("write_target") or SIDECAR_WRITE_TARGET)
+    writes_native = write_target == OBSIDIAN_FRONTMATTER_WRITE_TARGET and bool(changed)
+    return {
+        "proposal": _action_proposal_payload(proposal),
+        "record": to_jsonable(record),
+        "applied": True,
+        "already_applied": already_applied,
+        "data_flow": {
+            "writes_source_files": writes_native,
+            "writes_original_source_files": writes_native,
+            "writes_sidecar": write_target == SIDECAR_WRITE_TARGET and not already_applied,
+            "write_target": write_target,
+            "requires_native_permission": write_target == OBSIDIAN_FRONTMATTER_WRITE_TARGET,
         },
     }
 
@@ -2569,6 +2670,15 @@ def _normalize_moc_path(path: str) -> str:
     return candidate.as_posix()
 
 
+def _normalize_tag_write_target(write_target: str) -> str:
+    value = str(write_target or SIDECAR_WRITE_TARGET).strip().lower()
+    if value in {"", SIDECAR_WRITE_TARGET}:
+        return SIDECAR_WRITE_TARGET
+    if value in {OBSIDIAN_FRONTMATTER_WRITE_TARGET, "frontmatter", "obsidian_tags"}:
+        return OBSIDIAN_FRONTMATTER_WRITE_TARGET
+    raise SourceRegistryError("tag write_target must be sidecar or obsidian_frontmatter")
+
+
 def _render_moc_block(title: str, targets: list[dict[str, Any]]) -> str:
     lines = [
         PSKA_MOC_BEGIN,
@@ -2593,6 +2703,81 @@ def _upsert_moc_block(text: str, *, title: str, rendered_block: str) -> str:
         end += len(PSKA_MOC_END)
         return f"{existing[:begin].rstrip()}\n\n{rendered_block.strip()}\n\n{existing[end:].lstrip()}".rstrip() + "\n"
     return f"{existing}\n\n{rendered_block.strip()}\n"
+
+
+def _upsert_obsidian_frontmatter_tag(text: str, tag: str) -> tuple[str, dict[str, Any]]:
+    normalized_tag = tag.strip()
+    if not normalized_tag:
+        raise SourceRegistryError("frontmatter tag is required")
+    frontmatter, body, has_frontmatter = _split_yaml_frontmatter(text)
+    lines = frontmatter.splitlines()
+    tags, tag_start, tag_end = _frontmatter_tags(lines)
+    if tag_start is not None and normalized_tag in tags:
+        return text, {
+            "tags": tags,
+            "created_frontmatter": False,
+        }
+    if normalized_tag not in tags:
+        tags.append(normalized_tag)
+    rendered_tags = ["tags:", *[f"  - {item}" for item in tags]]
+    if tag_start is None:
+        insert_at = _frontmatter_insert_index(lines)
+        updated_lines = lines[:insert_at] + rendered_tags + lines[insert_at:]
+    else:
+        updated_lines = lines[:tag_start] + rendered_tags + lines[tag_end:]
+    updated_frontmatter = "\n".join(updated_lines).strip()
+    if has_frontmatter:
+        updated = f"---\n{updated_frontmatter}\n---\n{body}"
+    else:
+        updated = f"---\n{updated_frontmatter}\n---\n{text}"
+    if text.endswith("\n") and not updated.endswith("\n"):
+        updated += "\n"
+    return updated, {
+        "tags": tags,
+        "created_frontmatter": not has_frontmatter,
+    }
+
+
+def _split_yaml_frontmatter(text: str) -> tuple[str, str, bool]:
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return "", text, False
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            frontmatter = "".join(lines[1:index]).rstrip("\r\n")
+            body = "".join(lines[index + 1 :])
+            return frontmatter, body, True
+    return "", text, False
+
+
+def _frontmatter_tags(lines: list[str]) -> tuple[list[str], int | None, int]:
+    for index, line in enumerate(lines):
+        match = re.match(r"^tags\s*:\s*(.*)$", line)
+        if not match:
+            continue
+        raw = match.group(1).strip()
+        if raw.startswith("[") and raw.endswith("]"):
+            tags = [item.strip().strip("\"'") for item in raw[1:-1].split(",") if item.strip()]
+            return tags, index, index + 1
+        if raw:
+            return [item for item in raw.split() if item], index, index + 1
+        tags = []
+        end = index + 1
+        while end < len(lines):
+            item = re.match(r"^\s*-\s+(.+?)\s*$", lines[end])
+            if not item:
+                break
+            tags.append(item.group(1).strip().strip("\"'"))
+            end += 1
+        return [item for item in tags if item], index, end
+    return [], None, len(lines)
+
+
+def _frontmatter_insert_index(lines: list[str]) -> int:
+    index = len(lines)
+    while index > 0 and not lines[index - 1].strip():
+        index -= 1
+    return index
 
 
 def _obsidian_wikilink(path: str, title: str) -> str:

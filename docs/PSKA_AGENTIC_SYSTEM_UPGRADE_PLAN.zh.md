@@ -20,14 +20,14 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M10 级别的 source-safe baseline：
+当前仓库已经具备 M11 级别的 source-safe baseline：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
 | Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | File governance | 已有 exact hash duplicate report、source audit、saved search、tag/comment proposal/apply | `tests/test_source_registry.py` |
-| Obsidian | 已有 MOC propose/apply，只写 PSKA marker block | `pska_obsidian_moc_propose/apply` |
+| Obsidian | 已有 MOC propose/apply，只写 PSKA marker block；tag apply 可显式写 frontmatter `tags` | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
 | Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view | `workflow.py`、`capabilities.py` |
 | WebUI | 已有 Jarvis Bar、Sources panel、Review、Activity、diagnostics | `src/pska_essential/web/*` |
@@ -143,7 +143,7 @@ flowchart TD
 | Exact duplicate | 已做 | SQLite hash | duplicate report contract | 保留 |
 | Approx duplicate | 未做 | fclones、Czkawka、dupeGuru、rmlint | `DedupPort`、dry-run proposal、destructive review | Phase 1/2 接 fclones dry-run |
 | Obsidian MOC | 已做 marker block | Obsidian Local REST API、Omnisearch 参考 | vault SourceRef、permission、MOC apply | 保留本地文件写回；REST API 可选 |
-| Source tags/comments | sidecar 已做 | TagSpaces 体验参考 | sidecar/native write policy | Phase 2 做 native write |
+| Source tags/comments | sidecar 已做；Obsidian frontmatter tag native write 已做 | TagSpaces 体验参考 | sidecar/native write policy | 后续做 comment native write 和更丰富 frontmatter fields |
 | Memory baseline | SQLite 已做 | SQLite | Memory Card envelope、review、lifecycle | Phase 1 产品化 |
 | Temporal graph memory | Graphiti optional adapter | Graphiti / Zep | provenance envelope、supersession view | Phase 4，不进主路径 |
 | Agent memory SaaS | 未接 | Zep、Mem0、Letta | provider-neutral search/apply/update/delete | Phase 5 适配器研究 |
@@ -678,7 +678,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 改动：
 
-- Obsidian frontmatter/tag/comment native write proposal/apply。
+- Done: Obsidian frontmatter tag native write proposal/apply through `pska_source_tag_propose/apply`.
+- Obsidian comment native write proposal/apply。
 - MOC grouping：folder/tag/topic/project。
 - Source collections：saved search 之外的可命名资料集合。
 - Better search ranking：FTS5 snippet、filters、path/title weights。
@@ -779,7 +780,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 ### P3 Backlog
 
-- [ ] Obsidian frontmatter/tag native write proposal/apply.
+- [x] Obsidian frontmatter/tag native write proposal/apply.
 - [ ] Source collections.
 - [ ] FTS ranking improvements.
 - [ ] Evaluate Tantivy adapter.

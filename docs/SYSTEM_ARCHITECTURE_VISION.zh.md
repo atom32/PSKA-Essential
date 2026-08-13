@@ -377,7 +377,7 @@ flowchart TD
 
 ## Current Baseline
 
-截至 2026-08-11，当前可验证的系统状态是 M10 baseline。
+截至 2026-08-13，当前可验证的系统状态是 M11 source governance baseline。
 
 | 能力 | 当前状态 |
 | --- | --- |
@@ -392,6 +392,7 @@ flowchart TD
 | Source Audit | 已支持 duplicate preview、unresolved links、unlinked notes、source-route candidates |
 | Source Audit Jobs | 已支持 enqueue/list/run、due tick、recurring cadence |
 | Obsidian MOC | 已支持 proposal/apply，只写 PSKA-managed marker block |
+| Obsidian Frontmatter Tags | 已支持显式 `obsidian_frontmatter` tag proposal/apply，只追加去重 `tags` |
 | Jarvis Briefing | 已聚合 workspace、source audit、memory/review cues、next actions |
 | Governance | memory 和 source write 都走 proposal/apply/review/audit 边界 |
 
@@ -539,6 +540,7 @@ source audit
 当前已实现：
 
 - tag/comment apply 写 `.pska/annotations.jsonl` sidecar；
+- Obsidian tag apply 可在 `native_write/managed` vault 中显式写 YAML frontmatter `tags`；
 - Obsidian MOC apply 写目标 note 的 PSKA marker block；
 - duplicate report 不删除、不移动、不合并。
 
@@ -596,7 +598,7 @@ Jarvis 体验不等于后台偷偷行动。它的第一形态是“把该注意�
 | 方向 | 目的 |
 | --- | --- |
 | Approximate duplicate detection | 从 exact hash 扩展到同名、版本号、近似大小、相似文本 |
-| Obsidian native metadata write | frontmatter/tag/comment 显式写回 |
+| Obsidian native metadata write | comment native write、frontmatter richer fields |
 | MOC grouping | 按 folder、tag、topic、project 自动分组 MOC |
 | System wakeup/tick | 到期 source audit/digest job 的系统级触发 |
 | Better agentic scope | Eidolia explicit_inputs / connected_component / workspace 三档 |

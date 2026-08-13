@@ -411,7 +411,7 @@ PSKA policy。
 - 不默认扫全盘，只处理用户授权的 source roots。
 - `read_only` 是默认权限。
 - tag/comment 默认写 sidecar。
-- Obsidian native write 只写用户确认的 marker block 或后续明确 metadata。
+- Obsidian native write 只写用户确认的 marker block 或明确 metadata；当前已支持 frontmatter `tags` 追加去重。
 - 删除、移动、合并文件必须单独确认。
 - source-derived memory 默认进 Review。
 - conversation-native 明确记住/纠正/忘记可以按 policy auto apply，但仍写 audit。
@@ -428,7 +428,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 | 本地全文检索 | SQLite FTS5、Tantivy、Meilisearch、Recoll/Xapian | source root、scope、permission、ranking envelope |
 | 重文档 RAG | RAGFlow、Qdrant、Vespa | provider adapter、readiness、citation contract |
 | 查重 | fclones、Czkawka、dupeGuru、rmlint | dry-run report、proposal、destructive review |
-| Obsidian 集成 | Local REST API、Omnisearch、Smart Connections 作为参考 | vault source adapter、MOC marker block、SourceRef |
+| Obsidian 集成 | Local REST API、Omnisearch、Smart Connections 作为参考 | vault source adapter、MOC marker block、frontmatter tag writeback、SourceRef |
 | 记忆 provider | SQLite、Graphiti、Zep、Mem0、Letta | Memory Card envelope、policy、lifecycle、search view |
 | 任务和调度 | watchdog、Temporal、系统 cron/launchd | job metadata、wakeup policy、audit |
 | 同步与云端 | rclone、Syncthing、Drive/Box/SharePoint plugins | cloud source roots、permission、source route |
@@ -468,6 +468,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 - Source registry、FTS5、source read/search/neighbors。
 - Source audit jobs/scheduler。
 - Obsidian MOC proposal/apply。
+- Obsidian frontmatter tag proposal/apply through source tag write target.
 - Jarvis briefing。
 
 ### Phase 1: Memory Productization
@@ -485,7 +486,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 ### Phase 2: Source Governance Expansion
 
 - 近似查重 adapter。
-- Obsidian frontmatter/tag/comment native write。
+- Obsidian comment native write and richer frontmatter fields.
 - 更强 source route learning。
 - MarkItDown/Docling/Tika adapter。
 - Saved search 和 source collections。

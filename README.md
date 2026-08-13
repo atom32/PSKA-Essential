@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M10 baseline into
+  engineering plan for upgrading the current PSKA-Essential M11 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -481,7 +481,7 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
-The personal source tools provide the M1-M10 no-embedding local source loop:
+The personal source tools provide the M1-M11 no-embedding local source loop:
 register a user-authorized local folder or Obsidian vault, scan rebuildable
 metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
 `.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
@@ -496,11 +496,12 @@ an executable binary, then fall back to `PATH`; external Czkawka reports use
 `make live-czkawka-smoke` verify the CLI-backed `fclones_hash`/`czkawka_hash`
 duplicate paths when the optional CLIs are installed and exit 77 when
 unavailable. M3 adds `pska_source_tag_propose`/`pska_source_tag_apply` and
-`pska_source_comment_propose`/`pska_source_comment_apply`; apply writes only
-`.pska/annotations.jsonl` for roots with sidecar/native/managed permission, and
-still leaves the original source files untouched. M4 adds `pska_source_neighbors`
-for outgoing links, backlinks, and same-folder neighbors from local Markdown or
-Obsidian notes, again without embeddings or source-file writes. M5 adds
+`pska_source_comment_propose`/`pska_source_comment_apply`; the default
+tag/comment apply path writes only `.pska/annotations.jsonl` for roots with
+sidecar/native/managed permission, and still leaves the original source files
+untouched. M4 adds `pska_source_neighbors` for outgoing links, backlinks, and
+same-folder neighbors from local Markdown or Obsidian notes, again without
+embeddings or source-file writes. M5 adds
 `pska_source_memory_review_create`, which turns explicit source refs into a
 governed Memory Card candidate with `memory_type`, `behavior_delta`, and Review;
 it does not write the memory provider directly. P2-1 adds
@@ -643,13 +644,20 @@ writes only PSKA registry metadata; apply requires an `obsidian_vault` root with
 `native_write` or `managed` permission and updates only the PSKA-managed MOC
 block in the target Markdown note. It does not rewrite the rest of the note,
 write memory directly, or require embeddings.
+M11 extends `pska_source_tag_propose`/`pska_source_tag_apply` with explicit
+`write_target="obsidian_frontmatter"` for Obsidian Markdown tags. Proposal is
+still metadata-only; apply requires an `obsidian_vault` root with `native_write`
+or `managed` permission and appends a unique value to YAML frontmatter `tags`
+without touching note body text or creating a sidecar. Existing tags are
+treated as no-op applies.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
 SQLite FTS5, save reusable searches, select exact source sections for
-tag/comment proposals, apply sidecar annotations when permitted, and promote
-source-route candidates into Review without touching original files. Obsidian
-MOC actions from source audits create a governed MOC proposal before any native
+tag/comment proposals, apply sidecar annotations when permitted, explicitly
+apply Obsidian frontmatter tags when native write is authorized, and promote
+source-route candidates into Review without hidden memory writes. Obsidian MOC
+actions from source audits create a governed MOC proposal before any native
 vault write is applied.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_change_from_conversation` is the daily Hermes path for user-driven
@@ -883,11 +891,14 @@ selected root, duplicate/link actions rerun source audit, and source-route
 actions create governed Review candidates through
 `/api/sources/memory-candidates/from-audit` or the single-candidate
 `/api/sources/memory-reviews` fallback.
-The same panel lets users save a source search and run the explicit
-tag/comment proposal -> sidecar apply path through `/api/sources/tags/*` and
-`/api/sources/comments/*`. Obsidian MOC actions create governed proposals
-through `/api/sources/obsidian/moc/proposals`; apply is a separate native-write
-route and only updates the PSKA-managed marker block in the target note.
+The same panel lets users save a source search and run explicit tag/comment
+proposal -> apply paths through `/api/sources/tags/*` and
+`/api/sources/comments/*`. Tags default to sidecar apply, with
+`write_target=obsidian_frontmatter` available for authorized Obsidian Markdown
+notes; comments remain sidecar-only. Obsidian MOC actions create governed
+proposals through `/api/sources/obsidian/moc/proposals`; apply is a separate
+native-write route and only updates the PSKA-managed marker block in the target
+note.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,
