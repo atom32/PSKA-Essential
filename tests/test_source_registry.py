@@ -230,6 +230,48 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertFalse(report["data_flow"]["writes_source_files"])
         self.assertFalse(report["data_flow"]["delete_move_merge_supported"])
 
+    def test_text_similarity_duplicate_report_finds_similar_indexed_documents_without_embeddings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            similar = (
+                "# Hermes Source Route\n\n"
+                "Hermes should inspect PSKA source evidence before answering architecture questions. "
+                "The route keeps durable memory separate from indexed local files."
+            )
+            (root_path / "route-a.md").write_text(similar, encoding="utf-8")
+            (root_path / "route-b.md").write_text(
+                similar.replace("architecture", "design").replace("indexed local files", "local indexed files"),
+                encoding="utf-8",
+            )
+            (root_path / "unrelated.md").write_text(
+                "# Cooking\n\nSourdough fermentation timing and kitchen temperatures are unrelated.",
+                encoding="utf-8",
+            )
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+
+            report = registry.duplicate_report(
+                {"root_ids": [root["root_id"]], "similarity_threshold": 0.7},
+                mode="text_similarity",
+                limit=10,
+            )
+
+        self.assertEqual(report["mode"], "text_similarity")
+        self.assertEqual(report["provider"], "core_heuristic")
+        self.assertEqual(report["group_count"], 1)
+        self.assertEqual(report["groups"][0]["method"], "text_similarity")
+        self.assertGreaterEqual(report["groups"][0]["score"], 0.7)
+        self.assertEqual(report["metadata"]["similarity_threshold"], 0.7)
+        self.assertFalse(report["metadata"]["embedding_required"])
+        self.assertCountEqual(
+            [member["path"] for member in report["groups"][0]["members"]],
+            ["route-a.md", "route-b.md"],
+        )
+        self.assertFalse(report["data_flow"]["writes_source_files"])
+        self.assertFalse(report["data_flow"]["embedding_required"])
+
     def test_source_collections_create_list_and_resolve_manual_or_search(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir) / "Project"

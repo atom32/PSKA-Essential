@@ -20,14 +20,14 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M16 级别的 source-safe baseline：
+当前仓库已经具备 M17 级别的 source-safe baseline：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
 | Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
-| File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version` duplicate report、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
+| File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version` 和 `text_similarity` duplicate report、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
 | Obsidian | 已有 MOC propose/apply，只写 PSKA marker block，支持 folder/tag/topic/project 分组；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
 | Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view | `workflow.py`、`capabilities.py` |
@@ -685,6 +685,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: FTS ranking/snippet improvements with BM25, title/path/heading boost, match reasons, highlighted snippets, and LIKE fallback.
 - Done: MOC grouping：`group_by="folder"|"tag"|"topic"|"project"` generates grouped payloads and previews, while apply still only replaces the PSKA marker block.
 - Done: `size_name_version` duplicate mode adds core no-embedding same-name/copy/version/similar-size candidate groups without source-file writes.
+- Done: `text_similarity` duplicate mode adds core no-embedding indexed-text token Jaccard candidate groups with `scope.similarity_threshold`.
 - 评估 Tantivy/Meilisearch adapter，但不替换默认。
 
 验收：

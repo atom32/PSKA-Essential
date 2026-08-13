@@ -407,7 +407,7 @@ class McpContractTests(unittest.TestCase):
         self.assertTrue(policy["pska_source_audit_job_tick"]["wall_clock_tick"])
         self.assertEqual(
             policy["pska_duplicate_report"]["supports_modes"],
-            ["exact_hash", "size_name_version", "fclones_hash", "czkawka_hash"],
+            ["exact_hash", "size_name_version", "text_similarity", "fclones_hash", "czkawka_hash"],
         )
         self.assertEqual(policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
         self.assertTrue(policy["pska_source_search"]["snippet_metadata"])

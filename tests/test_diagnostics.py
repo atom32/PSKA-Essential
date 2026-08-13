@@ -129,6 +129,7 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn("builtin_text", adapter_slots["summary"]["extraction"]["available"])
         self.assertIn("exact_hash", adapter_slots["summary"]["dedup"]["available"])
         self.assertIn("size_name_version", adapter_slots["summary"]["dedup"]["available"])
+        self.assertIn("text_similarity", adapter_slots["summary"]["dedup"]["available"])
 
     def test_memory_probe_rejects_fake_as_live_proof(self):
         service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))

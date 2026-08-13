@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M16 baseline into
+  engineering plan for upgrading the current PSKA-Essential M17 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -481,7 +481,7 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
-The personal source tools provide the M1-M16 no-embedding local source loop:
+The personal source tools provide the M1-M17 no-embedding local source loop:
 register a user-authorized local folder or Obsidian vault, scan rebuildable
 metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
 `.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
@@ -490,8 +490,10 @@ writes PSKA index metadata only; it does not modify source files, write memory,
 or require embeddings. M2 adds `pska_duplicate_report` for exact hash duplicate
 groups and `pska_saved_search_create` for reusable local source views; M16 adds
 the core `size_name_version` duplicate mode for same normalized filename,
-copy/version suffix, and similar-size candidates. These reports write only PSKA
-registry metadata and never delete, move, merge, or edit source files. External
+copy/version suffix, and similar-size candidates. M17 adds the core
+`text_similarity` duplicate mode over already indexed text using token Jaccard,
+without embeddings. These reports write only PSKA registry metadata and never
+delete, move, merge, or edit source files. External
 fclones reports use `PSKA_FCLONES_BIN` when it points to
 an executable binary, then fall back to `PATH`; external Czkawka reports use
 `PSKA_CZKAWKA_BIN`, then `PATH`. `make live-fclones-smoke` and
@@ -675,6 +677,9 @@ M16 adds the built-in `size_name_version` duplicate report mode for local
 folder/vault management. It finds same-name version/copy candidates with similar
 sizes, marks them as lower-confidence review signals, and still performs no
 source-file changes.
+M17 adds built-in `text_similarity` duplicate reports over indexed source text.
+It uses token Jaccard with configurable `scope.similarity_threshold`, requires
+no embeddings, and remains a dry-run review signal.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through

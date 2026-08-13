@@ -94,8 +94,13 @@ Last updated: 2026-07-15
 > filename, copy/version suffix, and similar-size candidate groups without
 > embeddings or external CLIs. Reports remain dry-run only: no delete, move,
 > merge, or source-file edit is supported.
+>
+> Update, 2026-08-13: Indexed text duplicate similarity is now implemented as M17.
+> `pska_duplicate_report(mode="text_similarity")` uses already indexed source text,
+> token Jaccard, and optional `scope.similarity_threshold`; it requires no
+> embeddings and remains a dry-run report signal only.
 > Next useful source-governance steps are richer frontmatter fields, stronger
-> ranking adapters, and text/media duplicate heuristics.
+> ranking adapters, media duplicate heuristics, and a better duplicate review UI.
 
 This document is the handoff point for a fresh Codex conversation.
 

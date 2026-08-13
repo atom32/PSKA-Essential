@@ -380,9 +380,11 @@ class SQLiteSourceRegistry:
             return self._czkawka_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode == "size_name_version":
             return self._size_name_version_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
+        if mode == "text_similarity":
+            return self._text_similarity_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode != "exact_hash":
             raise SourceRegistryError(
-                "duplicate report mode must be exact_hash, size_name_version, fclones_hash, or czkawka_hash"
+                "duplicate report mode must be exact_hash, size_name_version, text_similarity, fclones_hash, or czkawka_hash"
             )
         where = ["o.status = 'active'", "o.content_hash != ''"]
         params: list[Any] = []
@@ -2152,6 +2154,107 @@ class SQLiteSourceRegistry:
             },
         }
 
+    def _text_similarity_duplicate_report(
+        self,
+        scope: dict[str, Any],
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        limit: int,
+    ) -> dict[str, Any]:
+        threshold = _duplicate_similarity_threshold(scope)
+        rows = self._duplicate_text_rows(root_ids=root_ids, kinds=kinds)
+        report_id = _stable_id("dup_report", f"{utc_now_iso()}:text_similarity:{json.dumps(scope, sort_keys=True)}")
+        now = utc_now_iso()
+        candidate_groups = _text_similarity_groups(rows, limit=limit, threshold=threshold)
+        with self.lock:
+            self.conn.execute(
+                """
+                INSERT INTO duplicate_reports(report_id, mode, scope_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (report_id, "text_similarity", json.dumps(scope, sort_keys=True), now),
+            )
+            payload_groups = []
+            for index, group in enumerate(candidate_groups, start=1):
+                group_id = _stable_id("dup", f"{report_id}:{index}:{group['key']}")
+                members = [member["payload"] | {"reason": group["reason"]} for member in group["members"]]
+                self.conn.execute(
+                    """
+                    INSERT INTO duplicate_groups(
+                        group_id, report_id, method, confidence, content_hash, size,
+                        member_count, action_status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'reported')
+                    """,
+                    (
+                        group_id,
+                        report_id,
+                        "text_similarity",
+                        float(group["score"]),
+                        "",
+                        int(group["representative_size"]),
+                        len(members),
+                    ),
+                )
+                for member in members:
+                    self.conn.execute(
+                        """
+                        INSERT INTO duplicate_members(
+                            group_id, object_id, root_id, path, reason, content_hash, size
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            group_id,
+                            member["object_id"],
+                            member["root_id"],
+                            member["path"],
+                            member["reason"],
+                            member.get("content_hash") or "",
+                            int(member.get("size") or 0),
+                        ),
+                    )
+                payload_groups.append(
+                    {
+                        "group_id": group_id,
+                        "index": index,
+                        "method": "text_similarity",
+                        "confidence": float(group["score"]),
+                        "score": float(group["score"]),
+                        "reason": group["reason"],
+                        "shared_token_count": int(group["shared_token_count"]),
+                        "token_count": int(group["token_count"]),
+                        "size": int(group["representative_size"]),
+                        "member_count": len(members),
+                        "members": members,
+                    }
+                )
+            self.conn.commit()
+        return {
+            "report_id": report_id,
+            "mode": "text_similarity",
+            "provider": "core_heuristic",
+            "status": "ok",
+            "message": f"text similarity heuristic returned {len(payload_groups)} candidate group(s).",
+            "scope": scope,
+            "group_count": len(payload_groups),
+            "duplicate_file_count": sum(max(group["member_count"] - 1, 0) for group in payload_groups),
+            "groups": payload_groups,
+            "metadata": {
+                "heuristic": "indexed_text_token_jaccard",
+                "similarity_threshold": threshold,
+                "embedding_required": False,
+                "confidence_is_review_signal": True,
+            },
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_index": True,
+                "delete_move_merge_supported": False,
+                "embedding_required": False,
+            },
+        }
+
     def _external_duplicate_report(
         self,
         scope: dict[str, Any],
@@ -2314,6 +2417,40 @@ class SQLiteSourceRegistry:
                     LIMIT 1
                 )
                 WHERE {' AND '.join(where)}
+                ORDER BY r.label COLLATE NOCASE, o.path COLLATE NOCASE
+                """,
+                params,
+            ).fetchall()
+
+    def _duplicate_text_rows(self, *, root_ids: list[str], kinds: list[str]) -> list[sqlite3.Row]:
+        where = ["o.status = 'active'", "o.size > 0", "o.extraction_status = 'indexed'"]
+        params: list[Any] = []
+        if root_ids:
+            where.append(f"o.root_id IN ({','.join('?' for _ in root_ids)})")
+            params.extend(root_ids)
+        if kinds:
+            where.append(f"r.kind IN ({','.join('?' for _ in kinds)})")
+            params.extend(kinds)
+        with self.lock:
+            return self.conn.execute(
+                f"""
+                SELECT o.object_id, o.root_id, o.path, o.title, o.kind AS object_kind,
+                       o.content_hash, o.size, o.extraction_status,
+                       r.kind AS root_kind, r.label AS root_label, r.permission_mode,
+                       s.section_id, s.title AS section_title, s.section_type,
+                       s.heading_path, s.line_start, s.line_end,
+                       GROUP_CONCAT(f.body, char(10)) AS indexed_body
+                FROM source_objects o
+                JOIN source_roots r ON r.root_id = o.root_id
+                JOIN source_fts f ON f.object_id = o.object_id
+                LEFT JOIN source_sections s ON s.section_id = (
+                    SELECT section_id FROM source_sections
+                    WHERE object_id = o.object_id
+                    ORDER BY line_start ASC, section_id ASC
+                    LIMIT 1
+                )
+                WHERE {' AND '.join(where)}
+                GROUP BY o.object_id
                 ORDER BY r.label COLLATE NOCASE, o.path COLLATE NOCASE
                 """,
                 params,
@@ -3009,6 +3146,77 @@ def _size_name_version_confidence(items: list[dict[str, Any]], *, size_spread: i
     if spread_ratio <= 0.05:
         return 0.74 if has_version_signal else 0.68
     return 0.62 if has_version_signal else 0.55
+
+
+def _text_similarity_groups(rows: list[sqlite3.Row], *, limit: int, threshold: float) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        tokens = _duplicate_text_tokens(str(row["indexed_body"] or ""))
+        if len(tokens) < 12:
+            continue
+        candidates.append({"row": row, "payload": _duplicate_member_payload(row), "tokens": tokens})
+    pairs: list[dict[str, Any]] = []
+    used_pairs: set[tuple[str, str]] = set()
+    for left_index, left in enumerate(candidates):
+        for right in candidates[left_index + 1 :]:
+            left_id = str(left["payload"]["object_id"])
+            right_id = str(right["payload"]["object_id"])
+            pair_key = tuple(sorted((left_id, right_id)))
+            if pair_key in used_pairs:
+                continue
+            used_pairs.add(pair_key)
+            shared = left["tokens"] & right["tokens"]
+            union = left["tokens"] | right["tokens"]
+            score = len(shared) / len(union) if union else 0.0
+            if score < threshold:
+                continue
+            pairs.append(
+                {
+                    "key": f"{pair_key[0]}:{pair_key[1]}",
+                    "score": round(score, 3),
+                    "shared_token_count": len(shared),
+                    "token_count": len(union),
+                    "representative_size": max(int(left["payload"]["size"]), int(right["payload"]["size"])),
+                    "reason": "indexed_text_token_jaccard",
+                    "members": [
+                        left | {"reason": "indexed_text_token_jaccard"},
+                        right | {"reason": "indexed_text_token_jaccard"},
+                    ],
+                }
+            )
+    pairs.sort(key=lambda pair: (-pair["score"], -pair["shared_token_count"], pair["key"]))
+    return pairs[:limit]
+
+
+def _duplicate_text_tokens(text: str) -> set[str]:
+    tokens = re.findall(r"[\w\u4e00-\u9fff]{2,}", text.lower())
+    stopwords = {
+        "the",
+        "and",
+        "for",
+        "with",
+        "this",
+        "that",
+        "from",
+        "into",
+        "only",
+        "should",
+        "will",
+        "can",
+        "not",
+        "are",
+        "was",
+        "were",
+    }
+    return {token for token in tokens if token not in stopwords}
+
+
+def _duplicate_similarity_threshold(scope: dict[str, Any]) -> float:
+    try:
+        threshold = float(scope.get("similarity_threshold") or 0.82)
+    except (TypeError, ValueError):
+        threshold = 0.82
+    return max(0.5, min(threshold, 0.98))
 
 
 def _neighbor_payload(row: sqlite3.Row, *, relation: str, score: float, reason: str) -> dict[str, Any]:
