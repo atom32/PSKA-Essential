@@ -318,7 +318,10 @@ Review 检查 Memory Card envelope、source evidence 和 behavior impact；缺 `
 apply-time candidate quality enforcement：`pska_memory_apply` 对 memory_patch 写入复用同一
 质量门，conversation/workflow-derived memory proposal 会先补 conservative Memory Card
 envelope；裸的低质量 memory_patch 即使绕过 queue/Review UI 被 accept，也不能写入 durable
-memory provider。
+memory provider。P2 的第二十块已落地为 workspace status quality routing：`pska_workspace_status`
+对 accepted_unapplied memory reviews 复用 candidate quality filter；低质量 accepted
+memory_patch 不再产生 `apply_accepted_memory` next action，而是产生
+`review_memory_candidate_quality`，避免 Hermes/Jarvis 撞上必然失败的 apply gate。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

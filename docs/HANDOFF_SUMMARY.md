@@ -34,8 +34,11 @@ Last updated: 2026-07-15
 > summaries do not quietly become durable Memory Cards. `pska_memory_apply`
 > enforces the same quality gate for memory_patch writes, and
 > conversation/workflow-derived memory proposals now attach a conservative
-> Memory Card envelope before Review/apply. Next useful product step: a richer
-> batch edit/merge workbench and cross-project semantic clustering.
+> Memory Card envelope before Review/apply. Workspace status also filters
+> accepted low-quality memory_patch reviews out of `apply_accepted_memory` and
+> routes Hermes/Jarvis to `review_memory_candidate_quality` instead. Next useful
+> product step: a richer batch edit/merge workbench and cross-project semantic
+> clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

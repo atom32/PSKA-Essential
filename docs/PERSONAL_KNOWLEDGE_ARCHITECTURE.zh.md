@@ -634,6 +634,8 @@ Hermes 的默认行为：
   evidence，或文本/行为变化过泛，会被提示先 review/edit，而不是直接进入可 apply 待办。
 - Done: `pska_memory_apply` 对 memory_patch 使用同一套质量门；conversation/workflow-derived
   memory proposal 会先补保守 Memory Card envelope，再进入 Review/apply。
+- Done: Workspace status 也复用质量门；accepted 但低质量的 memory_patch 不再显示为
+  `apply_accepted_memory`，而是引导 Hermes/Jarvis 先做 quality review。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

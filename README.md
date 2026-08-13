@@ -557,10 +557,12 @@ or accepted memory_patch reviews that are missing `memory_type`,
 surfaces review/edit next actions before apply so vague memory summaries do not
 quietly become durable Memory Cards. `pska_memory_apply` uses the same quality
 gate for memory_patch writes, while conversation/workflow-derived memory
-proposals now attach a conservative Memory Card envelope before review. The
-WebUI exposes a lightweight inline merge editor on duplicate/related candidate
-queue groups; it shows member candidate texts and behavior deltas before the
-merged Review is created. M6 adds
+proposals now attach a conservative Memory Card envelope before review.
+Workspace status uses the same filter, so Hermes/Jarvis sees quality-review
+next actions instead of `apply_accepted_memory` for accepted but low-quality
+candidates. The WebUI exposes a lightweight inline merge editor on
+duplicate/related candidate queue groups; it shows member candidate texts and
+behavior deltas before the merged Review is created. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

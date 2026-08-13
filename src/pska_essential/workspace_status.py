@@ -6,6 +6,7 @@ from typing import Any
 from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.capabilities import memory_capabilities, memory_operation_for_proposal_kind
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
+from pska_essential.memory_candidate_quality import memory_candidate_quality_issue
 from pska_essential.memory_cards import list_memory_cards
 from pska_essential.memory_health import scan_memory_health
 from pska_essential.provider_jobs import build_provider_job_status
@@ -37,6 +38,14 @@ def build_workspace_status(
         if review.get("status") == "accepted"
         and not review.get("memory_apply")
         and str((review.get("proposal") or {}).get("kind") or "") in DURABLE_PROPOSAL_KINDS
+        and not memory_candidate_quality_issue(review, include_actions=False)
+    ]
+    memory_candidate_quality_issues = [
+        issue
+        for review in reviews
+        if review.get("status") in {"pending", "accepted"} and not review.get("memory_apply")
+        for issue in [memory_candidate_quality_issue(review)]
+        if issue is not None
     ]
     workflows = service.store.list_workflows(limit=workflow_limit)
     resumable, resumable_error = _resumable_state(service, gateway, limit=workflow_limit)
@@ -51,6 +60,7 @@ def build_workspace_status(
         kb_error=kb_error,
         pending_reviews=pending_reviews,
         accepted_unapplied=accepted_unapplied,
+        memory_candidate_quality_issues=memory_candidate_quality_issues,
         memory_caps=memory_caps,
         memory_cards=memory_cards,
         memory_cards_error=memory_cards_error,
@@ -106,8 +116,10 @@ def build_workspace_status(
         "reviews": {
             "pending_count": len(pending_reviews),
             "accepted_unapplied_count": len(accepted_unapplied),
+            "candidate_quality_issue_count": len(memory_candidate_quality_issues),
             "pending": pending_reviews[:10],
             "accepted_unapplied": accepted_unapplied[:10],
+            "candidate_quality": memory_candidate_quality_issues[:10],
         },
         "workflows": {
             "recent_count": len(workflows),
@@ -192,6 +204,7 @@ def _next_actions(
     kb_error: dict[str, str] | None,
     pending_reviews: list[dict[str, Any]],
     accepted_unapplied: list[dict[str, Any]],
+    memory_candidate_quality_issues: list[dict[str, Any]],
     memory_caps: dict[str, Any],
     memory_cards: dict[str, Any] | None,
     memory_cards_error: dict[str, str] | None,
@@ -332,6 +345,20 @@ def _next_actions(
                 f"{len(supported_accepted)} accepted durable review(s) can be applied.",
                 api=f"POST /api/reviews/{review_id}/apply-memory" if review_id else "POST /api/reviews/{review_id}/apply-memory",
                 tool="pska_memory_apply",
+                view="review",
+                params={"review_id": review_id} if review_id else {},
+            )
+        )
+    if memory_candidate_quality_issues:
+        issue = memory_candidate_quality_issues[0]
+        review_id = str(issue.get("review_id") or "")
+        actions.append(
+            _action(
+                "review_memory_candidate_quality",
+                "Review memory candidate quality",
+                f"{len(memory_candidate_quality_issues)} memory candidate(s) need quality review before apply.",
+                api=f"GET /api/reviews/{review_id}" if review_id else "GET /api/memory/review-queue",
+                tool="pska_review_get" if review_id else "pska_memory_review_queue",
                 view="review",
                 params={"review_id": review_id} if review_id else {},
             )
@@ -593,6 +620,7 @@ def _workspace_status(
     if {
         "apply_accepted_memory",
         "inspect_unsupported_memory_operation",
+        "review_memory_candidate_quality",
         "review_pending_durable_knowledge",
         "resume_blocked_ask",
     } & action_names:

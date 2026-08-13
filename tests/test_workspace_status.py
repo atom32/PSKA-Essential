@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from pska_essential.adapters.fake import FakeRetrievalAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
-from pska_essential.contracts import MemoryFact, MemoryUpdate, Proposal, SourceRef
+from pska_essential.contracts import MemoryFact, MemoryPatch, MemoryUpdate, Proposal, SourceRef
 from pska_essential.digest_jobs import enqueue_digest_job
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workspace_status import build_workspace_status
@@ -440,6 +440,34 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(actions["inspect_unsupported_memory_operation"]["params"]["review_id"], review.review_id)
         self.assertEqual(actions["inspect_unsupported_memory_operation"]["params"]["operation"], "update")
         self.assertIn("unsupported", actions["inspect_unsupported_memory_operation"]["reason"])
+
+    def test_workspace_status_routes_low_quality_memory_candidate_to_review(self):
+        service = build_fake_service()
+        run = service.start("low quality workspace status", {"dataset_ids": ["demo"]})
+        source_ref = SourceRef(adapter="fake", source_id="quality-source")
+        proposal = Proposal(
+            proposal_id="prop_workspace_low_quality_memory",
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent="unsafe memory",
+            title="Memory Patch: unsafe memory",
+            body="remember this",
+            source_refs=[source_ref],
+            memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+        )
+        service.store.save_proposal(proposal)
+        review = service.store.create_review(proposal.proposal_id)
+        service.store.decide_review(review.review_id, "accept", "bypassed quality gate")
+
+        status = build_workspace_status(service=service, gateway=_Gateway())
+        actions = {item["action"]: item for item in status["next_actions"]}
+
+        self.assertEqual(status["status"], "action_required")
+        self.assertEqual(status["reviews"]["accepted_unapplied_count"], 0)
+        self.assertEqual(status["reviews"]["candidate_quality_issue_count"], 1)
+        self.assertEqual(status["reviews"]["candidate_quality"][0]["review_id"], review.review_id)
+        self.assertNotIn("apply_accepted_memory", actions)
+        self.assertEqual(actions["review_memory_candidate_quality"]["params"]["review_id"], review.review_id)
 
     def test_kb_error_is_explicit_next_action(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_Gateway(fail=True))
