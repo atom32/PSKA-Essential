@@ -317,7 +317,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m14_fts_ranking_snippets")
+        self.assertEqual(source_layer["status"], "m15_obsidian_moc_grouping")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -361,7 +361,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m10_jarvis_obsidian_moc_writeback")
+        self.assertEqual(assistant_layer["status"], "m15_obsidian_moc_grouping")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", assistant_layer["mcp_tools"]["implemented"])
@@ -861,6 +861,7 @@ class ProductApiTests(unittest.TestCase):
                     "moc_path": "Maps/PSKA Index",
                     "title": "PSKA Index",
                     "reason": "collect source-route notes",
+                    "group_by": "folder",
                 },
             )
             moc_apply = self._post_json(
@@ -970,6 +971,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(comment_apply["applied"]["proposal"]["status"], "applied")
         self.assertIn("Hermes answers", comment_apply["applied"]["record"]["body"])
         self.assertEqual(moc_proposal["proposal"]["action"], "obsidian_moc")
+        self.assertEqual(moc_proposal["proposal"]["payload"]["group_by"], "folder")
         self.assertEqual(moc_proposal["proposal"]["payload"]["link_count"], 1)
         self.assertTrue(moc_apply["applied"]["data_flow"]["writes_source_files"])
         self.assertEqual(memory_candidates["schema"], "pska.source_memory_candidates_from_audit.v1")
@@ -978,6 +980,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(memory_candidates_again["created_count"], 0)
         self.assertGreaterEqual(memory_candidates_again["skipped_count"], 1)
         self.assertIn("<!-- PSKA:MOC:BEGIN -->", moc_text)
+        self.assertIn("Grouping: folder", moc_text)
         self.assertIn("[[Architecture|Hermes]]", moc_text)
         self.assertEqual(memory_review["proposal"]["kind"], "memory_patch")
         self.assertEqual(memory_review["review"]["status"], "pending")
@@ -2881,6 +2884,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source-comment-status", html)
         self.assertIn("tag_write_target", html)
         self.assertIn("comment_write_target", html)
+        self.assertIn("moc_group_by", html)
         self.assertIn("obsidian_frontmatter", html)
         self.assertIn("obsidian_markdown_comment", html)
         self.assertIn("source-audit-summary", html)
@@ -2946,6 +2950,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("async function applySourceComment", script)
         self.assertIn('form.get("tag_write_target")', script)
         self.assertIn('form.get("comment_write_target")', script)
+        self.assertIn('formData.get("moc_group_by")', script)
         self.assertIn("async function proposeObsidianMoc", script)
         self.assertIn("function selectSourceForAnnotation", script)
         self.assertIn("async function scanSourceRoot", script)

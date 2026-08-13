@@ -20,7 +20,7 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M14 级别的 source-safe baseline：
+当前仓库已经具备 M15 级别的 source-safe baseline：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
 | File governance | 已有 exact hash duplicate report、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
-| Obsidian | 已有 MOC propose/apply，只写 PSKA marker block；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
+| Obsidian | 已有 MOC propose/apply，只写 PSKA marker block，支持 folder/tag/topic/project 分组；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
 | Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view | `workflow.py`、`capabilities.py` |
 | WebUI | 已有 Jarvis Bar、Sources panel、Review、Activity、diagnostics | `src/pska_essential/web/*` |
@@ -683,7 +683,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: Obsidian markdown comment native write proposal/apply through `pska_source_comment_propose/apply`.
 - Done: Source collections for named reusable bundles over explicit SourceRefs or no-embedding search selectors.
 - Done: FTS ranking/snippet improvements with BM25, title/path/heading boost, match reasons, highlighted snippets, and LIKE fallback.
-- MOC grouping：folder/tag/topic/project。
+- Done: MOC grouping：`group_by="folder"|"tag"|"topic"|"project"` generates grouped payloads and previews, while apply still only replaces the PSKA marker block.
 - 评估 Tantivy/Meilisearch adapter，但不替换默认。
 
 验收：

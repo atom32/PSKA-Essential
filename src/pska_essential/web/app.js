@@ -5455,6 +5455,8 @@ async function proposeObsidianMoc(params = {}) {
     showToast("没有可生成 MOC 的 Obsidian 资料源。");
     return;
   }
+  const form = document.getElementById("source-annotation-form");
+  const formData = form ? new FormData(form) : null;
   await api("/api/sources/obsidian/moc/proposals", {
     method: "POST",
     body: {
@@ -5463,6 +5465,7 @@ async function proposeObsidianMoc(params = {}) {
       moc_path: params.moc_path || "PSKA MOC.md",
       title: params.title || "PSKA MOC",
       reason: params.reason || "Obsidian MOC candidate",
+      group_by: params.group_by || (formData && formData.get("moc_group_by")) || "none",
     },
   });
   await loadWorkspaceStatus();

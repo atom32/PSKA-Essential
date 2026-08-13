@@ -479,6 +479,7 @@ class WorkflowService:
         moc_path: str = "PSKA MOC.md",
         title: str = "",
         reason: str = "",
+        group_by: str = "none",
     ) -> dict[str, Any]:
         refs = [ref if isinstance(ref, SourceRef) else SourceRef.from_dict(ref) for ref in source_refs]
         proposal = self._source_registry().propose_obsidian_moc(
@@ -487,6 +488,7 @@ class WorkflowService:
             moc_path=moc_path,
             title=title,
             reason=reason,
+            group_by=group_by,
         )
         self.store.add_audit_event(
             audit_event(
@@ -496,6 +498,7 @@ class WorkflowService:
                 target=proposal["target"],
                 link_count=proposal["payload"].get("link_count") or 0,
                 moc_path=proposal["payload"].get("moc_path") or "",
+                group_by=proposal["payload"].get("group_by") or "none",
                 reason=reason,
                 writes_source_files=False,
             )

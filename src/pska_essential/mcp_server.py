@@ -325,6 +325,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         moc_path: str = "PSKA MOC.md",
         title: str = "",
         reason: str = "",
+        group_by: str = "none",
     ):
         return service.source_obsidian_moc_propose(
             root_id,
@@ -332,6 +333,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             moc_path=moc_path,
             title=title,
             reason=reason,
+            group_by=group_by,
         )
 
     def pska_obsidian_moc_apply(proposal_id: str):

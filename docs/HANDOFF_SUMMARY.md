@@ -82,8 +82,14 @@ Last updated: 2026-07-15
 > BM25/title/path/heading ranking, `match_reason`, `lexical_rank`, `rank_boost`,
 > plain/highlighted snippet metadata, and a LIKE fallback for filename-style
 > route queries. WebUI source result cards expose the match reason and boost.
-> Next useful source-governance steps are richer frontmatter fields, MOC
-> grouping, stronger ranking adapters, and richer duplicate heuristics.
+>
+> Update, 2026-08-13: Obsidian MOC grouping is now implemented as M15.
+> `pska_obsidian_moc_propose` accepts `group_by` values `none`, `folder`, `tag`,
+> `topic`, and `project`; proposals expose grouped link payloads and rendered
+> Markdown previews, while apply still only replaces the PSKA-managed MOC marker
+> block. Product API, MCP, WebUI, capabilities, docs, and tests were updated.
+> Next useful source-governance steps are richer frontmatter fields, stronger
+> ranking adapters, and richer duplicate heuristics.
 
 This document is the handoff point for a fresh Codex conversation.
 

@@ -668,6 +668,66 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertTrue(applied_again["already_applied"])
         self.assertFalse(applied_again["data_flow"]["writes_source_files"])
 
+    def test_obsidian_moc_grouping_by_folder_renders_grouped_block(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            (vault / "Projects").mkdir()
+            (vault / "Research").mkdir()
+            (vault / "Projects" / "Alpha.md").write_text("# Alpha\n\nHermes project note.\n", encoding="utf-8")
+            (vault / "Projects" / "Beta.md").write_text("# Beta\n\nPSKA project note.\n", encoding="utf-8")
+            (vault / "Research" / "Evidence.md").write_text("# Evidence\n\nRAG evidence note.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(vault, kind="auto", permission_mode="native_write")
+            registry.scan(root["root_id"])
+            alpha_ref = registry.search("Hermes project", {"root_ids": [root["root_id"]]})[0].source_ref
+            beta_ref = registry.search("PSKA project", {"root_ids": [root["root_id"]]})[0].source_ref
+            evidence_ref = registry.search("RAG evidence", {"root_ids": [root["root_id"]]})[0].source_ref
+
+            proposal = registry.propose_obsidian_moc(
+                root["root_id"],
+                [alpha_ref, beta_ref, evidence_ref],
+                moc_path="Maps/Grouped",
+                title="Grouped",
+                group_by="folder",
+            )
+            applied = registry.apply_obsidian_moc(proposal["proposal_id"])
+            moc_text = (vault / "Maps" / "Grouped.md").read_text(encoding="utf-8")
+
+        self.assertEqual(proposal["payload"]["group_by"], "folder")
+        self.assertEqual([group["label"] for group in proposal["payload"]["groups"]], ["Projects", "Research"])
+        self.assertEqual(proposal["payload"]["groups"][0]["link_count"], 2)
+        self.assertIn("Grouping: folder", proposal["payload"]["rendered_block"])
+        self.assertIn("### Projects", proposal["payload"]["rendered_block"])
+        self.assertIn("[[Projects/Alpha]]", proposal["payload"]["rendered_block"])
+        self.assertIn("### Research", moc_text)
+        self.assertIn("[[Research/Evidence]]", moc_text)
+        self.assertTrue(applied["record"]["changed"])
+
+    def test_obsidian_moc_grouping_by_metadata_tags(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            (vault / "Alpha.md").write_text("# Alpha\n\nHermes tagged note.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(vault, kind="auto", permission_mode="native_write")
+            registry.scan(root["root_id"])
+            source_ref = registry.search("Hermes tagged", {"root_ids": [root["root_id"]]})[0].source_ref
+            source_ref.metadata["tags"] = "#project/pska topic/rag"
+
+            proposal = registry.propose_obsidian_moc(
+                root["root_id"],
+                [source_ref],
+                group_by="tag",
+            )
+
+        self.assertEqual(proposal["payload"]["group_by"], "tag")
+        self.assertEqual([group["label"] for group in proposal["payload"]["groups"]], ["project/pska", "topic/rag"])
+        self.assertIn("### project/pska", proposal["payload"]["rendered_block"])
+        self.assertIn("### topic/rag", proposal["payload"]["rendered_block"])
+
     def test_obsidian_moc_apply_rejects_read_only_vault(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir) / "Vault"
@@ -708,12 +768,15 @@ class SourceRegistryTests(unittest.TestCase):
                 moc_path="Maps/Main",
                 title="Main MOC",
                 reason="MCP MOC writeback",
+                group_by="folder",
             )
             applied = tools["pska_obsidian_moc_apply"](proposal["proposal_id"])
             moc_text = (vault / "Maps" / "Main.md").read_text(encoding="utf-8")
 
         self.assertEqual(proposal["action"], "obsidian_moc")
+        self.assertEqual(proposal["payload"]["group_by"], "folder")
         self.assertTrue(applied["data_flow"]["writes_source_files"])
+        self.assertIn("Grouping: folder", moc_text)
         self.assertIn("[[Alpha]]", moc_text)
         actions = {event.action for event in service.store.list_audit_events(limit=40)}
         self.assertIn("source.obsidian_moc.propose", actions)

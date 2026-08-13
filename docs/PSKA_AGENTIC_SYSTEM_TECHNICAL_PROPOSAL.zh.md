@@ -490,7 +490,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 ### Phase 2: Source Governance Expansion
 
 - 近似查重 adapter。
-- Richer Obsidian frontmatter fields and MOC grouping.
+- Richer Obsidian frontmatter fields；MOC grouping 已有 first-pass `folder/tag/topic/project`。
 - 更强 source route learning。
 - MarkItDown/Docling/Tika adapter。
 - Saved search/source collections 已有；后续增强 grouping 和可选强搜索 adapter。

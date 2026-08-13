@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M14 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M15 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -61,7 +61,7 @@ propose_tag(target_ref, tag, reason, write_target="sidecar") -> SourceActionProp
 apply_tag(proposal_id) -> SourceActionResult
 propose_comment(target_ref, body, reason, write_target="sidecar") -> SourceActionProposal
 apply_comment(proposal_id) -> SourceActionResult
-propose_obsidian_moc(root_id, source_refs, moc_path, title, reason) -> SourceActionProposal
+propose_obsidian_moc(root_id, source_refs, moc_path, title, reason, group_by="none") -> SourceActionProposal
 apply_obsidian_moc(proposal_id) -> SourceActionResult
 source_memory_review_create(source_refs, text, memory_type, behavior_delta, memory_scope) -> ReviewRecord
 ```
@@ -522,7 +522,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M14 source-management MCP surface:
+The personal source layer has an M1-M15 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
@@ -579,7 +579,9 @@ memory.
 native Obsidian writeback path. They collect explicit source refs into a MOC
 preview, then apply only the PSKA-managed Markdown block after native/managed
 vault permission is present. They do not edit arbitrary note text, write durable
-memory, or require embeddings.
+memory, or require embeddings. MOC proposals support `group_by="none"`,
+`"folder"`, `"tag"`, `"topic"`, or `"project"` and expose both grouped payloads
+and the rendered Markdown preview before apply.
 `pska_source_tag_propose`/`pska_source_tag_apply` also support
 `write_target="obsidian_frontmatter"` for Obsidian Markdown notes. Sidecar
 remains the default tag path.
@@ -599,8 +601,7 @@ Hermes/RAG workflows.
 The remaining personal source-management capabilities are planned vNext surface
 and are not part of the current Alpha MCP registry until implemented: native
 Obsidian richer frontmatter fields, move/delete proposals, background wakeup
-integration, stronger ranking adapters, MOC grouping, and richer duplicate
-heuristics.
+integration, stronger ranking adapters, and richer duplicate heuristics.
 
 `pska_source_read` is the common read tool for both RAGFlow source refs and
 personal source refs.

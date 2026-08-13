@@ -1059,6 +1059,7 @@ def _handler_class(state: ProductApiState):
                     moc_path=str(payload.get("moc_path") or "PSKA MOC.md"),
                     title=str(payload.get("title") or ""),
                     reason=str(payload.get("reason") or ""),
+                    group_by=str(payload.get("group_by") or "none"),
                 )
                 self._send_json({"ok": True, "proposal": proposal}, HTTPStatus.CREATED)
                 return

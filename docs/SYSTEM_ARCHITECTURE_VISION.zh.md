@@ -377,7 +377,7 @@ flowchart TD
 
 ## Current Baseline
 
-截至 2026-08-13，当前可验证的系统状态是 M14 source governance baseline。
+截至 2026-08-13，当前可验证的系统状态是 M15 source governance baseline。
 
 | 能力 | 当前状态 |
 | --- | --- |
@@ -392,7 +392,7 @@ flowchart TD
 | Source Search | 已支持 BM25、title/path/heading boost、match reason、highlighted snippet、LIKE fallback |
 | Source Audit | 已支持 duplicate preview、unresolved links、unlinked notes、source-route candidates |
 | Source Audit Jobs | 已支持 enqueue/list/run、due tick、recurring cadence |
-| Obsidian MOC | 已支持 proposal/apply，只写 PSKA-managed marker block |
+| Obsidian MOC | 已支持 proposal/apply，只写 PSKA-managed marker block，并支持 folder/tag/topic/project 分组 |
 | Obsidian Frontmatter Tags | 已支持显式 `obsidian_frontmatter` tag proposal/apply，只追加去重 `tags` |
 | Obsidian Markdown Comments | 已支持显式 `obsidian_markdown_comment` comment proposal/apply，只追加 PSKA Comment block |
 | Source Collections | 已支持命名集合，保存显式 SourceRef 或无 embedding search selector，并展开为 ContextPacket |
@@ -605,7 +605,7 @@ Jarvis 体验不等于后台偷偷行动。它的第一形态是“把该注意�
 | --- | --- |
 | Approximate duplicate detection | 从 exact hash 扩展到同名、版本号、近似大小、相似文本 |
 | Obsidian native metadata write | frontmatter richer fields |
-| MOC grouping | 按 folder、tag、topic、project 自动分组 MOC |
+| MOC grouping refinements | 已有 folder/tag/topic/project first-pass；后续接 richer metadata 和用户规则 |
 | System wakeup/tick | 到期 source audit/digest job 的系统级触发 |
 | Better agentic scope | Eidolia explicit_inputs / connected_component / workspace 三档 |
 | Memory quality UI | 显示 behavior_delta、scope、evidence、last used、conflict status |

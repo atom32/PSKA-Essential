@@ -433,6 +433,10 @@ class McpContractTests(unittest.TestCase):
         )
         self.assertTrue(policy["pska_obsidian_moc_apply"]["writes_source_files"])
         self.assertTrue(policy["pska_obsidian_moc_apply"]["requires_native_permission"])
+        self.assertEqual(
+            policy["pska_obsidian_moc_propose"]["supports_group_by"],
+            ["none", "folder", "tag", "topic", "project"],
+        )
         self.assertEqual(policy["pska_kb_ingest_files"]["access"], "write")
         proposal = tools["pska_propose"](run["run_id"], "memory_patch", "mcp memory")
         artifact = tools["pska_workflow_artifact"](run["run_id"])

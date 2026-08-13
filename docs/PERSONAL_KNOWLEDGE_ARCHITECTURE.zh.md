@@ -710,12 +710,13 @@ Hermes 的默认行为：
   `native_write` 或 `managed` 时写回。
 - Done: apply 只创建或替换目标 note 中 `<!-- PSKA:MOC:BEGIN -->` 到
   `<!-- PSKA:MOC:END -->` 的 PSKA-managed block，保留其他用户内容。
+- Done: MOC proposal 支持 `group_by="none"|"folder"|"tag"|"topic"|"project"`，
+  payload 暴露 `groups`，rendered preview 会按分组输出 Markdown。
 - Done: Product API 暴露 `/api/sources/obsidian/moc/proposals` 和
   `/api/sources/obsidian/moc/{proposal_id}/apply`。
 - Done: source audit 对 native/managed Obsidian vault 的 unlinked notes 会给出
   `propose_obsidian_moc` next action。
-- Pending: 更丰富的 MOC 分组、系统级
-  wakeup、近似查重。
+- Pending: richer frontmatter fields、系统级 wakeup、近似查重。
 
 ## Non-Goals
 

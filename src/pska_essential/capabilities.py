@@ -232,6 +232,7 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "writes_source_files": False,
         "requires_apply": True,
         "requires_obsidian_vault": True,
+        "supports_group_by": ["none", "folder", "tag", "topic", "project"],
     },
     "pska_obsidian_moc_apply": {
         "category": "source",
@@ -674,7 +675,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m14_fts_ranking_snippets",
+        "status": "m15_obsidian_moc_grouping",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -755,7 +756,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m10_jarvis_obsidian_moc_writeback",
+        "status": "m15_obsidian_moc_grouping",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {

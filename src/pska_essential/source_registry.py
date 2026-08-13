@@ -29,6 +29,7 @@ SIDECAR_WRITE_TARGET = "sidecar"
 OBSIDIAN_FRONTMATTER_WRITE_TARGET = "obsidian_frontmatter"
 OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET = "obsidian_markdown_comment"
 OBSIDIAN_MOC_WRITE_TARGET = "obsidian_moc"
+MOC_GROUP_BY_MODES = {"none", "folder", "tag", "topic", "project"}
 PSKA_COMMENT_END = "<!-- PSKA:COMMENT:END -->"
 PSKA_MOC_BEGIN = "<!-- PSKA:MOC:BEGIN -->"
 PSKA_MOC_END = "<!-- PSKA:MOC:END -->"
@@ -901,20 +902,23 @@ class SQLiteSourceRegistry:
         moc_path: str = "PSKA MOC.md",
         title: str = "",
         reason: str = "",
+        group_by: str = "none",
     ) -> dict[str, Any]:
         root = self.get_root(root_id)
         if root["kind"] != "obsidian_vault":
             raise SourceRegistryError("Obsidian MOC proposals require an obsidian_vault source root")
         normalized_path = _normalize_moc_path(moc_path)
         normalized_title = title.strip() or Path(normalized_path).stem
+        normalized_group_by = _normalize_moc_group_by(group_by)
         selected_targets = self._moc_targets(root, source_refs)
         if not selected_targets:
             raise SourceRegistryError("Obsidian MOC proposal requires at least one source ref from the selected vault")
         proposal_id = _stable_id(
             "src_prop",
-            f"obsidian_moc:{root_id}:{normalized_path}:{utc_now_iso()}",
+            f"obsidian_moc:{root_id}:{normalized_path}:{normalized_group_by}:{utc_now_iso()}",
         )
-        rendered_block = _render_moc_block(normalized_title, selected_targets)
+        groups = _moc_groups(selected_targets, normalized_group_by)
+        rendered_block = _render_moc_block(normalized_title, selected_targets, group_by=normalized_group_by, groups=groups)
         object_id = _stable_id("obj", f"{root_id}:{normalized_path}")
         target_ref = SourceRef(
             adapter=root["kind"],
@@ -951,6 +955,7 @@ class SQLiteSourceRegistry:
             "schema": "pska.obsidian_moc_proposal.v1",
             "moc_path": normalized_path,
             "title": normalized_title,
+            "group_by": normalized_group_by,
             "source_refs": [to_jsonable(item["source_ref"]) for item in selected_targets],
             "links": [
                 {
@@ -960,6 +965,7 @@ class SQLiteSourceRegistry:
                 }
                 for item in selected_targets
             ],
+            "groups": groups,
             "rendered_block": rendered_block,
             "link_count": len(selected_targets),
             "mode": "replace_pska_block_or_append",
@@ -1767,11 +1773,15 @@ class SQLiteSourceRegistry:
                 continue
             seen.add(path)
             title = str(target.get("title") or Path(path).stem)
+            tags = _unique_sorted(_moc_tags_from_metadata(source_ref.metadata) + self._moc_tags_for_target(target))
+            projects = _unique_sorted(_moc_projects_from_metadata(source_ref.metadata, path=path, tags=tags))
             targets.append(
                 {
                     "path": path,
                     "title": title,
                     "link": _obsidian_wikilink(path, title),
+                    "tags": tags,
+                    "projects": projects,
                     "source_ref": SourceRef(
                         adapter=target["root_kind"],
                         document_id=target["object_id"],
@@ -1788,11 +1798,28 @@ class SQLiteSourceRegistry:
                             "object_id": target["object_id"],
                             "section_id": target["section_id"],
                             "path": path,
+                            "tags": tags,
+                            "projects": projects,
                         },
                     ),
                 }
             )
         return targets
+
+    def _moc_tags_for_target(self, target: dict[str, Any]) -> list[str]:
+        with self.lock:
+            rows = self.conn.execute(
+                """
+                SELECT DISTINCT name
+                FROM source_tags
+                WHERE root_id = ?
+                  AND object_id = ?
+                  AND status = 'active'
+                ORDER BY name COLLATE NOCASE
+                """,
+                (target["root_id"], target["object_id"]),
+            ).fetchall()
+        return [str(row["name"]).strip() for row in rows if str(row["name"] or "").strip()]
 
     def _append_sidecar_annotation(
         self,
@@ -3102,6 +3129,15 @@ def _normalize_moc_path(path: str) -> str:
     return candidate.as_posix()
 
 
+def _normalize_moc_group_by(group_by: str) -> str:
+    value = str(group_by or "none").strip().lower()
+    if value in {"", "flat", "link", "links"}:
+        return "none"
+    if value in MOC_GROUP_BY_MODES:
+        return value
+    raise SourceRegistryError("Obsidian MOC group_by must be one of none, folder, tag, topic, or project")
+
+
 def _normalize_tag_write_target(write_target: str) -> str:
     value = str(write_target or SIDECAR_WRITE_TARGET).strip().lower()
     if value in {"", SIDECAR_WRITE_TARGET}:
@@ -3193,7 +3229,136 @@ def _row_value(row: sqlite3.Row, key: str) -> Any:
     return row[key] if key in row.keys() else None
 
 
-def _render_moc_block(title: str, targets: list[dict[str, Any]]) -> str:
+def _moc_groups(targets: list[dict[str, Any]], group_by: str) -> list[dict[str, Any]]:
+    normalized = _normalize_moc_group_by(group_by)
+    if normalized == "none":
+        return [
+            {
+                "label": "All Sources",
+                "key": "all_sources",
+                "link_count": len(targets),
+                "links": [
+                    {"path": target["path"], "title": target["title"], "link": target["link"]}
+                    for target in targets
+                ],
+            }
+        ]
+    grouped: dict[str, dict[str, Any]] = {}
+    for target in targets:
+        for label in _moc_group_labels(target, normalized):
+            key = _moc_group_key(label)
+            group = grouped.setdefault(key, {"label": label, "key": key, "links": []})
+            if not any(item["path"] == target["path"] for item in group["links"]):
+                group["links"].append({"path": target["path"], "title": target["title"], "link": target["link"]})
+    groups = sorted(grouped.values(), key=lambda item: str(item["label"]).lower())
+    for group in groups:
+        group["links"].sort(key=lambda item: (str(item["path"]).lower(), str(item["title"]).lower()))
+        group["link_count"] = len(group["links"])
+    return groups
+
+
+def _moc_group_labels(target: dict[str, Any], group_by: str) -> list[str]:
+    path = str(target.get("path") or "")
+    if group_by == "folder":
+        parent = Path(path).parent.as_posix()
+        return [parent if parent not in {"", "."} else "Root"]
+    if group_by == "tag":
+        tags = [str(item).strip() for item in target.get("tags") or [] if str(item).strip()]
+        return tags or ["Untagged"]
+    if group_by == "project":
+        projects = [str(item).strip() for item in target.get("projects") or [] if str(item).strip()]
+        if projects:
+            return projects
+        parts = [part for part in Path(path).parts if part and part != "."]
+        return [parts[0]] if len(parts) > 1 else ["General"]
+    if group_by == "topic":
+        return [_moc_topic_label(target)]
+    return ["All Sources"]
+
+
+def _moc_group_key(label: str) -> str:
+    key = re.sub(r"[^a-z0-9/_-]+", "-", label.strip().lower()).strip("-")
+    return key or "untitled"
+
+
+def _moc_topic_label(target: dict[str, Any]) -> str:
+    tags = [str(item).strip() for item in target.get("tags") or [] if str(item).strip()]
+    for tag in tags:
+        if tag.lower().startswith("topic/"):
+            value = tag.split("/", 1)[1].strip()
+            if value:
+                return value
+    title = str(target.get("title") or Path(str(target.get("path") or "")).stem)
+    cleaned = re.sub(r"[_-]+", " ", title).strip()
+    for separator in (":", "-", "|", " - "):
+        if separator in cleaned:
+            cleaned = cleaned.split(separator, 1)[0].strip()
+            break
+    return cleaned or "General"
+
+
+def _moc_tags_from_metadata(metadata: dict[str, Any] | None) -> list[str]:
+    if not isinstance(metadata, dict):
+        return []
+    values: list[str] = []
+    for key in ("tags", "tag", "source_tags", "frontmatter_tags"):
+        value = metadata.get(key)
+        if isinstance(value, list | tuple | set):
+            values.extend(str(item).strip().lstrip("#") for item in value if str(item).strip())
+        elif isinstance(value, str):
+            text = value.strip()
+            if text.startswith("[") and text.endswith("]"):
+                text = text[1:-1]
+            values.extend(item.strip().strip("\"'").lstrip("#") for item in re.split(r"[,\s]+", text) if item.strip())
+    return _unique_sorted(values)
+
+
+def _moc_projects_from_metadata(metadata: dict[str, Any] | None, *, path: str, tags: list[str]) -> list[str]:
+    values: list[str] = []
+    if isinstance(metadata, dict):
+        for key in ("project", "project_id", "projects"):
+            value = metadata.get(key)
+            if isinstance(value, list | tuple | set):
+                values.extend(str(item).strip() for item in value if str(item).strip())
+            elif isinstance(value, str) and value.strip():
+                values.append(value.strip())
+    for tag in tags:
+        lowered = tag.lower()
+        if lowered.startswith("project/") or lowered.startswith("projects/"):
+            value = tag.split("/", 1)[1].strip()
+            if value:
+                values.append(value)
+    if values:
+        return _unique_sorted(values)
+    parts = [part for part in Path(path).parts if part and part != "."]
+    return [parts[0]] if len(parts) > 1 else []
+
+
+def _unique_sorted(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        item = str(value).strip()
+        if not item:
+            continue
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(item)
+    output.sort(key=str.lower)
+    return output
+
+
+def _render_moc_block(
+    title: str,
+    targets: list[dict[str, Any]],
+    *,
+    group_by: str = "none",
+    groups: list[dict[str, Any]] | None = None,
+) -> str:
+    normalized_group_by = _normalize_moc_group_by(group_by)
+    moc_groups = groups if groups is not None else _moc_groups(targets, normalized_group_by)
     lines = [
         PSKA_MOC_BEGIN,
         "## PSKA Source Index",
@@ -3201,8 +3366,18 @@ def _render_moc_block(title: str, targets: list[dict[str, Any]]) -> str:
         f"Updated: {utc_now_iso()}",
         "",
     ]
-    for target in targets:
-        lines.append(f"- {target['link']}")
+    if normalized_group_by == "none":
+        for target in targets:
+            lines.append(f"- {target['link']}")
+    else:
+        lines.extend([f"Grouping: {normalized_group_by}", ""])
+        for group in moc_groups:
+            lines.append(f"### {group['label']}")
+            for link in group.get("links") or []:
+                lines.append(f"- {link['link']}")
+            lines.append("")
+        while lines and lines[-1] == "":
+            lines.pop()
     lines.extend(["", PSKA_MOC_END])
     return "\n".join(lines)
 

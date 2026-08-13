@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M14 baseline into
+  engineering plan for upgrading the current PSKA-Essential M15 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -481,7 +481,7 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
-The personal source tools provide the M1-M14 no-embedding local source loop:
+The personal source tools provide the M1-M15 no-embedding local source loop:
 register a user-authorized local folder or Obsidian vault, scan rebuildable
 metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
 `.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
@@ -665,6 +665,10 @@ use a weighted BM25/title/path/heading ranking envelope, return plain and
 highlighted snippets, expose `match_reason`, `lexical_rank`, and `rank_boost`
 metadata, and fall back to path/title/body LIKE matches when the strict FTS
 query misses filename-style routes.
+M15 extends governed Obsidian MOC proposal/apply with `group_by` support for
+`none`, `folder`, `tag`, `topic`, and `project`. Proposals include grouped link
+payloads and rendered Markdown previews; apply still edits only the PSKA-managed
+MOC marker block in the target note.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
@@ -672,8 +676,8 @@ SQLite FTS5 with ranking/snippet cues, save reusable searches and source collect
 sections for tag/comment proposals, apply sidecar annotations when permitted, explicitly
 apply Obsidian frontmatter tags and PSKA Comment blocks when native write is
 authorized, and promote source-route candidates into Review without hidden memory
-writes. Obsidian MOC actions from source audits create a governed MOC proposal
-before any native vault write is applied.
+writes. Obsidian MOC actions from source audits create a governed, optionally
+grouped MOC proposal before any native vault write is applied.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_change_from_conversation` is the daily Hermes path for user-driven
 memory add, correction, clarification, or deletion. It still creates proposal,
