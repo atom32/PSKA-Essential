@@ -44,8 +44,10 @@ candidate memory, review, and durable export.
   a review-gated update/delete flow.
 - Use `pska_memory_candidate_dedup` when the user asks to clean up candidate
   reviews or avoid duplicate memories. Treat it as an embedding-free review hint
-  based on lexical fingerprints and SourceRefs; do not merge, reject, revise,
-  approve, or apply memory from this result alone.
+  based on lexical fingerprints and SourceRefs. Its `related_groups` may flag
+  cross-scope scope collisions, such as a preference appearing as both global
+  and project memory. Do not merge, reject, revise, approve, or apply memory
+  from this result alone.
 - Use `pska_memory_use_trace` and `pska_memory_why_used` when the user asks why a
   durable memory appeared, whether a memory has been used recently, or which
   query/tool surfaced it. Treat the result as audit-backed candidate retrieval

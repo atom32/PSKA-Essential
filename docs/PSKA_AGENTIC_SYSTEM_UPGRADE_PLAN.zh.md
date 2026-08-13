@@ -279,7 +279,9 @@ embedding。P2 的第九块已落地为 embedding-free candidate dedup：
 里的 durable memory candidates 做重复候选提示。它使用 normalized text、token
 overlap、SourceRef fingerprint、behavior_delta fingerprint 聚类，并将
 `duplicate_candidates` 接入 Memory Review Queue；它不合并、不拒绝、不审批、不 apply、
-不写 durable memory。P2 的第十块已落地为 conversation -> Memory Card candidate：
+不写 durable memory。P2 的第九块后续已扩展 `related_groups`，用于提示跨
+`memory_scope` 的相关候选/作用域冲突，例如同一偏好同时被提成 global 与 project memory；
+Memory Review Queue 对应新增 `related_candidates` group。P2 的第十块已落地为 conversation -> Memory Card candidate：
 `POST /api/memory/conversation-candidates` 与
 `pska_conversation_memory_candidates_create` 接收 Hermes 从对话中提炼出的结构化候选，
 要求 `text`、`memory_type`、`memory_scope`、`behavior_delta` 和消息证据，创建
@@ -727,6 +729,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add derived Memory Timeline / Ledger view over Card, lifecycle, trace, and SourceRef.
 - [x] Add conversation-derived Memory Card candidate creation without direct memory writes.
 - [x] Surface conversation-derived Memory Card candidates in Memory Review Queue and Jarvis briefing.
+- [x] Add cross-scope related candidate hints to candidate dedup and Memory Review Queue.
 
 ### P3 Backlog
 

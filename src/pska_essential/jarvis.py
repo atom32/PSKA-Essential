@@ -326,6 +326,26 @@ def _briefing_priorities(
                     ),
                 )
             )
+        elif queue_summary.get("related_candidate_group_count"):
+            priorities.append(
+                _priority(
+                    "info",
+                    "memory",
+                    "inspect_related_memory_candidates",
+                    "Related memory candidates may need scope review.",
+                    f"{queue_summary.get('related_candidate_group_count')} related candidate group(s) may overlap across scopes.",
+                    next_action=_queue_next_action(
+                        memory_review_queue,
+                        "inspect_related_memory_candidates",
+                        fallback={
+                            "action": "inspect_memory_review_queue",
+                            "tool": "pska_memory_review_queue",
+                            "api": "GET /api/memory/review-queue",
+                            "view": "review",
+                        },
+                    ),
+                )
+            )
         elif queue_summary.get("item_count"):
             priorities.append(
                 _priority(
@@ -532,6 +552,7 @@ def _briefing_summary(
         "memory_review_queue_group_count": queue_summary.get("group_count", 0),
         "memory_review_queue_item_count": queue_summary.get("item_count", 0),
         "conversation_memory_candidate_count": queue_summary.get("conversation_candidate_count", 0),
+        "related_memory_candidate_group_count": queue_summary.get("related_candidate_group_count", 0),
         "priority_count": len(priorities),
         "next_action_count": len(next_actions),
     }

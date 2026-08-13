@@ -535,7 +535,10 @@ memory directly. P2-8 adds `pska_memory_candidate_dedup` and
 over Review records. It groups possible duplicate durable memory candidates
 with normalized text, lexical token overlap, SourceRef fingerprints, and
 behavior-delta fingerprints; it only produces review hints and never merges,
-rejects, approves, applies, or writes memory. M6 adds
+rejects, approves, applies, or writes memory. It also surfaces `related_groups`
+for cross-scope scope collisions, such as the same preference appearing as both
+global and project memory, so reviewers can choose whether to merge, narrow,
+widen, or reject candidates through the normal Review flow. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

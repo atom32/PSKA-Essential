@@ -378,10 +378,14 @@ class ProductApiTests(unittest.TestCase):
         review_queue_view = capabilities["capabilities"]["memory"]["review_queue_view"]
         self.assertEqual(review_queue_view["schema"], "pska.memory_review_queue_view.v1")
         self.assertIn("conversation_candidates", review_queue_view["groups"])
+        self.assertIn("related_candidates", review_queue_view["groups"])
         self.assertIn("review_conversation_memory_candidate", review_queue_view["next_actions"])
+        self.assertIn("inspect_related_memory_candidates", review_queue_view["next_actions"])
         dedup_view = capabilities["capabilities"]["memory"]["candidate_dedup_view"]
         self.assertEqual(dedup_view["schema"], "pska.memory_candidate_dedup_view.v1")
         self.assertEqual(dedup_view["mcp_tool"], "pska_memory_candidate_dedup")
+        self.assertEqual(dedup_view["related_group_schema"], "pska.memory_candidate_related_group.v1")
+        self.assertIn("related_threshold", dedup_view["inputs"])
         self.assertFalse(dedup_view["embedding_required"])
         attribution_view = capabilities["capabilities"]["memory"]["attribution_view"]
         self.assertEqual(attribution_view["schema"], "pska.memory_attribution_view.v1")
@@ -1366,6 +1370,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(dedup["ok"])
         self.assertEqual(dedup["schema"], "pska.memory_candidate_dedup.v1")
         self.assertEqual(dedup["summary"]["group_count"], 1)
+        self.assertIn("related_groups", dedup)
         self.assertEqual(
             {item["review_id"] for item in dedup["groups"][0]["items"]},
             {first["review"]["review_id"], second["review"]["review_id"]},
@@ -1374,6 +1379,40 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("duplicate_candidates", groups)
         self.assertEqual(queue["summary"]["duplicate_candidate_group_count"], 1)
         self.assertEqual(groups["duplicate_candidates"]["items"][0]["item_type"], "memory_candidate_duplicate_group")
+
+    def test_memory_candidate_dedup_route_surfaces_cross_scope_related_candidates(self):
+        first = self.service.source_memory_review_create(
+            [SourceRef(adapter="conversation", source_id="msg-global", title="Conversation")],
+            text="The user prefers concise memory review summaries.",
+            memory_type="preference",
+            behavior_delta="Keep memory review summaries concise.",
+            memory_scope="global",
+            reason="global preference candidate",
+        )
+        second = self.service.source_memory_review_create(
+            [SourceRef(adapter="conversation", source_id="msg-project", title="Conversation")],
+            text="For PSKA, the user prefers concise memory review summaries.",
+            memory_type="preference",
+            behavior_delta="Keep PSKA memory review summaries concise.",
+            memory_scope="project",
+            reason="project preference candidate",
+        )
+
+        dedup = self._get_json("/api/memory/candidate-dedup?review_limit=20&related_threshold=0.7")
+        queue = self._get_json("/api/memory/review-queue?review_limit=20&health_limit=10&focus_limit=10")
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(dedup["summary"]["group_count"], 0)
+        self.assertEqual(dedup["summary"]["related_group_count"], 1)
+        self.assertEqual(dedup["summary"]["scope_collision_group_count"], 1)
+        self.assertEqual(dedup["related_groups"][0]["memory_scopes"], ["global", "project"])
+        self.assertEqual(
+            {item["review_id"] for item in dedup["related_groups"][0]["items"]},
+            {first["review"]["review_id"], second["review"]["review_id"]},
+        )
+        self.assertEqual(queue["summary"]["related_candidate_group_count"], 1)
+        self.assertIn("related_candidates", groups)
+        self.assertEqual(groups["related_candidates"]["items"][0]["item_type"], "memory_candidate_related_group")
 
     def test_eidolia_context_and_memory_review_routes_create_sourced_candidate(self):
         context = self._post_json(

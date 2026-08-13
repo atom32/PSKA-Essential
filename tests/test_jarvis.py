@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from pska_essential.contracts import SourceRef
 from pska_essential.jarvis import build_jarvis_briefing
 from pska_essential.workflow import build_fake_service
 
@@ -128,6 +129,37 @@ class JarvisBriefingTests(unittest.TestCase):
             actions["review_conversation_memory_candidate"]["params"]["review_id"],
             created["created"][0]["review_id"],
         )
+
+    def test_briefing_surfaces_related_memory_candidate_groups(self):
+        service = build_fake_service()
+        service.source_memory_review_create(
+            [SourceRef(adapter="conversation", source_id="msg-global", title="Conversation")],
+            text="The user prefers concise memory review summaries.",
+            memory_type="preference",
+            memory_scope="global",
+            behavior_delta="Keep memory review summaries concise.",
+            reason="global preference candidate",
+        )
+        service.source_memory_review_create(
+            [SourceRef(adapter="conversation", source_id="msg-project", title="Conversation")],
+            text="For PSKA, the user prefers concise memory review summaries.",
+            memory_type="preference",
+            memory_scope="project",
+            behavior_delta="Keep PSKA memory review summaries concise.",
+            reason="project preference candidate",
+        )
+
+        briefing = build_jarvis_briefing(service=service, gateway=_Gateway())
+        priority_codes = {item["code"] for item in briefing["priorities"]}
+        actions = {item["action"]: item for item in briefing["next_actions"]}
+
+        self.assertIn("inspect_related_memory_candidates", priority_codes)
+        self.assertEqual(briefing["summary"]["related_memory_candidate_group_count"], 1)
+        self.assertEqual(
+            briefing["memory_layer"]["review_queue"]["summary"]["related_candidate_group_count"],
+            1,
+        )
+        self.assertEqual(actions["inspect_related_memory_candidates"]["tool"], "pska_memory_candidate_dedup")
 
 
 if __name__ == "__main__":

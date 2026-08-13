@@ -1203,6 +1203,7 @@ def _handler_class(state: ProductApiState):
                     scope=_query_scope(query),
                     review_limit=_int_param(query.get("review_limit"), 100),
                     similarity_threshold=float(query.get("similarity_threshold") or 0.82),
+                    related_threshold=float(query.get("related_threshold") or 0.72),
                 )
                 self._send_json({"ok": True, **result})
                 return

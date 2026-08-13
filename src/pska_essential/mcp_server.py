@@ -473,12 +473,14 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         scope: dict[str, Any] | None = None,
         review_limit: int = 100,
         similarity_threshold: float = 0.82,
+        related_threshold: float = 0.72,
     ):
         return build_memory_candidate_dedup(
             service,
             scope=scope or {},
             review_limit=review_limit,
             similarity_threshold=similarity_threshold,
+            related_threshold=related_threshold,
         )
 
     def pska_memory_use_trace(

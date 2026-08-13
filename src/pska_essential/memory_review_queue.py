@@ -15,6 +15,7 @@ GROUP_DEFINITIONS = (
     ("accepted_unapplied", "Accepted Memory Waiting To Apply", "accepted memory reviews can be applied"),
     ("conversation_candidates", "Conversation Memory Candidates", "conversation-derived memory candidates need review"),
     ("duplicate_candidates", "Possible Duplicate Memory Candidates", "candidate reviews may describe the same durable memory"),
+    ("related_candidates", "Related Memory Candidates", "candidate reviews may need scope or consolidation review"),
     ("pending_reviews", "Pending Durable Knowledge Reviews", "pending review decisions need user attention"),
     ("needs_edit", "Reviews Needing Revision", "reviews were marked needs_edit and require revision"),
     ("memory_health", "Memory Health Issues", "Memory Cards need quality/stale/conflict inspection"),
@@ -81,6 +82,7 @@ def build_memory_review_queue(
                 accepted_unapplied_count=summary["accepted_unapplied_count"],
                 conversation_candidate_count=summary["conversation_candidate_count"],
                 duplicate_candidate_group_count=summary["duplicate_candidate_group_count"],
+                related_candidate_group_count=summary["related_candidate_group_count"],
                 pending_review_count=summary["pending_review_count"],
                 memory_health_count=summary["memory_health_count"],
                 writes_memory_directly=False,
@@ -110,6 +112,7 @@ def _groups(
         _review_group("accepted_unapplied", accepted_unapplied, "high"),
         _conversation_candidate_group(conversation_candidates),
         _candidate_duplicate_group(candidate_dedup.get("groups") or []),
+        _candidate_related_group(candidate_dedup.get("related_groups") or []),
         _review_group("pending_reviews", pending, "medium"),
         _review_group("needs_edit", needs_edit, "medium"),
         _health_group(health_issues),
@@ -230,6 +233,32 @@ def _candidate_duplicate_group(groups: list[dict[str, Any]]) -> dict[str, Any]:
     )
 
 
+def _candidate_related_group(groups: list[dict[str, Any]]) -> dict[str, Any]:
+    return _group(
+        "related_candidates",
+        "medium",
+        [
+            {
+                "item_type": "memory_candidate_related_group",
+                "group_id": str(group.get("group_id") or ""),
+                "title": f"{group.get('count') or 0} related memory candidate(s)",
+                "reason": ", ".join(group.get("match_types") or []) or "related candidate reviews",
+                "score": float(group.get("score") or 0.0),
+                "memory_type": str(group.get("memory_type") or ""),
+                "memory_scopes": group.get("memory_scopes") or [],
+                "review_ids": [
+                    str(item.get("review_id") or "")
+                    for item in group.get("items") or []
+                    if str(item.get("review_id") or "")
+                ],
+                "source_paths": group.get("shared_paths") or [],
+                "next_actions": group.get("next_actions") or _related_group_actions(group),
+            }
+            for group in groups
+        ],
+    )
+
+
 def _duplicate_group_actions(group: dict[str, Any]) -> list[dict[str, Any]]:
     first = ((group.get("items") or [{}])[0]) or {}
     review_id = str(first.get("review_id") or "")
@@ -237,6 +266,21 @@ def _duplicate_group_actions(group: dict[str, Any]) -> list[dict[str, Any]]:
         {
             "action": "inspect_duplicate_memory_candidates",
             "label": "Inspect duplicate memory candidates",
+            "tool": "pska_memory_candidate_dedup",
+            "api": "GET /api/memory/candidate-dedup",
+            "view": "review",
+            "params": {"review_id": review_id} if review_id else {},
+        }
+    ]
+
+
+def _related_group_actions(group: dict[str, Any]) -> list[dict[str, Any]]:
+    first = ((group.get("items") or [{}])[0]) or {}
+    review_id = str(first.get("review_id") or "")
+    return [
+        {
+            "action": "inspect_related_memory_candidates",
+            "label": "Inspect related memory candidates",
             "tool": "pska_memory_candidate_dedup",
             "api": "GET /api/memory/candidate-dedup",
             "view": "review",
@@ -273,6 +317,7 @@ def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
         "accepted_unapplied_count": counts.get("accepted_unapplied", 0),
         "conversation_candidate_count": counts.get("conversation_candidates", 0),
         "duplicate_candidate_group_count": counts.get("duplicate_candidates", 0),
+        "related_candidate_group_count": counts.get("related_candidates", 0),
         "pending_review_count": counts.get("pending_reviews", 0),
         "needs_edit_count": counts.get("needs_edit", 0),
         "memory_health_count": counts.get("memory_health", 0),
@@ -286,6 +331,7 @@ def _status(summary: dict[str, Any]) -> str:
     if (
         summary["conversation_candidate_count"]
         or summary["duplicate_candidate_group_count"]
+        or summary["related_candidate_group_count"]
         or summary["pending_review_count"]
         or summary["needs_edit_count"]
         or summary["memory_health_count"]
@@ -327,6 +373,8 @@ def _next_actions(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 }
             )
         elif group["code"] == "duplicate_candidates":
+            actions.extend(first.get("next_actions") or [])
+        elif group["code"] == "related_candidates":
             actions.extend(first.get("next_actions") or [])
         elif group["code"] == "memory_health":
             actions.append(

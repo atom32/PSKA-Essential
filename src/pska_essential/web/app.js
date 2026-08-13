@@ -2417,7 +2417,7 @@ function renderMemoryReviewQueue(payload = null) {
   }
   const data = queue.summary || {};
   summary.className = queue.status === "ready" ? "job-status ready" : "job-status pending";
-  summary.textContent = `${data.group_count || 0} 组 / ${data.item_count || 0} 项 / accepted ${data.accepted_unapplied_count || 0} / 对话候选 ${data.conversation_candidate_count || 0} / pending ${data.pending_review_count || 0}`;
+  summary.textContent = `${data.group_count || 0} 组 / ${data.item_count || 0} 项 / accepted ${data.accepted_unapplied_count || 0} / 对话候选 ${data.conversation_candidate_count || 0} / 相关候选 ${data.related_candidate_group_count || 0} / pending ${data.pending_review_count || 0}`;
   renderList(list, queue.groups || [], t("empty.noMemoryReviewQueue"), memoryReviewQueueGroupCard);
 }
 

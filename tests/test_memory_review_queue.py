@@ -105,6 +105,36 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(queue["next_actions"][0]["action"], "review_conversation_memory_candidate")
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_review_get")
 
+    def test_queue_surfaces_related_scope_candidate_groups(self):
+        service = build_fake_service()
+        service.source_memory_review_create(
+            [SourceRef(adapter="conversation", source_id="msg-global", title="Conversation")],
+            text="The user prefers concise memory review summaries.",
+            memory_type="preference",
+            behavior_delta="Keep memory review summaries concise.",
+            memory_scope="global",
+            reason="global preference candidate",
+        )
+        service.source_memory_review_create(
+            [SourceRef(adapter="conversation", source_id="msg-project", title="Conversation")],
+            text="For PSKA, the user prefers concise memory review summaries.",
+            memory_type="preference",
+            behavior_delta="Keep PSKA memory review summaries concise.",
+            memory_scope="project",
+            reason="project preference candidate",
+        )
+
+        queue = build_memory_review_queue(service, audit=False)
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(queue["summary"]["related_candidate_group_count"], 1)
+        self.assertIn("related_candidates", groups)
+        item = groups["related_candidates"]["items"][0]
+        self.assertEqual(item["item_type"], "memory_candidate_related_group")
+        self.assertEqual(item["memory_type"], "preference")
+        self.assertEqual(item["memory_scopes"], ["global", "project"])
+        self.assertEqual(item["next_actions"][0]["action"], "inspect_related_memory_candidates")
+
     def test_queue_writes_audit(self):
         service = build_fake_service()
 

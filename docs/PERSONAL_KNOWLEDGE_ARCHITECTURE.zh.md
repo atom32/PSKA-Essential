@@ -596,6 +596,8 @@ Hermes 的默认行为：
   `GET /api/memory/candidate-dedup`；它对 Review 里的 durable memory candidates
   做无 embedding 去重提示，使用 normalized text、token overlap、SourceRef fingerprint
   和 behavior_delta fingerprint 分组，并将 duplicate candidates 接入 Memory Review Queue。
+- Done: candidate dedup 进一步输出 `related_groups`，用于提示跨 `memory_scope` 的相关候选或
+  scope collision；Memory Review Queue 对应暴露 `related_candidates` group。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
 - Done: `pska_source_memory_candidates_from_audit` 与
@@ -606,8 +608,11 @@ Hermes 的默认行为：
 - Done: Eidolia thought/artifact 可通过 `pska_eidolia_context_read` 规范成
   `SourceRef(adapter="eidolia")`，并通过 `pska_eidolia_memory_review_create`
   创建 governed Memory Card candidate。
-- Pending: 更高级的跨项目语义聚类、从 conversation 自动生成候选、Eidolia project
-  files/trace import。
+- Done: `pska_conversation_memory_candidates_create` 可从 Hermes 提炼的对话候选创建 pending
+  Review，并在 Memory Review Queue / Jarvis briefing 中单独暴露 conversation candidates。
+- Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
+  PSKA SourceRef/audit trace。
+- Pending: 更高级的跨项目语义聚类、conversation candidate UI/review ergonomics。
 
 ### M6: Agentic Routines
 
