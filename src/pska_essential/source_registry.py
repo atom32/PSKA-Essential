@@ -12,7 +12,12 @@ from typing import Any
 from urllib.parse import unquote
 
 from pska_essential.contracts import ContextPacket, SourceContext, SourceRef, to_jsonable, utc_now_iso
-from pska_essential.dedup import DedupError, czkawka_duplicate_report, fclones_duplicate_report
+from pska_essential.dedup import (
+    DedupError,
+    czkawka_duplicate_report,
+    fclones_duplicate_report,
+    image_phash_duplicate_report,
+)
 from pska_essential.extraction import (
     TEXT_EXTENSIONS,
     ExtractionError,
@@ -390,9 +395,11 @@ class SQLiteSourceRegistry:
             return self._text_similarity_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode == "media_metadata":
             return self._media_metadata_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
+        if mode == "image_phash":
+            return self._image_phash_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode != "exact_hash":
             raise SourceRegistryError(
-                "duplicate report mode must be exact_hash, size_name_version, text_similarity, media_metadata, fclones_hash, or czkawka_hash"
+                "duplicate report mode must be exact_hash, size_name_version, text_similarity, media_metadata, image_phash, fclones_hash, or czkawka_hash"
             )
         where = ["o.status = 'active'", "o.content_hash != ''"]
         params: list[Any] = []
@@ -502,6 +509,7 @@ class SQLiteSourceRegistry:
                 "writes_source_files": False,
                 "writes_index": True,
                 "delete_move_merge_supported": False,
+                "embedding_required": False,
             },
         }
 
@@ -2299,6 +2307,25 @@ class SQLiteSourceRegistry:
             adapter=czkawka_duplicate_report,
         )
 
+    def _image_phash_duplicate_report(
+        self,
+        scope: dict[str, Any],
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        limit: int,
+    ) -> dict[str, Any]:
+        threshold = _duplicate_phash_threshold(scope)
+        return self._external_duplicate_report(
+            scope,
+            root_ids=root_ids,
+            kinds=kinds,
+            limit=limit,
+            mode="image_phash",
+            provider="imagehash",
+            adapter=lambda roots, limit: image_phash_duplicate_report(roots, limit=limit, threshold=threshold),
+        )
+
     def _size_name_version_duplicate_report(
         self,
         scope: dict[str, Any],
@@ -2700,6 +2727,7 @@ class SQLiteSourceRegistry:
                         "content_hash": content_hash,
                         "size": size,
                         "member_count": len(members),
+                        "metadata": dict(group.get("metadata") or {}),
                         "action_status": "reported",
                         "review_note": "",
                         "reviewed_at": "",
@@ -2723,6 +2751,7 @@ class SQLiteSourceRegistry:
                 "writes_source_files": False,
                 "writes_index": True,
                 "delete_move_merge_supported": False,
+                "embedding_required": False,
             },
         }
 
@@ -2856,6 +2885,9 @@ class SQLiteSourceRegistry:
         for member in group.get("members") or []:
             rel = self._resolve_external_duplicate_member(member, reason=reason)
             if rel is not None:
+                metadata = member.get("metadata") or {}
+                if isinstance(metadata, dict) and metadata:
+                    rel["dedup_metadata"] = dict(metadata)
                 members.append(rel)
         return members
 
@@ -3883,6 +3915,14 @@ def _duplicate_similarity_threshold(scope: dict[str, Any]) -> float:
     except (TypeError, ValueError):
         threshold = 0.82
     return max(0.5, min(threshold, 0.98))
+
+
+def _duplicate_phash_threshold(scope: dict[str, Any]) -> int:
+    try:
+        threshold = int(scope.get("phash_threshold") or scope.get("hamming_threshold") or 6)
+    except (TypeError, ValueError):
+        threshold = 6
+    return max(0, min(threshold, 16))
 
 
 def _neighbor_payload(row: sqlite3.Row, *, relation: str, score: float, reason: str) -> dict[str, Any]:

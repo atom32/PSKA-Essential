@@ -320,7 +320,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m20_media_metadata_duplicates")
+        self.assertEqual(source_layer["status"], "m21_image_phash_duplicates")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -361,6 +361,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("size_name_version", source_layer["adapter_slots"]["dedup"])
         self.assertIn("text_similarity", source_layer["adapter_slots"]["dedup"])
         self.assertIn("media_metadata", source_layer["adapter_slots"]["dedup"])
+        self.assertIn("imagehash", source_layer["adapter_slots"]["dedup"])
         sqlite_search = next(
             provider
             for provider in capabilities["capabilities"]["adapter_slots"]["slots"]["search_index"]["providers"]
@@ -370,7 +371,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m20_media_metadata_duplicates")
+        self.assertEqual(assistant_layer["status"], "m21_image_phash_duplicates")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", assistant_layer["mcp_tools"]["implemented"])
@@ -530,6 +531,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(media_metadata["integration"], "core")
         self.assertIn("no_embedding_candidates", media_metadata["supports"])
         self.assertFalse(media_metadata["safety"]["delete_move_merge_supported"])
+        imagehash = _adapter_provider(adapter_slots, "dedup", "imagehash")
+        self.assertIn(imagehash["status"], {"available", "unavailable"})
+        self.assertEqual(imagehash["integration"], "python_optional_extra")
+        self.assertIn("phash", imagehash["supports"])
+        self.assertFalse(imagehash["safety"]["delete_move_merge_supported"])
         fclones = _adapter_provider(adapter_slots, "dedup", "fclones")
         self.assertIn(fclones["status"], {"available", "unavailable"})
         self.assertEqual(fclones["integration"], "external_cli")
@@ -1092,6 +1098,32 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source.extraction_job.run", actions)
         self.assertIn("source.obsidian_moc.propose", actions)
         self.assertIn("source.obsidian_moc.apply", actions)
+
+    def test_product_api_image_phash_duplicate_mode_reports_optional_dependency_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "Screenshot.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"a" * 100)
+            (root_path / "Screenshot edited.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"b" * 100)
+            registered = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_path), "kind": "local_folder", "permission_mode": "read_only"},
+            )
+            self._post_json(f"/api/sources/roots/{registered['root']['root_id']}/scan", {"max_files": 10})
+
+            with patch("pska_essential.dedup._imagehash_modules_available", return_value=False):
+                report = self._post_json(
+                    "/api/sources/duplicates",
+                    {"scope": {"root_ids": [registered["root"]["root_id"]]}, "mode": "image_phash"},
+                )
+
+        duplicate_report = report["duplicate_report"]
+        self.assertEqual(duplicate_report["mode"], "image_phash")
+        self.assertEqual(duplicate_report["provider"], "imagehash")
+        self.assertEqual(duplicate_report["status"], "unavailable")
+        self.assertEqual(duplicate_report["group_count"], 0)
+        self.assertFalse(duplicate_report["data_flow"]["writes_source_files"])
+        self.assertFalse(duplicate_report["data_flow"]["embedding_required"])
 
     def test_product_api_obsidian_frontmatter_tag_writeback(self):
         with tempfile.TemporaryDirectory() as temp_dir:

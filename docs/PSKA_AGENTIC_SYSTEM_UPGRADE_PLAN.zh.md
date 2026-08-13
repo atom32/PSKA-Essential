@@ -20,14 +20,14 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M20 级别的 source-safe baseline：
+当前仓库已经具备 M21 级别的 source-safe baseline：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
 | Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
-| File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity` 和 `media_metadata` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
+| File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity`、`media_metadata` 和 optional `image_phash` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
 | Obsidian | 已有 MOC propose/apply，只写 PSKA marker block，支持 folder/tag/topic/project 分组；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
 | Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view | `workflow.py`、`capabilities.py` |
@@ -192,6 +192,7 @@ fclones、Graphiti、Temporal 等 provider-native schema。
 extract-markitdown = ["markitdown>=0.1.0,<1"]
 extract-docling = ["docling>=2.0.0,<3"]
 extract-tika = ["tika>=2.6.0,<3"]
+image-phash = ["ImageHash>=4.3,<5"]
 watch = ["watchdog>=4.0.0,<7"]
 observability = ["opentelemetry-api>=1.25.0,<2", "opentelemetry-sdk>=1.25.0,<2", "arize-phoenix>=8.0.0,<9"]
 eval = ["ragas>=0.2,<1", "deepeval>=1,<2"]
@@ -468,6 +469,7 @@ mode:
   filename_fuzzy
   text_similarity
   media_metadata
+  image_phash
   media_similarity
 ```
 
@@ -689,7 +691,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: `text_similarity` duplicate mode adds core no-embedding indexed-text token Jaccard candidate groups with `scope.similarity_threshold`.
 - Done: duplicate review workflow adds `pska_duplicate_review_list`, `pska_duplicate_group_mark`, Product API routes, and Sources panel controls for marking candidate groups as reported/keep_reviewing/reviewed/ignored without source-file cleanup.
 - Done: `pska_duplicate_cleanup_propose` adds dry-run cleanup plans with keep strategies and would-archive candidates; apply/delete/move/merge remain unsupported.
-- Done: `media_metadata` duplicate mode adds core no-embedding image/video/audio candidate groups using media family, normalized filename, and similar size; perceptual hash remains future work.
+- Done: `media_metadata` duplicate mode adds core no-embedding image/video/audio candidate groups using media family, normalized filename, and similar size; video/EXIF media similarity remains future work.
+- Done: `image_phash` duplicate mode adds an optional ImageHash/Pillow adapter for image pHash Hamming-distance groups; missing optional dependency returns structured unavailable.
 - 评估 Tantivy/Meilisearch adapter，但不替换默认。
 
 验收：
@@ -774,6 +777,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add duplicate candidate review list/mark APIs and WebUI workflow without destructive file actions.
 - [x] Add dry-run duplicate cleanup proposal generation without executable file actions.
 - [x] Add media metadata duplicate candidates without embeddings or perceptual hash.
+- [x] Add optional ImageHash/Pillow perceptual image duplicate candidates.
 
 ### P2 Backlog
 

@@ -116,8 +116,14 @@ Last updated: 2026-07-15
 > by media family, normalized filename, and similar size. It requires no
 > embeddings or perceptual hash, writes only PSKA registry metadata, and remains
 > a review-only signal.
+>
+> Update, 2026-08-13: Optional ImageHash perceptual image candidates are
+> implemented as M21. `pska_duplicate_report(mode="image_phash")` uses the
+> `image-phash` optional extra to group local images by pHash Hamming distance.
+> Missing ImageHash/Pillow dependencies return structured `unavailable`; reports
+> still write only PSKA registry metadata and never modify source files.
 > Next useful source-governance steps are richer frontmatter fields, stronger
-> ranking adapters, perceptual hash/EXIF media checks, and executable
+> ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.
 
 This document is the handoff point for a fresh Codex conversation.

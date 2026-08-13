@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+from itertools import combinations
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -87,6 +89,10 @@ def fclones_available() -> bool:
 
 def czkawka_available() -> bool:
     return czkawka_command_path() is not None
+
+
+def imagehash_available() -> bool:
+    return _imagehash_modules_available()
 
 
 def fclones_command_path() -> str | None:
@@ -221,6 +227,50 @@ def czkawka_duplicate_report(
         command=command,
         groups=groups[:limit],
         metadata={"stderr": completed.stderr.strip()} if completed.stderr.strip() else {},
+    )
+
+
+def image_phash_duplicate_report(
+    roots: list[Path],
+    *,
+    limit: int = 50,
+    threshold: int = 6,
+) -> DedupReport:
+    if not _imagehash_modules_available():
+        return DedupReport(
+            mode="image_phash",
+            provider="imagehash",
+            groups=[],
+            status="unavailable",
+            message="Python package `ImageHash` or `Pillow` is not installed.",
+            metadata={"install_hint": "Install PSKA optional extra `image-phash`."},
+        )
+    selected_roots = [path for path in roots if path.exists()]
+    if not selected_roots:
+        return DedupReport(
+            mode="image_phash",
+            provider="imagehash",
+            groups=[],
+            status="empty_scope",
+            message="No readable source roots were selected.",
+        )
+    candidates = _image_phash_candidates(selected_roots, threshold=max(0, min(int(threshold), 64)))
+    groups = _image_phash_groups(candidates["items"], threshold=candidates["threshold"], limit=limit)
+    return DedupReport(
+        mode="image_phash",
+        provider="imagehash",
+        status="ok",
+        message=f"ImageHash returned {len(groups)} perceptual image candidate group(s).",
+        groups=groups,
+        metadata={
+            "algorithm": "phash",
+            "hamming_threshold": candidates["threshold"],
+            "image_count": candidates["image_count"],
+            "skipped_count": len(candidates["skipped"]),
+            "skipped": candidates["skipped"][:20],
+            "embedding_required": False,
+            "perceptual_hash_required": True,
+        },
     )
 
 
@@ -427,3 +477,122 @@ def _is_int_like(value: Any) -> bool:
     except (TypeError, ValueError):
         return False
     return True
+
+
+def _imagehash_modules_available() -> bool:
+    return importlib.util.find_spec("imagehash") is not None and importlib.util.find_spec("PIL") is not None
+
+
+def _image_phash_candidates(roots: list[Path], *, threshold: int) -> dict[str, Any]:
+    import imagehash
+    from PIL import Image, ImageOps
+
+    items: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+    for root in roots:
+        for path in _walk_image_files(root):
+            try:
+                with Image.open(path) as image:
+                    normalized = ImageOps.exif_transpose(image)
+                    image_hash = imagehash.phash(normalized)
+            except Exception as exc:  # noqa: BLE001 - unreadable media should not fail the whole report.
+                skipped.append({"path": str(path), "reason": exc.__class__.__name__})
+                continue
+            items.append(
+                {
+                    "path": str(path),
+                    "hash": str(image_hash),
+                    "hash_obj": image_hash,
+                    "size": path.stat().st_size,
+                }
+            )
+    return {"items": items, "skipped": skipped, "threshold": threshold, "image_count": len(items)}
+
+
+def _image_phash_groups(items: list[dict[str, Any]], *, threshold: int, limit: int) -> list[DedupGroup]:
+    parent = {index: index for index in range(len(items))}
+    distances: dict[tuple[int, int], int] = {}
+    for left, right in combinations(range(len(items)), 2):
+        distance = int(items[left]["hash_obj"] - items[right]["hash_obj"])
+        distances[(left, right)] = distance
+        if distance <= threshold:
+            _union(parent, left, right)
+    buckets: dict[int, list[int]] = {}
+    for index in range(len(items)):
+        buckets.setdefault(_find_parent(parent, index), []).append(index)
+    groups: list[DedupGroup] = []
+    for indexes in buckets.values():
+        if len(indexes) < 2:
+            continue
+        pair_distances = [
+            distances.get(tuple(sorted((left, right))), 65)
+            for left, right in combinations(indexes, 2)
+        ]
+        min_distance = min(pair_distances, default=0)
+        max_distance = max(pair_distances, default=0)
+        members = [
+            DedupMember(
+                path=items[index]["path"],
+                absolute_path=items[index]["path"],
+                size=int(items[index]["size"] or 0),
+                metadata={"phash": items[index]["hash"]},
+            )
+            for index in sorted(indexes, key=lambda item_index: items[item_index]["path"].lower())
+        ]
+        groups.append(
+            DedupGroup(
+                method="image_phash",
+                confidence=_phash_confidence(max_distance=max_distance, threshold=threshold),
+                size=max((member.size for member in members), default=0),
+                members=members,
+                metadata={
+                    "algorithm": "phash",
+                    "min_distance": min_distance,
+                    "max_distance": max_distance,
+                    "threshold": threshold,
+                },
+            )
+        )
+    groups.sort(
+        key=lambda group: (
+            -len(group.members),
+            group.metadata.get("max_distance", 65),
+            [member.path.lower() for member in group.members],
+        )
+    )
+    return groups[:limit]
+
+
+def _walk_image_files(root: Path):
+    image_suffixes = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".tif", ".tiff", ".bmp"}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        if any(part in {".git", ".hg", ".svn", ".obsidian", ".pska", ".venv", "__pycache__", "node_modules"} for part in path.parts):
+            continue
+        if path.suffix.lower() in image_suffixes:
+            yield path
+
+
+def _phash_confidence(*, max_distance: int, threshold: int) -> float:
+    if max_distance <= 1:
+        return 0.94
+    if max_distance <= 3:
+        return 0.88
+    if max_distance <= threshold:
+        return 0.78
+    return 0.65
+
+
+def _find_parent(parent: dict[int, int], item: int) -> int:
+    while parent[item] != item:
+        parent[item] = parent[parent[item]]
+        item = parent[item]
+    return item
+
+
+def _union(parent: dict[int, int], left: int, right: int) -> None:
+    left_root = _find_parent(parent, left)
+    right_root = _find_parent(parent, right)
+    if left_root != right_root:
+        parent[right_root] = left_root

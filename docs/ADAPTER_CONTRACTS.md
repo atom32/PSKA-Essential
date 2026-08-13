@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M20 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M21 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -228,13 +228,17 @@ Provider slots:
 - `media_metadata`: implemented core heuristic for image, video, and audio
   candidates using media family, normalized filename, and similar size. It does
   not use embeddings or perceptual hashes and remains a review signal only.
+- `imagehash`: implemented optional extra for image perceptual hash candidates
+  through ImageHash/Pillow. `mode="image_phash"` groups images by pHash Hamming
+  distance, returns `status=unavailable` when the optional package is absent,
+  and remains a non-destructive review signal.
 - `fclones`: implemented CLI adapter for hash duplicate groups and JSON
   reports. It uses `PSKA_FCLONES_BIN` when it points to an executable binary,
   otherwise `PATH`, and returns `status=unavailable` when no command can be
   found.
 - `czkawka`: implemented CLI adapter for hash duplicate groups and JSON reports.
   It uses `PSKA_CZKAWKA_BIN` when it points to an executable binary, otherwise
-  `PATH`, and returns `status=unavailable` when no command can be found. Media
+  `PATH`, and returns `status=unavailable` when no command can be found. Video
   similarity remains a planned extension behind the same provider family.
 - `dupeguru`: planned fuzzy duplicate reference.
 - `rmlint`: planned advanced duplicate lint report adapter.
@@ -535,7 +539,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M20 source-management MCP surface:
+The personal source layer has an M1-M21 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
