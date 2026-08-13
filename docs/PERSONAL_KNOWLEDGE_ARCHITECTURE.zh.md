@@ -686,6 +686,9 @@ Hermes 的默认行为：
   `pska_alpha_first_run_item_update`、`GET /api/alpha/first-run-session` 与
   `POST /api/alpha/first-run-session/items/{item_id}` 会持久化首次试用清单的人工确认进度，
   只写 PSKA checklist/audit state，不自动执行扫描、写回、备份、恢复或 durable memory apply。
+- Done: Alpha first-run notes 已接入；WebUI 每个首次试用 item 都能记录人工确认依据、
+  异常或复盘备注，仍然只更新 PSKA checklist/audit state，不把备注写回 source 或直接写入
+  durable memory。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

@@ -378,11 +378,11 @@ flowchart TD
 ## Current Baseline
 
 截至 2026-08-14，当前可验证的系统状态是 M21 source governance baseline 加
-M29 alpha first-run session。
+M30 alpha first-run notes。
 
 | 能力 | 当前状态 |
 | --- | --- |
-| Hermes-WebUI 日常入口 | 已作为主入口，PSKA panel/Jarvis Bar、Alpha Trial Guide、First-Run Checklist、Recovery Plan 与 Sources panel 正在接入 |
+| Hermes-WebUI 日常入口 | 已作为主入口，PSKA panel/Jarvis Bar、Alpha Trial Guide、First-Run Checklist/Notes、Recovery Plan 与 Sources panel 正在接入 |
 | Hermes Agent | 已作为主要生成/推理/agentic loop 执行层 |
 | Eidolia | 已通过 Hermes CLI 执行 direct/agentic thought generation |
 | PSKA Product API | 已提供 health、capabilities、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session、workspace status、ask、review、memory、sources、jobs |

@@ -185,6 +185,12 @@ Last updated: 2026-07-15
 > source files, create backups, restore data, or apply durable memory. WebUI
 > Home renders the checklist and lets the operator mark items done, pending, or
 > skipped.
+>
+> Update, 2026-08-14: Alpha first-run notes are implemented as M30.
+> WebUI Home now gives each first-run checklist item an operator note field for
+> confirmation evidence, anomalies, and retrospective notes. Saving notes
+> reuses the first-run item update route and writes only PSKA checklist/audit
+> state; it does not write source files or durable memory.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.

@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M29 baseline into
+  engineering plan for upgrading the current PSKA-Essential M30 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -802,6 +802,11 @@ guide. It lets Hermes or WebUI mark individual first-run items as complete,
 pending, skipped, blocked, or needing attention while preserving the safety
 boundary: the update call records progress only and never runs the named source,
 Ask, writeback, backup, restore, or memory operation.
+M30 makes that first-run checklist usable for real alpha rehearsal: each WebUI
+item now has an operator note field for confirmation evidence, anomalies, and
+retrospective notes. Saving a note uses the same
+`pska_alpha_first_run_item_update` / first-run session route and still writes
+only PSKA checklist/audit state, not user source files or durable memory.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live

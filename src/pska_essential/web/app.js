@@ -754,12 +754,12 @@ async function loadAlphaFirstRunSession(options = {}) {
   }
 }
 
-async function updateAlphaFirstRunItem(itemId, status) {
+async function updateAlphaFirstRunItem(itemId, status, note = "") {
   const normalized = String(itemId || "").trim();
   if (!normalized) return;
   const payload = await api(`/api/alpha/first-run-session/items/${encodeURIComponent(normalized)}`, {
     method: "POST",
-    body: { status },
+    body: { status, note },
   });
   state.alphaFirstRunSession = payload.alpha_first_run_session || null;
   state.alphaFirstRunSessionError = "";
@@ -1733,6 +1733,7 @@ function alphaFirstRunPanel(session) {
 
 function alphaChecklistItem(item) {
   const done = item.status === "done";
+  const noteInput = alphaChecklistNoteInput(item);
   return el("article", { className: `alpha-checklist-item ${statusClass(item.status)}` }, [
     el("div", {}, [
       el("header", {}, [
@@ -1740,18 +1741,30 @@ function alphaChecklistItem(item) {
         el("span", { className: `tag ${statusClass(item.status)}` }, readableName(item.status || "pending")),
       ]),
       el("p", {}, item.description || ""),
-      item.note ? el("p", { className: "subtle-text" }, item.note) : null,
+      noteInput,
       el("div", { className: "meta-row" }, [
         item.tool ? el("span", { className: "tag" }, item.tool) : null,
         item.view ? el("span", { className: "tag" }, item.view) : null,
       ]),
     ]),
     el("div", { className: "card-actions" }, [
-      el("button", { className: done ? "secondary-button" : "primary-button", type: "button", onclick: () => updateAlphaFirstRunItem(item.item_id, done ? "pending" : "done") }, done ? "撤回" : "完成"),
-      item.required ? null : el("button", { className: "secondary-button", type: "button", onclick: () => updateAlphaFirstRunItem(item.item_id, "skipped") }, "跳过"),
+      el("button", { className: done ? "secondary-button" : "primary-button", type: "button", onclick: () => updateAlphaFirstRunItem(item.item_id, done ? "pending" : "done", noteInput.value) }, done ? "撤回" : "完成"),
+      item.required ? null : el("button", { className: "secondary-button", type: "button", onclick: () => updateAlphaFirstRunItem(item.item_id, "skipped", noteInput.value) }, "跳过"),
+      el("button", { className: "secondary-button", type: "button", onclick: () => updateAlphaFirstRunItem(item.item_id, item.status || "pending", noteInput.value) }, "保存备注"),
       el("button", { className: "secondary-button", type: "button", onclick: () => openWorkspaceAction({ action: "open_first_run_item", view: item.view, tool: item.tool, api: item.api, params: { item_id: item.item_id } }) }, "打开"),
     ]),
   ]);
+}
+
+function alphaChecklistNoteInput(item) {
+  const input = el("textarea", {
+    className: "alpha-checklist-note",
+    rows: "2",
+    placeholder: "人工确认依据、异常或复盘备注",
+    "aria-label": `${item.label || item.item_id || "checklist item"} note`,
+  });
+  input.value = item.note || "";
+  return input;
 }
 
 function alphaRecoveryPanel(plan) {

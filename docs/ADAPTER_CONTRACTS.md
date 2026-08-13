@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M29 source-safe and memory-governed contract uses SQLite
+The implemented M1-M30 source-safe and memory-governed contract uses SQLite
 metadata plus FTS5:
 
 ```python

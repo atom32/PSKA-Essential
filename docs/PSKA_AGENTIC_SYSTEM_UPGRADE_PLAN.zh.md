@@ -20,7 +20,7 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M29 alpha first-run session：
+当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M30 alpha first-run notes：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
@@ -382,6 +382,10 @@ P2 的第三十三块已落地为 alpha first-run session：
 checklist state，不执行清单条目背后的 runtime check、source scan、Ask、writeback、
 backup、restore 或 durable memory apply；WebUI Home 可刷新清单、标记完成/撤回/跳过，
 并把“打开”动作导航到对应 view。
+P2 的第三十四块已落地为 alpha first-run notes：
+WebUI 首次试用清单的每个 item 都可以记录人工确认依据、异常或复盘备注；保存备注复用
+同一个 first-run item update 路由，只更新 PSKA checklist/audit state。这个备注是 alpha
+rehearsal evidence，不会写回用户资料源，也不会自动变成 durable memory。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -852,6 +856,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Surface alpha trial guide on WebUI Home as guarded phase/action cards.
 - [x] Add read-only alpha recovery plan and surface backup/writeback preflight on Home.
 - [x] Add persisted alpha first-run session/checklist progress without executing trial steps.
+- [x] Add operator notes to alpha first-run checklist items for rehearsal evidence.
 
 ### P3 Backlog
 

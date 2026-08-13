@@ -428,6 +428,12 @@ h3 {
   margin: 6px 0 8px;
 }
 
+.alpha-checklist-note {
+  min-height: 72px;
+  margin: 2px 0 10px;
+  resize: vertical;
+}
+
 .subtle-text {
   font-size: 12px;
 }
