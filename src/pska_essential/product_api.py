@@ -113,6 +113,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/duplicates"},
     {"method": "POST", "path": "/api/sources/duplicate-review"},
     {"method": "POST", "path": "/api/sources/duplicate-groups/{group_id}/mark"},
+    {"method": "POST", "path": "/api/sources/duplicate-groups/{group_id}/cleanup-proposals"},
     {"method": "POST", "path": "/api/sources/audits/run"},
     {"method": "POST", "path": "/api/sources/saved-searches"},
     {"method": "GET", "path": "/api/sources/collections"},
@@ -985,6 +986,18 @@ def _handler_class(state: ProductApiState):
                     note=str(payload.get("note") or payload.get("review_note") or ""),
                 )
                 self._send_json({"ok": True, "duplicate_group_review": to_jsonable(result)})
+                return
+
+            duplicate_cleanup_id = _match(path, "/api/sources/duplicate-groups/", "/cleanup-proposals")
+            if method == "POST" and duplicate_cleanup_id:
+                payload = self._read_json()
+                proposal = state.service.duplicate_cleanup_propose(
+                    duplicate_cleanup_id,
+                    strategy=str(payload.get("strategy") or "keep_largest"),
+                    keep_object_id=str(payload.get("keep_object_id") or ""),
+                    reason=str(payload.get("reason") or ""),
+                )
+                self._send_json({"ok": True, "proposal": to_jsonable(proposal)}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/sources/audits/run":

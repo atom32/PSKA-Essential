@@ -105,9 +105,14 @@ Last updated: 2026-07-15
 > candidate groups with `reported`/`keep_reviewing`/`reviewed`/`ignored` states
 > and review notes. Product API and the Sources panel can run duplicate modes and
 > mark groups, still without deleting, moving, merging, or editing source files.
+>
+> Update, 2026-08-13: Dry-run duplicate cleanup proposals are implemented as M19.
+> `pska_duplicate_cleanup_propose` records keep strategies and would-archive
+> candidates for a duplicate group as a source action proposal. It is intentionally
+> non-executable: apply/delete/move/merge remain unsupported.
 > Next useful source-governance steps are richer frontmatter fields, stronger
-> ranking adapters, media duplicate heuristics, and strong-confirmation cleanup
-> proposals.
+> ranking adapters, media duplicate heuristics, and executable strong-confirmation
+> cleanup proposals.
 
 This document is the handoff point for a fresh Codex conversation.
 

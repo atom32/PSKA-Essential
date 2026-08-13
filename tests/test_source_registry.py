@@ -310,6 +310,42 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertEqual(ignored["groups"][0]["action_status"], "ignored")
         self.assertEqual(ignored["groups"][0]["review_note"], "not useful for this folder cleanup")
 
+    def test_duplicate_cleanup_proposal_builds_dry_run_plan_without_source_writes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            smaller = root_path / "Report.md"
+            larger = root_path / "Report copy.md"
+            smaller.write_text("# Duplicate\n\nSame source body.\n", encoding="utf-8")
+            larger.write_text("# Duplicate\n\nSame source body plus a little more context.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+            report = registry.duplicate_report({"root_ids": [root["root_id"]]}, mode="size_name_version", limit=10)
+
+            proposal = registry.duplicate_cleanup_propose(
+                report["groups"][0]["group_id"],
+                strategy="keep_largest",
+                reason="prepare cleanup review",
+            )
+
+            self.assertEqual(smaller.read_text(encoding="utf-8"), "# Duplicate\n\nSame source body.\n")
+            self.assertEqual(larger.read_text(encoding="utf-8"), "# Duplicate\n\nSame source body plus a little more context.\n")
+
+        self.assertEqual(proposal["action"], "duplicate_cleanup")
+        self.assertEqual(proposal["write_target"], "dry_run_cleanup")
+        self.assertFalse(proposal["data_flow"]["writes_source_files"])
+        payload = proposal["payload"]
+        self.assertEqual(payload["schema"], "pska.source_duplicate_cleanup_proposal.v1")
+        self.assertEqual(payload["strategy"], "keep_largest")
+        self.assertEqual(payload["keep"]["path"], "Report copy.md")
+        self.assertEqual(payload["candidate_count"], 1)
+        self.assertEqual(payload["candidates"][0]["path"], "Report.md")
+        self.assertTrue(payload["requires_explicit_apply"])
+        self.assertFalse(payload["apply_supported"])
+        self.assertTrue(payload["safety"]["dry_run_only"])
+        self.assertFalse(payload["safety"]["writes_source_files"])
+
     def test_source_collections_create_list_and_resolve_manual_or_search(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir) / "Project"
@@ -430,6 +466,11 @@ class SourceRegistryTests(unittest.TestCase):
                 status="reviewed",
                 note="confirmed duplicate pair",
             )
+            cleanup = tools["pska_duplicate_cleanup_propose"](
+                report["groups"][0]["group_id"],
+                strategy="keep_first",
+                reason="prepare a no-op cleanup plan",
+            )
             saved = tools["pska_saved_search_create"](
                 "Duplicated source",
                 "duplicated source",
@@ -441,11 +482,14 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertEqual(review["count"], 1)
         self.assertEqual(marked["status"], "reviewed")
         self.assertEqual(marked["group"]["review_note"], "confirmed duplicate pair")
+        self.assertEqual(cleanup["action"], "duplicate_cleanup")
+        self.assertFalse(cleanup["payload"]["apply_supported"])
         self.assertEqual(saved["label"], "Duplicated source")
         actions = {event.action for event in service.store.list_audit_events(limit=20)}
         self.assertIn("source.duplicate_report", actions)
         self.assertIn("source.duplicate_review.list", actions)
         self.assertIn("source.duplicate_group.mark", actions)
+        self.assertIn("source.duplicate_cleanup.propose", actions)
         self.assertIn("source.saved_search.create", actions)
 
     def test_mcp_source_collection_tools_create_resolve_and_audit(self):

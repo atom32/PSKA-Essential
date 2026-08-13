@@ -26,10 +26,12 @@ PERSONAL_SOURCE_ADAPTERS = {"local_folder", "obsidian_vault"}
 PERMISSION_MODES = {"read_only", "sidecar_write", "native_write", "managed"}
 NEIGHBOR_STRATEGIES = {"auto", "links", "backlinks", "folder"}
 DUPLICATE_REVIEW_STATUSES = {"reported", "keep_reviewing", "reviewed", "ignored"}
+DUPLICATE_CLEANUP_STRATEGIES = {"keep_largest", "keep_newest", "keep_first", "keep_selected"}
 SIDECAR_WRITE_TARGET = "sidecar"
 OBSIDIAN_FRONTMATTER_WRITE_TARGET = "obsidian_frontmatter"
 OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET = "obsidian_markdown_comment"
 OBSIDIAN_MOC_WRITE_TARGET = "obsidian_moc"
+DRY_RUN_CLEANUP_WRITE_TARGET = "dry_run_cleanup"
 MOC_GROUP_BY_MODES = {"none", "folder", "tag", "topic", "project"}
 PSKA_COMMENT_END = "<!-- PSKA:COMMENT:END -->"
 PSKA_MOC_BEGIN = "<!-- PSKA:MOC:BEGIN -->"
@@ -645,6 +647,89 @@ class SQLiteSourceRegistry:
                 "delete_move_merge_supported": False,
             },
         }
+
+    def duplicate_cleanup_propose(
+        self,
+        group_id: str,
+        *,
+        strategy: str = "keep_largest",
+        keep_object_id: str = "",
+        reason: str = "",
+    ) -> dict[str, Any]:
+        normalized_group_id = str(group_id or "").strip()
+        normalized_strategy = str(strategy or "keep_largest").strip().lower()
+        normalized_keep_object_id = str(keep_object_id or "").strip()
+        normalized_reason = str(reason or "").strip()
+        if not normalized_group_id:
+            raise SourceRegistryError("duplicate group_id is required")
+        if normalized_strategy not in DUPLICATE_CLEANUP_STRATEGIES:
+            raise SourceRegistryError("duplicate cleanup strategy must be keep_largest, keep_newest, keep_first, or keep_selected")
+        with self.lock:
+            row = self.conn.execute(
+                """
+                SELECT g.*, r.mode, r.scope_json, r.created_at AS report_created_at
+                FROM duplicate_groups g
+                JOIN duplicate_reports r ON r.report_id = g.report_id
+                WHERE g.group_id = ?
+                """,
+                (normalized_group_id,),
+            ).fetchone()
+            if row is None:
+                raise SourceRegistryError(f"duplicate group not found: {normalized_group_id}")
+            group = self._duplicate_review_group_payload(row, index=1)
+            member_rows = self._duplicate_cleanup_member_rows(normalized_group_id)
+        if len(member_rows) < 2:
+            raise SourceRegistryError("duplicate cleanup proposal requires at least two active source members")
+        keep_member = _select_duplicate_cleanup_keep_member(
+            member_rows,
+            strategy=normalized_strategy,
+            keep_object_id=normalized_keep_object_id,
+        )
+        candidates = [
+            _duplicate_cleanup_candidate_payload(member, action="would_archive")
+            for member in member_rows
+            if str(member["object_id"]) != str(keep_member["object_id"])
+        ]
+        keep_payload = _duplicate_cleanup_candidate_payload(keep_member, action="keep")
+        target = _duplicate_cleanup_target_from_member(keep_member)
+        target_ref = SourceRef.from_dict(keep_payload["source_ref"])
+        proposal_id = _stable_id(
+            "src_prop",
+            f"duplicate_cleanup:{normalized_group_id}:{normalized_strategy}:{normalized_keep_object_id}:{utc_now_iso()}",
+        )
+        payload = {
+            "schema": "pska.source_duplicate_cleanup_proposal.v1",
+            "group_id": normalized_group_id,
+            "report_id": group["report_id"],
+            "mode": group["mode"],
+            "method": group["method"],
+            "confidence": group["confidence"],
+            "strategy": normalized_strategy,
+            "keep": keep_payload,
+            "candidates": candidates,
+            "candidate_count": len(candidates),
+            "member_count": len(member_rows),
+            "review_status": group["action_status"],
+            "review_note": group["review_note"],
+            "cleanup_action": "archive_candidates_after_explicit_apply",
+            "requires_explicit_apply": True,
+            "apply_supported": False,
+            "safety": {
+                "dry_run_only": True,
+                "delete_move_merge_supported": False,
+                "writes_source_files": False,
+                "requires_human_confirmation": True,
+            },
+        }
+        return self._create_action_proposal(
+            proposal_id=proposal_id,
+            action="duplicate_cleanup",
+            target=target,
+            target_ref=target_ref,
+            payload=payload,
+            reason=normalized_reason or f"duplicate cleanup proposal for {normalized_group_id}",
+            write_target=DRY_RUN_CLEANUP_WRITE_TARGET,
+        )
 
     def saved_search_create(
         self,
@@ -2906,6 +2991,31 @@ class SQLiteSourceRegistry:
             },
         }
 
+    def _duplicate_cleanup_member_rows(self, group_id: str) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            """
+            SELECT dm.object_id, dm.root_id, dm.path, dm.reason,
+                   COALESCE(NULLIF(dm.content_hash, ''), o.content_hash) AS content_hash,
+                   COALESCE(NULLIF(dm.size, 0), o.size) AS size,
+                   o.title, o.kind AS object_kind, o.extraction_status, o.mtime,
+                   r.kind AS root_kind, r.label AS root_label, r.permission_mode,
+                   s.section_id, s.title AS section_title, s.section_type,
+                   s.heading_path, s.line_start, s.line_end
+            FROM duplicate_members dm
+            JOIN source_objects o ON o.object_id = dm.object_id AND o.status = 'active'
+            JOIN source_roots r ON r.root_id = dm.root_id
+            LEFT JOIN source_sections s ON s.section_id = (
+                SELECT section_id FROM source_sections
+                WHERE object_id = dm.object_id
+                ORDER BY line_start ASC, section_id ASC
+                LIMIT 1
+            )
+            WHERE dm.group_id = ?
+            ORDER BY r.label COLLATE NOCASE, dm.path COLLATE NOCASE
+            """,
+            (group_id,),
+        ).fetchall()
+
     def _ensure_schema(self) -> None:
         self.conn.executescript(
             """
@@ -3292,6 +3402,55 @@ def _duplicate_review_member_payload(row: sqlite3.Row) -> dict[str, Any]:
         "reason": row["reason"],
         "extraction_status": row["extraction_status"] or "",
         "source_ref": to_jsonable(source_ref),
+    }
+
+
+def _select_duplicate_cleanup_keep_member(
+    rows: list[sqlite3.Row],
+    *,
+    strategy: str,
+    keep_object_id: str,
+) -> sqlite3.Row:
+    if strategy == "keep_selected":
+        if not keep_object_id:
+            raise SourceRegistryError("keep_selected duplicate cleanup strategy requires keep_object_id")
+        for row in rows:
+            if str(row["object_id"]) == keep_object_id:
+                return row
+        raise SourceRegistryError(f"keep_object_id is not a member of the duplicate group: {keep_object_id}")
+    if strategy == "keep_newest":
+        return sorted(rows, key=lambda row: (-float(row["mtime"] or 0.0), str(row["path"] or "").lower()))[0]
+    if strategy == "keep_first":
+        return sorted(rows, key=lambda row: (str(row["path"] or "").lower(), str(row["object_id"] or "")))[0]
+    return sorted(
+        rows,
+        key=lambda row: (-int(row["size"] or 0), -float(row["mtime"] or 0.0), str(row["path"] or "").lower()),
+    )[0]
+
+
+def _duplicate_cleanup_candidate_payload(row: sqlite3.Row, *, action: str) -> dict[str, Any]:
+    member = _duplicate_review_member_payload(row)
+    member["cleanup_action"] = action
+    member["mtime"] = float(row["mtime"] or 0.0)
+    return member
+
+
+def _duplicate_cleanup_target_from_member(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "root_id": row["root_id"],
+        "root_kind": row["root_kind"],
+        "root_label": row["root_label"],
+        "permission_mode": row["permission_mode"],
+        "object_id": row["object_id"],
+        "section_id": row["section_id"] or "",
+        "path": row["path"],
+        "title": row["title"] or row["section_title"] or row["path"],
+        "section_type": row["section_type"] or "file",
+        "heading_path": row["heading_path"] or "",
+        "line_start": row["line_start"] or 1,
+        "line_end": row["line_end"] or 1,
+        "extraction_status": row["extraction_status"] or "",
+        "content_hash": row["content_hash"] or "",
     }
 
 

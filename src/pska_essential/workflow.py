@@ -324,6 +324,40 @@ class WorkflowService:
         )
         return result
 
+    def duplicate_cleanup_propose(
+        self,
+        group_id: str,
+        *,
+        strategy: str = "keep_largest",
+        keep_object_id: str = "",
+        reason: str = "",
+    ) -> dict[str, Any]:
+        proposal = self._source_registry().duplicate_cleanup_propose(
+            group_id,
+            strategy=strategy,
+            keep_object_id=keep_object_id,
+            reason=reason,
+        )
+        payload = proposal.get("payload") or {}
+        self.store.add_audit_event(
+            audit_event(
+                "source.duplicate_cleanup.propose",
+                "source_action",
+                proposal["proposal_id"],
+                group_id=group_id,
+                strategy=payload.get("strategy") or strategy,
+                candidate_count=payload.get("candidate_count") or 0,
+                keep_object_id=(payload.get("keep") or {}).get("object_id") or "",
+                reason=reason,
+                writes_source_files=False,
+                writes_source_registry=True,
+                delete_move_merge_supported=False,
+                requires_explicit_apply=True,
+                apply_supported=False,
+            )
+        )
+        return proposal
+
     def source_audit_run(self, scope: dict[str, Any] | None = None, *, limit: int = 20) -> dict[str, Any]:
         audit = self._source_registry().audit(scope or {}, limit=limit)
         self.store.add_audit_event(

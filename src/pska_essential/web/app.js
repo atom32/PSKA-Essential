@@ -69,6 +69,7 @@ const messages = {
   "toast.sourceDuplicateReportCreated": "重复候选已生成。",
   "toast.sourceDuplicateReviewLoaded": "重复候选审阅已加载。",
   "toast.sourceDuplicateMarked": "重复候选状态已更新。",
+  "toast.sourceDuplicateCleanupProposed": "清理提议已生成。",
   "toast.sourceTagProposalCreated": "标签提议已创建。",
   "toast.sourceTagApplied": "标签已应用。",
   "toast.sourceCommentProposalCreated": "Comment 提议已创建。",
@@ -260,6 +261,7 @@ const state = {
   sourceSearchCount: null,
   sourceDuplicateReport: null,
   sourceDuplicateReview: null,
+  sourceDuplicateCleanupProposal: null,
   sourceDuplicateReviewStatus: "",
   sourceDuplicateReviewError: "",
   activeSourceRootId: "",
@@ -881,6 +883,7 @@ async function runSourceDuplicateReport(event) {
     },
   });
   state.sourceDuplicateReport = payload.duplicate_report || null;
+  state.sourceDuplicateCleanupProposal = null;
   state.activeSourceRootId = rootId;
   renderSourceRootPickers();
   await loadSourceDuplicateReview();
@@ -924,6 +927,23 @@ async function markSourceDuplicateGroup(groupId, status) {
   await loadAuditEvents("source.duplicate_group.mark");
   renderSources();
   showToast(t("toast.sourceDuplicateMarked"));
+  return payload;
+}
+
+async function proposeSourceDuplicateCleanup(groupId) {
+  const normalized = String(groupId || "").trim();
+  if (!normalized) return;
+  const payload = await api(`/api/sources/duplicate-groups/${encodeURIComponent(normalized)}/cleanup-proposals`, {
+    method: "POST",
+    body: {
+      strategy: "keep_first",
+      reason: "prepare dry-run duplicate cleanup proposal",
+    },
+  });
+  state.sourceDuplicateCleanupProposal = payload.proposal || null;
+  await loadAuditEvents("source.duplicate_cleanup.propose");
+  renderSources();
+  showToast(t("toast.sourceDuplicateCleanupProposed"));
   return payload;
 }
 
@@ -2377,8 +2397,8 @@ function renderSourceDuplicateReview() {
 
   renderSourceToolStatus(
     reportStatus,
-    state.sourceDuplicateReport,
-    duplicateReportSummary,
+    state.sourceDuplicateCleanupProposal || state.sourceDuplicateReport,
+    state.sourceDuplicateCleanupProposal ? duplicateCleanupProposalSummary : duplicateReportSummary,
     "尚未生成重复候选。",
   );
 
@@ -2409,6 +2429,20 @@ function duplicateReportSummary(report) {
       el("span", { className: "tag ready" }, shortId(report.report_id || "")),
       el("span", { className: "tag" }, report.provider || "core"),
       report.metadata && report.metadata.embedding_required === false ? el("span", { className: "tag" }, "no embedding") : null,
+    ]),
+  ]);
+}
+
+function duplicateCleanupProposalSummary(proposal) {
+  const payload = proposal.payload || {};
+  const keep = payload.keep || {};
+  return el("div", {}, [
+    el("strong", {}, `清理提议: keep ${keep.path || "source"}`),
+    el("p", {}, `候选 ${payload.candidate_count || 0} 个，${payload.apply_supported ? "可应用" : "dry-run only"}`),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag ready" }, shortId(proposal.proposal_id || "")),
+      el("span", { className: "tag" }, payload.strategy || "keep_first"),
+      el("span", { className: "tag" }, proposal.write_target || "dry_run_cleanup"),
     ]),
   ]);
 }
@@ -2633,6 +2667,7 @@ function duplicateReviewGroupCard(group) {
     el("div", { className: "card-actions" }, [
       el("button", { className: "secondary-button", type: "button", onclick: () => markSourceDuplicateGroup(group.group_id, "keep_reviewing") }, "继续看"),
       el("button", { className: "secondary-button", type: "button", onclick: () => markSourceDuplicateGroup(group.group_id, "ignored") }, "忽略"),
+      el("button", { className: "secondary-button", type: "button", onclick: () => proposeSourceDuplicateCleanup(group.group_id) }, "清理提议"),
       el("button", { className: "primary-button", type: "button", onclick: () => markSourceDuplicateGroup(group.group_id, "reviewed") }, "已审"),
     ]),
   ]);
