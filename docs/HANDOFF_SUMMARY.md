@@ -21,8 +21,9 @@ Last updated: 2026-07-15
 > creates a new pending merged Review from caller-supplied candidate text,
 > preserves source refs, and marks replaced pending candidates as `needs_edit`.
 > WebUI now exposes a lightweight inline merge editor on duplicate/related
-> candidate queue groups. Next useful product step: a richer batch edit/merge
-> workbench and cross-project semantic clustering.
+> candidate queue groups and shows the member candidate texts/behavior deltas
+> before merge. Next useful product step: a richer batch edit/merge workbench and
+> cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

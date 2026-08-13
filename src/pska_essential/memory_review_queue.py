@@ -227,6 +227,7 @@ def _candidate_duplicate_group(groups: list[dict[str, Any]]) -> dict[str, Any]:
                     for item in group.get("items") or []
                     if str(item.get("review_id") or "")
                 ],
+                "candidate_items": group.get("items") or [],
                 "source_paths": group.get("shared_paths") or [],
                 "next_actions": group.get("next_actions") or _duplicate_group_actions(group),
             }
@@ -253,6 +254,7 @@ def _candidate_related_group(groups: list[dict[str, Any]]) -> dict[str, Any]:
                     for item in group.get("items") or []
                     if str(item.get("review_id") or "")
                 ],
+                "candidate_items": group.get("items") or [],
                 "source_paths": group.get("shared_paths") or [],
                 "next_actions": group.get("next_actions") or _related_group_actions(group),
             }

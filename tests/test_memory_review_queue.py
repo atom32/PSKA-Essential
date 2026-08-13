@@ -62,6 +62,10 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(groups["accepted_unapplied"]["items"][0]["review_id"], review.review_id)
         self.assertIn("duplicate_candidates", groups)
         self.assertIn(first_duplicate["review"]["review_id"], groups["duplicate_candidates"]["items"][0]["review_ids"])
+        duplicate_item = groups["duplicate_candidates"]["items"][0]
+        self.assertEqual(len(duplicate_item["candidate_items"]), 2)
+        self.assertIn("PSKA architecture", duplicate_item["candidate_items"][0]["title"])
+        self.assertIn("Route", duplicate_item["candidate_items"][0]["reason"])
         self.assertIn("memory_health", groups)
         self.assertIn("memory_focus", groups)
         self.assertFalse(queue["data_flow"]["writes_memory_directly"])
@@ -137,6 +141,7 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(item["item_type"], "memory_candidate_related_group")
         self.assertEqual(item["memory_type"], "preference")
         self.assertEqual(item["memory_scopes"], ["global", "project"])
+        self.assertEqual(len(item["candidate_items"]), 2)
         self.assertEqual(item["next_actions"][0]["action"], "inspect_related_memory_candidates")
 
     def test_queue_writes_audit(self):

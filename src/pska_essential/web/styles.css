@@ -741,6 +741,24 @@ pre {
   margin-bottom: 0;
 }
 
+.merge-candidate-list {
+  display: grid;
+  gap: 8px;
+}
+
+.merge-candidate-row {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.merge-candidate-row p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .review-source-list {
   display: grid;
   gap: 8px;

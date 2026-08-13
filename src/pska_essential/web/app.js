@@ -3960,7 +3960,8 @@ function memoryReviewQueueMergeAction(group) {
 }
 
 function memoryReviewQueueMergeEditor(group, action) {
-  const first = (group.items || [])[0] || {};
+  const candidates = group.candidate_items || [];
+  const first = candidates[0] || (group.items || [])[0] || {};
   const params = action.params || {};
   const text = memoryCandidateTextarea(first.title || "", 3, "合并后的候选记忆文本");
   const behaviorDelta = memoryCandidateTextarea(first.reason || "", 2, "合并后的行为变化");
@@ -3973,6 +3974,7 @@ function memoryReviewQueueMergeEditor(group, action) {
     ]),
     el("label", {}, ["候选文本", text]),
     el("label", {}, ["行为变化", behaviorDelta]),
+    candidates.length ? el("div", { className: "merge-candidate-list" }, candidates.slice(0, 5).map(memoryReviewQueueMergeCandidateRow)) : null,
     el("div", { className: "form-row" }, [
       el("label", {}, ["类型", memoryType]),
       el("label", {}, ["范围", memoryScope]),
@@ -3990,6 +3992,21 @@ function memoryReviewQueueMergeEditor(group, action) {
     ]),
   ]);
   return editor;
+}
+
+function memoryReviewQueueMergeCandidateRow(candidate) {
+  return el("div", { className: "merge-candidate-row" }, [
+    el("div", {}, [
+      el("strong", {}, candidate.title || candidate.review_id || "candidate"),
+      candidate.reason ? el("p", {}, candidate.reason) : null,
+    ]),
+    el("div", { className: "meta-row" }, [
+      candidate.review_id ? el("span", { className: "tag" }, shortId(candidate.review_id)) : null,
+      candidate.memory_type ? el("span", { className: "tag" }, candidate.memory_type) : null,
+      candidate.memory_scope ? el("span", { className: "tag" }, candidate.memory_scope) : null,
+      candidate.status ? el("span", { className: "tag" }, candidate.status) : null,
+    ]),
+  ]);
 }
 
 function memoryReviewQueueItemRow(item) {
