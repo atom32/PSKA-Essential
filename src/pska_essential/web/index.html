@@ -427,6 +427,58 @@
             </form>
           </div>
 
+          <div class="sources-layout">
+            <form id="source-duplicate-form" class="panel">
+              <h2>重复候选</h2>
+              <div class="form-row">
+                <label>
+                  范围
+                  <select id="source-duplicate-root" name="root_id">
+                    <option value="">全部资料源</option>
+                  </select>
+                </label>
+                <label>
+                  模式
+                  <select name="mode">
+                    <option value="exact_hash">exact_hash</option>
+                    <option value="size_name_version">size_name_version</option>
+                    <option value="text_similarity">text_similarity</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  数量
+                  <input name="limit" type="number" min="1" max="100" value="20" />
+                </label>
+                <label>
+                  文本阈值
+                  <input name="similarity_threshold" type="number" min="0.5" max="0.98" step="0.01" value="0.82" />
+                </label>
+              </div>
+              <button type="submit" class="primary-button">生成候选</button>
+              <div id="source-duplicate-report-status" class="source-tool-status empty-list">尚未生成重复候选。</div>
+            </form>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h2>候选审阅</h2>
+                <div class="status-strip">
+                  <select id="source-duplicate-status-filter">
+                    <option value="">全部</option>
+                    <option value="reported">reported</option>
+                    <option value="keep_reviewing">keep_reviewing</option>
+                    <option value="reviewed">reviewed</option>
+                    <option value="ignored">ignored</option>
+                  </select>
+                  <button id="reload-source-duplicate-review" class="secondary-button" type="button">刷新</button>
+                </div>
+              </div>
+              <div id="source-duplicate-review-summary" class="job-status pending">尚未加载重复候选审阅。</div>
+              <div id="source-duplicate-review-list" class="list empty-list">尚未加载重复候选审阅。</div>
+            </div>
+          </div>
+
           <div class="panel">
             <div class="panel-header">
               <h2>记忆健康</h2>

@@ -66,6 +66,9 @@ const messages = {
   "toast.sourceCollectionQueryRequired": "请先搜索或输入查询。",
   "toast.sourceSelected": "资料源已选中。",
   "toast.sourceSelectRequired": "请先选择一个资料源。",
+  "toast.sourceDuplicateReportCreated": "重复候选已生成。",
+  "toast.sourceDuplicateReviewLoaded": "重复候选审阅已加载。",
+  "toast.sourceDuplicateMarked": "重复候选状态已更新。",
   "toast.sourceTagProposalCreated": "标签提议已创建。",
   "toast.sourceTagApplied": "标签已应用。",
   "toast.sourceCommentProposalCreated": "Comment 提议已创建。",
@@ -108,6 +111,7 @@ const messages = {
   "empty.noSourceAuditActions": "没有资料源审计动作。",
   "empty.noSourceSearchResults": "没有匹配的资料源结果。",
   "empty.noSelectedSource": "从搜索结果或审计清单中选择一个 source。",
+  "empty.noSourceDuplicateReview": "没有重复候选审阅项。",
   "empty.noAskDocuments": "所选范围尚未加载文档。",
   "empty.selectDataset": "请选择知识库。",
   "empty.noContext": "所选范围没有检索到上下文。",
@@ -254,6 +258,10 @@ const state = {
   sourceSearchResults: [],
   sourceSearchError: "",
   sourceSearchCount: null,
+  sourceDuplicateReport: null,
+  sourceDuplicateReview: null,
+  sourceDuplicateReviewStatus: "",
+  sourceDuplicateReviewError: "",
   activeSourceRootId: "",
   sourceScanResults: {},
   selectedSourceRef: null,
@@ -434,6 +442,7 @@ function bindForms() {
   document.getElementById("source-search-form").addEventListener("submit", searchSources);
   document.getElementById("source-saved-search-form").addEventListener("submit", saveSourceSearch);
   document.getElementById("source-collection-form").addEventListener("submit", handleSourceCollection);
+  document.getElementById("source-duplicate-form").addEventListener("submit", runSourceDuplicateReport);
   document.getElementById("source-annotation-form").addEventListener("submit", handleSourceAnnotation);
   document.getElementById("memory-card-search-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -493,10 +502,16 @@ function bindRefresh() {
   document.getElementById("reload-sources").addEventListener("click", loadSourceRoots);
   document.getElementById("run-source-extraction-job").addEventListener("click", () => runSourceExtractionJob());
   document.getElementById("run-source-audit").addEventListener("click", () => runSourceAudit());
+  document.getElementById("reload-source-duplicate-review").addEventListener("click", () => loadSourceDuplicateReview({ toast: true }));
+  document.getElementById("source-duplicate-status-filter").addEventListener("change", (event) => {
+    state.sourceDuplicateReviewStatus = event.currentTarget.value || "";
+    loadSourceDuplicateReview();
+  });
   document.getElementById("source-root-filter").addEventListener("change", (event) => {
     state.activeSourceRootId = event.currentTarget.value || "";
     renderSourceRootPickers();
     renderSources();
+    loadSourceDuplicateReview();
   });
   document.getElementById("reload-reviews").addEventListener("click", loadReviews);
   document.getElementById("reload-memory-review-queue").addEventListener("click", () => loadMemoryReviewQueue({ toast: true }));
@@ -546,6 +561,7 @@ async function refreshAll() {
     loadWorkspaceStatus(),
     loadSourceRoots(),
     loadSourceCollections({ silent: true }),
+    loadSourceDuplicateReview(),
     loadDatasets(),
     loadReviews(),
     loadMemoryReviewQueue(),
@@ -845,6 +861,70 @@ async function saveSourceSearch(event) {
   renderSourceTools();
   await loadAuditEvents("source.saved_search.create");
   showToast(t("toast.sourceSavedSearchCreated"));
+}
+
+async function runSourceDuplicateReport(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const rootId = String(form.get("root_id") || "").trim();
+  const mode = String(form.get("mode") || "exact_hash").trim();
+  const scope = sourceScopeFromRootId(rootId);
+  if (mode === "text_similarity") {
+    scope.similarity_threshold = Number(form.get("similarity_threshold") || 0.82);
+  }
+  const payload = await api("/api/sources/duplicates", {
+    method: "POST",
+    body: {
+      scope,
+      mode,
+      limit: Number(form.get("limit") || 20),
+    },
+  });
+  state.sourceDuplicateReport = payload.duplicate_report || null;
+  state.activeSourceRootId = rootId;
+  renderSourceRootPickers();
+  await loadSourceDuplicateReview();
+  await loadAuditEvents("source.duplicate_report");
+  renderSources();
+  showToast(t("toast.sourceDuplicateReportCreated"));
+}
+
+async function loadSourceDuplicateReview(options = {}) {
+  try {
+    const payload = await api("/api/sources/duplicate-review", {
+      method: "POST",
+      body: {
+        scope: sourceScopeFromRootId(state.activeSourceRootId),
+        status: state.sourceDuplicateReviewStatus || "",
+        limit: 50,
+      },
+    });
+    state.sourceDuplicateReview = payload.duplicate_review || null;
+    state.sourceDuplicateReviewError = "";
+    renderSources();
+    if (options.toast) showToast(t("toast.sourceDuplicateReviewLoaded"));
+  } catch (error) {
+    state.sourceDuplicateReview = null;
+    state.sourceDuplicateReviewError = error.message;
+    renderSources();
+    if (options.toast) showToast(error.message);
+  }
+}
+
+async function markSourceDuplicateGroup(groupId, status) {
+  const normalized = String(groupId || "").trim();
+  if (!normalized) return;
+  const note = window.prompt("审阅备注", duplicateStatusDefaultNote(status)) || "";
+  const payload = await api(`/api/sources/duplicate-groups/${encodeURIComponent(normalized)}/mark`, {
+    method: "POST",
+    body: { status, note },
+  });
+  state.sourceDuplicateReport = null;
+  await loadSourceDuplicateReview();
+  await loadAuditEvents("source.duplicate_group.mark");
+  renderSources();
+  showToast(t("toast.sourceDuplicateMarked"));
+  return payload;
 }
 
 async function handleSourceCollection(event) {
@@ -2215,13 +2295,14 @@ function renderSources() {
 
   renderSourceAudit();
   renderSourceTools();
+  renderSourceDuplicateReview();
 }
 
 function renderSourceRootPickers() {
-  ["source-root-filter", "source-search-root", "source-save-root"].forEach((id) => {
+  ["source-root-filter", "source-search-root", "source-save-root", "source-duplicate-root"].forEach((id) => {
     const picker = document.getElementById(id);
     if (!picker) return;
-    const previous = id === "source-root-filter" ? state.activeSourceRootId : picker.value || "";
+    const previous = id === "source-root-filter" || id === "source-duplicate-root" ? state.activeSourceRootId : picker.value || "";
     picker.replaceChildren(el("option", { value: "" }, "全部资料源"));
     state.sourceRoots.forEach((root) => {
       picker.append(el("option", { value: root.root_id }, sourceRootLabel(root)));
@@ -2284,6 +2365,52 @@ function renderSourceToolStatus(container, value, renderer, emptyText) {
   }
   container.className = "source-tool-status";
   container.append(renderer(value));
+}
+
+function renderSourceDuplicateReview() {
+  const reportStatus = document.getElementById("source-duplicate-report-status");
+  const summary = document.getElementById("source-duplicate-review-summary");
+  const list = document.getElementById("source-duplicate-review-list");
+  const filter = document.getElementById("source-duplicate-status-filter");
+  if (!reportStatus || !summary || !list || !filter) return;
+  if (filter.value !== state.sourceDuplicateReviewStatus) filter.value = state.sourceDuplicateReviewStatus || "";
+
+  renderSourceToolStatus(
+    reportStatus,
+    state.sourceDuplicateReport,
+    duplicateReportSummary,
+    "尚未生成重复候选。",
+  );
+
+  const review = state.sourceDuplicateReview;
+  if (state.sourceDuplicateReviewError) {
+    summary.textContent = state.sourceDuplicateReviewError;
+    summary.className = "job-status failed";
+    renderList(list, [], t("empty.noSourceDuplicateReview"));
+    return;
+  }
+  if (!review) {
+    summary.textContent = "尚未加载重复候选审阅。";
+    summary.className = "job-status pending";
+    renderList(list, [], t("empty.noSourceDuplicateReview"));
+    return;
+  }
+  const counts = review.status_counts || {};
+  summary.textContent = `候选 ${review.count || 0} / reported ${counts.reported || 0} / keep ${counts.keep_reviewing || 0} / reviewed ${counts.reviewed || 0} / ignored ${counts.ignored || 0}`;
+  summary.className = "job-status ready";
+  renderList(list, review.groups || [], t("empty.noSourceDuplicateReview"), duplicateReviewGroupCard);
+}
+
+function duplicateReportSummary(report) {
+  return el("div", {}, [
+    el("strong", {}, `${report.mode || "duplicate"}: ${report.group_count || 0} 组`),
+    el("p", {}, report.message || `extra files ${report.duplicate_file_count || 0}`),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag ready" }, shortId(report.report_id || "")),
+      el("span", { className: "tag" }, report.provider || "core"),
+      report.metadata && report.metadata.embedding_required === false ? el("span", { className: "tag" }, "no embedding") : null,
+    ]),
+  ]);
 }
 
 function savedSearchSummary(saved) {
@@ -2460,6 +2587,71 @@ function duplicateGroupCard(group) {
       ),
     ),
   ]);
+}
+
+function duplicateReviewGroupCard(group) {
+  const members = group.members || [];
+  const method = group.method || group.mode || "duplicate";
+  const confidence = Number(group.confidence || 0);
+  const title = group.name_key ? `${method} ${group.name_key}` : `${method} ${shortId(group.group_id || group.content_hash || "")}`;
+  const detail = `${members.length} 个文件，${formatBytes(group.size || 0)}，confidence ${formatPercent(confidence)}`;
+  const status = group.action_status || "reported";
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, title),
+        el("p", {}, detail),
+      ]),
+      el("span", { className: `tag ${duplicateStatusClass(status)}` }, status),
+    ]),
+    group.review_note ? el("p", {}, group.review_note) : null,
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, shortId(group.group_id || "")),
+      el("span", { className: "tag" }, group.mode || method),
+      group.report_created_at ? el("span", { className: "tag" }, formatDateTime(group.report_created_at)) : null,
+      group.reviewed_at ? el("span", { className: "tag ready" }, `reviewed ${formatDateTime(group.reviewed_at)}`) : null,
+    ]),
+    el(
+      "div",
+      { className: "list" },
+      members.map((member) =>
+        el("div", { className: "source-member-row" }, [
+          el("span", {}, `${member.root_label || member.root_kind || "root"} / ${member.path || ""}`),
+          member.source_ref
+            ? el("div", { className: "button-row compact-actions" }, [
+                el(
+                  "button",
+                  { className: "secondary-button", type: "button", onclick: () => selectSourceForAnnotation(member.source_ref, member.title || member.path) },
+                  t("button.annotate"),
+                ),
+                el("button", { className: "secondary-button", type: "button", onclick: () => readSource(member.source_ref) }, t("button.source")),
+              ])
+            : null,
+        ]),
+      ),
+    ),
+    el("div", { className: "card-actions" }, [
+      el("button", { className: "secondary-button", type: "button", onclick: () => markSourceDuplicateGroup(group.group_id, "keep_reviewing") }, "继续看"),
+      el("button", { className: "secondary-button", type: "button", onclick: () => markSourceDuplicateGroup(group.group_id, "ignored") }, "忽略"),
+      el("button", { className: "primary-button", type: "button", onclick: () => markSourceDuplicateGroup(group.group_id, "reviewed") }, "已审"),
+    ]),
+  ]);
+}
+
+function duplicateStatusClass(status) {
+  if (status === "reviewed") return "ready";
+  if (status === "ignored") return "failed";
+  if (status === "keep_reviewing") return "pending";
+  return "pending";
+}
+
+function duplicateStatusDefaultNote(status) {
+  return {
+    keep_reviewing: "needs another pass",
+    reviewed: "reviewed by user",
+    ignored: "not a useful duplicate candidate",
+    reported: "reset to reported",
+  }[status] || "";
 }
 
 function unresolvedLinkCard(item) {
@@ -5951,6 +6143,14 @@ function readableName(value) {
 function formatPercent(value) {
   const numeric = Math.max(0, Math.min(1, Number(value || 0)));
   return `${Math.round(numeric * 100)}%`;
+}
+
+function formatDateTime(value) {
+  const text = String(value || "");
+  if (!text) return "";
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+  return date.toLocaleString(LOCALE, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function datasetState(dataset) {

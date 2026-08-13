@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M17 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M18 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -52,6 +52,8 @@ search(query, scope, limit, filters=None, options=None) -> list[ContextPacket]
 read_source(source_ref) -> SourceContext
 neighbors(source_ref, strategy, limit) -> list[SourceNeighbor]
 duplicate_report(scope, mode, limit) -> DuplicateReport
+duplicate_review_list(scope, status, limit) -> SourceDuplicateReview
+duplicate_group_mark(group_id, status, note) -> SourceDuplicateGroupReview
 source_audit_run(scope, limit) -> SourceAuditReport
 saved_search_create(label, query, filters, scope) -> SavedSearch
 source_collection_create(label, description, selector, source_refs) -> SourceCollection
@@ -529,7 +531,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M17 source-management MCP surface:
+The personal source layer has an M1-M18 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
@@ -538,6 +540,8 @@ The personal source layer has an M1-M17 source-management MCP surface:
 - `pska_source_read`
 - `pska_source_neighbors`
 - `pska_duplicate_report`
+- `pska_duplicate_review_list`
+- `pska_duplicate_group_mark`
 - `pska_source_audit_run`
 - `pska_source_audit_job_enqueue`
 - `pska_source_audit_schedule_create`
@@ -608,7 +612,8 @@ Hermes/RAG workflows.
 The remaining personal source-management capabilities are planned vNext surface
 and are not part of the current Alpha MCP registry until implemented: native
 Obsidian richer frontmatter fields, move/delete proposals, background wakeup
-integration, stronger ranking adapters, and richer media duplicate heuristics.
+integration, stronger ranking adapters, destructive duplicate cleanup proposals,
+and richer media duplicate heuristics.
 
 `pska_source_read` is the common read tool for both RAGFlow source refs and
 personal source refs.

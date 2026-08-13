@@ -32,6 +32,8 @@ EXPECTED_TOOLS = {
     "pska_source_search",
     "pska_source_neighbors",
     "pska_duplicate_report",
+    "pska_duplicate_review_list",
+    "pska_duplicate_group_mark",
     "pska_source_audit_run",
     "pska_source_audit_job_enqueue",
     "pska_source_audit_schedule_create",
@@ -409,6 +411,11 @@ class McpContractTests(unittest.TestCase):
             policy["pska_duplicate_report"]["supports_modes"],
             ["exact_hash", "size_name_version", "text_similarity", "fclones_hash", "czkawka_hash"],
         )
+        self.assertFalse(policy["pska_duplicate_review_list"]["writes_source_files"])
+        self.assertFalse(policy["pska_duplicate_review_list"]["writes_source_registry"])
+        self.assertFalse(policy["pska_duplicate_group_mark"]["writes_source_files"])
+        self.assertTrue(policy["pska_duplicate_group_mark"]["writes_source_registry"])
+        self.assertFalse(policy["pska_duplicate_group_mark"]["delete_move_merge_supported"])
         self.assertEqual(policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
         self.assertTrue(policy["pska_source_search"]["snippet_metadata"])
         self.assertFalse(policy["pska_source_collection_create"]["writes_source_files"])

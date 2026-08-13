@@ -275,6 +275,55 @@ class WorkflowService:
         )
         return report
 
+    def duplicate_review_list(
+        self,
+        scope: dict[str, Any] | None = None,
+        *,
+        status: str = "",
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        review = self._source_registry().duplicate_review_list(scope or {}, status=status, limit=limit)
+        self.store.add_audit_event(
+            audit_event(
+                "source.duplicate_review.list",
+                "source",
+                "duplicate_review",
+                scope=scope or {},
+                status=status or "",
+                count=review.get("count") or 0,
+                writes_source_files=False,
+                writes_source_registry=False,
+                delete_move_merge_supported=False,
+            )
+        )
+        return review
+
+    def duplicate_group_mark(
+        self,
+        group_id: str,
+        *,
+        status: str,
+        note: str = "",
+    ) -> dict[str, Any]:
+        result = self._source_registry().duplicate_group_mark(group_id, status=status, note=note)
+        group = result.get("group") or {}
+        self.store.add_audit_event(
+            audit_event(
+                "source.duplicate_group.mark",
+                "source",
+                group_id,
+                status=result.get("status") or status,
+                review_note=result.get("review_note") or "",
+                method=group.get("method") or "",
+                report_id=group.get("report_id") or "",
+                member_count=group.get("member_count") or 0,
+                writes_source_files=False,
+                writes_source_registry=True,
+                delete_move_merge_supported=False,
+            )
+        )
+        return result
+
     def source_audit_run(self, scope: dict[str, Any] | None = None, *, limit: int = 20) -> dict[str, Any]:
         audit = self._source_registry().audit(scope or {}, limit=limit)
         self.store.add_audit_event(

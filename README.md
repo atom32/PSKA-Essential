@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M17 baseline into
+  engineering plan for upgrading the current PSKA-Essential M18 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -481,7 +481,7 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
-The personal source tools provide the M1-M17 no-embedding local source loop:
+The personal source tools provide the M1-M18 no-embedding local source loop:
 register a user-authorized local folder or Obsidian vault, scan rebuildable
 metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
 `.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
@@ -680,6 +680,11 @@ source-file changes.
 M17 adds built-in `text_similarity` duplicate reports over indexed source text.
 It uses token Jaccard with configurable `scope.similarity_threshold`, requires
 no embeddings, and remains a dry-run review signal.
+M18 adds duplicate candidate review workflow through
+`pska_duplicate_review_list`, `pska_duplicate_group_mark`, and the Sources
+panel. Users can mark candidate groups as `reported`, `keep_reviewing`,
+`reviewed`, or `ignored` with notes; the action writes only PSKA registry/audit
+metadata and still performs no source-file cleanup.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
@@ -817,6 +822,8 @@ Implemented Alpha routes:
 - `POST /api/sources/search`
 - `POST /api/sources/neighbors`
 - `POST /api/sources/duplicates`
+- `POST /api/sources/duplicate-review`
+- `POST /api/sources/duplicate-groups/{group_id}/mark`
 - `POST /api/sources/audits/run`
 - `POST /api/sources/audit-jobs`
 - `GET /api/sources/audit-jobs`

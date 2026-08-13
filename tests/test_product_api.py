@@ -282,6 +282,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/search"), contract_routes)
         self.assertIn(("POST", "/api/sources/neighbors"), contract_routes)
         self.assertIn(("POST", "/api/sources/duplicates"), contract_routes)
+        self.assertIn(("POST", "/api/sources/duplicate-review"), contract_routes)
+        self.assertIn(("POST", "/api/sources/duplicate-groups/{group_id}/mark"), contract_routes)
         self.assertIn(("POST", "/api/sources/audits/run"), contract_routes)
         self.assertIn(("POST", "/api/sources/saved-searches"), contract_routes)
         self.assertIn(("GET", "/api/sources/collections"), contract_routes)
@@ -317,10 +319,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m17_text_similarity_duplicates")
+        self.assertEqual(source_layer["status"], "m18_duplicate_review_ui")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_duplicate_review_list", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_duplicate_group_mark", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_run", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_enqueue", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_schedule_create", source_layer["mcp_tools"]["implemented"])
@@ -363,9 +367,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m17_text_similarity_duplicates")
+        self.assertEqual(assistant_layer["status"], "m18_duplicate_review_ui")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_duplicate_review_list", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_duplicate_group_mark", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_run", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_extract_job_run", assistant_layer["mcp_tools"]["implemented"])
@@ -789,6 +795,18 @@ class ProductApiTests(unittest.TestCase):
                     "mode": "text_similarity",
                 },
             )
+            duplicate_review = self._post_json(
+                "/api/sources/duplicate-review",
+                {"scope": {"root_ids": [registered["root"]["root_id"]]}, "status": "reported"},
+            )
+            duplicate_mark = self._post_json(
+                f"/api/sources/duplicate-groups/{heuristic_duplicate['duplicate_report']['groups'][0]['group_id']}/mark",
+                {"status": "ignored", "note": "human reviewed false positive"},
+            )
+            duplicate_review_ignored = self._post_json(
+                "/api/sources/duplicate-review",
+                {"scope": {"root_ids": [registered["root"]["root_id"]]}, "status": "ignored"},
+            )
             source_audit = self._post_json(
                 "/api/sources/audits/run",
                 {"scope": {"root_ids": [registered["root"]["root_id"]]}, "limit": 10},
@@ -951,6 +969,16 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(text_duplicate["duplicate_report"]["mode"], "text_similarity")
         self.assertEqual(text_duplicate["duplicate_report"]["group_count"], 1)
         self.assertFalse(text_duplicate["duplicate_report"]["metadata"]["embedding_required"])
+        self.assertEqual(duplicate_review["duplicate_review"]["schema"], "pska.source_duplicate_review.v1")
+        self.assertGreaterEqual(duplicate_review["duplicate_review"]["count"], 2)
+        self.assertEqual(duplicate_mark["duplicate_group_review"]["status"], "ignored")
+        self.assertFalse(duplicate_mark["duplicate_group_review"]["data_flow"]["writes_source_files"])
+        self.assertTrue(duplicate_mark["duplicate_group_review"]["data_flow"]["writes_source_registry"])
+        self.assertEqual(duplicate_review_ignored["duplicate_review"]["count"], 1)
+        self.assertEqual(
+            duplicate_review_ignored["duplicate_review"]["groups"][0]["review_note"],
+            "human reviewed false positive",
+        )
         self.assertEqual(source_audit["audit"]["schema"], "pska.source_audit.v1")
         self.assertEqual(source_audit["audit"]["root_count"], 1)
         self.assertEqual(source_audit["audit"]["duplicate_preview"]["group_count"], 0)
@@ -2948,6 +2976,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/sources/comments/proposals', script)
         self.assertIn('/api/sources/comments/${encodeURIComponent(proposalId)}/apply', script)
         self.assertIn('/api/sources/obsidian/moc/proposals', script)
+        self.assertIn('/api/sources/duplicate-review', script)
+        self.assertIn('/api/sources/duplicate-groups/${encodeURIComponent(normalized)}/mark', script)
         self.assertIn('/api/sources/memory-reviews', script)
         self.assertIn('/api/memory/briefing?card_limit=30&health_limit=20&trace_limit=30', script)
         self.assertIn('/api/memory/review-queue?review_limit=50&health_limit=20&focus_limit=20', script)
@@ -2973,6 +3003,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("async function tickSourceAuditJobs", script)
         self.assertIn("async function searchSources", script)
         self.assertIn("async function saveSourceSearch", script)
+        self.assertIn("async function runSourceDuplicateReport", script)
+        self.assertIn("async function loadSourceDuplicateReview", script)
+        self.assertIn("async function markSourceDuplicateGroup", script)
         self.assertIn("async function handleSourceCollection", script)
         self.assertIn("async function createSourceCollection", script)
         self.assertIn("async function resolveSourceCollection", script)

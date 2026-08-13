@@ -272,6 +272,44 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertFalse(report["data_flow"]["writes_source_files"])
         self.assertFalse(report["data_flow"]["embedding_required"])
 
+    def test_duplicate_review_list_and_mark_store_human_state_without_source_writes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            source_text = "# Duplicate\n\nSame source body for human review.\n"
+            first = root_path / "a.md"
+            second = root_path / "copy.md"
+            first.write_text(source_text, encoding="utf-8")
+            second.write_text(source_text, encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+
+            report = registry.duplicate_report({"root_ids": [root["root_id"]]}, limit=10)
+            review = registry.duplicate_review_list({"root_ids": [root["root_id"]]}, status="reported", limit=10)
+            marked = registry.duplicate_group_mark(
+                report["groups"][0]["group_id"],
+                status="ignored",
+                note="not useful for this folder cleanup",
+            )
+            ignored = registry.duplicate_review_list({"root_ids": [root["root_id"]]}, status="ignored", limit=10)
+
+            self.assertEqual(first.read_text(encoding="utf-8"), source_text)
+            self.assertEqual(second.read_text(encoding="utf-8"), source_text)
+
+        self.assertEqual(review["schema"], "pska.source_duplicate_review.v1")
+        self.assertEqual(review["count"], 1)
+        self.assertEqual(review["groups"][0]["action_status"], "reported")
+        self.assertFalse(review["data_flow"]["writes_source_files"])
+        self.assertEqual(marked["schema"], "pska.source_duplicate_group_review.v1")
+        self.assertEqual(marked["status"], "ignored")
+        self.assertEqual(marked["review_note"], "not useful for this folder cleanup")
+        self.assertFalse(marked["data_flow"]["writes_source_files"])
+        self.assertTrue(marked["data_flow"]["writes_source_registry"])
+        self.assertEqual(ignored["count"], 1)
+        self.assertEqual(ignored["groups"][0]["action_status"], "ignored")
+        self.assertEqual(ignored["groups"][0]["review_note"], "not useful for this folder cleanup")
+
     def test_source_collections_create_list_and_resolve_manual_or_search(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir) / "Project"
@@ -386,6 +424,12 @@ class SourceRegistryTests(unittest.TestCase):
             tools["pska_source_scan"](root["root_id"])
 
             report = tools["pska_duplicate_report"]({"root_ids": [root["root_id"]]})
+            review = tools["pska_duplicate_review_list"]({"root_ids": [root["root_id"]]}, status="reported")
+            marked = tools["pska_duplicate_group_mark"](
+                report["groups"][0]["group_id"],
+                status="reviewed",
+                note="confirmed duplicate pair",
+            )
             saved = tools["pska_saved_search_create"](
                 "Duplicated source",
                 "duplicated source",
@@ -394,9 +438,14 @@ class SourceRegistryTests(unittest.TestCase):
 
         self.assertEqual(report["group_count"], 1)
         self.assertEqual(report["groups"][0]["member_count"], 2)
+        self.assertEqual(review["count"], 1)
+        self.assertEqual(marked["status"], "reviewed")
+        self.assertEqual(marked["group"]["review_note"], "confirmed duplicate pair")
         self.assertEqual(saved["label"], "Duplicated source")
         actions = {event.action for event in service.store.list_audit_events(limit=20)}
         self.assertIn("source.duplicate_report", actions)
+        self.assertIn("source.duplicate_review.list", actions)
+        self.assertIn("source.duplicate_group.mark", actions)
         self.assertIn("source.saved_search.create", actions)
 
     def test_mcp_source_collection_tools_create_resolve_and_audit(self):

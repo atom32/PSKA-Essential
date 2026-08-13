@@ -153,6 +153,20 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     ):
         return to_jsonable(service.duplicate_report(scope or {}, mode=mode, limit=limit))
 
+    def pska_duplicate_review_list(
+        scope: dict[str, Any] | None = None,
+        status: str = "",
+        limit: int = 50,
+    ):
+        return to_jsonable(service.duplicate_review_list(scope or {}, status=status, limit=limit))
+
+    def pska_duplicate_group_mark(
+        group_id: str,
+        status: str,
+        note: str = "",
+    ):
+        return to_jsonable(service.duplicate_group_mark(group_id, status=status, note=note))
+
     def pska_source_audit_run(scope: dict[str, Any] | None = None, limit: int = 20):
         return to_jsonable(service.source_audit_run(scope or {}, limit=limit))
 
@@ -1249,6 +1263,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_search": pska_source_search,
         "pska_source_neighbors": pska_source_neighbors,
         "pska_duplicate_report": pska_duplicate_report,
+        "pska_duplicate_review_list": pska_duplicate_review_list,
+        "pska_duplicate_group_mark": pska_duplicate_group_mark,
         "pska_source_audit_run": pska_source_audit_run,
         "pska_source_audit_job_enqueue": pska_source_audit_job_enqueue,
         "pska_source_audit_schedule_create": pska_source_audit_schedule_create,

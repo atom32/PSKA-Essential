@@ -111,6 +111,8 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/search"},
     {"method": "POST", "path": "/api/sources/neighbors"},
     {"method": "POST", "path": "/api/sources/duplicates"},
+    {"method": "POST", "path": "/api/sources/duplicate-review"},
+    {"method": "POST", "path": "/api/sources/duplicate-groups/{group_id}/mark"},
     {"method": "POST", "path": "/api/sources/audits/run"},
     {"method": "POST", "path": "/api/sources/saved-searches"},
     {"method": "GET", "path": "/api/sources/collections"},
@@ -962,6 +964,27 @@ def _handler_class(state: ProductApiState):
                     limit=int(payload.get("limit") or 50),
                 )
                 self._send_json({"ok": True, "duplicate_report": to_jsonable(report)})
+                return
+
+            if method == "POST" and path == "/api/sources/duplicate-review":
+                payload = self._read_json()
+                review = state.service.duplicate_review_list(
+                    _optional_dict(payload, "scope"),
+                    status=str(payload.get("status") or ""),
+                    limit=int(payload.get("limit") or 50),
+                )
+                self._send_json({"ok": True, "duplicate_review": to_jsonable(review)})
+                return
+
+            duplicate_group_mark_id = _match(path, "/api/sources/duplicate-groups/", "/mark")
+            if method == "POST" and duplicate_group_mark_id:
+                payload = self._read_json()
+                result = state.service.duplicate_group_mark(
+                    duplicate_group_mark_id,
+                    status=_required_str(payload, "status"),
+                    note=str(payload.get("note") or payload.get("review_note") or ""),
+                )
+                self._send_json({"ok": True, "duplicate_group_review": to_jsonable(result)})
                 return
 
             if method == "POST" and path == "/api/sources/audits/run":

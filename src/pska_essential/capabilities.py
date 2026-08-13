@@ -82,6 +82,24 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "delete_move_merge_supported": False,
         "supports_modes": ["exact_hash", "size_name_version", "text_similarity", "fclones_hash", "czkawka_hash"],
     },
+    "pska_duplicate_review_list": {
+        "category": "source",
+        "access": "read",
+        "durable": False,
+        "writes_source_registry": False,
+        "writes_source_files": False,
+        "delete_move_merge_supported": False,
+        "review_statuses": ["reported", "keep_reviewing", "reviewed", "ignored"],
+    },
+    "pska_duplicate_group_mark": {
+        "category": "source",
+        "access": "write",
+        "durable": False,
+        "writes_source_registry": True,
+        "writes_source_files": False,
+        "delete_move_merge_supported": False,
+        "review_statuses": ["reported", "keep_reviewing", "reviewed", "ignored"],
+    },
     "pska_source_audit_run": {
         "category": "source",
         "access": "read",
@@ -676,7 +694,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m17_text_similarity_duplicates",
+        "status": "m18_duplicate_review_ui",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -692,6 +710,8 @@ def source_layer_contract() -> dict[str, Any]:
                 "pska_source_read",
                 "pska_source_neighbors",
                 "pska_duplicate_report",
+                "pska_duplicate_review_list",
+                "pska_duplicate_group_mark",
                 "pska_source_audit_run",
                 "pska_source_audit_job_enqueue",
                 "pska_source_audit_schedule_create",
@@ -759,7 +779,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m17_text_similarity_duplicates",
+        "status": "m18_duplicate_review_ui",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -767,6 +787,8 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_workspace_status",
                 "pska_jarvis_briefing",
                 "pska_source_audit_run",
+                "pska_duplicate_review_list",
+                "pska_duplicate_group_mark",
                 "pska_source_audit_job_enqueue",
                 "pska_source_audit_schedule_create",
                 "pska_source_audit_job_list",

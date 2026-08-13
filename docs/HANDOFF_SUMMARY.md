@@ -99,8 +99,15 @@ Last updated: 2026-07-15
 > `pska_duplicate_report(mode="text_similarity")` uses already indexed source text,
 > token Jaccard, and optional `scope.similarity_threshold`; it requires no
 > embeddings and remains a dry-run report signal only.
+>
+> Update, 2026-08-13: Duplicate candidate review is now implemented as M18.
+> `pska_duplicate_review_list` and `pska_duplicate_group_mark` expose persisted
+> candidate groups with `reported`/`keep_reviewing`/`reviewed`/`ignored` states
+> and review notes. Product API and the Sources panel can run duplicate modes and
+> mark groups, still without deleting, moving, merging, or editing source files.
 > Next useful source-governance steps are richer frontmatter fields, stronger
-> ranking adapters, media duplicate heuristics, and a better duplicate review UI.
+> ranking adapters, media duplicate heuristics, and strong-confirmation cleanup
+> proposals.
 
 This document is the handoff point for a fresh Codex conversation.
 

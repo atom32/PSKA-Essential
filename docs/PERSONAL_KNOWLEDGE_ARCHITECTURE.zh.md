@@ -552,6 +552,8 @@ Hermes 的默认行为：
 - Done: 支持 duplicate report；当前已实现 exact hash、外部 fclones/Czkawka hash
   report、内置 `size_name_version` 同名/副本/版本/近似大小候选，以及内置
   `text_similarity` indexed-text token Jaccard 候选。
+- Done: 支持 duplicate review list/mark；候选组可被标记为 reported、
+  keep_reviewing、reviewed、ignored，并记录 review note，但不执行删除/移动/合并。
 - Done: 支持 saved search。
 
 ### M3: Sidecar Annotations
@@ -693,7 +695,7 @@ Hermes 的默认行为：
 - Done: `pska_provider_jobs` 和 workspace status 暴露 queued source audit job，Jarvis/WebUI 可把它显示为可执行 next action。
 - Done: Product API 暴露 `/api/sources/audit-jobs`、`/api/sources/audit-jobs/run-next` 和指定 job run 路由。
 - Done: job 不写源文件、不直接写 memory、不需要 embedding；source-route 仍必须进入 Review。
-- Pending: media similarity 级别的近似查重和更强 duplicate review UI。
+- Pending: media similarity 级别的近似查重，以及 move/delete/merge proposal 的强确认流程。
 
 ### M9: Wall-Clock Source Audit Scheduler
 

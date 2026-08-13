@@ -25,6 +25,7 @@ from pska_essential.extraction import (
 PERSONAL_SOURCE_ADAPTERS = {"local_folder", "obsidian_vault"}
 PERMISSION_MODES = {"read_only", "sidecar_write", "native_write", "managed"}
 NEIGHBOR_STRATEGIES = {"auto", "links", "backlinks", "folder"}
+DUPLICATE_REVIEW_STATUSES = {"reported", "keep_reviewing", "reviewed", "ignored"}
 SIDECAR_WRITE_TARGET = "sidecar"
 OBSIDIAN_FRONTMATTER_WRITE_TARGET = "obsidian_frontmatter"
 OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET = "obsidian_markdown_comment"
@@ -475,6 +476,9 @@ class SQLiteSourceRegistry:
                         "content_hash": group["content_hash"],
                         "size": int(group["size"]),
                         "member_count": len(members),
+                        "action_status": "reported",
+                        "review_note": "",
+                        "reviewed_at": "",
                         "members": members,
                     }
                 )
@@ -490,6 +494,154 @@ class SQLiteSourceRegistry:
             "data_flow": {
                 "writes_source_files": False,
                 "writes_index": True,
+                "delete_move_merge_supported": False,
+            },
+        }
+
+    def duplicate_review_list(
+        self,
+        scope: dict[str, Any] | None = None,
+        *,
+        status: str = "",
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        if limit <= 0:
+            limit = 50
+        scope = dict(scope or {})
+        root_ids = _scope_strings(scope, "root_ids", "root_id")
+        kinds = _scope_strings(scope, "source_kinds", "source_kind")
+        normalized_status = str(status or "").strip().lower()
+        where: list[str] = []
+        params: list[Any] = []
+        count_where: list[str] = []
+        count_params: list[Any] = []
+        if normalized_status:
+            if normalized_status not in DUPLICATE_REVIEW_STATUSES:
+                raise SourceRegistryError(
+                    "duplicate review status must be reported, keep_reviewing, reviewed, ignored, or empty"
+                )
+            where.append("g.action_status = ?")
+            params.append(normalized_status)
+        if root_ids:
+            root_filter = (
+                "EXISTS (SELECT 1 FROM duplicate_members dm_scope WHERE dm_scope.group_id = g.group_id "
+                f"AND dm_scope.root_id IN ({','.join('?' for _ in root_ids)}))"
+            )
+            where.append(root_filter)
+            count_where.append(root_filter)
+            params.extend(root_ids)
+            count_params.extend(root_ids)
+        if kinds:
+            kind_filter = (
+                "EXISTS ("
+                "SELECT 1 FROM duplicate_members dm_kind "
+                "JOIN source_roots r_kind ON r_kind.root_id = dm_kind.root_id "
+                "WHERE dm_kind.group_id = g.group_id "
+                f"AND r_kind.kind IN ({','.join('?' for _ in kinds)})"
+                ")"
+            )
+            where.append(kind_filter)
+            count_where.append(kind_filter)
+            params.extend(kinds)
+            count_params.extend(kinds)
+        where_sql = "WHERE " + " AND ".join(where) if where else ""
+        count_where_sql = "WHERE " + " AND ".join(count_where) if count_where else ""
+        params.append(limit)
+        with self.lock:
+            rows = self.conn.execute(
+                f"""
+                SELECT g.*, r.mode, r.scope_json, r.created_at AS report_created_at
+                FROM duplicate_groups g
+                JOIN duplicate_reports r ON r.report_id = g.report_id
+                {where_sql}
+                ORDER BY r.created_at DESC, g.confidence DESC, g.member_count DESC, g.group_id ASC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+            groups = [self._duplicate_review_group_payload(row, index=index) for index, row in enumerate(rows, start=1)]
+            counts = {
+                str(row["action_status"]): int(row["count"] or 0)
+                for row in self.conn.execute(
+                    f"""
+                    SELECT action_status, COUNT(*) AS count
+                    FROM duplicate_groups g
+                    {count_where_sql}
+                    GROUP BY action_status
+                    ORDER BY action_status COLLATE NOCASE
+                    """,
+                    count_params,
+                ).fetchall()
+            }
+        return {
+            "schema": "pska.source_duplicate_review.v1",
+            "scope": scope,
+            "status_filter": normalized_status,
+            "count": len(groups),
+            "status_counts": {key: counts.get(key, 0) for key in DUPLICATE_REVIEW_STATUSES},
+            "groups": groups,
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_source_registry": False,
+                "delete_move_merge_supported": False,
+            },
+        }
+
+    def duplicate_group_mark(
+        self,
+        group_id: str,
+        *,
+        status: str,
+        note: str = "",
+    ) -> dict[str, Any]:
+        normalized_group_id = str(group_id or "").strip()
+        normalized_status = str(status or "").strip().lower()
+        review_note = str(note or "").strip()
+        if not normalized_group_id:
+            raise SourceRegistryError("duplicate group_id is required")
+        if normalized_status not in DUPLICATE_REVIEW_STATUSES:
+            raise SourceRegistryError("duplicate review status must be reported, keep_reviewing, reviewed, or ignored")
+        now = utc_now_iso()
+        with self.lock:
+            row = self.conn.execute(
+                """
+                SELECT g.*, r.mode, r.scope_json, r.created_at AS report_created_at
+                FROM duplicate_groups g
+                JOIN duplicate_reports r ON r.report_id = g.report_id
+                WHERE g.group_id = ?
+                """,
+                (normalized_group_id,),
+            ).fetchone()
+            if row is None:
+                raise SourceRegistryError(f"duplicate group not found: {normalized_group_id}")
+            self.conn.execute(
+                """
+                UPDATE duplicate_groups
+                SET action_status = ?, review_note = ?, reviewed_at = ?
+                WHERE group_id = ?
+                """,
+                (normalized_status, review_note, now, normalized_group_id),
+            )
+            self.conn.commit()
+            updated = self.conn.execute(
+                """
+                SELECT g.*, r.mode, r.scope_json, r.created_at AS report_created_at
+                FROM duplicate_groups g
+                JOIN duplicate_reports r ON r.report_id = g.report_id
+                WHERE g.group_id = ?
+                """,
+                (normalized_group_id,),
+            ).fetchone()
+            group = self._duplicate_review_group_payload(updated, index=1)
+        return {
+            "schema": "pska.source_duplicate_group_review.v1",
+            "group": group,
+            "status": normalized_status,
+            "review_note": review_note,
+            "reviewed_at": now,
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_source_registry": True,
                 "delete_move_merge_supported": False,
             },
         }
@@ -2129,6 +2281,9 @@ class SQLiteSourceRegistry:
                         "size": int(group["representative_size"]),
                         "size_spread": int(group["size_spread"]),
                         "member_count": len(members),
+                        "action_status": "reported",
+                        "review_note": "",
+                        "reviewed_at": "",
                         "members": members,
                     }
                 )
@@ -2227,6 +2382,9 @@ class SQLiteSourceRegistry:
                         "token_count": int(group["token_count"]),
                         "size": int(group["representative_size"]),
                         "member_count": len(members),
+                        "action_status": "reported",
+                        "review_note": "",
+                        "reviewed_at": "",
                         "members": members,
                     }
                 )
@@ -2348,6 +2506,9 @@ class SQLiteSourceRegistry:
                         "content_hash": content_hash,
                         "size": size,
                         "member_count": len(members),
+                        "action_status": "reported",
+                        "review_note": "",
+                        "reviewed_at": "",
                         "members": members,
                     }
                 )
@@ -2698,6 +2859,53 @@ class SQLiteSourceRegistry:
         ).fetchall()
         return [_duplicate_member_payload(row) for row in rows]
 
+    def _duplicate_review_group_payload(self, row: sqlite3.Row, *, index: int) -> dict[str, Any]:
+        members = self.conn.execute(
+            """
+            SELECT dm.object_id, dm.root_id, dm.path, dm.reason,
+                   COALESCE(NULLIF(dm.content_hash, ''), o.content_hash) AS content_hash,
+                   COALESCE(NULLIF(dm.size, 0), o.size) AS size,
+                   o.title, o.kind AS object_kind, o.extraction_status,
+                   r.kind AS root_kind, r.label AS root_label, r.permission_mode,
+                   s.section_id, s.title AS section_title, s.section_type,
+                   s.heading_path, s.line_start, s.line_end
+            FROM duplicate_members dm
+            LEFT JOIN source_objects o ON o.object_id = dm.object_id
+            LEFT JOIN source_roots r ON r.root_id = dm.root_id
+            LEFT JOIN source_sections s ON s.section_id = (
+                SELECT section_id FROM source_sections
+                WHERE object_id = dm.object_id
+                ORDER BY line_start ASC, section_id ASC
+                LIMIT 1
+            )
+            WHERE dm.group_id = ?
+            ORDER BY r.label COLLATE NOCASE, dm.path COLLATE NOCASE
+            """,
+            (row["group_id"],),
+        ).fetchall()
+        payload_members = [_duplicate_review_member_payload(member) for member in members]
+        return {
+            "group_id": row["group_id"],
+            "report_id": row["report_id"],
+            "index": index,
+            "mode": row["mode"],
+            "method": row["method"],
+            "confidence": float(row["confidence"] or 0.0),
+            "content_hash": row["content_hash"],
+            "size": int(row["size"] or 0),
+            "member_count": int(row["member_count"] or len(payload_members)),
+            "action_status": row["action_status"],
+            "review_note": _row_value(row, "review_note") or "",
+            "reviewed_at": _row_value(row, "reviewed_at") or "",
+            "report_created_at": row["report_created_at"],
+            "scope": _json_dict(row["scope_json"]),
+            "members": payload_members,
+            "data_flow": {
+                "writes_source_files": False,
+                "delete_move_merge_supported": False,
+            },
+        }
+
     def _ensure_schema(self) -> None:
         self.conn.executescript(
             """
@@ -2787,7 +2995,9 @@ class SQLiteSourceRegistry:
                 content_hash TEXT NOT NULL,
                 size INTEGER NOT NULL,
                 member_count INTEGER NOT NULL,
-                action_status TEXT NOT NULL
+                action_status TEXT NOT NULL,
+                review_note TEXT NOT NULL DEFAULT '',
+                reviewed_at TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS duplicate_members (
@@ -2868,6 +3078,8 @@ class SQLiteSourceRegistry:
         )
         self._ensure_column("source_links", "ordinal", "INTEGER NOT NULL DEFAULT 0")
         self._ensure_column("source_tags", "write_target", "TEXT NOT NULL DEFAULT 'sidecar'")
+        self._ensure_column("duplicate_groups", "review_note", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column("duplicate_groups", "reviewed_at", "TEXT NOT NULL DEFAULT ''")
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, definition: str) -> None:
@@ -3032,6 +3244,54 @@ def _duplicate_member_payload(row: sqlite3.Row) -> dict[str, Any]:
         "size": int(row["size"]),
         "reason": "same_content_hash_and_size",
         "source_ref": source_ref,
+    }
+
+
+def _duplicate_review_member_payload(row: sqlite3.Row) -> dict[str, Any]:
+    root_kind = str(row["root_kind"] or "local_folder")
+    root_label = str(row["root_label"] or row["root_id"] or "root")
+    path = str(row["path"] or "")
+    object_id = str(row["object_id"] or "")
+    section_id = str(row["section_id"] or "")
+    title = str(row["title"] or row["section_title"] or path)
+    metadata = {
+        "source_layer": "personal",
+        "root_id": row["root_id"],
+        "root_kind": root_kind,
+        "root_label": root_label,
+        "permission_mode": row["permission_mode"] or "",
+        "object_id": object_id,
+        "section_id": section_id,
+        "path": path,
+        "content_hash": row["content_hash"] or "",
+        "section_type": row["section_type"] or "file",
+        "heading_path": row["heading_path"] or "",
+        "line_start": row["line_start"] or 1,
+        "line_end": row["line_end"] or 1,
+        "extraction_status": row["extraction_status"] or "",
+        "writes_source_files": False,
+    }
+    source_ref = SourceRef(
+        adapter=root_kind,
+        document_id=object_id,
+        chunk_id=section_id,
+        source_id=section_id or object_id,
+        title=title,
+        path=path,
+        metadata=metadata,
+    )
+    return {
+        "object_id": object_id,
+        "root_id": row["root_id"],
+        "root_kind": root_kind,
+        "root_label": root_label,
+        "path": path,
+        "title": title,
+        "content_hash": row["content_hash"] or "",
+        "size": int(row["size"] or 0),
+        "reason": row["reason"],
+        "extraction_status": row["extraction_status"] or "",
+        "source_ref": to_jsonable(source_ref),
     }
 
 
