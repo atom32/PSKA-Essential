@@ -39,7 +39,8 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 2026-08-13 更新：P1 的第一批 optional adapter 已接入代码路径。MarkItDown 和 fclones
 仍不属于默认依赖；PSKA 现在会通过 capabilities/diagnostics 报告它们是 `available` 还是
-`unavailable`，并在缺失时保持 core 功能可用。资料源抽取也已经有 PSKA-owned job
+`unavailable`，并在缺失时保持 core 功能可用。fclones 可由 `PSKA_FCLONES_BIN`
+显式指定，或从 `PATH` 自动发现。资料源抽取也已经有 PSKA-owned job
 ledger、Product API、MCP tool、workspace next action 和 WebUI 入口；任务运行时只写
 可重建的 source index metadata/FTS sections，不改用户源文件，不直写 memory，不要求
 embedding。
@@ -457,7 +458,7 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 依赖：
 
 - Python extra: `extract-markitdown`。
-- CLI: `fclones` 通过 `command -v` 发现。
+- CLI: `fclones` 通过 `PSKA_FCLONES_BIN` 或 `command -v` 发现。
 
 验收：
 
@@ -489,6 +490,20 @@ make live-watchdog-smoke PYTHON=.venv/bin/python
 该 smoke 使用真实 watchdog 监听临时注册 source root，写入一个文件后确认
 PSKA 只排队 source extraction/audit jobs；它不是隐藏 daemon，不扫描全盘，不改
 source files，不直写 Memory，也不要求 embedding。
+
+2026-08-13 P3-3 更新：fclones adapter 现在支持 `PSKA_FCLONES_BIN` 显式指向
+CLI binary，并新增 `scripts/fclones_smoke.py` 与 Make target
+`live-fclones-smoke`。验收命令：
+
+```bash
+make live-fclones-smoke
+```
+
+当 fclones 不在 `PATH` 且未设置 `PSKA_FCLONES_BIN` 时，smoke 输出
+`status=unavailable` 并以退出码 77 表示可选依赖缺失；当 CLI 可用时，它会注册
+临时 source root、scan 三个文件、调用 `pska_duplicate_report(mode="fclones_hash")`，
+并要求至少返回一个 duplicate group。2026-08-13 本机 Homebrew 安装尝试因
+`formulae.brew.sh` API 下载超时未完成，当前仍以 unavailable 状态暴露。
 
 ### Phase 2: Memory Productization
 
@@ -594,6 +609,7 @@ source files，不直写 Memory，也不要求 embedding。
 - [x] Add `DedupPort` and fclones CLI adapter behind command discovery.
 - [x] Extend `pska_duplicate_report` mode beyond `exact_hash`.
 - [x] Add bounded watchdog bridge for authorized source-root events.
+- [x] Add fclones env override and live smoke for CLI-backed duplicate reports.
 
 ### P2 Backlog
 

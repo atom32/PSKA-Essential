@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -80,7 +81,15 @@ class DedupReport:
 
 
 def fclones_available() -> bool:
-    return shutil.which("fclones") is not None
+    return fclones_command_path() is not None
+
+
+def fclones_command_path() -> str | None:
+    override = os.getenv("PSKA_FCLONES_BIN", "").strip()
+    if override:
+        path = Path(override).expanduser()
+        return str(path) if path.is_file() else None
+    return shutil.which("fclones")
 
 
 def fclones_duplicate_report(
@@ -89,15 +98,15 @@ def fclones_duplicate_report(
     limit: int = 50,
     timeout_seconds: int = 120,
 ) -> DedupReport:
-    command_path = shutil.which("fclones")
+    command_path = fclones_command_path()
     if not command_path:
         return DedupReport(
             mode="fclones_hash",
             provider="fclones",
             groups=[],
             status="unavailable",
-            message="CLI command `fclones` was not found on PATH.",
-            metadata={"install_hint": "Install fclones and keep it on PATH."},
+            message="CLI command `fclones` was not found on PATH or PSKA_FCLONES_BIN.",
+            metadata={"install_hint": "Install fclones and keep it on PATH, or set PSKA_FCLONES_BIN."},
         )
     selected_roots = [str(path) for path in roots if path.exists()]
     if not selected_roots:

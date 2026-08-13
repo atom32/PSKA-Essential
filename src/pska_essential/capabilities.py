@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
+from pathlib import Path
 from typing import Any
 
 from pska_essential.governance import MEMORY_PRIMARY_USER_PATH, REVIEW_QUEUE_ROLE
@@ -746,6 +748,7 @@ def adapter_slots_contract() -> dict[str, Any]:
                 _cli_provider(
                     "fclones",
                     command="fclones",
+                    env_key="PSKA_FCLONES_BIN",
                     maturity="implemented",
                     supports=["hash_duplicate_groups", "json_report"],
                     safety={"delete_move_merge_supported": False},
@@ -1191,11 +1194,13 @@ def _cli_provider(
     name: str,
     *,
     command: str,
+    env_key: str = "",
     maturity: str,
     supports: list[str],
     safety: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    path = shutil.which(command)
+    override = _env_command_path(env_key) if env_key else ""
+    path = override or shutil.which(command)
     payload = _provider(
         name,
         status="available" if path else "unavailable",
@@ -1203,13 +1208,39 @@ def _cli_provider(
         integration="external_cli",
         supports=supports,
         safety=safety,
-        reason="" if path else f"CLI command `{command}` was not found on PATH.",
-        install_hint=f"Install `{command}` and keep it on PATH.",
+        reason="" if path else _cli_missing_reason(command, env_key),
+        install_hint=_cli_install_hint(command, env_key),
     )
     payload["command"] = command
+    if env_key:
+        payload["env_key"] = env_key
     if path:
         payload["path"] = path
+        if override:
+            payload["path_source"] = "env"
     return payload
+
+
+def _env_command_path(env_key: str) -> str:
+    if not env_key:
+        return ""
+    raw = os.getenv(env_key, "").strip()
+    if not raw:
+        return ""
+    path = Path(raw).expanduser()
+    return str(path) if path.is_file() else ""
+
+
+def _cli_missing_reason(command: str, env_key: str) -> str:
+    if not env_key:
+        return f"CLI command `{command}` was not found on PATH."
+    return f"CLI command `{command}` was not found on PATH and `{env_key}` does not point to a file."
+
+
+def _cli_install_hint(command: str, env_key: str) -> str:
+    if not env_key:
+        return f"Install `{command}` and keep it on PATH."
+    return f"Install `{command}` and keep it on PATH, or set `{env_key}`."
 
 
 def _service_provider(

@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from pska_essential.dedup import fclones_duplicate_report, parse_fclones_groups
+from pska_essential.capabilities import adapter_slots_contract
+from pska_essential.dedup import fclones_command_path, fclones_duplicate_report, parse_fclones_groups
 from pska_essential.source_registry import SQLiteSourceRegistry
 
 
@@ -57,13 +58,36 @@ class DedupAdapterTests(unittest.TestCase):
         self.assertEqual([member.path for member in groups[0].members], ["/tmp/a.txt", "/tmp/b.txt"])
 
     def test_fclones_report_unavailable_is_structured(self):
-        with tempfile.TemporaryDirectory() as temp_dir, patch("shutil.which", return_value=None):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", {}, clear=True), patch(
+            "shutil.which", return_value=None
+        ):
             report = fclones_duplicate_report([Path(temp_dir)])
 
         payload = report.to_dict()
         self.assertEqual(payload["status"], "unavailable")
         self.assertEqual(payload["provider"], "fclones")
         self.assertEqual(payload["group_count"], 0)
+        self.assertIn("PSKA_FCLONES_BIN", payload["metadata"]["install_hint"])
+
+    def test_fclones_env_override_controls_command_discovery(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fake_bin = Path(temp_dir) / "fclones"
+            fake_bin.write_text("#!/bin/sh\n", encoding="utf-8")
+            with patch.dict("os.environ", {"PSKA_FCLONES_BIN": str(fake_bin)}, clear=False), patch(
+                "shutil.which", return_value=None
+            ):
+                path = fclones_command_path()
+                provider = next(
+                    item
+                    for item in adapter_slots_contract()["slots"]["dedup"]["providers"]
+                    if item["name"] == "fclones"
+                )
+
+        self.assertEqual(path, str(fake_bin))
+        self.assertEqual(provider["status"], "available")
+        self.assertEqual(provider["path"], str(fake_bin))
+        self.assertEqual(provider["path_source"], "env")
+        self.assertEqual(provider["env_key"], "PSKA_FCLONES_BIN")
 
     def test_registry_fclones_mode_maps_report_to_indexed_members(self):
         with tempfile.TemporaryDirectory() as temp_dir:
