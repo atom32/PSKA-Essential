@@ -274,6 +274,13 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "audit_backed": True,
         "provider_operation": "list",
     },
+    "pska_memory_briefing": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "writes_memory_directly": False,
+    },
     "pska_memory_use_trace": {
         "category": "memory",
         "access": "read",
@@ -414,6 +421,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "search_view": memory_search_view_contract(),
         "card_view": memory_card_view_contract(),
         "health_view": memory_health_view_contract(),
+        "briefing_view": memory_briefing_view_contract(),
         "attribution_view": memory_attribution_view_contract(),
         "suggestion_view": memory_suggestion_view_contract(),
         "use_trace_view": memory_use_trace_view_contract(),
@@ -626,6 +634,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_memory_card_list",
                 "pska_memory_card_get",
                 "pska_memory_health_scan",
+                "pska_memory_briefing",
                 "pska_memory_use_trace",
                 "pska_memory_why_used",
                 "pska_memory_timeline",
@@ -1051,6 +1060,26 @@ def memory_health_view_contract() -> dict[str, Any]:
             "create_memory_update_review",
         ],
         "limitation": "provider-neutral health scan; conflict detection is conservative and does not auto-resolve memory",
+    }
+
+
+def memory_briefing_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_briefing_view.v1",
+        "api": "GET /api/memory/briefing",
+        "mcp_tool": "pska_memory_briefing",
+        "output_schema": "pska.memory_briefing.v1",
+        "inputs": ["scope", "card_limit", "health_limit", "trace_limit"],
+        "evidence_sources": ["Memory Card envelope", "memory health scan", "memory use trace"],
+        "focus_item_schema": "pska.memory_briefing_item.v1",
+        "principle": "derived memory attention view for Hermes/Jarvis; no second memory store",
+        "writes_memory_directly": False,
+        "next_actions": [
+            "inspect_memory_health",
+            "inspect_memory_timeline",
+            "inspect_memory_why_used",
+            "create_memory_update_review",
+        ],
     }
 
 

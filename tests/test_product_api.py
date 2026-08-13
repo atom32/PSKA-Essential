@@ -1161,6 +1161,46 @@ class ProductApiTests(unittest.TestCase):
         audit = self._get_json("/api/audit?limit=10&action=memory.timeline")
         self.assertEqual(audit["events"][0]["target_id"], "mem-route")
 
+    def test_memory_briefing_route_summarizes_attention_items(self):
+        self.service.memory.facts.extend(
+            [
+                MemoryFact(
+                    fact_id="mem-route",
+                    text="Use the PSKA architecture note before broad source search.",
+                    source_refs=[SourceRef(adapter="fake", source_id="note-1")],
+                    metadata={
+                        "memory_type": "source_route",
+                        "memory_scope": "project",
+                        "behavior_delta": "Route future PSKA questions to the architecture note first.",
+                        "display_text": "PSKA questions should start from the architecture note.",
+                    },
+                ),
+                MemoryFact(
+                    fact_id="mem-raw",
+                    text="Raw memory missing envelope fields.",
+                    metadata={},
+                ),
+            ]
+        )
+        self._post_json(
+            "/api/memory/search",
+            {"query": "PSKA architecture", "caller": "api-test", "purpose": "answer_context"},
+        )
+
+        briefing = self._get_json("/api/memory/briefing?card_limit=10&health_limit=10&trace_limit=10")
+        focus_ids = [item["memory_id"] for item in briefing["focus_items"]]
+
+        self.assertTrue(briefing["ok"])
+        self.assertEqual(briefing["schema"], "pska.memory_briefing.v1")
+        self.assertIn("mem-route", focus_ids)
+        self.assertIn("mem-raw", focus_ids)
+        self.assertGreaterEqual(briefing["summary"]["issue_count"], 1)
+        self.assertEqual(briefing["summary"]["recent_use_count"], 1)
+        self.assertFalse(briefing["data_flow"]["writes_memory_directly"])
+        self.assertEqual(briefing["next_actions"][0]["tool"], "pska_memory_health_scan")
+        audit = self._get_json("/api/audit?limit=10&action=memory.briefing")
+        self.assertEqual(audit["events"][0]["metadata"]["focus_count"], len(briefing["focus_items"]))
+
     def test_memory_health_route_reports_quality_stale_and_conflict(self):
         self.service.memory.facts.extend(
             [
@@ -2021,6 +2061,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source-audit-summary", html)
         self.assertIn("source-audit-actions", html)
         self.assertIn("source-audit-details", html)
+        self.assertIn("记忆简报", html)
+        self.assertIn("memory-briefing-summary", html)
+        self.assertIn("reload-memory-briefing", html)
         self.assertIn("时间线与使用痕迹", html)
         self.assertIn("load-memory-timeline", html)
         self.assertIn("run-source-extraction-job", html)
@@ -2042,9 +2085,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/sources/comments/${encodeURIComponent(proposalId)}/apply', script)
         self.assertIn('/api/sources/obsidian/moc/proposals', script)
         self.assertIn('/api/sources/memory-reviews', script)
+        self.assertIn('/api/memory/briefing?card_limit=30&health_limit=20&trace_limit=30', script)
         self.assertIn('/api/memory/${encodeURIComponent(selected)}/timeline?limit=50', script)
         self.assertIn("function loadSourceRoots", script)
         self.assertIn("function renderSources", script)
+        self.assertIn("async function loadMemoryBriefing", script)
+        self.assertIn("function memoryBriefingItemCard", script)
         self.assertIn("async function openMemoryTimeline", script)
         self.assertIn("function memoryTimelineCard", script)
         self.assertIn("pska.memory_timeline.v1", script)

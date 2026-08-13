@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from pska_essential.audit import audit_event
 from pska_essential.contracts import to_jsonable, utc_now_iso
+from pska_essential.memory_briefing import build_memory_briefing
 from pska_essential.workspace_status import build_workspace_status
 
 
@@ -46,14 +47,17 @@ def build_jarvis_briefing(
         source_scope=normalized_source_scope,
         audit_limit=audit_limit,
     )
+    memory_briefing, memory_briefing_error = _memory_briefing(service, normalized_scope)
     priorities = _briefing_priorities(
         workspace_status=workspace_status,
         roots=roots,
         source_root_error=source_root_error,
         source_audit=audit,
         source_audit_error=source_audit_error,
+        memory_briefing=memory_briefing,
+        memory_briefing_error=memory_briefing_error,
     )
-    next_actions = _briefing_next_actions(workspace_status, audit, priorities)
+    next_actions = _briefing_next_actions(workspace_status, audit, memory_briefing, priorities)
     briefing_id = f"jarvis_{uuid4().hex}"
     status = _briefing_status(priorities, workspace_status)
     briefing = {
@@ -66,8 +70,12 @@ def build_jarvis_briefing(
             "role": "orchestrates PSKA tools; does not own source files, memory, or generation policy",
         },
         "scope": normalized_scope,
-        "summary": _briefing_summary(workspace_status, roots, audit, priorities, next_actions),
+        "summary": _briefing_summary(workspace_status, roots, audit, memory_briefing, priorities, next_actions),
         "priorities": priorities,
+        "memory_layer": {
+            "briefing": memory_briefing,
+            "briefing_error": memory_briefing_error,
+        },
         "source_layer": {
             "root_count": len(roots),
             "roots": roots[:10],
@@ -94,6 +102,8 @@ def build_jarvis_briefing(
             next_action_count=len(next_actions),
             source_root_count=len(roots),
             source_audit_available=audit is not None,
+            memory_briefing_available=memory_briefing is not None,
+            memory_focus_count=((memory_briefing or {}).get("summary") or {}).get("focus_count", 0),
             writes_source_files=False,
             writes_memory_directly=False,
             embedding_required=False,
@@ -137,6 +147,13 @@ def _source_audit(
         return None, {"type": exc.__class__.__name__, "message": str(exc)}
 
 
+def _memory_briefing(service: Any, scope: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
+    try:
+        return build_memory_briefing(service, scope=scope, audit=False), None
+    except Exception as exc:  # noqa: BLE001 - Jarvis should surface memory layer failures.
+        return None, {"type": exc.__class__.__name__, "message": str(exc)}
+
+
 def _briefing_priorities(
     *,
     workspace_status: dict[str, Any],
@@ -144,6 +161,8 @@ def _briefing_priorities(
     source_root_error: dict[str, str] | None,
     source_audit: dict[str, Any] | None,
     source_audit_error: dict[str, str] | None,
+    memory_briefing: dict[str, Any] | None,
+    memory_briefing_error: dict[str, str] | None,
 ) -> list[dict[str, Any]]:
     priorities: list[dict[str, Any]] = []
     if source_root_error:
@@ -153,6 +172,16 @@ def _briefing_priorities(
     if source_audit_error:
         priorities.append(
             _priority("critical", "source", "source_audit_error", "Source audit could not run.", source_audit_error["message"])
+        )
+    if memory_briefing_error:
+        priorities.append(
+            _priority(
+                "warning",
+                "memory",
+                "memory_briefing_error",
+                "Memory briefing could not run.",
+                memory_briefing_error["message"],
+            )
         )
     if not roots and not source_root_error:
         priorities.append(
@@ -228,6 +257,50 @@ def _briefing_priorities(
                 )
             )
     reviews = workspace_status.get("reviews") or {}
+    if memory_briefing:
+        memory_summary = memory_briefing.get("summary") or {}
+        if memory_summary.get("conflict_issue_count"):
+            priorities.append(
+                _priority(
+                    "warning",
+                    "memory",
+                    "inspect_memory_conflicts",
+                    "Memory conflicts need attention.",
+                    f"{memory_summary.get('conflict_issue_count')} conflict issue(s) are in the memory briefing.",
+                    next_action={
+                        "action": "inspect_memory_briefing",
+                        "tool": "pska_memory_briefing",
+                        "api": "GET /api/memory/briefing",
+                        "view": "memory",
+                    },
+                )
+            )
+        elif memory_summary.get("issue_count"):
+            priorities.append(
+                _priority(
+                    "info",
+                    "memory",
+                    "inspect_memory_briefing",
+                    "Memory briefing has review candidates.",
+                    f"{memory_summary.get('issue_count')} memory issue(s) need inspection.",
+                    next_action={
+                        "action": "inspect_memory_briefing",
+                        "tool": "pska_memory_briefing",
+                        "api": "GET /api/memory/briefing",
+                        "view": "memory",
+                    },
+                )
+            )
+        elif memory_summary.get("recent_use_count"):
+            priorities.append(
+                _priority(
+                    "info",
+                    "memory",
+                    "inspect_recent_memory_use",
+                    "Recent memory use is available for inspection.",
+                    f"{memory_summary.get('recent_use_count')} recent memory trace(s) can be reviewed.",
+                )
+            )
     if reviews.get("accepted_unapplied_count"):
         priorities.append(
             _priority(
@@ -286,6 +359,7 @@ def _priority(
 def _briefing_next_actions(
     workspace_status: dict[str, Any],
     source_audit: dict[str, Any] | None,
+    memory_briefing: dict[str, Any] | None,
     priorities: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
@@ -294,6 +368,8 @@ def _briefing_next_actions(
             actions.append(dict(priority["next_action"]))
     for action in (source_audit or {}).get("next_actions") or []:
         actions.append(_normalize_source_action(action))
+    for action in (memory_briefing or {}).get("next_actions") or []:
+        actions.append(dict(action))
     for action in workspace_status.get("next_actions") or []:
         actions.append(dict(action))
     return _unique_actions(actions)
@@ -335,6 +411,7 @@ def _briefing_summary(
     workspace_status: dict[str, Any],
     roots: list[dict[str, Any]],
     source_audit: dict[str, Any] | None,
+    memory_briefing: dict[str, Any] | None,
     priorities: list[dict[str, Any]],
     next_actions: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -342,6 +419,7 @@ def _briefing_summary(
     duplicate_preview = audit.get("duplicate_preview") or {}
     unresolved = audit.get("unresolved_links") or {}
     unlinked = audit.get("unlinked_markdown") or {}
+    memory_summary = (memory_briefing or {}).get("summary") or {}
     return {
         "workspace_status": workspace_status.get("status"),
         "source_root_count": len(roots),
@@ -351,6 +429,9 @@ def _briefing_summary(
         "unlinked_markdown_count": unlinked.get("count", 0),
         "pending_review_count": (workspace_status.get("reviews") or {}).get("pending_count", 0),
         "accepted_unapplied_count": (workspace_status.get("reviews") or {}).get("accepted_unapplied_count", 0),
+        "memory_focus_count": memory_summary.get("focus_count", 0),
+        "memory_issue_count": memory_summary.get("issue_count", 0),
+        "memory_recent_use_count": memory_summary.get("recent_use_count", 0),
         "priority_count": len(priorities),
         "next_action_count": len(next_actions),
     }

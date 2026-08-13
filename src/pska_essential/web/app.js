@@ -32,6 +32,7 @@ const messages = {
   "toast.componentCheckRecorded": "组件检查已记录。",
   "toast.productEvalCompleted": "产品验收已完成。",
   "toast.memoryProbeRecorded": "记忆探针已记录。",
+  "toast.memoryBriefingLoaded": "记忆简报已加载。",
   "toast.memoryCardsLoaded": "记忆卡片已加载。",
   "toast.memoryHealthLoaded": "记忆健康扫描已加载。",
   "toast.memoryAttributionLoaded": "记忆归因已加载。",
@@ -81,6 +82,7 @@ const messages = {
   "empty.noProductEval": "尚未运行产品验收。",
   "empty.noRetrievalProbe": "尚未运行检索探针。",
   "empty.noMemoryProbe": "尚未运行记忆探针。",
+  "empty.noMemoryBriefing": "没有需要关注的记忆。",
   "empty.noMemoryCards": "没有匹配的记忆卡片。",
   "empty.noMemoryHealthIssues": "没有匹配的记忆健康问题。",
   "empty.noMemoryAttribution": "这个结果没有使用长期记忆。",
@@ -252,6 +254,8 @@ const state = {
   productEval: null,
   retrievalProbe: null,
   memoryProbe: null,
+  memoryBriefing: null,
+  memoryBriefingError: "",
   memoryCards: [],
   memoryCardsError: "",
   memoryCardStatus: "active",
@@ -486,6 +490,7 @@ function bindRefresh() {
   document.getElementById("run-product-eval").addEventListener("click", runProductEval);
   document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
   document.getElementById("run-memory-probe").addEventListener("click", runMemoryProbe);
+  document.getElementById("reload-memory-briefing").addEventListener("click", () => loadMemoryBriefing({ toast: true }));
   document.getElementById("reload-memory-cards").addEventListener("click", () => loadMemoryCards({ toast: true }));
   document.getElementById("reload-memory-health").addEventListener("click", () => loadMemoryHealth({ toast: true }));
   document.getElementById("memory-health-type-filter").addEventListener("change", (event) => {
@@ -522,6 +527,7 @@ async function refreshAll() {
     loadSourceRoots(),
     loadDatasets(),
     loadReviews(),
+    loadMemoryBriefing(),
     loadMemoryCards(),
     loadMemoryHealth(),
     loadMemoryUseTraces(),
@@ -964,6 +970,21 @@ async function loadReviews() {
   } catch (error) {
     renderList(document.getElementById("reviews-list"), [], t("empty.reviewsUnavailable"));
     showToast(error.message);
+  }
+}
+
+async function loadMemoryBriefing(options = {}) {
+  try {
+    const payload = await api("/api/memory/briefing?card_limit=30&health_limit=20&trace_limit=30");
+    state.memoryBriefing = payload;
+    state.memoryBriefingError = "";
+    renderMemoryBriefing(payload);
+    if (options.toast) showToast(t("toast.memoryBriefingLoaded"));
+  } catch (error) {
+    state.memoryBriefing = null;
+    state.memoryBriefingError = error.message;
+    renderMemoryBriefing();
+    if (options.toast) showToast(error.message);
   }
 }
 
@@ -2372,6 +2393,29 @@ function renderMemoryCards(payload = null) {
   renderList(list, state.memoryCards, t("empty.noMemoryCards"), memoryCardCard);
 }
 
+function renderMemoryBriefing(payload = null) {
+  const list = document.getElementById("memory-briefing-list");
+  const summary = document.getElementById("memory-briefing-summary");
+  if (!list || !summary) return;
+  if (state.memoryBriefingError) {
+    summary.className = "job-status failed";
+    summary.textContent = state.memoryBriefingError;
+    renderList(list, [], t("empty.noMemoryBriefing"));
+    return;
+  }
+  const briefing = payload || state.memoryBriefing;
+  if (!briefing) {
+    summary.className = "job-status pending";
+    summary.textContent = "尚未加载记忆简报。";
+    renderList(list, [], t("empty.noMemoryBriefing"));
+    return;
+  }
+  const data = briefing.summary || {};
+  summary.className = briefing.status === "ready" ? "job-status ready" : "job-status pending";
+  summary.textContent = `${data.focus_count || 0} 个关注项 / issues ${data.issue_count || 0} / recent ${data.recent_use_count || 0}`;
+  renderList(list, briefing.focus_items || [], t("empty.noMemoryBriefing"), memoryBriefingItemCard);
+}
+
 function renderMemoryHealth(payload = null) {
   const list = document.getElementById("memory-health-list");
   const summary = document.getElementById("memory-health-summary");
@@ -3590,6 +3634,33 @@ function memoryCardCard(card) {
           ),
         ])
       : null,
+  ]);
+}
+
+function memoryBriefingItemCard(item) {
+  const reasons = item.reason_codes || [];
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, item.display_text || item.memory_id || "memory"),
+        el("p", {}, item.behavior_delta || reasons.join(", ") || item.memory_id || ""),
+      ]),
+      el("div", { className: "card-actions" }, [
+        el("span", { className: `tag ${statusClass(item.severity || item.status || "ready")}` }, `score ${item.attention_score || 0}`),
+        item.memory_id ? el("button", { className: "secondary-button", onclick: () => openMemoryTimeline(item.memory_id) }, t("button.timeline")) : null,
+        item.memory_id ? el("button", { className: "secondary-button", onclick: () => explainMemoryWhyUsed(item.memory_id) }, t("button.whyUsed")) : null,
+        item.memory_id ? el("button", { className: "secondary-button", onclick: () => inspectMemoryCard(item.memory_id) }, t("button.inspect")) : null,
+      ]),
+    ]),
+    el("div", { className: "meta-row" }, [
+      item.memory_id ? el("span", { className: "tag" }, shortId(item.memory_id)) : null,
+      item.memory_type ? el("span", { className: "tag" }, item.memory_type) : null,
+      item.memory_scope ? el("span", { className: "tag" }, item.memory_scope) : null,
+      el("span", { className: "tag" }, `${item.trace_count || 0} traces`),
+      el("span", { className: "tag" }, `${item.source_count || 0} sources`),
+      ...(item.issue_types || []).slice(0, 4).map((issue) => el("span", { className: "tag pending" }, issue)),
+    ]),
+    reasons.length ? el("p", { className: "empty-list" }, `关注原因：${reasons.join(", ")}`) : null,
   ]);
 }
 

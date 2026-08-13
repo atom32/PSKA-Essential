@@ -260,13 +260,18 @@ P2 的第五块已落地为 Memory Timeline / Ledger view：
 `GET /api/memory/{memory_id}/timeline` 与 `pska_memory_timeline` 将 Memory Card
 snapshot、lifecycle change audit、candidate-use trace 和 SourceRef anchor 合并为
 一条 provider-neutral 时间线。它是派生视图，不创建第二套 memory store，也不冒充
-隐藏模型因果。
+隐藏模型因果。P2 的第六块已落地为 Memory Briefing：
+`GET /api/memory/briefing` 与 `pska_memory_briefing` 将 active cards、health
+issues、recent use traces 和 timeline/why-used next actions 合并为 Hermes/Jarvis
+可读的记忆注意力摘要；WebUI “记忆”面板新增“记忆简报”。它仍然是派生视图，
+不直接写 durable memory。
 
 新增 Product API / MCP：
 
 ```text
 GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
+GET  /api/memory/briefing
 GET  /api/memory/health
 GET  /api/memory/use-traces
 GET  /api/memory/{memory_id}/use-trace
@@ -279,6 +284,7 @@ POST /api/memory/cards/{memory_id}/refresh-review
 
 pska_memory_card_list
 pska_memory_card_get
+pska_memory_briefing
 pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used

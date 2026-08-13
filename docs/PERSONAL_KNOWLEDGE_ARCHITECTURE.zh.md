@@ -581,6 +581,9 @@ Hermes 的默认行为：
 - Done: P2-5 已新增 `pska_memory_timeline` 与
   `GET /api/memory/{memory_id}/timeline`；它把 Memory Card、lifecycle audit、
   use trace 和 SourceRef 派生成一条时间线，不新建第二套 memory store。
+- Done: P2-6 已新增 `pska_memory_briefing` 与 `GET /api/memory/briefing`；
+  它把 active cards、health issues、recent use traces 和 timeline/why-used
+  next actions 合并成 Hermes/Jarvis/WebUI 的记忆注意力摘要，不直接写 Memory。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
 - Pending: 批量候选去重、UI review 队列分组、从 folder audit 自动生成候选。

@@ -39,6 +39,7 @@ from pska_essential.kb_audit import (
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
+from pska_essential.memory_briefing import build_memory_briefing
 from pska_essential.memory_health import scan_memory_health
 from pska_essential.memory_timeline import build_memory_timeline
 from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
@@ -434,6 +435,20 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             scope=scope or {},
             issue_type=issue_type,
             limit=limit,
+        )
+
+    def pska_memory_briefing(
+        scope: dict[str, Any] | None = None,
+        card_limit: int = 30,
+        health_limit: int = 20,
+        trace_limit: int = 30,
+    ):
+        return build_memory_briefing(
+            service,
+            scope=scope or {},
+            card_limit=card_limit,
+            health_limit=health_limit,
+            trace_limit=trace_limit,
         )
 
     def pska_memory_use_trace(
@@ -1066,6 +1081,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_search": pska_memory_search,
         "pska_memory_card_list": pska_memory_card_list,
         "pska_memory_card_get": pska_memory_card_get,
+        "pska_memory_briefing": pska_memory_briefing,
         "pska_memory_health_scan": pska_memory_health_scan,
         "pska_memory_use_trace": pska_memory_use_trace,
         "pska_memory_why_used": pska_memory_why_used,
