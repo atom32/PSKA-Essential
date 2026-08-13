@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M21 baseline into
+  engineering plan for upgrading the current PSKA-Essential M22 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -438,6 +438,7 @@ Operational loop tools:
 - `pska_memory_change_from_conversation`
 - `pska_conversation_memory_candidates_create`
 - `pska_memory_review_from_workflow`
+- `pska_memory_refresh_review`
 - `pska_memory_update_review`
 - `pska_memory_delete_review`
 - `pska_memory_lifecycle`
@@ -704,6 +705,12 @@ signal.
 M21 adds optional `image_phash` duplicate reports through ImageHash/Pillow for
 local image perceptual hash candidates. It uses `scope.phash_threshold` or the
 default Hamming threshold, requires no embeddings, and remains review-only.
+M22 adds `pska_memory_refresh_review` and
+`POST /api/memory/cards/{memory_id}/refresh-review`, a Memory Card refresh
+entrypoint that creates a pending `memory_update` Review from an existing
+durable memory card. It records refresh reason, previous/proposed text, and
+no-text-change refresh requests, but never writes durable memory until an
+accepted Review is explicitly applied.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
@@ -872,6 +879,7 @@ Implemented Alpha routes:
 - `POST /api/memory/search`
 - `POST /api/memory/conversation-change`
 - `POST /api/memory/conversation-candidates`
+- `POST /api/memory/cards/{memory_id}/refresh-review`
 - `POST /api/memory/update-review`
 - `POST /api/memory/delete-review`
 - `GET /api/memory/{memory_target_id}/lifecycle`

@@ -304,6 +304,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/eidolia/project-traces/import"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
+        self.assertIn(("POST", "/api/memory/cards/{memory_id}/refresh-review"), contract_routes)
         self.assertIn(("GET", "/api/memory/health"), contract_routes)
         self.assertIn(("GET", "/api/memory/use-traces"), contract_routes)
         self.assertIn(("GET", "/api/memory/candidate-dedup"), contract_routes)
@@ -371,7 +372,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m21_image_phash_duplicates")
+        self.assertEqual(assistant_layer["status"], "m22_memory_refresh_review")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", assistant_layer["mcp_tools"]["implemented"])
@@ -386,6 +387,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_workflow_memory_suggestions", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_memory_timeline", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_memory_candidate_dedup", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_memory_refresh_review", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_review_merge_candidates", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_memory_candidates_from_audit", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_context_read", assistant_layer["mcp_tools"]["implemented"])
@@ -427,6 +429,8 @@ class ProductApiTests(unittest.TestCase):
         card_view = capabilities["capabilities"]["memory"]["card_view"]
         self.assertEqual(card_view["schema"], "pska.memory_card_view.v1")
         self.assertEqual(card_view["apis"]["list"], "GET /api/memory/cards")
+        self.assertEqual(card_view["apis"]["refresh_review"], "POST /api/memory/cards/{memory_id}/refresh-review")
+        self.assertEqual(card_view["mcp_tools"]["refresh_review"], "pska_memory_refresh_review")
         health_view = capabilities["capabilities"]["memory"]["health_view"]
         self.assertEqual(health_view["schema"], "pska.memory_health_view.v1")
         self.assertEqual(health_view["mcp_tool"], "pska_memory_health_scan")
@@ -1571,6 +1575,36 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(card["card"]["memory_type"], "source_route")
         audit = self._get_json("/api/audit?limit=10&action=memory.card.list")
         self.assertEqual(audit["events"][0]["metadata"]["count"], 1)
+
+    def test_memory_card_refresh_review_route_creates_pending_review(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-refresh",
+                text="The PSKA architecture status is m21.",
+                source_refs=[SourceRef(adapter="fake", source_id="note-refresh")],
+                metadata={
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "Use current PSKA milestone status when reporting architecture.",
+                    "display_text": "The PSKA architecture status is m21.",
+                },
+            )
+        )
+
+        result = self._post_json(
+            "/api/memory/cards/mem-refresh/refresh-review",
+            {"text": "The PSKA architecture status is m22.", "reason": "milestone refresh"},
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["schema"], "pska.memory_refresh_review.v1")
+        self.assertEqual(result["review"]["status"], "pending")
+        self.assertEqual(result["proposal"]["kind"], "memory_update")
+        self.assertEqual(result["proposal"]["memory_update"]["metadata"]["origin"], "memory_card_refresh")
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertEqual(self.service.memory.get_fact("mem-refresh", {}).text, "The PSKA architecture status is m21.")
+        audit = self._get_json("/api/audit?limit=10&action=memory.refresh_review.create")
+        self.assertEqual(audit["events"][0]["metadata"]["review_id"], result["review"]["review_id"])
 
     def test_memory_use_trace_routes_explain_search_and_card_events(self):
         self.service.memory.facts.append(
@@ -3410,6 +3444,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/reviews/${encodeURIComponent(reviewId)}', script)
         self.assertIn('/api/memory/delete-review', script)
         self.assertIn('/api/memory/update-review', script)
+        self.assertIn('/api/memory/cards/${encodeURIComponent(memoryId)}/refresh-review', script)
+        self.assertIn('createMemoryRefreshReview', script)
+        self.assertIn('button.createRefreshReview', script)
         self.assertIn('/api/memory/${encodeURIComponent(memoryTargetId)}/lifecycle', script)
         self.assertIn('openMemoryLifecycle', script)
         self.assertIn('记忆生命周期已加载。', script)

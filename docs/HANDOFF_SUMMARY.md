@@ -122,6 +122,14 @@ Last updated: 2026-07-15
 > `image-phash` optional extra to group local images by pHash Hamming distance.
 > Missing ImageHash/Pillow dependencies return structured `unavailable`; reports
 > still write only PSKA registry metadata and never modify source files.
+>
+> Update, 2026-08-13: Memory Card refresh-review is implemented as M22.
+> `pska_memory_refresh_review` and
+> `POST /api/memory/cards/{memory_id}/refresh-review` create a pending
+> `memory_update` Review from an existing durable Memory Card, carrying refresh
+> reason, previous/proposed text, and no-text-change refresh requests. It forces
+> manual review and never writes durable memory until the accepted Review is
+> explicitly applied.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.

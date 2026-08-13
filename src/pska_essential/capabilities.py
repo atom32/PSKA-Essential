@@ -488,14 +488,30 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
     "pska_memory_update_review": {
         "category": "memory",
         "access": "write",
-        "durable": True,
+        "durable": False,
         "review_required": True,
+        "creates_review": True,
+        "writes_memory_directly": False,
+        "requires_apply_for_durable_memory": True,
+    },
+    "pska_memory_refresh_review": {
+        "category": "memory",
+        "access": "write",
+        "durable": False,
+        "review_required": True,
+        "creates_review": True,
+        "writes_memory_directly": False,
+        "requires_apply_for_durable_memory": True,
+        "provider_operation": "update",
     },
     "pska_memory_delete_review": {
         "category": "memory",
         "access": "write",
-        "durable": True,
+        "durable": False,
         "review_required": True,
+        "creates_review": True,
+        "writes_memory_directly": False,
+        "requires_apply_for_durable_memory": True,
     },
     "pska_memory_lifecycle": {"category": "memory", "access": "read", "durable": False},
     "pska_review_create": {"category": "review", "access": "write", "durable": False},
@@ -800,7 +816,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m21_image_phash_duplicates",
+        "status": "m22_memory_refresh_review",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -836,6 +852,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_workflow_memory_suggestions",
                 "pska_memory_change_from_conversation",
                 "pska_conversation_memory_candidates_create",
+                "pska_memory_refresh_review",
                 "pska_source_memory_review_create",
                 "pska_source_memory_candidates_from_audit",
                 "pska_eidolia_context_read",
@@ -1213,10 +1230,12 @@ def memory_card_view_contract() -> dict[str, Any]:
         "apis": {
             "list": "GET /api/memory/cards",
             "get": "GET /api/memory/cards/{memory_id}",
+            "refresh_review": "POST /api/memory/cards/{memory_id}/refresh-review",
         },
         "mcp_tools": {
             "list": "pska_memory_card_list",
             "get": "pska_memory_card_get",
+            "refresh_review": "pska_memory_refresh_review",
         },
         "card_schema": "pska.memory_card.v1",
         "statuses": ["active", "superseded", "deleted", "all"],
@@ -1235,6 +1254,12 @@ def memory_card_view_contract() -> dict[str, Any]:
             "quality",
             "lifecycle",
         ],
+        "review_actions": [
+            "create_memory_refresh_review",
+            "create_memory_update_review",
+            "create_memory_delete_review",
+        ],
+        "writes_memory_directly": False,
     }
 
 
@@ -1316,6 +1341,7 @@ def memory_health_view_contract() -> dict[str, Any]:
             "inspect_memory_card_quality",
             "inspect_memory_staleness",
             "inspect_memory_conflict",
+            "create_memory_refresh_review",
             "create_memory_update_review",
         ],
         "limitation": "provider-neutral health scan; conflict detection is conservative and does not auto-resolve memory",

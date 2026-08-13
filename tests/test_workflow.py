@@ -173,6 +173,47 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual([event["action"] for event in lifecycle["events"]], ["memory.apply", "memory.update"])
         self.assertEqual(lifecycle["latest_event"]["action"], "memory.update")
 
+    def test_memory_refresh_review_creates_pending_update_without_direct_write(self):
+        service = build_fake_service()
+        service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-refresh",
+                text="The PSKA architecture status is m21.",
+                source_refs=[SourceRef(adapter="fake", source_id="note-refresh")],
+                metadata={
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "Use current PSKA milestone status when reporting architecture.",
+                    "display_text": "The PSKA architecture status is m21.",
+                    "refresh_rule": "review_after_date",
+                    "review_after": "2000-01-01T00:00:00+00:00",
+                },
+            )
+        )
+
+        result = service.memory_refresh_review(
+            "mem-refresh",
+            text="The PSKA architecture status is m22 memory refresh review.",
+            reason="milestone changed",
+        )
+
+        self.assertEqual(result["schema"], "pska.memory_refresh_review.v1")
+        self.assertEqual(result["proposal"]["kind"], "memory_update")
+        self.assertEqual(result["proposal"]["memory_update"]["target_id"], "mem-refresh")
+        self.assertEqual(result["proposal"]["memory_update"]["metadata"]["origin"], "memory_card_refresh")
+        self.assertEqual(result["proposal"]["memory_update"]["metadata"]["refresh_reason"], "milestone changed")
+        self.assertFalse(result["proposal"]["memory_update"]["metadata"]["no_text_change"])
+        self.assertEqual(result["review"]["status"], "pending")
+        self.assertIsNone(result["review_decision"])
+        self.assertIsNone(result["memory_apply"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertTrue(result["data_flow"]["requires_apply_for_durable_memory"])
+        self.assertTrue(result["governance"]["forced_manual_review"])
+        self.assertEqual(service.memory.get_fact("mem-refresh", {}).text, "The PSKA architecture status is m21.")
+        event = service.store.list_audit_events(action="memory.refresh_review.create")[0]
+        self.assertEqual(event.metadata["review_id"], result["review"]["review_id"])
+        self.assertFalse(event.metadata["writes_memory_directly"])
+
     def test_conversation_memory_change_auto_applies_remember_by_default(self):
         with patch.dict("os.environ", {}, clear=True):
             service = build_fake_service()

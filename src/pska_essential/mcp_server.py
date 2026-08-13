@@ -780,6 +780,14 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_memory_update_review(memory_fact: dict[str, Any], text: str, reason: str = ""):
         return service.memory_update_review(memory_fact, text, reason)
 
+    def pska_memory_refresh_review(
+        memory_id: str,
+        text: str = "",
+        reason: str = "",
+        scope: dict[str, Any] | None = None,
+    ):
+        return service.memory_refresh_review(memory_id, text=text, reason=reason, scope=scope or {})
+
     def pska_memory_lifecycle(memory_target_id: str, limit: int = 50):
         return service.memory_lifecycle(memory_target_id, limit)
 
@@ -1340,6 +1348,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_workflow_memory_suggestions": pska_workflow_memory_suggestions,
         "pska_memory_delete_review": pska_memory_delete_review,
         "pska_memory_update_review": pska_memory_update_review,
+        "pska_memory_refresh_review": pska_memory_refresh_review,
         "pska_memory_lifecycle": pska_memory_lifecycle,
         "pska_export_brief": pska_export_brief,
         "pska_audit_list": pska_audit_list,

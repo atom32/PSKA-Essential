@@ -1167,6 +1167,8 @@ class WorkflowService:
         memory_fact: MemoryFact | dict[str, Any],
         text: str,
         reason: str = "",
+        *,
+        force_manual_review: bool = False,
     ) -> dict[str, Any]:
         """Govern durable memory update from an explicit PSKA memory fact."""
 
@@ -1181,7 +1183,7 @@ class WorkflowService:
             raise WorkflowError("memory update review requires source refs")
         policy = build_workspace_policy_from_env()
         requested_governance_action = policy.action_for("memory_update")
-        governance_action = requested_governance_action
+        governance_action = MANUAL_REVIEW if force_manual_review else requested_governance_action
         run = self.start(
             f"update durable memory {fact.fact_id}",
             {
@@ -1226,11 +1228,101 @@ class WorkflowService:
                 "action": governance_action,
                 "requested_action": requested_governance_action,
                 "triage_override": governance_action != requested_governance_action,
+                "forced_manual_review": force_manual_review,
                 "durable_proposal": True,
                 "policy": policy.to_dict(),
             },
             "artifact": self.workflow_artifact(run.run_id),
         }
+
+    def memory_refresh_review(
+        self,
+        memory_id: str,
+        *,
+        text: str = "",
+        reason: str = "",
+        scope: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a governed refresh review from an existing Memory Card."""
+
+        selected_id = str(memory_id or "").strip()
+        if not selected_id:
+            raise WorkflowError("memory refresh review requires memory_id")
+        fact = self._resolve_memory_fact(selected_id, scope or {})
+        if fact is None:
+            raise WorkflowError(f"memory refresh review target not found: {selected_id}")
+        if fact.invalid_at:
+            raise WorkflowError("memory refresh review requires an active memory fact")
+        updated_text = str(text or "").strip() or fact.text.strip()
+        if not updated_text:
+            raise WorkflowError("memory refresh review requires text or existing memory text")
+        refresh_reason = str(reason or "").strip() or "memory card refresh requested"
+        result = self.memory_update_review(fact, updated_text, refresh_reason, force_manual_review=True)
+        proposal = result["proposal"]
+        review = result["review"]
+        refresh_metadata = {
+            "schema": "pska.memory_refresh_review.v1",
+            "origin": "memory_card_refresh",
+            "candidate_origin": "memory_card_refresh",
+            "memory_refresh_review": True,
+            "refresh_reason": refresh_reason,
+            "source_memory_id": fact.fact_id,
+            "previous_text": fact.text,
+            "proposed_text": updated_text,
+            "no_text_change": updated_text == fact.text,
+            "source_memory_metadata": to_jsonable(fact.metadata or {}),
+        }
+        memory_update = proposal.get("memory_update") or {}
+        memory_update_metadata = memory_update.get("metadata") or {}
+        memory_update_metadata.update(refresh_metadata)
+        memory_update["metadata"] = memory_update_metadata
+        proposal["memory_update"] = memory_update
+        proposal_metadata = proposal.get("metadata") or {}
+        proposal_metadata.update(refresh_metadata)
+        proposal["metadata"] = proposal_metadata
+        run_id = str(proposal.get("run_id") or "")
+        proposal_id = str(proposal.get("proposal_id") or "")
+        if proposal_id:
+            stored = self.store.get_proposal(proposal_id)
+            if stored.memory_update:
+                stored.memory_update.metadata.update(refresh_metadata)
+            stored.metadata.update(refresh_metadata)
+            self.store.save_proposal(stored)
+            result["proposal"] = to_jsonable(stored)
+            if review.get("review_id"):
+                result["review"] = self.store.get_review_record(str(review["review_id"]))
+        artifact = self.workflow_artifact(run_id) if run_id else result.get("artifact", {})
+        result["artifact"] = artifact
+        result["schema"] = "pska.memory_refresh_review.v1"
+        result["status"] = "created"
+        result["memory_id"] = fact.fact_id
+        result["refresh"] = {
+            "reason": refresh_reason,
+            "proposed_text": updated_text,
+            "previous_text": fact.text,
+            "no_text_change": updated_text == fact.text,
+        }
+        result["data_flow"] = {
+            "writes_memory_directly": False,
+            "creates_review": True,
+            "requires_apply_for_durable_memory": True,
+        }
+        self.store.add_audit_event(
+            audit_event(
+                "memory.refresh_review.create",
+                "memory",
+                fact.fact_id,
+                proposal_id=proposal_id,
+                review_id=str(review.get("review_id") or ""),
+                run_id=run_id,
+                reason=refresh_reason,
+                no_text_change=updated_text == fact.text,
+                source_count=len(fact.source_refs),
+                writes_memory_directly=False,
+                requires_apply_for_durable_memory=True,
+            )
+        )
+        return result
 
     def memory_change_from_conversation(
         self,
@@ -2602,6 +2694,18 @@ class WorkflowService:
         if self.source_registry is None:
             raise WorkflowError("personal source registry is not configured")
         return self.source_registry
+
+    def _resolve_memory_fact(self, memory_id: str, scope: dict[str, Any] | None = None) -> MemoryFact | None:
+        runtime_scope = _memory_runtime_scope(scope or {})
+        get_fact = getattr(self.memory, "get_fact", None)
+        if callable(get_fact):
+            return get_fact(memory_id, runtime_scope)
+        matches = [
+            fact
+            for fact in self.memory.search(memory_id, {**runtime_scope, "include_superseded_memory": True}, 10)
+            if fact.fact_id == memory_id
+        ]
+        return matches[0] if matches else None
 
 
 def build_fake_service(db_path: str = ":memory:") -> WorkflowService:

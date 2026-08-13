@@ -191,6 +191,10 @@ candidate memory, review, and durable export.
 - If an existing durable memory must be changed outside the normal conversation
   flow, start from a `pska_memory_search` or `pska_memory_card_list` result and call
   `pska_memory_update_review`; do not call backend update tools directly.
+- If a Memory Card health issue says an existing durable memory may be stale,
+  incomplete, or conflicting, prefer `pska_memory_refresh_review` from the
+  Memory Card id. It creates a pending refresh/update Review and still does not
+  write durable memory until the Review is accepted and applied.
 - If an existing durable memory must be removed outside the normal conversation
   flow, start from a `pska_memory_search` or `pska_memory_card_get` result and call
   `pska_memory_delete_review`; do not call backend delete tools directly.

@@ -133,6 +133,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/eidolia/project-traces/import"},
     {"method": "GET", "path": "/api/memory/cards"},
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
+    {"method": "POST", "path": "/api/memory/cards/{memory_id}/refresh-review"},
     {"method": "GET", "path": "/api/memory/briefing"},
     {"method": "GET", "path": "/api/memory/review-queue"},
     {"method": "GET", "path": "/api/memory/candidate-dedup"},
@@ -1313,6 +1314,18 @@ def _handler_class(state: ProductApiState):
                     include_sources=_bool_param(query.get("include_sources"), True),
                 )
                 self._send_json({"ok": True, **result})
+                return
+
+            memory_refresh_id = _match(path, "/api/memory/cards/", "/refresh-review")
+            if method == "POST" and memory_refresh_id:
+                payload = self._read_json()
+                result = state.service.memory_refresh_review(
+                    unquote(memory_refresh_id),
+                    text=str(payload.get("text") or ""),
+                    reason=str(payload.get("reason") or ""),
+                    scope=_optional_dict(payload, "scope"),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return
 
             memory_card_id = _match(path, "/api/memory/cards/", "")

@@ -100,6 +100,7 @@ EXPECTED_TOOLS = {
     "pska_memory_lifecycle",
     "pska_memory_probe",
     "pska_memory_review_from_workflow",
+    "pska_memory_refresh_review",
     "pska_memory_update_review",
     "pska_export_brief",
     "pska_audit_list",
@@ -524,6 +525,15 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(updated["metadata"]["operation"], "update")
         updated_facts = tools["pska_memory_search"]("updated mcp", {}, 10)
         self.assertEqual(updated_facts[0]["text"], "updated mcp memory")
+        refresh_review = tools["pska_memory_refresh_review"](
+            applied["target_id"],
+            "updated mcp memory with refresh review",
+            "refresh through memory card",
+        )
+        self.assertEqual(refresh_review["proposal"]["kind"], "memory_update")
+        self.assertEqual(refresh_review["review"]["status"], "pending")
+        self.assertEqual(refresh_review["proposal"]["memory_update"]["metadata"]["origin"], "memory_card_refresh")
+        self.assertFalse(refresh_review["data_flow"]["writes_memory_directly"])
         delete_review = tools["pska_memory_delete_review"](updated_facts[0], "remove mcp memory")
         self.assertEqual(delete_review["proposal"]["kind"], "memory_delete")
         tools["pska_review_decide"](delete_review["review"]["review_id"], "accept", "delete")

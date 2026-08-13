@@ -493,6 +493,7 @@ pska_eidolia_context_read
 pska_eidolia_memory_review_create
 pska_memory_card_list
 pska_memory_card_get
+pska_memory_refresh_review
 pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
@@ -658,6 +659,11 @@ Hermes 的默认行为：
   Review。
 - Done: active `needs_edit` memory_patch queue item 现在会暴露结构化 `memory_candidate`
   draft 与 inline revision capability；WebUI 可在批量转入 `needs_edit` 后继续在队列内编辑并提交修订
+  Review。
+- Done: Memory Card refresh-review seed 已接入；`pska_memory_refresh_review` 与
+  `POST /api/memory/cards/{memory_id}/refresh-review` 会从现有 durable Memory Card 创建
+  pending `memory_update` Review，记录 refresh reason、previous/proposed text 与
+  no-text-change refresh request，强制人工复核且不直接写 durable memory。
   Review，仍不直接写 durable memory。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。

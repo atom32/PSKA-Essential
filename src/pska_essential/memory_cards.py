@@ -281,6 +281,14 @@ def _card_next_actions(fact: MemoryFact, status: str, quality: dict[str, Any]) -
         actions.extend(
             [
                 {
+                    "action": "create_memory_refresh_review",
+                    "label": "Create Memory Refresh Review",
+                    "api": f"POST /api/memory/cards/{fact.fact_id}/refresh-review",
+                    "tool": "pska_memory_refresh_review",
+                    "view": "review",
+                    "params": {"memory_id": fact.fact_id},
+                },
+                {
                     "action": "create_memory_update_review",
                     "label": "Create Memory Update Review",
                     "api": "POST /api/memory/update-review",

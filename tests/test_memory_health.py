@@ -41,6 +41,8 @@ class MemoryHealthTests(unittest.TestCase):
         self.assertEqual(result["summary"]["stale"], 1)
         self.assertEqual(issues["quality"]["memory_ids"], ["mem-raw"])
         self.assertEqual(issues["stale"]["memory_ids"], ["mem-stale"])
+        self.assertEqual(issues["stale"]["next_actions"][1]["tool"], "pska_memory_refresh_review")
+        self.assertEqual(issues["stale"]["next_actions"][1]["api"], "POST /api/memory/cards/mem-stale/refresh-review")
         self.assertEqual(result["next_actions"][0]["tool"], "pska_memory_health_scan")
 
     def test_memory_health_reports_conservative_pairwise_conflict(self):

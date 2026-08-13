@@ -155,6 +155,7 @@ const messages = {
   "button.applyMemoryUpdate": "应用记忆更新",
   "button.applyMemoryDelete": "应用记忆删除",
   "button.createUpdateReview": "创建异常更新审核",
+  "button.createRefreshReview": "创建刷新复核",
   "button.createDeleteReview": "创建异常删除审核",
   "button.whyUsed": "为什么用到",
   "button.useTrace": "使用痕迹",
@@ -4042,6 +4043,16 @@ function memoryCardCard(card) {
             "button",
             {
               className: "primary-button",
+              onclick: () => createMemoryRefreshReview(card.memory_id, updatedText.value, reason.value),
+              ...(card.memory_id && sourceRefs.length && updateSupported ? {} : { disabled: true }),
+              title: updateSupported ? "" : updateReason,
+            },
+            updateSupported ? t("button.createRefreshReview") : t("button.unsupportedUpdate"),
+          ),
+          el(
+            "button",
+            {
+              className: "primary-button",
               onclick: () => createMemoryUpdateReview(fact, updatedText.value, reason.value),
               ...(sourceRefs.length && updateSupported ? {} : { disabled: true }),
               title: updateSupported ? "" : updateReason,
@@ -4220,6 +4231,9 @@ function memoryHealthActionButton(action) {
     return el("button", { className: "secondary-button", onclick: () => inspectMemoryCard(memoryId) }, action.label || t("button.inspect"));
   }
   if (action.tool === "pska_memory_update_review" && memoryId) {
+    return el("button", { className: "secondary-button", onclick: () => inspectMemoryCard(memoryId) }, action.label || t("button.inspect"));
+  }
+  if (action.tool === "pska_memory_refresh_review" && memoryId) {
     return el("button", { className: "secondary-button", onclick: () => inspectMemoryCard(memoryId) }, action.label || t("button.inspect"));
   }
   return el("button", { className: "secondary-button", disabled: true }, action.label || action.action || t("button.inspect"));
@@ -5923,6 +5937,24 @@ async function createMemoryUpdateReview(fact, text, reason) {
   await loadAuditEvents("review.create");
   document.querySelector('.nav-item[data-view="review"]').click();
   showToast("异常记忆更新审核已创建。");
+}
+
+async function createMemoryRefreshReview(memoryId, text, reason) {
+  const payload = await api(`/api/memory/cards/${encodeURIComponent(memoryId)}/refresh-review`, {
+    method: "POST",
+    body: { text, reason },
+  });
+  syncReviewRecord(payload.review);
+  state.focusReviewId = payload.review && payload.review.review_id;
+  setReviewStatusFilter("");
+  await loadReviews();
+  await loadMemoryCards();
+  await loadMemoryReviewQueue();
+  await loadPendingReviews();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("memory.refresh_review.create");
+  document.querySelector('.nav-item[data-view="review"]').click();
+  showToast("记忆刷新复核已创建。");
 }
 
 async function createMemoryDeleteReview(fact, reason) {

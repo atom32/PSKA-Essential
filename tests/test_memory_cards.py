@@ -50,6 +50,8 @@ class MemoryCardTests(unittest.TestCase):
         self.assertEqual(card["memory_scope"], "project")
         self.assertEqual(card["agent_view"]["why_use"], card["behavior_delta"])
         self.assertFalse(card["quality"]["needs_review"])
+        self.assertEqual(card["next_actions"][1]["tool"], "pska_memory_refresh_review")
+        self.assertEqual(card["next_actions"][1]["api"], "POST /api/memory/cards/mem-route/refresh-review")
         self.assertTrue(raw["quality"]["needs_review"])
         self.assertIn("behavior_delta", raw["quality"]["missing_fields"])
         self.assertEqual(result["next_actions"][0]["tool"], "pska_memory_card_list")
@@ -115,4 +117,3 @@ class MemoryCardTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
