@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M22 source-safe and memory-governed contract uses SQLite
+The implemented M1-M23 source-safe and memory-governed contract uses SQLite
 metadata plus FTS5:
 
 ```python
@@ -745,12 +745,19 @@ Memory Card refresh-review flow:
 pska_memory_card_get -> pska_memory_refresh_review(memory_id, text?, reason?) -> review_decide(accept) -> memory_apply
 ```
 
+Memory refresh-review queue surface:
+
+```text
+pska_memory_review_queue -> refresh_reviews group -> review_memory_refresh -> pska_review_get -> review_decide(accept) -> memory_apply
+```
+
 Memory Card inventory and inspection:
 
 ```text
 pska_memory_card_list(scope, limit, query, status, memory_type) -> Memory Card inventory/envelope view
 pska_memory_card_get(memory_id, scope) -> single Memory Card envelope
 pska_memory_refresh_review(memory_id, text, reason, scope) -> pending Memory Card refresh review, no direct memory write
+pska_memory_review_queue(scope, limit) -> grouped memory maintenance queue including refresh_reviews
 ```
 
 Memory use trace and why-used:

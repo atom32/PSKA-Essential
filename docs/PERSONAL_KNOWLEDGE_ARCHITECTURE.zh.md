@@ -664,7 +664,9 @@ Hermes 的默认行为：
   `POST /api/memory/cards/{memory_id}/refresh-review` 会从现有 durable Memory Card 创建
   pending `memory_update` Review，记录 refresh reason、previous/proposed text 与
   no-text-change refresh request，强制人工复核且不直接写 durable memory。
-  Review，仍不直接写 durable memory。
+- Done: Memory Review Queue 已将 existing-card refresh/update Review 单独暴露为
+  `refresh_reviews` group，并提供 `refresh_review_count` 与 `review_memory_refresh`；
+  Jarvis/WebUI 可优先处理记忆卡刷新复核，但仍不直接写 durable memory。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

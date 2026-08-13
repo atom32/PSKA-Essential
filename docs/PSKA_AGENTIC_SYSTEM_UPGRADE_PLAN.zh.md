@@ -20,7 +20,7 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M21 级别的 source-safe baseline，并已开始 M22 记忆维护闭环：
+当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M23 记忆刷新复核队列：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
@@ -30,8 +30,8 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 | File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity`、`media_metadata` 和 optional `image_phash` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
 | Obsidian | 已有 MOC propose/apply，只写 PSKA marker block，支持 folder/tag/topic/project 分组；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
-| Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view、Memory Card health/briefing/review queue、refresh-review 入口 | `workflow.py`、`capabilities.py` |
-| WebUI | 已有 Jarvis Bar、Sources panel、Memory Card refresh-review、Review、Activity、diagnostics | `src/pska_essential/web/*` |
+| Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view、Memory Card health/briefing/review queue、refresh-review 入口与专门 queue surface | `workflow.py`、`capabilities.py` |
+| WebUI | 已有 Jarvis Bar、Sources panel、Memory Card refresh-review、Review Queue 刷新复核计数、Activity、diagnostics | `src/pska_essential/web/*` |
 | Dependency strategy | 主包 `dependencies = []`，外部能力都必须显式配置 | `pyproject.toml` |
 
 本机依赖盘点显示，MarkItDown、Docling、watchdog、OpenTelemetry、Graphiti 等成熟组件当前
@@ -344,6 +344,11 @@ P2 的第二十六块已落地为 Memory Card refresh-review seed：
 `pska_memory_refresh_review` 从现有 durable Memory Card 创建 pending `memory_update` Review，
 记录 refresh reason、previous/proposed text 与 no-text-change refresh request；它强制人工复核，
 不直接写 durable memory，后续仍需 `review_decide(accept)` 和 `memory_apply`。
+P2 的第二十七块已落地为 refresh-review queue surfacing：
+Memory Review Queue 将这类 existing-card refresh/update Review 单独放入
+`refresh_reviews` group，summary 暴露 `refresh_review_count`，next action 使用
+`review_memory_refresh` 指向 `pska_review_get`；Jarvis briefing 和 WebUI summary 使用同一
+信号优先提醒记忆卡维护，仍然不 approve/apply/write durable memory。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -797,6 +802,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add conversation-derived Memory Card candidate creation without direct memory writes.
 - [x] Surface conversation-derived Memory Card candidates in Memory Review Queue and Jarvis briefing.
 - [x] Add cross-scope related candidate hints to candidate dedup and Memory Review Queue.
+- [x] Surface existing Memory Card refresh reviews in Memory Review Queue and Jarvis briefing.
 
 ### P3 Backlog
 

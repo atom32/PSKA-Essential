@@ -378,7 +378,7 @@ flowchart TD
 ## Current Baseline
 
 截至 2026-08-13，当前可验证的系统状态是 M21 source governance baseline 加
-M22 Memory Card refresh-review seed。
+M23 Memory Card refresh-review queue surfacing。
 
 | 能力 | 当前状态 |
 | --- | --- |
@@ -389,7 +389,7 @@ M22 Memory Card refresh-review seed。
 | PSKA MCP | 已暴露 KB、Ask、Review、Memory、Source、Jarvis、jobs 等工具 |
 | RAGFlow | 作为 KB/retrieval backend 保留 |
 | SQLite Memory + Review | 当前轻量闭环可用 |
-| Memory Card Maintenance | 已支持 card/health/briefing/review queue，并可从 card 创建 refresh-review |
+| Memory Card Maintenance | 已支持 card/health/briefing/review queue，可从 card 创建 refresh-review，并将其作为 `refresh_reviews` 单独排队 |
 | Personal Source Layer | 已支持 local folder/Obsidian root、scan、FTS5 search、read、neighbors |
 | Source Search | 已支持 BM25、title/path/heading boost、match reason、highlighted snippet、LIKE fallback |
 | Source Audit | 已支持 duplicate preview、unresolved links、unlinked notes、source-route candidates |

@@ -17,6 +17,7 @@ MEMORY_REVIEW_QUEUE_GROUP_SCHEMA = "pska.memory_review_queue_group.v1"
 
 GROUP_DEFINITIONS = (
     ("accepted_unapplied", "Accepted Memory Waiting To Apply", "accepted memory reviews can be applied"),
+    ("refresh_reviews", "Memory Refresh Reviews", "existing Memory Cards have pending refresh/update reviews"),
     ("conversation_candidates", "Conversation Memory Candidates", "conversation-derived memory candidates need review"),
     ("candidate_quality", "Memory Candidate Quality Gate", "candidate reviews may be too vague or missing Memory Card fields"),
     ("duplicate_candidates", "Possible Duplicate Memory Candidates", "candidate reviews may describe the same durable memory"),
@@ -88,6 +89,7 @@ def build_memory_review_queue(
                 item_count=summary["item_count"],
                 actionable_item_count=summary["actionable_item_count"],
                 accepted_unapplied_count=summary["accepted_unapplied_count"],
+                refresh_review_count=summary["refresh_review_count"],
                 conversation_candidate_count=summary["conversation_candidate_count"],
                 candidate_quality_issue_count=summary["candidate_quality_issue_count"],
                 candidate_quality_breakdown=summary["candidate_quality_breakdown"],
@@ -110,7 +112,13 @@ def _groups(
     candidate_dedup: dict[str, Any],
 ) -> list[dict[str, Any]]:
     pending = [review for review in reviews if review.get("status") == "pending"]
+    refresh_reviews = [review for review in pending if _refresh_review(review)]
     conversation_candidates = [review for review in pending if _conversation_candidate_review(review)]
+    regular_pending = [
+        review
+        for review in pending
+        if not _refresh_review(review) and not _conversation_candidate_review(review)
+    ]
     candidate_quality_issues = _candidate_quality_issues(reviews)
     accepted_unapplied = [
         review
@@ -136,11 +144,12 @@ def _groups(
     focus_items = (briefing.get("focus_items") or [])[:10]
     grouped = [
         _review_group("accepted_unapplied", accepted_unapplied, "high"),
+        _refresh_review_group(refresh_reviews),
         _conversation_candidate_group(conversation_candidates),
         _candidate_quality_group(candidate_quality_issues),
         _candidate_duplicate_group(candidate_dedup.get("groups") or []),
         _candidate_related_group(candidate_dedup.get("related_groups") or []),
-        _review_group("pending_reviews", pending, "medium"),
+        _review_group("pending_reviews", regular_pending, "medium"),
         _review_group("needs_edit", needs_edit, "medium"),
         _merged_replacement_group(merged_replacements),
         _revised_replacement_group(revised_replacements),
@@ -253,6 +262,32 @@ def _conversation_candidate_group(reviews: list[dict[str, Any]]) -> dict[str, An
                     for message_id in _review_memory_metadata(review).get("message_ids") or []
                     if str(message_id)
                 ],
+                "next_actions": _review_actions(review),
+            }
+            for review in reviews
+        ],
+    )
+    return _with_review_batch_actions(group)
+
+
+def _refresh_review_group(reviews: list[dict[str, Any]]) -> dict[str, Any]:
+    group = _group(
+        "refresh_reviews",
+        "medium",
+        [
+            {
+                "item_type": "memory_refresh_review",
+                "review_id": str(review.get("review_id") or ""),
+                "status": str(review.get("status") or ""),
+                "proposal_kind": str((review.get("proposal") or {}).get("kind") or ""),
+                "title": _refresh_review_title(review),
+                "reason": _refresh_review_reason(review),
+                "source_memory_id": str(_review_memory_metadata(review).get("source_memory_id") or ""),
+                "target_id": str(_review_memory_candidate(review).get("target_id") or ""),
+                "previous_text": str(_review_memory_metadata(review).get("previous_text") or ""),
+                "proposed_text": str(_review_memory_metadata(review).get("proposed_text") or ""),
+                "no_text_change": bool(_review_memory_metadata(review).get("no_text_change")),
+                "source_count": int(review.get("source_count") or len(review.get("source_refs") or [])),
                 "next_actions": _review_actions(review),
             }
             for review in reviews
@@ -515,6 +550,7 @@ def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
         counts.get(code, 0)
         for code in (
             "accepted_unapplied",
+            "refresh_reviews",
             "conversation_candidates",
             "candidate_quality",
             "duplicate_candidates",
@@ -529,6 +565,7 @@ def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
         "item_count": sum(group["count"] for group in groups),
         "actionable_item_count": actionable_item_count,
         "accepted_unapplied_count": counts.get("accepted_unapplied", 0),
+        "refresh_review_count": counts.get("refresh_reviews", 0),
         "conversation_candidate_count": counts.get("conversation_candidates", 0),
         "candidate_quality_issue_count": counts.get("candidate_quality", 0),
         "candidate_quality_breakdown": _candidate_quality_breakdown(quality_group.get("items") or []),
@@ -590,7 +627,8 @@ def _status(summary: dict[str, Any]) -> str:
     if summary["accepted_unapplied_count"]:
         return "apply_ready"
     if (
-        summary["conversation_candidate_count"]
+        summary["refresh_review_count"]
+        or summary["conversation_candidate_count"]
         or summary["candidate_quality_issue_count"]
         or summary["duplicate_candidate_group_count"]
         or summary["related_candidate_group_count"]
@@ -619,15 +657,23 @@ def _next_actions(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "params": {"review_id": first["review_id"]},
                 }
             )
-        elif group["code"] in {"conversation_candidates", "pending_reviews", "needs_edit"} and first.get("review_id"):
+        elif group["code"] in {"refresh_reviews", "conversation_candidates", "pending_reviews", "needs_edit"} and first.get("review_id"):
             actions.append(
                 {
                     "action": (
-                        "review_conversation_memory_candidate"
+                        "review_memory_refresh"
+                        if group["code"] == "refresh_reviews"
+                        else "review_conversation_memory_candidate"
                         if group["code"] == "conversation_candidates"
                         else "review_pending_durable_knowledge"
                     ),
-                    "label": "Review conversation candidate" if group["code"] == "conversation_candidates" else "Open review",
+                    "label": (
+                        "Review memory refresh"
+                        if group["code"] == "refresh_reviews"
+                        else "Review conversation candidate"
+                        if group["code"] == "conversation_candidates"
+                        else "Open review"
+                    ),
                     "tool": "pska_review_get",
                     "api": f"GET /api/reviews/{first['review_id']}",
                     "view": "review",
@@ -698,11 +744,24 @@ def _revised_replacement_actions(review: dict[str, Any]) -> list[dict[str, Any]]
 
 def _review_actions(review: dict[str, Any]) -> list[dict[str, Any]]:
     review_id = str(review.get("review_id") or "")
+    is_refresh_review = _refresh_review(review)
     is_conversation_candidate = _conversation_candidate_review(review)
     actions = [
         {
-            "action": "review_conversation_memory_candidate" if is_conversation_candidate else "open_review",
-            "label": "Review conversation candidate" if is_conversation_candidate else "Open review",
+            "action": (
+                "review_memory_refresh"
+                if is_refresh_review
+                else "review_conversation_memory_candidate"
+                if is_conversation_candidate
+                else "open_review"
+            ),
+            "label": (
+                "Review memory refresh"
+                if is_refresh_review
+                else "Review conversation candidate"
+                if is_conversation_candidate
+                else "Open review"
+            ),
             "tool": "pska_review_get",
             "api": f"GET /api/reviews/{review_id}",
             "view": "review",
@@ -731,6 +790,11 @@ def _durable_review(review: dict[str, Any]) -> bool:
 def _conversation_candidate_review(review: dict[str, Any]) -> bool:
     metadata = _review_memory_metadata(review)
     return str(metadata.get("candidate_origin") or "") in {"conversation_candidate", "conversation"}
+
+
+def _refresh_review(review: dict[str, Any]) -> bool:
+    metadata = _review_memory_metadata(review)
+    return bool(metadata.get("memory_refresh_review")) or str(metadata.get("candidate_origin") or "") == "memory_card_refresh"
 
 
 def _review_memory_metadata(review: dict[str, Any]) -> dict[str, Any]:
@@ -810,3 +874,20 @@ def _conversation_candidate_reason(review: dict[str, Any]) -> str:
     if behavior_delta and reason:
         return f"{behavior_delta} | {reason}"
     return behavior_delta or reason or str((review.get("proposal") or {}).get("body") or "")
+
+
+def _refresh_review_title(review: dict[str, Any]) -> str:
+    metadata = _review_memory_metadata(review)
+    proposed_text = str(metadata.get("proposed_text") or "").strip()
+    if proposed_text:
+        return proposed_text
+    source_memory_id = str(metadata.get("source_memory_id") or "")
+    return f"Refresh memory {source_memory_id or review.get('review_id') or ''}".strip()
+
+
+def _refresh_review_reason(review: dict[str, Any]) -> str:
+    metadata = _review_memory_metadata(review)
+    reason = str(metadata.get("refresh_reason") or "").strip()
+    if metadata.get("no_text_change"):
+        return f"{reason or 'memory card refresh requested'} | no text change proposed"
+    return reason or str((review.get("proposal") or {}).get("body") or "")

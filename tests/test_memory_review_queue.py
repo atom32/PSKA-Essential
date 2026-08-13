@@ -236,6 +236,45 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(queue["next_actions"][0]["action"], "review_conversation_memory_candidate")
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_review_get")
 
+    def test_queue_surfaces_memory_refresh_reviews_separately_from_pending(self):
+        service = build_fake_service()
+        service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-refresh-queue",
+                text="The PSKA memory queue status is m22.",
+                source_refs=[SourceRef(adapter="fake", source_id="refresh-queue-note")],
+                metadata={
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "Use the current PSKA memory queue status when reporting progress.",
+                    "display_text": "The PSKA memory queue status is m22.",
+                },
+            )
+        )
+        refresh = service.memory_refresh_review(
+            "mem-refresh-queue",
+            text="The PSKA memory queue status is m23 refresh queue surfacing.",
+            reason="queue surfacing milestone",
+        )
+
+        queue = build_memory_review_queue(service, audit=False)
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(queue["status"], "action_required")
+        self.assertEqual(queue["summary"]["refresh_review_count"], 1)
+        self.assertEqual(queue["summary"]["pending_review_count"], 0)
+        self.assertIn("refresh_reviews", groups)
+        item = groups["refresh_reviews"]["items"][0]
+        self.assertEqual(item["item_type"], "memory_refresh_review")
+        self.assertEqual(item["review_id"], refresh["review"]["review_id"])
+        self.assertEqual(item["source_memory_id"], "mem-refresh-queue")
+        self.assertEqual(item["target_id"], "mem-refresh-queue")
+        self.assertEqual(item["reason"], "queue surfacing milestone")
+        self.assertFalse(item["no_text_change"])
+        self.assertEqual(item["next_actions"][0]["action"], "review_memory_refresh")
+        self.assertEqual(queue["next_actions"][0]["action"], "review_memory_refresh")
+        self.assertEqual(queue["next_actions"][0]["tool"], "pska_review_get")
+
     def test_queue_surfaces_related_scope_candidate_groups(self):
         service = build_fake_service()
         service.source_memory_review_create(

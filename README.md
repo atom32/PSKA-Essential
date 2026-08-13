@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M22 baseline into
+  engineering plan for upgrading the current PSKA-Essential M23 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -545,7 +545,10 @@ items, and safe next actions without writing durable memory. P2-7 adds
 read-only grouped maintenance view over pending/accepted Review records, Memory
 Briefing focus items, and health issues. Hermes/Jarvis and the WebUI Review
 page can use it to triage memory work without approving, applying, or writing
-memory directly. P2-8 adds `pska_memory_candidate_dedup` and
+memory directly. Existing Memory Card refresh/update Reviews surface as a
+dedicated `refresh_reviews` group with `refresh_review_count` and
+`review_memory_refresh`, so stale/conflict/card-maintenance work does not
+disappear into generic pending reviews. P2-8 adds `pska_memory_candidate_dedup` and
 `GET /api/memory/candidate-dedup`, an embedding-free duplicate-candidate view
 over Review records. It groups possible duplicate durable memory candidates
 with normalized text, lexical token overlap, SourceRef fingerprints, and
@@ -711,6 +714,9 @@ entrypoint that creates a pending `memory_update` Review from an existing
 durable memory card. It records refresh reason, previous/proposed text, and
 no-text-change refresh requests, but never writes durable memory until an
 accepted Review is explicitly applied.
+M23 surfaces those refresh Reviews as first-class queue work: Memory Review
+Queue now has a `refresh_reviews` group, `refresh_review_count` summary, and
+`review_memory_refresh` next action; Jarvis/WebUI prioritize the same signal.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
@@ -1040,7 +1046,9 @@ downgrade `auto_apply` to pending Review. The Memory Review Queue exposes
 group-level accept/reject actions for pending and conversation-derived
 candidates through WebUI, Product API, and `pska_review_decide_batch`; the batch
 decision changes Review state only and still requires `pska_memory_apply` before
-durable memory is written. The Review queue can filter by status while Home keeps an independent
+durable memory is written. Existing Memory Card refresh/update Reviews are
+shown as `refresh_reviews`, with `review_memory_refresh` pointing to the exact
+Review record before any accept/apply step. The Review queue can filter by status while Home keeps an independent
 pending review summary. Review records expose source trace fields, and Review cards can
 open cited sources through the Product API Reader before a durable decision is
 made, and can open the originating Writing workflow context. Review cards show

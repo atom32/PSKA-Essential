@@ -816,7 +816,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m22_memory_refresh_review",
+        "status": "m23_refresh_review_queue",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -1377,6 +1377,7 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "group_schema": "pska.memory_review_queue_group.v1",
         "groups": [
             "accepted_unapplied",
+            "refresh_reviews",
             "conversation_candidates",
             "candidate_quality",
             "duplicate_candidates",
@@ -1389,6 +1390,16 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
             "memory_focus",
         ],
         "principle": "read-only grouping view over Review records and Memory Briefing",
+        "refresh_review_item_fields": [
+            "review_id",
+            "status",
+            "source_memory_id",
+            "target_id",
+            "previous_text",
+            "proposed_text",
+            "no_text_change",
+            "source_count",
+        ],
         "candidate_quality_item_fields": [
             "review_id",
             "status",
@@ -1425,6 +1436,7 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "writes_memory_directly": False,
         "next_actions": [
             "open_review",
+            "review_memory_refresh",
             "review_conversation_memory_candidate",
             "review_memory_candidate_quality",
             "mark_memory_candidate_needs_edit",

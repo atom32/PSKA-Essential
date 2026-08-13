@@ -195,6 +195,10 @@ candidate memory, review, and durable export.
   incomplete, or conflicting, prefer `pska_memory_refresh_review` from the
   Memory Card id. It creates a pending refresh/update Review and still does not
   write durable memory until the Review is accepted and applied.
+- If Memory Review Queue returns `refresh_reviews` or the
+  `review_memory_refresh` action, open the referenced Review with
+  `pska_review_get` and treat it as existing-card maintenance; do not bury it in
+  generic pending review handling.
 - If an existing durable memory must be removed outside the normal conversation
   flow, start from a `pska_memory_search` or `pska_memory_card_get` result and call
   `pska_memory_delete_review`; do not call backend delete tools directly.

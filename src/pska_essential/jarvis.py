@@ -306,6 +306,26 @@ def _briefing_priorities(
                     next_action=(memory_review_queue.get("next_actions") or [None])[0],
                 )
             )
+        elif queue_summary.get("refresh_review_count"):
+            priorities.append(
+                _priority(
+                    "warning",
+                    "memory",
+                    "review_memory_refresh",
+                    "Memory refresh reviews are waiting.",
+                    f"{queue_summary.get('refresh_review_count')} existing Memory Card refresh review(s) need accept/edit/reject.",
+                    next_action=_queue_next_action(
+                        memory_review_queue,
+                        "review_memory_refresh",
+                        fallback={
+                            "action": "inspect_memory_review_queue",
+                            "tool": "pska_memory_review_queue",
+                            "api": "GET /api/memory/review-queue",
+                            "view": "review",
+                        },
+                    ),
+                )
+            )
         elif queue_summary.get("conversation_candidate_count"):
             priorities.append(
                 _priority(
@@ -578,6 +598,7 @@ def _briefing_summary(
         "memory_review_queue_group_count": queue_summary.get("group_count", 0),
         "memory_review_queue_item_count": queue_summary.get("item_count", 0),
         "memory_review_queue_actionable_item_count": queue_summary.get("actionable_item_count", 0),
+        "memory_refresh_review_count": queue_summary.get("refresh_review_count", 0),
         "conversation_memory_candidate_count": queue_summary.get("conversation_candidate_count", 0),
         "memory_candidate_quality_issue_count": queue_summary.get("candidate_quality_issue_count", 0),
         "memory_candidate_quality_breakdown": queue_summary.get("candidate_quality_breakdown", {}),

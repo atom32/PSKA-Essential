@@ -130,6 +130,14 @@ Last updated: 2026-07-15
 > reason, previous/proposed text, and no-text-change refresh requests. It forces
 > manual review and never writes durable memory until the accepted Review is
 > explicitly applied.
+>
+> Update, 2026-08-13: refresh-review queue surfacing is implemented as M23.
+> Memory Review Queue now separates existing-card refresh/update Reviews into a
+> first-class `refresh_reviews` group with `refresh_review_count` and
+> `review_memory_refresh` next action. Jarvis briefing and the WebUI queue
+> summary use the same signal, so stale/conflict Memory Card maintenance is not
+> buried in generic pending reviews. This is still read-only triage: accept and
+> apply remain explicit Review operations.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.

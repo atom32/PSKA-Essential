@@ -372,7 +372,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m22_memory_refresh_review")
+        self.assertEqual(assistant_layer["status"], "m23_refresh_review_queue")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", assistant_layer["mcp_tools"]["implemented"])
@@ -436,11 +436,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(health_view["mcp_tool"], "pska_memory_health_scan")
         review_queue_view = capabilities["capabilities"]["memory"]["review_queue_view"]
         self.assertEqual(review_queue_view["schema"], "pska.memory_review_queue_view.v1")
+        self.assertIn("refresh_reviews", review_queue_view["groups"])
         self.assertIn("conversation_candidates", review_queue_view["groups"])
         self.assertIn("candidate_quality", review_queue_view["groups"])
         self.assertIn("related_candidates", review_queue_view["groups"])
         self.assertIn("merged_replacements", review_queue_view["groups"])
         self.assertIn("revised_replacements", review_queue_view["groups"])
+        self.assertIn("review_memory_refresh", review_queue_view["next_actions"])
         self.assertIn("review_conversation_memory_candidate", review_queue_view["next_actions"])
         self.assertIn("review_memory_candidate_quality", review_queue_view["next_actions"])
         self.assertIn("mark_memory_candidate_needs_edit", review_queue_view["next_actions"])
@@ -449,6 +451,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("reject_review_group", review_queue_view["next_actions"])
         self.assertIn("inspect_related_memory_candidates", review_queue_view["next_actions"])
         self.assertIn("open_revised_review", review_queue_view["next_actions"])
+        self.assertIn("source_memory_id", review_queue_view["refresh_review_item_fields"])
+        self.assertIn("no_text_change", review_queue_view["refresh_review_item_fields"])
         self.assertIn("top_issue_type", review_queue_view["candidate_quality_summary_fields"])
         self.assertIn("missing_fields", review_queue_view["candidate_quality_summary_fields"])
         dedup_view = capabilities["capabilities"]["memory"]["candidate_dedup_view"]
@@ -1746,6 +1750,36 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_memory_apply")
         audit = self._get_json("/api/audit?limit=10&action=memory.review_queue")
         self.assertEqual(audit["events"][0]["metadata"]["accepted_unapplied_count"], 1)
+
+    def test_memory_review_queue_route_surfaces_refresh_reviews(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-refresh-api-queue",
+                text="The Product API refresh queue status is m22.",
+                source_refs=[SourceRef(adapter="fake", source_id="api-refresh-queue-note")],
+                metadata={
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "Use current refresh queue status in API reports.",
+                    "display_text": "The Product API refresh queue status is m22.",
+                },
+            )
+        )
+        refresh = self._post_json(
+            "/api/memory/cards/mem-refresh-api-queue/refresh-review",
+            {"text": "The Product API refresh queue status is m23.", "reason": "api queue surfacing"},
+        )
+
+        queue = self._get_json("/api/memory/review-queue?review_limit=20&health_limit=10&focus_limit=10")
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(queue["summary"]["refresh_review_count"], 1)
+        self.assertEqual(queue["summary"]["pending_review_count"], 0)
+        self.assertEqual(groups["refresh_reviews"]["items"][0]["review_id"], refresh["review"]["review_id"])
+        self.assertEqual(groups["refresh_reviews"]["items"][0]["source_memory_id"], "mem-refresh-api-queue")
+        self.assertEqual(queue["next_actions"][0]["action"], "review_memory_refresh")
+        audit = self._get_json("/api/audit?limit=10&action=memory.review_queue")
+        self.assertEqual(audit["events"][0]["metadata"]["refresh_review_count"], 1)
 
     def test_review_batch_decision_route_accepts_conversation_candidates(self):
         created = self._post_json(

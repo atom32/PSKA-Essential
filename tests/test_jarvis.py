@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pska_essential.contracts import MemoryPatch, Proposal, SourceRef
+from pska_essential.contracts import MemoryFact, MemoryPatch, Proposal, SourceRef
 from pska_essential.jarvis import build_jarvis_briefing
 from pska_essential.workflow import build_fake_service
 
@@ -131,6 +131,38 @@ class JarvisBriefingTests(unittest.TestCase):
             actions["review_conversation_memory_candidate"]["params"]["review_id"],
             created["created"][0]["review_id"],
         )
+
+    def test_briefing_prioritizes_memory_refresh_reviews(self):
+        service = build_fake_service()
+        service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-jarvis-refresh",
+                text="Jarvis memory refresh status is m22.",
+                source_refs=[SourceRef(adapter="fake", source_id="jarvis-refresh-note")],
+                metadata={
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "Report the current memory refresh milestone accurately.",
+                    "display_text": "Jarvis memory refresh status is m22.",
+                },
+            )
+        )
+        refresh = service.memory_refresh_review(
+            "mem-jarvis-refresh",
+            text="Jarvis memory refresh reviews are surfaced in M23.",
+            reason="briefing surfacing",
+        )
+
+        briefing = build_jarvis_briefing(service=service, gateway=_Gateway())
+        priorities = {item["code"]: item for item in briefing["priorities"]}
+        actions = {item["action"]: item for item in briefing["next_actions"]}
+
+        self.assertEqual(briefing["status"], "action_required")
+        self.assertEqual(briefing["summary"]["memory_refresh_review_count"], 1)
+        self.assertEqual(briefing["memory_layer"]["review_queue"]["summary"]["refresh_review_count"], 1)
+        self.assertIn("review_memory_refresh", priorities)
+        self.assertEqual(priorities["review_memory_refresh"]["next_action"]["params"]["review_id"], refresh["review"]["review_id"])
+        self.assertEqual(actions["review_memory_refresh"]["tool"], "pska_review_get")
 
     def test_briefing_surfaces_related_memory_candidate_groups(self):
         service = build_fake_service()
