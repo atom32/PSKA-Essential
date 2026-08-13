@@ -39,6 +39,7 @@ from pska_essential.kb_audit import (
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
+from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
@@ -359,8 +360,15 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_review_revise(review_id: str, intent: str = ""):
         return service.review_revise(review_id, intent)
 
-    def pska_memory_search(query: str, scope: dict[str, Any] | None = None, limit: int = 10):
-        return to_jsonable(service.memory_search(query, scope or {}, limit))
+    def pska_memory_search(
+        query: str,
+        scope: dict[str, Any] | None = None,
+        limit: int = 10,
+        trace_context: dict[str, Any] | None = None,
+    ):
+        context = {"caller": "mcp_tool", "purpose": "memory_search_tool"}
+        context.update(trace_context or {})
+        return to_jsonable(service.memory_search(query, scope or {}, limit, trace_context=context))
 
     def pska_memory_card_list(
         scope: dict[str, Any] | None = None,
@@ -380,6 +388,23 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_memory_card_get(memory_id: str, scope: dict[str, Any] | None = None):
         return get_memory_card(service, memory_id, scope=scope or {})
+
+    def pska_memory_use_trace(
+        memory_id: str = "",
+        query: str = "",
+        action: str = "",
+        limit: int = 50,
+    ):
+        return list_memory_use_traces(
+            service,
+            memory_id=memory_id,
+            query=query,
+            action=action,
+            limit=limit,
+        )
+
+    def pska_memory_why_used(memory_id: str, scope: dict[str, Any] | None = None, limit: int = 20):
+        return explain_memory_why_used(service, memory_id, scope=scope or {}, limit=limit)
 
     def pska_memory_apply(review_id: str):
         return to_jsonable(service.memory_apply(review_id))
@@ -971,6 +996,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_search": pska_memory_search,
         "pska_memory_card_list": pska_memory_card_list,
         "pska_memory_card_get": pska_memory_card_get,
+        "pska_memory_use_trace": pska_memory_use_trace,
+        "pska_memory_why_used": pska_memory_why_used,
         "pska_memory_apply": pska_memory_apply,
         "pska_source_memory_review_create": pska_source_memory_review_create,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,

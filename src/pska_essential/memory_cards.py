@@ -64,6 +64,7 @@ def list_memory_cards(
             status=normalized_status,
             memory_type=normalized_type,
             count=len(cards),
+            memory_ids=[str(card.get("memory_id") or "") for card in cards],
             scope=runtime_scope,
         )
     return {
@@ -427,6 +428,7 @@ def _add_memory_card_list_audit(
     status: str,
     memory_type: str,
     count: int,
+    memory_ids: list[str],
     scope: dict[str, Any],
 ) -> None:
     service.store.add_audit_event(
@@ -438,6 +440,7 @@ def _add_memory_card_list_audit(
             status=status,
             memory_type=memory_type,
             count=count,
+            memory_ids=[memory_id for memory_id in memory_ids if memory_id],
             scope=scope,
         )
     )
@@ -451,6 +454,7 @@ def _add_memory_card_get_audit(service: Any, card: dict[str, Any], *, scope: dic
             str(card.get("memory_id") or ""),
             memory_type=str(card.get("memory_type") or ""),
             status=str(card.get("status") or ""),
+            memory_id=str(card.get("memory_id") or ""),
             source_count=int(card.get("source_count") or 0),
             scope=scope,
         )

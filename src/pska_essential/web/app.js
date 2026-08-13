@@ -33,6 +33,7 @@ const messages = {
   "toast.productEvalCompleted": "产品验收已完成。",
   "toast.memoryProbeRecorded": "记忆探针已记录。",
   "toast.memoryCardsLoaded": "记忆卡片已加载。",
+  "toast.memoryUseTraceLoaded": "记忆使用痕迹已加载。",
   "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
@@ -78,6 +79,7 @@ const messages = {
   "empty.noRetrievalProbe": "尚未运行检索探针。",
   "empty.noMemoryProbe": "尚未运行记忆探针。",
   "empty.noMemoryCards": "没有匹配的记忆卡片。",
+  "empty.noMemoryUseTrace": "没有匹配的记忆使用痕迹。",
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
   "empty.sourcesUnavailable": "资料源不可用。",
@@ -129,6 +131,8 @@ const messages = {
   "button.applyMemoryDelete": "应用记忆删除",
   "button.createUpdateReview": "创建异常更新审核",
   "button.createDeleteReview": "创建异常删除审核",
+  "button.whyUsed": "为什么用到",
+  "button.useTrace": "使用痕迹",
   "button.accept": "接受",
   "button.edit": "需修改",
   "button.reject": "拒绝",
@@ -243,6 +247,11 @@ const state = {
   memoryCardStatus: "active",
   memoryCardType: "",
   memoryCardQuery: "",
+  memoryUseTraces: [],
+  memoryUseTraceError: "",
+  memoryUseTraceMemoryId: "",
+  memoryUseTraceQuery: "",
+  memoryWhyUsed: null,
   closedLoopProbe: null,
   askReadiness: null,
   askReadinessScopeKey: "",
@@ -392,6 +401,12 @@ function bindForms() {
     state.memoryCardQuery = document.getElementById("memory-card-query").value || "";
     loadMemoryCards();
   });
+  document.getElementById("memory-use-trace-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    state.memoryUseTraceMemoryId = document.getElementById("memory-use-trace-memory-id").value.trim();
+    state.memoryUseTraceQuery = document.getElementById("memory-use-trace-query").value.trim();
+    loadMemoryUseTraces({ toast: true });
+  });
 }
 
 async function applyAskResult(result, options = {}) {
@@ -454,6 +469,7 @@ function bindRefresh() {
   document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
   document.getElementById("run-memory-probe").addEventListener("click", runMemoryProbe);
   document.getElementById("reload-memory-cards").addEventListener("click", () => loadMemoryCards({ toast: true }));
+  document.getElementById("reload-memory-use-traces").addEventListener("click", () => loadMemoryUseTraces({ toast: true }));
   document.getElementById("memory-card-status-filter").addEventListener("change", (event) => {
     state.memoryCardStatus = event.currentTarget.value || "active";
     loadMemoryCards();
@@ -483,6 +499,7 @@ async function refreshAll() {
     loadDatasets(),
     loadReviews(),
     loadMemoryCards(),
+    loadMemoryUseTraces(),
     loadPendingReviews(),
     loadWorkflows(),
     loadResumableAsks(),
@@ -943,6 +960,51 @@ async function loadMemoryCards(options = {}) {
     renderMemoryCards();
     if (options.toast) showToast(error.message);
   }
+}
+
+async function loadMemoryUseTraces(options = {}) {
+  const params = new URLSearchParams();
+  params.set("limit", "50");
+  if (state.memoryUseTraceMemoryId) params.set("memory_id", state.memoryUseTraceMemoryId);
+  if (state.memoryUseTraceQuery) params.set("query", state.memoryUseTraceQuery);
+  try {
+    const payload = await api(`/api/memory/use-traces?${params.toString()}`);
+    state.memoryUseTraces = payload.traces || [];
+    state.memoryUseTraceError = "";
+    state.memoryWhyUsed = null;
+    renderMemoryUseTraces(payload);
+    if (options.toast) showToast(t("toast.memoryUseTraceLoaded"));
+  } catch (error) {
+    state.memoryUseTraces = [];
+    state.memoryUseTraceError = error.message;
+    renderMemoryUseTraces();
+    if (options.toast) showToast(error.message);
+  }
+}
+
+async function explainMemoryWhyUsed(memoryId) {
+  const selected = String(memoryId || "").trim();
+  if (!selected) return;
+  try {
+    const payload = await api(`/api/memory/${encodeURIComponent(selected)}/why-used?limit=20`);
+    state.memoryWhyUsed = payload;
+    state.memoryUseTraceMemoryId = selected;
+    state.memoryUseTraceQuery = "";
+    state.memoryUseTraces = payload.traces || [];
+    state.memoryUseTraceError = "";
+    renderMemoryUseTraces(payload);
+  } catch (error) {
+    state.memoryUseTraceError = error.message;
+    renderMemoryUseTraces();
+    showToast(error.message);
+  }
+}
+
+async function inspectMemoryUseTrace(memoryId) {
+  state.memoryUseTraceMemoryId = String(memoryId || "").trim();
+  state.memoryUseTraceQuery = "";
+  state.memoryWhyUsed = null;
+  await loadMemoryUseTraces({ toast: true });
 }
 
 async function loadPendingReviews() {
@@ -2218,6 +2280,34 @@ function renderMemoryCards(payload = null) {
   renderList(list, state.memoryCards, t("empty.noMemoryCards"), memoryCardCard);
 }
 
+function renderMemoryUseTraces(payload = null) {
+  const list = document.getElementById("memory-use-trace-list");
+  const summary = document.getElementById("memory-use-trace-summary");
+  if (!list || !summary) return;
+  const idInput = document.getElementById("memory-use-trace-memory-id");
+  const queryInput = document.getElementById("memory-use-trace-query");
+  if (idInput && idInput.value !== state.memoryUseTraceMemoryId) idInput.value = state.memoryUseTraceMemoryId || "";
+  if (queryInput && queryInput.value !== state.memoryUseTraceQuery) queryInput.value = state.memoryUseTraceQuery || "";
+  if (state.memoryUseTraceError) {
+    summary.className = "job-status failed";
+    summary.textContent = state.memoryUseTraceError;
+    renderList(list, [], t("empty.noMemoryUseTrace"));
+    return;
+  }
+  const whyUsed = payload && payload.schema === "pska.memory_why_used.v1" ? payload : state.memoryWhyUsed;
+  const count = payload && Number.isFinite(Number(payload.count))
+    ? Number(payload.count)
+    : state.memoryUseTraces.length;
+  summary.className = "job-status ready";
+  summary.textContent = whyUsed
+    ? `${whyUsed.confidence || "trace"} / ${whyUsed.trace_count || 0} 条痕迹`
+    : `${count} 条痕迹`;
+  const items = [];
+  if (whyUsed) items.push(memoryWhyUsedCard(whyUsed));
+  items.push(...state.memoryUseTraces.map((trace) => memoryUseTraceCard(trace)));
+  renderList(list, items, t("empty.noMemoryUseTrace"), (item) => item);
+}
+
 function setReviewStatusFilter(status) {
   state.reviewStatus = status || "";
   const filter = document.getElementById("review-status-filter");
@@ -3261,6 +3351,12 @@ function memoryCardCard(card) {
         card.memory_id
           ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(card.memory_id) }, t("button.history"))
           : null,
+        card.memory_id
+          ? el("button", { className: "secondary-button", onclick: () => explainMemoryWhyUsed(card.memory_id) }, t("button.whyUsed"))
+          : null,
+        card.memory_id
+          ? el("button", { className: "secondary-button", onclick: () => inspectMemoryUseTrace(card.memory_id) }, t("button.useTrace"))
+          : null,
       ]),
     ]),
     el("div", { className: "meta-row" }, [
@@ -3301,6 +3397,49 @@ function memoryCardCard(card) {
             deleteSupported ? t("button.createDeleteReview") : t("button.unsupportedDelete"),
           ),
         ])
+      : null,
+  ]);
+}
+
+function memoryWhyUsedCard(payload) {
+  const card = payload.card || {};
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, card.display_text || payload.memory_id || t("button.whyUsed")),
+        el("p", {}, payload.explanation || ""),
+      ]),
+      el("span", { className: `tag ${statusClass(payload.confidence || "ready")}` }, payload.confidence || "trace"),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, shortId(payload.memory_id || "")),
+      el("span", { className: "tag" }, `${payload.trace_count || 0} traces`),
+      card.memory_type ? el("span", { className: "tag" }, card.memory_type) : null,
+      card.memory_scope ? el("span", { className: "tag" }, card.memory_scope) : null,
+    ]),
+    payload.why_use ? el("p", {}, payload.why_use) : null,
+  ]);
+}
+
+function memoryUseTraceCard(trace) {
+  const ids = trace.memory_ids || [];
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, trace.action || "memory trace"),
+        el("p", {}, trace.interpretation || trace.query || trace.trace_id || ""),
+      ]),
+      el("span", { className: "tag" }, trace.created_at || ""),
+    ]),
+    el("div", { className: "meta-row" }, [
+      trace.query ? el("span", { className: "tag" }, trace.query) : null,
+      trace.caller ? el("span", { className: "tag" }, trace.caller) : null,
+      trace.purpose ? el("span", { className: "tag" }, trace.purpose) : null,
+      trace.run_id ? el("span", { className: "tag" }, shortId(trace.run_id)) : null,
+      el("span", { className: "tag" }, `${ids.length} memories`),
+    ]),
+    ids.length
+      ? el("div", { className: "meta-row" }, ids.slice(0, 8).map((memoryId) => el("span", { className: "tag" }, shortId(memoryId))))
       : null,
   ]);
 }

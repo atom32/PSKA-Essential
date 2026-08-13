@@ -38,6 +38,11 @@ candidate memory, review, and durable export.
   PSKA envelope view over provider facts: use `display_text`, `memory_type`,
   `memory_scope`, `behavior_delta`, `quality`, source refs, and lifecycle rather
   than raw provider text alone.
+- Use `pska_memory_use_trace` and `pska_memory_why_used` when the user asks why a
+  durable memory appeared, whether a memory has been used recently, or which
+  query/tool surfaced it. Treat the result as audit-backed candidate retrieval
+  or card inspection evidence, not proof that the final model response depended
+  on that memory.
 - Use `pska_migration_manifest` when the user asks how to migrate, back up, or
   inspect component ownership. Treat it as an inventory, not a raw provider data
   export.
@@ -139,6 +144,9 @@ candidate memory, review, and durable export.
   candidate review instead of mutating the old review.
 - Use `pska_memory_lifecycle` to inspect a durable memory's reviewed
   apply/update/delete history; do not query backend memory history directly.
+- Use `pska_memory_why_used` before claiming that a Memory Card shaped an
+  answer. If the trace confidence is only `candidate_retrieval`, say that the
+  memory was surfaced as context rather than asserting final-answer influence.
 - Export briefs from workflow context only when the user needs an explicit
   Markdown or JSON handoff.
 

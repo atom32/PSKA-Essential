@@ -396,6 +396,8 @@ The current public tool surface is:
 - `pska_memory_search`
 - `pska_memory_card_list`
 - `pska_memory_card_get`
+- `pska_memory_use_trace`
+- `pska_memory_why_used`
 - `pska_memory_apply`
 - `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
@@ -658,6 +660,13 @@ Memory Card inventory and inspection:
 ```text
 pska_memory_card_list(scope, limit, query, status, memory_type) -> Memory Card inventory/envelope view
 pska_memory_card_get(memory_id, scope) -> single Memory Card envelope
+```
+
+Memory use trace and why-used:
+
+```text
+pska_memory_use_trace(memory_id, query, action, limit) -> audit-backed candidate retrieval / card inspection trace
+pska_memory_why_used(memory_id, scope, limit) -> Memory Card plus recent trace explanation
 ```
 
 Durable memory lifecycle inspection:

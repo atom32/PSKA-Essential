@@ -242,26 +242,33 @@ last_extracted_at
 `GET /api/memory/cards`、`GET /api/memory/cards/{memory_id}`、
 `pska_memory_card_list`、`pska_memory_card_get` 和 WebUI “记忆”面板已经可用。
 Fake/SQLite memory provider 支持 full card inventory；Graphiti 当前只支持 search，
-不支持 provider-neutral full enumeration。conflicts、stale、why-used 和 use trace
-仍是后续 P2。
+不支持 provider-neutral full enumeration。P2 的第二块已落地为 audit-backed
+Memory use trace / why-used：`GET /api/memory/use-traces`、
+`GET /api/memory/{memory_id}/use-trace`、`GET /api/memory/{memory_id}/why-used`、
+`pska_memory_use_trace` 和 `pska_memory_why_used` 可解释某条记忆何时被
+search 或 card inspection 作为候选上下文触达。conflicts、stale 和最终回答级
+used_memory_ids 仍是后续 P2。
 
 新增 Product API / MCP：
 
 ```text
 GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
+GET  /api/memory/use-traces
+GET  /api/memory/{memory_id}/use-trace
+GET  /api/memory/{memory_id}/why-used
 GET  /api/memory/cards/suggestions
 GET  /api/memory/cards/conflicts
 GET  /api/memory/cards/stale
-GET  /api/memory/cards/why-used
 POST /api/memory/cards/{memory_id}/refresh-review
 
 pska_memory_card_list
 pska_memory_card_get
+pska_memory_use_trace
+pska_memory_why_used
 pska_memory_card_suggestions
 pska_memory_card_conflicts
 pska_memory_card_stale
-pska_memory_why_used
 pska_memory_refresh_review_create
 ```
 

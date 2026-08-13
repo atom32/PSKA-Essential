@@ -42,6 +42,7 @@ from pska_essential.governance import (
     MANUAL_REVIEW,
     build_workspace_policy_from_env,
 )
+from pska_essential.memory_use_trace import memory_search_trace_metadata
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.runtime_context import build_runtime_memory_scope
@@ -1163,7 +1164,13 @@ class WorkflowService:
             "artifact": self.workflow_artifact(proposal.run_id),
         }
 
-    def memory_search(self, query: str, scope: dict[str, Any] | None = None, limit: int = 10) -> list[MemoryFact]:
+    def memory_search(
+        self,
+        query: str,
+        scope: dict[str, Any] | None = None,
+        limit: int = 10,
+        trace_context: dict[str, Any] | None = None,
+    ) -> list[MemoryFact]:
         search_scope = _memory_runtime_scope(scope)
         requested_limit = max(0, int(limit))
         include_superseded = any(bool(search_scope.get(key)) for key in MEMORY_INCLUDE_SUPERSEDED_SCOPE_KEYS)
@@ -1183,9 +1190,14 @@ class WorkflowService:
                 count=len(facts),
                 raw_count=len(raw_facts),
                 superseded_count=len(superseded),
-                superseded_fact_ids=[item["fact_id"] for item in superseded],
                 include_superseded=include_superseded,
                 scope=search_scope,
+                **memory_search_trace_metadata(
+                    facts=facts,
+                    raw_facts=raw_facts,
+                    superseded=superseded,
+                    trace_context=trace_context,
+                ),
             )
         )
         return facts

@@ -289,6 +289,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/read"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
+        self.assertIn(("GET", "/api/memory/use-traces"), contract_routes)
+        self.assertIn(("GET", "/api/memory/{memory_id}/use-trace"), contract_routes)
+        self.assertIn(("GET", "/api/memory/{memory_id}/why-used"), contract_routes)
         self.assertIn(("POST", "/api/turn-context"), contract_routes)
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["apply"]["supported"])
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["list"]["supported"])
@@ -340,6 +343,9 @@ class ProductApiTests(unittest.TestCase):
         card_view = capabilities["capabilities"]["memory"]["card_view"]
         self.assertEqual(card_view["schema"], "pska.memory_card_view.v1")
         self.assertEqual(card_view["apis"]["list"], "GET /api/memory/cards")
+        use_trace_view = capabilities["capabilities"]["memory"]["use_trace_view"]
+        self.assertEqual(use_trace_view["schema"], "pska.memory_use_trace_view.v1")
+        self.assertEqual(use_trace_view["apis"]["why_used"], "GET /api/memory/{memory_id}/why-used")
         interaction_model = capabilities["capabilities"]["memory"]["interaction_model"]
         self.assertEqual(interaction_model["schema"], "pska.memory_interaction_model.v1")
         self.assertEqual(interaction_model["primary_user_path"], "conversation")
@@ -1006,6 +1012,40 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(card["card"]["memory_type"], "source_route")
         audit = self._get_json("/api/audit?limit=10&action=memory.card.list")
         self.assertEqual(audit["events"][0]["metadata"]["count"], 1)
+
+    def test_memory_use_trace_routes_explain_search_and_card_events(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-route",
+                text="Use the PSKA architecture note before broad source search.",
+                source_refs=[SourceRef(adapter="fake", source_id="note-1")],
+                metadata={
+                    "memory_type": "source_route",
+                    "memory_scope": "project",
+                    "behavior_delta": "Route future PSKA questions to the architecture note first.",
+                    "display_text": "PSKA questions should start from the architecture note.",
+                },
+            )
+        )
+
+        self._post_json(
+            "/api/memory/search",
+            {"query": "PSKA architecture", "caller": "api-test", "purpose": "answer_context"},
+        )
+        traces = self._get_json("/api/memory/mem-route/use-trace?limit=10")
+        why_used = self._get_json("/api/memory/mem-route/why-used")
+        listed = self._get_json("/api/memory/use-traces?memory_id=mem-route&limit=10")
+
+        self.assertEqual(traces["schema"], "pska.memory_use_trace.v1")
+        self.assertEqual(traces["traces"][0]["action"], "memory.search")
+        self.assertEqual(traces["traces"][0]["caller"], "api-test")
+        self.assertEqual(traces["traces"][0]["memory_ids"], ["mem-route"])
+        self.assertEqual(why_used["schema"], "pska.memory_why_used.v1")
+        self.assertEqual(why_used["confidence"], "candidate_retrieval")
+        self.assertIn("PSKA architecture", why_used["explanation"])
+        self.assertEqual(listed["count"], 1)
+        audit = self._get_json("/api/audit?limit=10&action=memory.why_used")
+        self.assertEqual(audit["events"][0]["target_id"], "mem-route")
 
     def test_memory_search_route_can_include_superseded_for_diagnostics(self):
         self.service.memory.facts.extend(

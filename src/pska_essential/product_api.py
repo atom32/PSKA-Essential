@@ -48,6 +48,7 @@ from pska_essential.kb_audit import (
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
+from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
@@ -113,6 +114,9 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/read"},
     {"method": "GET", "path": "/api/memory/cards"},
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
+    {"method": "GET", "path": "/api/memory/use-traces"},
+    {"method": "GET", "path": "/api/memory/{memory_id}/use-trace"},
+    {"method": "GET", "path": "/api/memory/{memory_id}/why-used"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
     {"method": "POST", "path": "/api/kb/ingest"},
@@ -1000,6 +1004,14 @@ def _handler_class(state: ProductApiState):
                     _required_str(payload, "query"),
                     _optional_dict(payload, "scope"),
                     limit=int(payload.get("limit") or 10),
+                    trace_context={
+                        "caller": str(payload.get("caller") or "product_api"),
+                        "run_id": str(payload.get("run_id") or ""),
+                        "message_id": str(payload.get("message_id") or ""),
+                        "purpose": str(payload.get("purpose") or "memory_search_api"),
+                        "used_as": str(payload.get("used_as") or "candidate_memory"),
+                        "usage_stage": str(payload.get("usage_stage") or "retrieval"),
+                    },
                 )
                 capabilities = product_capabilities(memory_adapter=state.service.memory)
                 self._send_json(
@@ -1012,6 +1024,17 @@ def _handler_class(state: ProductApiState):
                 )
                 return
 
+            if method == "GET" and path == "/api/memory/use-traces":
+                result = list_memory_use_traces(
+                    state.service,
+                    memory_id=str(query.get("memory_id") or ""),
+                    query=str(query.get("query") or ""),
+                    action=str(query.get("action") or ""),
+                    limit=_int_param(query.get("limit"), 50),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
             if method == "GET" and path == "/api/memory/cards":
                 result = list_memory_cards(
                     state.service,
@@ -1020,6 +1043,29 @@ def _handler_class(state: ProductApiState):
                     query=str(query.get("query") or ""),
                     status=str(query.get("status") or "active"),
                     memory_type=str(query.get("memory_type") or ""),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            memory_use_trace_id = _match(path, "/api/memory/", "/use-trace")
+            if method == "GET" and memory_use_trace_id:
+                result = list_memory_use_traces(
+                    state.service,
+                    memory_id=unquote(memory_use_trace_id),
+                    query=str(query.get("query") or ""),
+                    action=str(query.get("action") or ""),
+                    limit=_int_param(query.get("limit"), 50),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            memory_why_used_id = _match(path, "/api/memory/", "/why-used")
+            if method == "GET" and memory_why_used_id:
+                result = explain_memory_why_used(
+                    state.service,
+                    unquote(memory_why_used_id),
+                    scope=_query_scope(query),
+                    limit=_int_param(query.get("limit"), 20),
                 )
                 self._send_json({"ok": True, **result})
                 return
@@ -1400,7 +1446,19 @@ def _assemble_turn_context(service: WorkflowService, payload: dict[str, Any]) ->
                 }
             )
         else:
-            memory_facts = service.memory_search(user_message, scope, max_memory_notes)
+            memory_facts = service.memory_search(
+                user_message,
+                scope,
+                max_memory_notes,
+                trace_context={
+                    "caller": str(payload.get("caller") or "turn_context"),
+                    "run_id": run.run_id,
+                    "message_id": str(payload.get("message_id") or ""),
+                    "purpose": "turn_context_memory_notes",
+                    "used_as": "memory_note",
+                    "usage_stage": "turn_context",
+                },
+            )
 
     evidence_blocks = [_turn_context_evidence_block(packet) for packet in packets]
     memory_blocks = [_turn_context_memory_block(fact) for fact in memory_facts]
@@ -1693,7 +1751,19 @@ def _assemble_turn_context(service: WorkflowService, payload: dict[str, Any]) ->
 
     if mode != "evidence-only" and max_memory_notes > 0:
         try:
-            facts = service.memory_search(user_message, scope, max_memory_notes)
+            facts = service.memory_search(
+                user_message,
+                scope,
+                max_memory_notes,
+                trace_context={
+                    "caller": str(payload.get("caller") or "turn_context"),
+                    "run_id": run.run_id,
+                    "message_id": str(payload.get("message_id") or ""),
+                    "purpose": "turn_context_memory_notes",
+                    "used_as": "memory_note",
+                    "usage_stage": "turn_context",
+                },
+            )
             memory_notes = [_turn_context_memory_block(fact, index) for index, fact in enumerate(facts, start=1)]
         except Exception as exc:  # noqa: BLE001 - turn context should degrade when optional memory search is unavailable.
             warnings.append({"code": "memory_search_failed", "message": str(exc)})

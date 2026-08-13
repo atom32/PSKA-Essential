@@ -253,6 +253,18 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "durable": False,
         "provider_operation": "get",
     },
+    "pska_memory_use_trace": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+    },
+    "pska_memory_why_used": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+    },
     "pska_memory_change_from_conversation": {
         "category": "memory",
         "access": "write",
@@ -361,6 +373,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "lineage": memory_lineage_contract(),
         "search_view": memory_search_view_contract(),
         "card_view": memory_card_view_contract(),
+        "use_trace_view": memory_use_trace_view_contract(),
         "interaction_model": memory_interaction_model_contract(),
     }
 
@@ -566,12 +579,13 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_obsidian_moc_apply",
                 "pska_memory_card_list",
                 "pska_memory_card_get",
+                "pska_memory_use_trace",
+                "pska_memory_why_used",
                 "pska_memory_change_from_conversation",
                 "pska_source_memory_review_create",
             ],
             "planned": [
                 "approximate_duplicate_report",
-                "pska_memory_why_used",
                 "pska_eidolia_context_read",
                 "pska_trace_query",
             ],
@@ -921,6 +935,38 @@ def memory_card_view_contract() -> dict[str, Any]:
             "quality",
             "lifecycle",
         ],
+    }
+
+
+def memory_use_trace_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_use_trace_view.v1",
+        "apis": {
+            "list": "GET /api/memory/use-traces",
+            "for_memory": "GET /api/memory/{memory_id}/use-trace",
+            "why_used": "GET /api/memory/{memory_id}/why-used",
+        },
+        "mcp_tools": {
+            "list": "pska_memory_use_trace",
+            "why_used": "pska_memory_why_used",
+        },
+        "audit_actions": [
+            "memory.search",
+            "memory.card.get",
+            "memory.card.list",
+        ],
+        "evidence_fields": [
+            "returned_fact_ids",
+            "raw_fact_ids",
+            "superseded_fact_ids",
+            "query",
+            "scope",
+            "caller",
+            "run_id",
+            "message_id",
+            "purpose",
+        ],
+        "limitation": "candidate retrieval or card inspection only; final answer influence must be attached by a later response-level trace",
     }
 
 

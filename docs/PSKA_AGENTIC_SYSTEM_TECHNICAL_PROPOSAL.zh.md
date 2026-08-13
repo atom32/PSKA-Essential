@@ -463,8 +463,8 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 
 ### Phase 1: Memory Productization
 
-- Memory Card UI：active/suggestions/conflicts/stale/why-used。
-- Memory use trace：记录每次记忆如何影响回答或工具路由。
+- Memory Card UI：active 已落地；suggestions/conflicts/stale 仍待做。
+- Memory use trace / why-used：第一版已能解释 search/card inspection 何时触达某条记忆；最终回答级 used_memory_ids 仍待做。
 - Better supersession：冲突合并、scope 缩窄、refresh rule。
 - Eidolia thought -> Memory Card candidate。
 

@@ -420,6 +420,8 @@ Operational loop tools:
 - `pska_source_memory_review_create`
 - `pska_memory_card_list`
 - `pska_memory_card_get`
+- `pska_memory_use_trace`
+- `pska_memory_why_used`
 - `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
@@ -485,7 +487,10 @@ it does not write the memory provider directly. P2-1 adds
 Memory Card inventory view. It wraps durable provider facts with
 `display_text`, `memory_type`, `memory_scope`, `behavior_delta`, quality, source
 refs, lifecycle, and agent-facing why-use fields; it does not replace the
-memory provider or bypass review-gated update/delete flows. M6 adds
+memory provider or bypass review-gated update/delete flows. P2-2 adds
+`pska_memory_use_trace` and `pska_memory_why_used`, which turn `memory.search`
+and Memory Card inspection audit events into an explicit explanation of when a
+memory was surfaced as candidate context. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

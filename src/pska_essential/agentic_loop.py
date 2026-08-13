@@ -155,7 +155,18 @@ def run_agentic_question(
         queries=query_plan,
     )
 
-    memory_facts = service.memory_search(normalized_question, scope, limit=max(1, effective_memory_limit))
+    memory_facts = service.memory_search(
+        normalized_question,
+        scope,
+        limit=max(1, effective_memory_limit),
+        trace_context={
+            "caller": "agentic_loop",
+            "run_id": run.run_id,
+            "purpose": "agentic_question_memory_context",
+            "used_as": "memory_context",
+            "usage_stage": "pre_retrieval_plan",
+        },
+    )
     add_step(
         "memory.search",
         "complete",

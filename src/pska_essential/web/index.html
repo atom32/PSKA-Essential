@@ -497,6 +497,26 @@
             <div id="memory-card-summary" class="job-status pending">尚未加载记忆卡片。</div>
             <div id="memory-cards-list" class="list empty-list">尚未加载记忆卡片。</div>
           </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>使用痕迹</h2>
+              <button id="reload-memory-use-traces" type="button" class="secondary-button">刷新</button>
+            </div>
+            <form id="memory-use-trace-form" class="compact-form">
+              <label>
+                记忆 ID
+                <input id="memory-use-trace-memory-id" name="memory_id" autocomplete="off" placeholder="memory id" />
+              </label>
+              <label>
+                查询
+                <input id="memory-use-trace-query" name="query" autocomplete="off" placeholder="query" />
+              </label>
+              <button type="submit" class="secondary-button">查询</button>
+            </form>
+            <div id="memory-use-trace-summary" class="job-status pending">尚未加载使用痕迹。</div>
+            <div id="memory-use-trace-list" class="list empty-list">尚未加载使用痕迹。</div>
+          </div>
         </section>
 
         <section id="review" class="view">
