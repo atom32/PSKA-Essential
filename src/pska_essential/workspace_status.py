@@ -7,6 +7,7 @@ from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.capabilities import memory_capabilities, memory_operation_for_proposal_kind
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.memory_cards import list_memory_cards
+from pska_essential.memory_health import scan_memory_health
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
@@ -42,6 +43,7 @@ def build_workspace_status(
     provider_jobs, provider_jobs_error = _provider_jobs_state(service, gateway, dataset_page_size=dataset_page_size)
     memory_caps = memory_capabilities(service.memory)
     memory_cards, memory_cards_error = _memory_cards_state(service, memory_caps)
+    memory_health, memory_health_error = _memory_health_state(service, memory_caps)
     next_actions = _next_actions(
         datasets=datasets,
         readiness=readiness,
@@ -52,6 +54,8 @@ def build_workspace_status(
         memory_caps=memory_caps,
         memory_cards=memory_cards,
         memory_cards_error=memory_cards_error,
+        memory_health=memory_health,
+        memory_health_error=memory_health_error,
         resumable=resumable,
         resumable_error=resumable_error,
         provider_jobs=provider_jobs,
@@ -83,6 +87,8 @@ def build_workspace_status(
         "memory": {
             "cards": memory_cards,
             "cards_error": memory_cards_error,
+            "health": memory_health,
+            "health_error": memory_health_error,
         },
         "kb": {
             "status": "error" if kb_error else (readiness or {}).get("status", "empty"),
@@ -168,6 +174,16 @@ def _memory_cards_state(service: Any, memory_caps: dict[str, Any]) -> tuple[dict
         return None, {"type": exc.__class__.__name__, "message": str(exc)}
 
 
+def _memory_health_state(service: Any, memory_caps: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
+    list_capability = (memory_caps.get("operations") or {}).get("list") or {}
+    if list_capability.get("supported") is False:
+        return None, None
+    try:
+        return scan_memory_health(service, limit=20, audit=False), None
+    except Exception as exc:  # noqa: BLE001 - status must surface explicit backend errors.
+        return None, {"type": exc.__class__.__name__, "message": str(exc)}
+
+
 def _next_actions(
     *,
     datasets: list[dict[str, Any]],
@@ -179,6 +195,8 @@ def _next_actions(
     memory_caps: dict[str, Any],
     memory_cards: dict[str, Any] | None,
     memory_cards_error: dict[str, str] | None,
+    memory_health: dict[str, Any] | None,
+    memory_health_error: dict[str, str] | None,
     resumable: list[dict[str, Any]],
     resumable_error: dict[str, str] | None,
     provider_jobs: dict[str, Any] | None,
@@ -439,6 +457,34 @@ def _next_actions(
                 api="GET /api/memory/cards",
                 tool="pska_memory_card_list",
                 view="memory",
+            )
+        )
+    if memory_health_error:
+        actions.append(
+            _action(
+                "inspect_memory_health_error",
+                "Inspect memory health",
+                memory_health_error["message"],
+                api="GET /api/memory/health",
+                tool="pska_memory_health_scan",
+                view="memory",
+            )
+        )
+    elif memory_health and int(memory_health.get("issue_count") or 0) > 0:
+        first = dict((memory_health.get("issues") or [{}])[0])
+        first_id = str((first.get("memory_ids") or [""])[0])
+        actions.append(
+            _action(
+                "inspect_memory_health",
+                "Inspect memory health",
+                (
+                    f"{memory_health.get('issue_count')} memory health issue(s) need review: "
+                    f"{', '.join(key for key, value in (memory_health.get('summary') or {}).items() if key != 'severity' and value)}."
+                ),
+                api="GET /api/memory/health",
+                tool="pska_memory_health_scan",
+                view="memory",
+                params={"memory_id": first_id, "issue_id": str(first.get("issue_id") or "")},
             )
         )
     elif memory_cards:

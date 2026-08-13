@@ -41,6 +41,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_source_extract_job_run", text)
         self.assertIn("pska_memory_card_list", text)
         self.assertIn("pska_memory_card_get", text)
+        self.assertIn("pska_memory_health_scan", text)
         self.assertIn("pska_memory_use_trace", text)
         self.assertIn("pska_memory_why_used", text)
         self.assertIn("pska_obsidian_moc_propose", text)
@@ -292,6 +293,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_memory_search",
             "pska_memory_card_list",
             "pska_memory_card_get",
+            "pska_memory_health_scan",
             "pska_memory_use_trace",
             "pska_memory_why_used",
             "pska_memory_change_from_conversation",

@@ -487,6 +487,7 @@ pska_jarvis_briefing
 pska_source_memory_review_create
 pska_memory_card_list
 pska_memory_card_get
+pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
 pska_memory_change_from_conversation
@@ -567,6 +568,9 @@ Hermes 的默认行为：
 - Done: P2-2 已新增 `pska_memory_use_trace`、`pska_memory_why_used`、
   `GET /api/memory/{memory_id}/use-trace` 和 `GET /api/memory/{memory_id}/why-used`；
   当前解释的是 audit-backed candidate retrieval / card inspection，不冒充最终回答因果。
+- Done: P2-3 已新增 `pska_memory_health_scan` 与 `GET /api/memory/health`；
+  当前扫描 low-quality、stale/refresh 和 conservative active-card conflicts，并进入
+  workspace/Jarvis next actions。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
 - Pending: 批量候选去重、UI review 队列分组、从 folder audit 自动生成候选。

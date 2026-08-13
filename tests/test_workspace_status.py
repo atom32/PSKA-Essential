@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from pska_essential.adapters.fake import FakeRetrievalAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
-from pska_essential.contracts import MemoryUpdate, Proposal, SourceRef
+from pska_essential.contracts import MemoryFact, MemoryUpdate, Proposal, SourceRef
 from pska_essential.digest_jobs import enqueue_digest_job
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workspace_status import build_workspace_status
@@ -449,6 +449,24 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["kb"]["error"]["message"], "kb unavailable")
         self.assertEqual(status["next_actions"][0]["action"], "fix_kb_gateway")
         self.assertEqual(status["next_actions"][0]["view"], "settings")
+
+    def test_memory_health_issues_are_workspace_next_actions(self):
+        service = build_fake_service()
+        service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-raw",
+                text="Raw memory missing envelope fields.",
+                metadata={},
+            )
+        )
+
+        status = build_workspace_status(service=service, gateway=_Gateway())
+        actions = {item["action"]: item for item in status["next_actions"]}
+
+        self.assertEqual(status["memory"]["health"]["schema"], "pska.memory_health.v1")
+        self.assertEqual(status["memory"]["health"]["summary"]["quality"], 1)
+        self.assertEqual(actions["inspect_memory_health"]["tool"], "pska_memory_health_scan")
+        self.assertEqual(actions["inspect_memory_health"]["view"], "memory")
 
 
 if __name__ == "__main__":

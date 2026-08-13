@@ -246,14 +246,17 @@ Fake/SQLite memory provider 支持 full card inventory；Graphiti 当前只支�
 Memory use trace / why-used：`GET /api/memory/use-traces`、
 `GET /api/memory/{memory_id}/use-trace`、`GET /api/memory/{memory_id}/why-used`、
 `pska_memory_use_trace` 和 `pska_memory_why_used` 可解释某条记忆何时被
-search 或 card inspection 作为候选上下文触达。conflicts、stale 和最终回答级
-used_memory_ids 仍是后续 P2。
+search 或 card inspection 作为候选上下文触达。P2 的第三块已落地为
+Memory health scan：`GET /api/memory/health` 与 `pska_memory_health_scan`
+扫描 low-quality、stale/refresh 和 conservative active-card conflicts，并进入
+workspace/Jarvis next actions。最终回答级 used_memory_ids 仍是后续 P2。
 
 新增 Product API / MCP：
 
 ```text
 GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
+GET  /api/memory/health
 GET  /api/memory/use-traces
 GET  /api/memory/{memory_id}/use-trace
 GET  /api/memory/{memory_id}/why-used
@@ -264,6 +267,7 @@ POST /api/memory/cards/{memory_id}/refresh-review
 
 pska_memory_card_list
 pska_memory_card_get
+pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
 pska_memory_card_suggestions
@@ -563,9 +567,9 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 ### P2 Backlog
 
 - [x] Add explicit Memory Card list/search view.
-- [ ] Add memory use trace table or audit action.
+- [x] Add memory use trace table or audit action.
 - [x] Add WebUI Memory panel.
-- [ ] Add Jarvis memory conflict/stale next actions.
+- [x] Add Jarvis memory conflict/stale next actions.
 
 ### P3 Backlog
 

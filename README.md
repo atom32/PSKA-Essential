@@ -420,6 +420,7 @@ Operational loop tools:
 - `pska_source_memory_review_create`
 - `pska_memory_card_list`
 - `pska_memory_card_get`
+- `pska_memory_health_scan`
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
 - `pska_memory_change_from_conversation`
@@ -490,7 +491,9 @@ refs, lifecycle, and agent-facing why-use fields; it does not replace the
 memory provider or bypass review-gated update/delete flows. P2-2 adds
 `pska_memory_use_trace` and `pska_memory_why_used`, which turn `memory.search`
 and Memory Card inspection audit events into an explicit explanation of when a
-memory was surfaced as candidate context. M6 adds
+memory was surfaced as candidate context. P2-3 adds `pska_memory_health_scan`
+and `GET /api/memory/health`, a conservative Memory Card health scan for missing
+envelope fields, refresh/stale candidates, and likely active-card conflicts. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

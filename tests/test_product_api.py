@@ -289,6 +289,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/read"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
+        self.assertIn(("GET", "/api/memory/health"), contract_routes)
         self.assertIn(("GET", "/api/memory/use-traces"), contract_routes)
         self.assertIn(("GET", "/api/memory/{memory_id}/use-trace"), contract_routes)
         self.assertIn(("GET", "/api/memory/{memory_id}/why-used"), contract_routes)
@@ -343,6 +344,9 @@ class ProductApiTests(unittest.TestCase):
         card_view = capabilities["capabilities"]["memory"]["card_view"]
         self.assertEqual(card_view["schema"], "pska.memory_card_view.v1")
         self.assertEqual(card_view["apis"]["list"], "GET /api/memory/cards")
+        health_view = capabilities["capabilities"]["memory"]["health_view"]
+        self.assertEqual(health_view["schema"], "pska.memory_health_view.v1")
+        self.assertEqual(health_view["mcp_tool"], "pska_memory_health_scan")
         use_trace_view = capabilities["capabilities"]["memory"]["use_trace_view"]
         self.assertEqual(use_trace_view["schema"], "pska.memory_use_trace_view.v1")
         self.assertEqual(use_trace_view["apis"]["why_used"], "GET /api/memory/{memory_id}/why-used")
@@ -1046,6 +1050,52 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(listed["count"], 1)
         audit = self._get_json("/api/audit?limit=10&action=memory.why_used")
         self.assertEqual(audit["events"][0]["target_id"], "mem-route")
+
+    def test_memory_health_route_reports_quality_stale_and_conflict(self):
+        self.service.memory.facts.extend(
+            [
+                MemoryFact(
+                    fact_id="mem-raw",
+                    text="Raw memory missing envelope fields.",
+                    metadata={},
+                ),
+                MemoryFact(
+                    fact_id="mem-linux",
+                    text="The project deployment target is Linux.",
+                    source_refs=[SourceRef(adapter="fake", source_id="linux")],
+                    metadata={
+                        "memory_type": "project_state",
+                        "memory_scope": "project",
+                        "behavior_delta": "Use Linux as deployment target.",
+                        "display_text": "The project deployment target is Linux.",
+                    },
+                ),
+                MemoryFact(
+                    fact_id="mem-windows",
+                    text="The project deployment target is Windows.",
+                    source_refs=[SourceRef(adapter="fake", source_id="windows")],
+                    metadata={
+                        "memory_type": "project_state",
+                        "memory_scope": "project",
+                        "behavior_delta": "Use Windows as deployment target.",
+                        "display_text": "The project deployment target is Windows.",
+                        "refresh_rule": "review_after_date",
+                        "review_after": "2000-01-01T00:00:00+00:00",
+                    },
+                ),
+            ]
+        )
+
+        health = self._get_json("/api/memory/health?limit=20")
+
+        self.assertTrue(health["ok"])
+        self.assertEqual(health["schema"], "pska.memory_health.v1")
+        self.assertEqual(health["summary"]["quality"], 1)
+        self.assertEqual(health["summary"]["stale"], 1)
+        self.assertGreaterEqual(health["summary"]["conflict"], 1)
+        self.assertEqual(health["next_actions"][0]["tool"], "pska_memory_health_scan")
+        audit = self._get_json("/api/audit?limit=10&action=memory.health.scan")
+        self.assertEqual(audit["events"][0]["metadata"]["issue_count"], health["issue_count"])
 
     def test_memory_search_route_can_include_superseded_for_diagnostics(self):
         self.service.memory.facts.extend(
@@ -1937,6 +1987,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("memory-card-search-form", html)
         self.assertIn("memory-card-status-filter", html)
         self.assertIn("reload-memory-cards", html)
+        self.assertIn("memory-health-list", html)
+        self.assertIn("memory-health-type-filter", html)
+        self.assertIn("reload-memory-health", html)
         self.assertIn("closed-loop-probe-result", html)
         self.assertIn("run-closed-loop-probe", html)
         self.assertIn("probe-dataset-picker", html)
@@ -2142,6 +2195,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('renderMemoryCards', script)
         self.assertIn('memoryCardCard', script)
         self.assertIn('/api/memory/cards?${params.toString()}', script)
+        self.assertIn('loadMemoryHealth', script)
+        self.assertIn('renderMemoryHealth', script)
+        self.assertIn('memoryHealthIssueCard', script)
+        self.assertIn('/api/memory/health?${params.toString()}', script)
         self.assertIn('artifact.memory_facts', script)
         self.assertIn('sourceInspectionCard', script)
         self.assertIn('artifact.source_inspections', script)

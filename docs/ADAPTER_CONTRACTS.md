@@ -396,6 +396,7 @@ The current public tool surface is:
 - `pska_memory_search`
 - `pska_memory_card_list`
 - `pska_memory_card_get`
+- `pska_memory_health_scan`
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
 - `pska_memory_apply`
@@ -665,6 +666,7 @@ pska_memory_card_get(memory_id, scope) -> single Memory Card envelope
 Memory use trace and why-used:
 
 ```text
+pska_memory_health_scan(scope, issue_type, limit) -> provider-neutral health issues for quality/stale/conflict
 pska_memory_use_trace(memory_id, query, action, limit) -> audit-backed candidate retrieval / card inspection trace
 pska_memory_why_used(memory_id, scope, limit) -> Memory Card plus recent trace explanation
 ```

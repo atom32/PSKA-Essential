@@ -253,6 +253,13 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "durable": False,
         "provider_operation": "get",
     },
+    "pska_memory_health_scan": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "provider_operation": "list",
+    },
     "pska_memory_use_trace": {
         "category": "memory",
         "access": "read",
@@ -373,6 +380,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "lineage": memory_lineage_contract(),
         "search_view": memory_search_view_contract(),
         "card_view": memory_card_view_contract(),
+        "health_view": memory_health_view_contract(),
         "use_trace_view": memory_use_trace_view_contract(),
         "interaction_model": memory_interaction_model_contract(),
     }
@@ -579,6 +587,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_obsidian_moc_apply",
                 "pska_memory_card_list",
                 "pska_memory_card_get",
+                "pska_memory_health_scan",
                 "pska_memory_use_trace",
                 "pska_memory_why_used",
                 "pska_memory_change_from_conversation",
@@ -967,6 +976,25 @@ def memory_use_trace_view_contract() -> dict[str, Any]:
             "purpose",
         ],
         "limitation": "candidate retrieval or card inspection only; final answer influence must be attached by a later response-level trace",
+    }
+
+
+def memory_health_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_health_view.v1",
+        "api": "GET /api/memory/health",
+        "mcp_tool": "pska_memory_health_scan",
+        "issue_types": ["quality", "stale", "conflict"],
+        "inputs": ["scope", "issue_type", "limit"],
+        "issue_schema": "pska.memory_health_issue.v1",
+        "next_actions": [
+            "inspect_memory_health",
+            "inspect_memory_card_quality",
+            "inspect_memory_staleness",
+            "inspect_memory_conflict",
+            "create_memory_update_review",
+        ],
+        "limitation": "provider-neutral health scan; conflict detection is conservative and does not auto-resolve memory",
     }
 
 

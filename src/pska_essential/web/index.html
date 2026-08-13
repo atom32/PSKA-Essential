@@ -375,6 +375,26 @@
 
           <div class="panel">
             <div class="panel-header">
+              <h2>记忆健康</h2>
+              <button id="reload-memory-health" type="button" class="secondary-button">扫描</button>
+            </div>
+            <div class="status-strip">
+              <label class="inline-control">
+                <span>问题</span>
+                <select id="memory-health-type-filter">
+                  <option value="">全部</option>
+                  <option value="quality">quality</option>
+                  <option value="stale">stale</option>
+                  <option value="conflict">conflict</option>
+                </select>
+              </label>
+            </div>
+            <div id="memory-health-summary" class="job-status pending">尚未扫描记忆健康。</div>
+            <div id="memory-health-list" class="list empty-list">尚未扫描记忆健康。</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
               <h2>资料源审计</h2>
               <span id="source-audit-status" class="tag">未运行</span>
             </div>

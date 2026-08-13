@@ -38,6 +38,10 @@ candidate memory, review, and durable export.
   PSKA envelope view over provider facts: use `display_text`, `memory_type`,
   `memory_scope`, `behavior_delta`, `quality`, source refs, and lifecycle rather
   than raw provider text alone.
+- Use `pska_memory_health_scan` when the user asks whether memories are stale,
+  conflicting, incomplete, or need cleanup. Treat it as a conservative
+  provider-neutral health scan; do not auto-resolve or overwrite memory without
+  a review-gated update/delete flow.
 - Use `pska_memory_use_trace` and `pska_memory_why_used` when the user asks why a
   durable memory appeared, whether a memory has been used recently, or which
   query/tool surfaced it. Treat the result as audit-backed candidate retrieval
@@ -144,6 +148,8 @@ candidate memory, review, and durable export.
   candidate review instead of mutating the old review.
 - Use `pska_memory_lifecycle` to inspect a durable memory's reviewed
   apply/update/delete history; do not query backend memory history directly.
+- Use `pska_memory_health_scan` before planning memory cleanup work, then follow
+  the returned `next_actions`.
 - Use `pska_memory_why_used` before claiming that a Memory Card shaped an
   answer. If the trace confidence is only `candidate_retrieval`, say that the
   memory was surfaced as context rather than asserting final-answer influence.

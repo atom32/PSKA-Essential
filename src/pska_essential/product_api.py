@@ -48,6 +48,7 @@ from pska_essential.kb_audit import (
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
+from pska_essential.memory_health import scan_memory_health
 from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
@@ -114,6 +115,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/read"},
     {"method": "GET", "path": "/api/memory/cards"},
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
+    {"method": "GET", "path": "/api/memory/health"},
     {"method": "GET", "path": "/api/memory/use-traces"},
     {"method": "GET", "path": "/api/memory/{memory_id}/use-trace"},
     {"method": "GET", "path": "/api/memory/{memory_id}/why-used"},
@@ -1043,6 +1045,16 @@ def _handler_class(state: ProductApiState):
                     query=str(query.get("query") or ""),
                     status=str(query.get("status") or "active"),
                     memory_type=str(query.get("memory_type") or ""),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "GET" and path == "/api/memory/health":
+                result = scan_memory_health(
+                    state.service,
+                    scope=_query_scope(query),
+                    issue_type=str(query.get("issue_type") or ""),
+                    limit=_int_param(query.get("limit"), 100),
                 )
                 self._send_json({"ok": True, **result})
                 return

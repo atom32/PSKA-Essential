@@ -68,6 +68,7 @@ EXPECTED_TOOLS = {
     "pska_memory_search",
     "pska_memory_card_list",
     "pska_memory_card_get",
+    "pska_memory_health_scan",
     "pska_memory_use_trace",
     "pska_memory_why_used",
     "pska_memory_apply",
@@ -314,6 +315,8 @@ class McpContractTests(unittest.TestCase):
         self.assertTrue(capabilities["memory"]["operations"]["delete"]["supported"])
         self.assertEqual(capabilities["memory"]["card_view"]["schema"], "pska.memory_card_view.v1")
         self.assertEqual(capabilities["memory"]["card_view"]["mcp_tools"]["list"], "pska_memory_card_list")
+        self.assertEqual(capabilities["memory"]["health_view"]["schema"], "pska.memory_health_view.v1")
+        self.assertEqual(capabilities["memory"]["health_view"]["mcp_tool"], "pska_memory_health_scan")
         self.assertEqual(capabilities["memory"]["use_trace_view"]["schema"], "pska.memory_use_trace_view.v1")
         self.assertEqual(capabilities["memory"]["use_trace_view"]["mcp_tools"]["why_used"], "pska_memory_why_used")
         self.assertEqual(capabilities["memory"]["search_view"]["schema"], "pska.memory_search_view.v1")
@@ -370,6 +373,8 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(memory_cards["cards"][0]["memory_id"], applied["target_id"])
         memory_card = tools["pska_memory_card_get"](applied["target_id"])
         self.assertEqual(memory_card["card"]["memory_id"], applied["target_id"])
+        memory_health = tools["pska_memory_health_scan"]({}, limit=10)
+        self.assertEqual(memory_health["schema"], "pska.memory_health.v1")
         facts = tools["pska_memory_search"]("mcp memory", {}, 10)
         use_trace = tools["pska_memory_use_trace"](applied["target_id"], limit=10)
         why_used = tools["pska_memory_why_used"](applied["target_id"])
