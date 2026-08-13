@@ -568,10 +568,13 @@ candidates. The review queue payload now carries quality candidate draft fields
 exposes inline quality-fix controls that mark a candidate `needs_edit` and submit
 a revised governed Review without writing memory directly. Queue summaries also
 include `candidate_quality_breakdown` by issue type, missing field, status, and
-severity so Hermes/WebUI can choose the most useful batch-first repair path. The WebUI also
-exposes a lightweight inline merge editor on duplicate/related candidate queue
-groups; it shows member candidate texts and behavior deltas before the merged
-Review is created. M6 adds
+severity so Hermes/WebUI can choose the most useful batch-first repair path.
+The `candidate_quality` group exposes a batch edit action that marks all quality
+issues as `needs_edit` through `pska_review_decide_batch`; it still does not
+write memory or create revised Reviews by itself. The WebUI also exposes a
+lightweight inline merge editor on duplicate/related candidate queue groups; it
+shows member candidate texts and behavior deltas before the merged Review is
+created. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

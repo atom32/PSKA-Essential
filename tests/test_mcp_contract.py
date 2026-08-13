@@ -345,6 +345,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("review_conversation_memory_candidate", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("review_memory_candidate_quality", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("mark_memory_candidate_needs_edit", capabilities["memory"]["review_queue_view"]["next_actions"])
+        self.assertIn("mark_quality_group_needs_edit", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("accept_review_group", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("reject_review_group", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("inspect_related_memory_candidates", capabilities["memory"]["review_queue_view"]["next_actions"])

@@ -144,6 +144,47 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(queue["next_actions"][1]["action"], "mark_memory_candidate_needs_edit")
         self.assertEqual(queue["next_actions"][1]["params"]["review_id"], review.review_id)
 
+    def test_queue_quality_group_can_batch_mark_needs_edit(self):
+        service = build_fake_service()
+        review_ids = []
+        for index in range(2):
+            run = service.start(f"Remember vague pending memory {index}", {"dataset_ids": ["demo"]})
+            source_ref = SourceRef(adapter="fake", source_id=f"quality-source-{index}")
+            proposal = Proposal(
+                proposal_id=f"prop_queue_batch_low_quality_memory_{index}",
+                run_id=run.run_id,
+                kind="memory_patch",
+                intent="unsafe memory",
+                title=f"Memory Patch: unsafe memory {index}",
+                body="remember this",
+                source_refs=[source_ref],
+                memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+            )
+            service.store.save_proposal(proposal)
+            review = service.review_create(proposal.proposal_id)
+            review_ids.append(review.review_id)
+
+        queue = build_memory_review_queue(service, audit=False)
+        groups = {group["code"]: group for group in queue["groups"]}
+        action = groups["candidate_quality"]["batch_actions"][0]
+
+        self.assertEqual(action["action"], "mark_quality_group_needs_edit")
+        self.assertEqual(action["tool"], "pska_review_decide_batch")
+        self.assertEqual(action["params"]["decision"], "edit")
+        self.assertEqual(set(action["params"]["review_ids"]), set(review_ids))
+
+        decided = service.review_decide_batch(
+            action["params"]["review_ids"],
+            action["params"]["decision"],
+            action["params"]["reason"],
+        )
+        self.assertEqual(decided["decided_count"], 2)
+        self.assertFalse(decided["data_flow"]["writes_memory_directly"])
+        after = build_memory_review_queue(service, audit=False)
+        after_groups = {group["code"]: group for group in after["groups"]}
+        self.assertNotIn("candidate_quality", after_groups)
+        self.assertEqual(after["summary"]["needs_edit_count"], 2)
+
     def test_queue_surfaces_conversation_memory_candidates(self):
         service = build_fake_service()
         created = service.conversation_memory_candidates_create(

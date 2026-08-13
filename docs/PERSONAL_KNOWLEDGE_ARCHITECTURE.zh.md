@@ -644,6 +644,9 @@ Hermes 的默认行为：
 - Done: Memory Review Queue summary 新增 `candidate_quality_breakdown`，按
   issue type、missing field、status、severity 聚合，并给出 top issue/missing field，供
   Hermes/WebUI 判断先批量修哪类候选。
+- Done: `candidate_quality` group 新增批量 edit action：通过
+  `pska_review_decide_batch` 将整组质量问题标为 `needs_edit`，不写 memory，也不自动创建修订
+  Review。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

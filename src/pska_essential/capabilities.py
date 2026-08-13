@@ -1275,6 +1275,7 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
             "review_conversation_memory_candidate",
             "review_memory_candidate_quality",
             "mark_memory_candidate_needs_edit",
+            "mark_quality_group_needs_edit",
             "accept_review_group",
             "reject_review_group",
             "apply_accepted_memory",

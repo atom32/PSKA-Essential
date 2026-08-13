@@ -247,7 +247,7 @@ def _conversation_candidate_group(reviews: list[dict[str, Any]]) -> dict[str, An
 
 
 def _candidate_quality_group(issues: list[dict[str, Any]]) -> dict[str, Any]:
-    return _group(
+    group = _group(
         "candidate_quality",
         "high",
         [
@@ -272,6 +272,27 @@ def _candidate_quality_group(issues: list[dict[str, Any]]) -> dict[str, Any]:
             for issue in issues
         ],
     )
+    review_ids = [
+        str(item.get("review_id") or "")
+        for item in group.get("items") or []
+        if str(item.get("review_id") or "")
+    ]
+    if review_ids:
+        group["batch_actions"] = [
+            {
+                "action": "mark_quality_group_needs_edit",
+                "label": "Mark quality group needs edit",
+                "tool": "pska_review_decide_batch",
+                "api": "POST /api/reviews/batch-decision",
+                "view": "review",
+                "params": {
+                    "review_ids": review_ids,
+                    "decision": "edit",
+                    "reason": "Memory Card candidate quality group needs clearer type, scope, behavior_delta, or evidence.",
+                },
+            }
+        ]
+    return group
 
 
 def _health_group(issues: list[dict[str, Any]]) -> dict[str, Any]:

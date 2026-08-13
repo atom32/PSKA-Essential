@@ -330,7 +330,10 @@ Review/apply 治理边界。P2 的第二十二块已落地为 revised replacemen
 group，而进入低优先级 `revised_replacements`，并通过 `open_revised_review` 指向新 Review。
 P2 的第二十三块已落地为 candidate quality breakdown：Memory Review Queue summary 按
 issue type、missing field、status、severity 聚合质量问题，并提供 top issue/missing field；
-Jarvis 和 WebUI summary 会用这个信号提示优先修复方向。
+Jarvis 和 WebUI summary 会用这个信号提示优先修复方向。P2 的第二十四块已落地为
+candidate quality batch edit action：`candidate_quality` group 暴露
+`mark_quality_group_needs_edit`，通过 `pska_review_decide_batch` 将整组问题候选转入
+`needs_edit`，但不写 memory、不自动创建 revised Review。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

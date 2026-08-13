@@ -45,8 +45,10 @@ Last updated: 2026-07-15
 > active `needs_edit` work. Queue summaries now include
 > `candidate_quality_breakdown` by issue type, missing field, status, and
 > severity; Jarvis/WebUI use it to show the likely batch-first repair focus.
-> Next useful product step: a richer batch edit/merge workbench and cross-project
-> semantic clustering.
+> `candidate_quality` groups also expose `mark_quality_group_needs_edit`, a
+> batch edit action through `pska_review_decide_batch` that moves the group into
+> revision state without writing memory. Next useful product step: a richer batch
+> edit/merge workbench and cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

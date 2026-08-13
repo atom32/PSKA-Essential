@@ -4132,11 +4132,18 @@ function memoryReviewQueueActionButton(action, item) {
 
 function memoryReviewQueueBatchActionButton(action) {
   const decision = (action.params && action.params.decision) || "";
-  const label = decision === "accept" ? t("button.acceptGroup") : decision === "reject" ? t("button.rejectGroup") : action.label;
+  const label =
+    decision === "accept"
+      ? t("button.acceptGroup")
+      : decision === "reject"
+        ? t("button.rejectGroup")
+        : decision === "edit"
+          ? "批量需修改"
+          : action.label;
   return el(
     "button",
     {
-      className: decision === "reject" ? "danger-button" : "secondary-button",
+      className: decision === "reject" ? "danger-button" : decision === "edit" ? "primary-button" : "secondary-button",
       type: "button",
       onclick: () => decideReviewBatch(action),
     },

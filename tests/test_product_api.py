@@ -388,6 +388,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("review_conversation_memory_candidate", review_queue_view["next_actions"])
         self.assertIn("review_memory_candidate_quality", review_queue_view["next_actions"])
         self.assertIn("mark_memory_candidate_needs_edit", review_queue_view["next_actions"])
+        self.assertIn("mark_quality_group_needs_edit", review_queue_view["next_actions"])
         self.assertIn("accept_review_group", review_queue_view["next_actions"])
         self.assertIn("reject_review_group", review_queue_view["next_actions"])
         self.assertIn("inspect_related_memory_candidates", review_queue_view["next_actions"])
@@ -1406,6 +1407,46 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(batch["data_flow"]["writes_memory_directly"])
         audit = self._get_json("/api/audit?limit=10&action=review.decide_batch")
         self.assertEqual(audit["events"][0]["metadata"]["decided_count"], 2)
+
+    def test_review_queue_quality_group_batch_marks_needs_edit(self):
+        review_ids = []
+        for index in range(2):
+            run = self.service.start(f"api quality batch {index}", {"dataset_ids": ["demo"]})
+            source_ref = SourceRef(adapter="fake", source_id=f"api-quality-batch-{index}")
+            proposal = Proposal(
+                proposal_id=f"prop_api_quality_batch_{index}",
+                run_id=run.run_id,
+                kind="memory_patch",
+                intent="unsafe memory",
+                title=f"Memory Patch: unsafe memory {index}",
+                body="remember this",
+                source_refs=[source_ref],
+                memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+            )
+            self.service.store.save_proposal(proposal)
+            review = self.service.store.create_review(proposal.proposal_id)
+            review_ids.append(review.review_id)
+        queue = self._get_json("/api/memory/review-queue?review_limit=20")
+        action = {group["code"]: group for group in queue["groups"]}["candidate_quality"]["batch_actions"][0]
+
+        batch = self._post_json(
+            "/api/reviews/batch-decision",
+            {
+                "review_ids": action["params"]["review_ids"],
+                "decision": action["params"]["decision"],
+                "reason": action["params"]["reason"],
+            },
+        )
+
+        self.assertEqual(action["action"], "mark_quality_group_needs_edit")
+        self.assertEqual(batch["decided_count"], 2)
+        self.assertFalse(batch["data_flow"]["writes_memory_directly"])
+        pending = self._get_json("/api/reviews?status=pending")
+        self.assertFalse([review for review in pending["reviews"] if review["review_id"] in review_ids])
+        queue_after = self._get_json("/api/memory/review-queue?review_limit=20")
+        groups_after = {group["code"]: group for group in queue_after["groups"]}
+        self.assertNotIn("candidate_quality", groups_after)
+        self.assertEqual(groups_after["needs_edit"]["count"], 2)
 
     def test_review_merge_candidates_route_creates_merged_pending_review(self):
         first = self.service.source_memory_review_create(
@@ -2568,6 +2609,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("candidate_quality_issue_count", script)
         self.assertIn("candidate_quality_breakdown", script)
         self.assertIn("top_missing_field", script)
+        self.assertIn("批量需修改", script)
         self.assertIn("memory.search", html)
         self.assertIn("needs_edit", html)
         self.assertIn("review.revise", html)
