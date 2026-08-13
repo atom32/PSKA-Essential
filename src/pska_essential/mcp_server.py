@@ -15,6 +15,8 @@ from pska_essential.alpha_readiness import (
     build_alpha_readiness,
     build_alpha_recovery_plan,
     build_alpha_trial_guide,
+    build_alpha_first_run_session,
+    update_alpha_first_run_session,
 )
 from pska_essential.capabilities import product_capabilities
 from pska_essential.component_check import run_component_check
@@ -471,6 +473,28 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         return build_alpha_recovery_plan(
             service=service,
             gateway=build_kb_gateway_from_env(),
+        )
+
+    def pska_alpha_first_run_session(session_id: str = "default"):
+        return build_alpha_first_run_session(
+            service=service,
+            gateway=build_kb_gateway_from_env(),
+            session_id=session_id,
+        )
+
+    def pska_alpha_first_run_item_update(
+        item_id: str,
+        status: str,
+        note: str = "",
+        session_id: str = "default",
+    ):
+        return update_alpha_first_run_session(
+            service=service,
+            gateway=build_kb_gateway_from_env(),
+            session_id=session_id,
+            item_id=item_id,
+            status=status,
+            note=note,
         )
 
     def pska_propose(run_id: str, kind: str, intent: str = ""):
@@ -1360,6 +1384,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_alpha_readiness": pska_alpha_readiness,
         "pska_alpha_trial_guide": pska_alpha_trial_guide,
         "pska_alpha_recovery_plan": pska_alpha_recovery_plan,
+        "pska_alpha_first_run_session": pska_alpha_first_run_session,
+        "pska_alpha_first_run_item_update": pska_alpha_first_run_item_update,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,
         "pska_review_list": pska_review_list,

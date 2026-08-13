@@ -24,6 +24,8 @@ from pska_essential.alpha_readiness import (
     build_alpha_readiness,
     build_alpha_recovery_plan,
     build_alpha_trial_guide,
+    build_alpha_first_run_session,
+    update_alpha_first_run_session,
 )
 from pska_essential.capabilities import product_capabilities
 from pska_essential.component_check import run_component_check
@@ -91,6 +93,8 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/alpha/readiness"},
     {"method": "GET", "path": "/api/alpha/trial-guide"},
     {"method": "GET", "path": "/api/alpha/recovery-plan"},
+    {"method": "GET", "path": "/api/alpha/first-run-session"},
+    {"method": "POST", "path": "/api/alpha/first-run-session/items/{item_id}"},
     {"method": "GET", "path": "/api/workspace/status"},
     {"method": "POST", "path": "/api/jarvis/briefing"},
     {"method": "GET", "path": "/api/provider/jobs"},
@@ -350,6 +354,29 @@ def _handler_class(state: ProductApiState):
                     gateway=state.kb_gateway_factory(),
                 )
                 self._send_json({"ok": True, "alpha_recovery_plan": plan})
+                return
+
+            if method == "GET" and path == "/api/alpha/first-run-session":
+                session = build_alpha_first_run_session(
+                    service=state.service,
+                    gateway=state.kb_gateway_factory(),
+                    session_id=query.get("session_id") or "default",
+                )
+                self._send_json({"ok": True, "alpha_first_run_session": session})
+                return
+
+            first_run_item = _match(path, "/api/alpha/first-run-session/items/", "")
+            if method == "POST" and first_run_item and "/" not in first_run_item:
+                payload = self._read_json()
+                session = update_alpha_first_run_session(
+                    service=state.service,
+                    gateway=state.kb_gateway_factory(),
+                    session_id=str(payload.get("session_id") or query.get("session_id") or "default"),
+                    item_id=first_run_item,
+                    status=_required_str(payload, "status"),
+                    note=str(payload.get("note") or ""),
+                )
+                self._send_json({"ok": True, "alpha_first_run_session": session})
                 return
 
             if method == "GET" and path == "/api/workspace/status":

@@ -174,6 +174,17 @@ Last updated: 2026-07-15
 > create backups, restore data, export providers, write source files, or write
 > durable memory. WebUI Home renders backup objects and writeback preflight
 > inside the Alpha Trial Guide panel.
+>
+> Update, 2026-08-14: Alpha first-run session is implemented as M29.
+> `GET /api/alpha/first-run-session`,
+> `POST /api/alpha/first-run-session/items/{item_id}`,
+> `pska_alpha_first_run_session`, and
+> `pska_alpha_first_run_item_update` persist manual guided-alpha checklist
+> progress in the PSKA local ledger. They write checklist state and audit
+> events only; they do not execute trial steps, scan source folders, write
+> source files, create backups, restore data, or apply durable memory. WebUI
+> Home renders the checklist and lets the operator mark items done, pending, or
+> skipped.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.
@@ -729,6 +740,8 @@ pska_workspace_status
 pska_alpha_readiness
 pska_alpha_trial_guide
 pska_alpha_recovery_plan
+pska_alpha_first_run_session
+pska_alpha_first_run_item_update
 pska_runtime_diagnostics
 pska_workflow_list
 pska_workflow_artifact

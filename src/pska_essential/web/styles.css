@@ -380,6 +380,58 @@ h3 {
   padding-top: 14px;
 }
 
+.alpha-first-run-panel {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.alpha-checklist {
+  display: grid;
+  gap: 8px;
+}
+
+.alpha-checklist-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.alpha-checklist-item.ready {
+  border-color: #9bc8bf;
+}
+
+.alpha-checklist-item.pending {
+  border-color: #dfc48a;
+}
+
+.alpha-checklist-item.failed {
+  border-color: #e4aaa5;
+}
+
+.alpha-checklist-item header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.alpha-checklist-item p,
+.subtle-text {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 6px 0 8px;
+}
+
+.subtle-text {
+  font-size: 12px;
+}
+
 .alpha-recovery-panel {
   border-top: 1px solid var(--line);
   margin-top: 14px;
@@ -1182,6 +1234,7 @@ pre {
   .jarvis-stats,
   .alpha-guide-stats,
   .alpha-guide-sections,
+  .alpha-checklist-item,
   .alpha-recovery-grid,
   .work-band,
   .two-column,

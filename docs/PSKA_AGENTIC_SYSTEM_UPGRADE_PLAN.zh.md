@@ -20,11 +20,11 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M28 alpha recovery plan：
+当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M29 alpha first-run session：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
-| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics、alpha readiness、alpha trial guide、alpha recovery plan | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
+| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
 | File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity`、`media_metadata` 和 optional `image_phash` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
@@ -375,6 +375,13 @@ SQLite ledgers、user-owned source roots、provider-owned KB/memory state、rest
 writeback preflight 和 operator checklist。它不创建备份、不恢复数据、不导出 provider、
 不写 source files，也不直接写 durable memory；WebUI Home 在 Alpha Trial Guide 内展示
 备份对象和写回前置检查。
+P2 的第三十三块已落地为 alpha first-run session：
+`GET /api/alpha/first-run-session`、`POST /api/alpha/first-run-session/items/{item_id}`、
+`pska_alpha_first_run_session` 与 `pska_alpha_first_run_item_update` 会把首次试用清单的
+人工确认进度持久化到 PSKA local ledger，并记录 create/update audit events。它只写
+checklist state，不执行清单条目背后的 runtime check、source scan、Ask、writeback、
+backup、restore 或 durable memory apply；WebUI Home 可刷新清单、标记完成/撤回/跳过，
+并把“打开”动作导航到对应 view。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -405,6 +412,8 @@ GET  /api/memory/cards/stale
 GET  /api/alpha/readiness
 GET  /api/alpha/trial-guide
 GET  /api/alpha/recovery-plan
+GET  /api/alpha/first-run-session
+POST /api/alpha/first-run-session/items/{item_id}
 POST /api/memory/cards/{memory_id}/refresh-review
 
 pska_memory_card_list
@@ -412,6 +421,8 @@ pska_memory_card_get
 pska_alpha_readiness
 pska_alpha_trial_guide
 pska_alpha_recovery_plan
+pska_alpha_first_run_session
+pska_alpha_first_run_item_update
 pska_memory_refresh_review
 pska_memory_briefing
 pska_memory_review_queue
@@ -840,6 +851,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add read-only alpha trial guide for safe first-run owner/guided-alpha trials.
 - [x] Surface alpha trial guide on WebUI Home as guarded phase/action cards.
 - [x] Add read-only alpha recovery plan and surface backup/writeback preflight on Home.
+- [x] Add persisted alpha first-run session/checklist progress without executing trial steps.
 
 ### P3 Backlog
 

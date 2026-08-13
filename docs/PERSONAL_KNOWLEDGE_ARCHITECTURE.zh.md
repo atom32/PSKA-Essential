@@ -682,6 +682,10 @@ Hermes 的默认行为：
   `GET /api/alpha/recovery-plan` 会只读列出 PSKA 本地 SQLite 状态、用户 source roots、
   provider-owned KB/memory state、restore drills 和 writeback preflight，并在 WebUI Home
   的 Alpha Trial Guide 内显示备份/写回边界。
+- Done: Alpha first-run session 已接入；`pska_alpha_first_run_session`、
+  `pska_alpha_first_run_item_update`、`GET /api/alpha/first-run-session` 与
+  `POST /api/alpha/first-run-session/items/{item_id}` 会持久化首次试用清单的人工确认进度，
+  只写 PSKA checklist/audit state，不自动执行扫描、写回、备份、恢复或 durable memory apply。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

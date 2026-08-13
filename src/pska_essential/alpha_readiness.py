@@ -4,8 +4,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+from pska_essential.audit import audit_event
 from pska_essential.capabilities import product_capabilities
-from pska_essential.contracts import to_jsonable
+from pska_essential.contracts import to_jsonable, utc_now_iso
 from pska_essential.diagnostics import build_runtime_diagnostics
 from pska_essential.runtime_context import build_runtime_workspace_context
 from pska_essential.workspace_status import build_workspace_status
@@ -14,6 +15,7 @@ from pska_essential.workspace_status import build_workspace_status
 ALPHA_READINESS_SCHEMA = "pska.alpha_readiness.v1"
 ALPHA_TRIAL_GUIDE_SCHEMA = "pska.alpha_trial_guide.v1"
 ALPHA_RECOVERY_PLAN_SCHEMA = "pska.alpha_recovery_plan.v1"
+ALPHA_FIRST_RUN_SESSION_SCHEMA = "pska.alpha_first_run_session.v1"
 
 
 def build_alpha_readiness(
@@ -170,6 +172,85 @@ def build_alpha_recovery_plan(*, service: Any, gateway: Any) -> dict[str, Any]:
             "executes_provider_export": False,
         },
     }
+
+
+def build_alpha_first_run_session(
+    *,
+    service: Any,
+    gateway: Any,
+    session_id: str = "default",
+) -> dict[str, Any]:
+    """Return a persisted alpha first-run checklist session."""
+
+    selected = _normalize_session_id(session_id)
+    stored = service.store.get_alpha_session(selected) if hasattr(service.store, "get_alpha_session") else None
+    recovery_plan = build_alpha_recovery_plan(service=service, gateway=gateway)
+    guide = build_alpha_trial_guide(service=service, gateway=gateway)
+    checklist = _first_run_checklist(guide=guide, recovery_plan=recovery_plan, stored=stored or {})
+    session = _session_payload(
+        session_id=selected,
+        guide=guide,
+        recovery_plan=recovery_plan,
+        checklist=checklist,
+        stored=stored or {},
+    )
+    if not stored and hasattr(service.store, "save_alpha_session"):
+        saved = service.store.save_alpha_session(session)
+        service.store.add_audit_event(
+            audit_event(
+                "alpha.first_run_session.create",
+                "alpha_session",
+                selected,
+                checklist_count=len(checklist),
+                writes_source_files=False,
+                writes_memory_directly=False,
+            )
+        )
+        return saved
+    return session
+
+
+def update_alpha_first_run_session(
+    *,
+    service: Any,
+    gateway: Any,
+    session_id: str = "default",
+    item_id: str,
+    status: str,
+    note: str = "",
+) -> dict[str, Any]:
+    """Persist one first-run checklist item decision.
+
+    This records operator progress only. It does not execute the underlying
+    trial step, write source files, create backups, or apply memory.
+    """
+
+    selected = _normalize_session_id(session_id)
+    current = build_alpha_first_run_session(service=service, gateway=gateway, session_id=selected)
+    checklist = list(current.get("checklist") or [])
+    item = _checklist_item_by_id(checklist, item_id)
+    normalized_status = _normalize_item_status(status)
+    item["status"] = normalized_status
+    item["note"] = str(note or "")
+    item["updated_at"] = utc_now_iso()
+    current["checklist"] = checklist
+    current["progress"] = _session_progress(checklist)
+    current["status"] = _session_status(current["progress"])
+    current["data_flow"] = _first_run_session_data_flow()
+    saved = service.store.save_alpha_session(current)
+    service.store.add_audit_event(
+        audit_event(
+            "alpha.first_run_session.update",
+            "alpha_session",
+            selected,
+            item_id=item["item_id"],
+            item_status=normalized_status,
+            writes_source_files=False,
+            writes_memory_directly=False,
+            executes_trial_step=False,
+        )
+    )
+    return saved
 
 
 def _checks(*, diagnostics: dict[str, Any], workspace_status: dict[str, Any], capabilities: dict[str, Any]) -> list[dict[str, Any]]:
@@ -364,6 +445,242 @@ def _check(code: str, status: str, message: str, *, required: bool, evidence: di
         "message": message,
         "evidence": to_jsonable(evidence or {}),
     }
+
+
+def _first_run_checklist(
+    *,
+    guide: dict[str, Any],
+    recovery_plan: dict[str, Any],
+    stored: dict[str, Any],
+) -> list[dict[str, Any]]:
+    stored_items = {str(item.get("item_id") or ""): item for item in stored.get("checklist") or []}
+    items = [
+        _first_run_item(
+            "confirm_runtime",
+            "Confirm runtime and providers",
+            "Inspect runtime diagnostics and provider configuration.",
+            "pska_runtime_diagnostics",
+            "GET /api/runtime/diagnostics",
+            "settings",
+            required=True,
+        ),
+        _first_run_item(
+            "confirm_recovery_plan",
+            "Confirm backup and recovery plan",
+            "Review PSKA-local backups, provider-owned backup boundaries, and restore drills.",
+            "pska_alpha_recovery_plan",
+            "GET /api/alpha/recovery-plan",
+            "settings",
+            required=True,
+        ),
+        _first_run_item(
+            "select_read_only_scope",
+            "Select one read-only scope",
+            "Choose a small local folder, Obsidian subset, or curated KB dataset.",
+            "pska_workspace_status",
+            "GET /api/workspace/status",
+            "sources",
+            required=True,
+        ),
+        _first_run_item(
+            "run_sourced_ask",
+            "Run one sourced Ask",
+            "Ask one real question and inspect citations before creating memory.",
+            "pska_agentic_question_start",
+            "POST /api/ask",
+            "ask",
+            required=True,
+        ),
+        _first_run_item(
+            "review_memory_queue",
+            "Inspect Memory Review queue",
+            "Verify durable memory remains review/apply governed.",
+            "pska_memory_review_queue",
+            "GET /api/memory/review-queue",
+            "review",
+            required=True,
+        ),
+        _first_run_item(
+            "keep_writeback_locked",
+            "Keep native writeback locked",
+            "Do not apply native tag/comment/MOC writes until source backup is verified.",
+            "pska_alpha_recovery_plan",
+            "GET /api/alpha/recovery-plan",
+            "settings",
+            required=True,
+        ),
+        _first_run_item(
+            "record_exit_notes",
+            "Record exit notes",
+            "Capture whether the first run is safe to repeat or should stay owner-only.",
+            "pska_alpha_trial_guide",
+            "GET /api/alpha/trial-guide",
+            "home",
+            required=False,
+        ),
+    ]
+    phase_status = {str(phase.get("phase_id") or ""): str(phase.get("status") or "") for phase in guide.get("phases") or []}
+    if phase_status.get("knowledge_scope") == "blocked":
+        items[2]["status"] = "blocked"
+    if phase_status.get("first_read_only_run") == "blocked":
+        items[3]["status"] = "blocked"
+    if recovery_plan.get("status") != "ready":
+        items[1]["status"] = "needs_attention"
+    for item in items:
+        stored_item = stored_items.get(item["item_id"])
+        if not stored_item:
+            continue
+        if str(stored_item.get("status") or "") in _FIRST_RUN_ITEM_STATUSES:
+            item["status"] = str(stored_item.get("status"))
+        item["note"] = str(stored_item.get("note") or "")
+        if stored_item.get("updated_at"):
+            item["updated_at"] = stored_item["updated_at"]
+    return items
+
+
+def _first_run_item(
+    item_id: str,
+    label: str,
+    description: str,
+    tool: str,
+    api: str,
+    view: str,
+    *,
+    required: bool,
+) -> dict[str, Any]:
+    return {
+        "item_id": item_id,
+        "label": label,
+        "description": description,
+        "status": "pending",
+        "required": required,
+        "tool": tool,
+        "api": api,
+        "view": view,
+        "note": "",
+        "updated_at": "",
+    }
+
+
+def _session_payload(
+    *,
+    session_id: str,
+    guide: dict[str, Any],
+    recovery_plan: dict[str, Any],
+    checklist: list[dict[str, Any]],
+    stored: dict[str, Any],
+) -> dict[str, Any]:
+    progress = _session_progress(checklist)
+    workspace = build_runtime_workspace_context().to_dict()
+    now = utc_now_iso()
+    return {
+        "schema": ALPHA_FIRST_RUN_SESSION_SCHEMA,
+        "session_id": session_id,
+        "status": _session_status(progress),
+        "trial_mode": guide.get("trial_mode") or "development_only",
+        "readiness_status": guide.get("readiness_status") or "not_ready",
+        "recovery_status": recovery_plan.get("status") or "needs_rehearsal",
+        "workspace_id": workspace["workspace_id"],
+        "tenant_id": workspace["tenant_id"],
+        "created_at": stored.get("created_at") or now,
+        "updated_at": stored.get("updated_at") or now,
+        "progress": progress,
+        "checklist": checklist,
+        "next_actions": _first_run_next_actions(checklist),
+        "data_flow": _first_run_session_data_flow(),
+    }
+
+
+def _session_progress(checklist: list[dict[str, Any]]) -> dict[str, Any]:
+    total = len(checklist)
+    done = sum(1 for item in checklist if item.get("status") == "done")
+    blocked = sum(1 for item in checklist if item.get("status") == "blocked")
+    skipped_required = sum(1 for item in checklist if item.get("required") and item.get("status") == "skipped")
+    required_items = [item for item in checklist if item.get("required")]
+    required_done = sum(1 for item in required_items if item.get("status") == "done")
+    return {
+        "total_count": total,
+        "done_count": done,
+        "blocked_count": blocked,
+        "required_count": len(required_items),
+        "required_done_count": required_done,
+        "skipped_required_count": skipped_required,
+        "percent": round(done / total, 4) if total else 0,
+    }
+
+
+def _session_status(progress: dict[str, Any]) -> str:
+    if int(progress.get("blocked_count") or 0) or int(progress.get("skipped_required_count") or 0):
+        return "blocked"
+    if int(progress.get("required_count") or 0) and progress.get("required_done_count") == progress.get("required_count"):
+        return "ready_for_repetition"
+    if int(progress.get("done_count") or 0):
+        return "in_progress"
+    return "not_started"
+
+
+def _first_run_next_actions(checklist: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for item in checklist:
+        if item.get("status") in {"pending", "needs_attention", "blocked"}:
+            return [
+                {
+                    "action": "open_first_run_item",
+                    "label": item.get("label") or "Open checklist item",
+                    "reason": item.get("description") or "",
+                    "tool": item.get("tool") or "",
+                    "api": item.get("api") or "",
+                    "view": item.get("view") or "home",
+                    "params": {"item_id": item.get("item_id")},
+                }
+            ]
+    return [
+        {
+            "action": "rerun_alpha_readiness",
+            "label": "Rerun alpha readiness",
+            "reason": "First-run checklist is complete; verify readiness before repeating the trial.",
+            "tool": "pska_alpha_readiness",
+            "api": "GET /api/alpha/readiness",
+            "view": "settings",
+            "params": {},
+        }
+    ]
+
+
+def _first_run_session_data_flow() -> dict[str, Any]:
+    return {
+        "writes_checklist_state": True,
+        "writes_pska_ledger": True,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "executes_trial_step": False,
+        "creates_backup": False,
+        "restores_data": False,
+    }
+
+
+_FIRST_RUN_ITEM_STATUSES = {"pending", "needs_attention", "done", "skipped", "blocked"}
+
+
+def _normalize_item_status(status: str) -> str:
+    normalized = str(status or "").strip().lower()
+    aliases = {"complete": "done", "completed": "done", "todo": "pending", "skip": "skipped"}
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in _FIRST_RUN_ITEM_STATUSES:
+        raise ValueError("status must be one of: pending, needs_attention, done, skipped, blocked")
+    return normalized
+
+
+def _checklist_item_by_id(checklist: list[dict[str, Any]], item_id: str) -> dict[str, Any]:
+    selected = str(item_id or "").strip()
+    for item in checklist:
+        if item.get("item_id") == selected:
+            return item
+    raise ValueError(f"unknown alpha first-run checklist item: {selected}")
+
+
+def _normalize_session_id(session_id: str) -> str:
+    normalized = str(session_id or "").strip()
+    return normalized or "default"
 
 
 def _recovery_backup_items(*, service: Any, providers: dict[str, str]) -> list[dict[str, Any]]:

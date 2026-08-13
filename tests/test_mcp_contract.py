@@ -27,6 +27,8 @@ EXPECTED_TOOLS = {
     "pska_alpha_readiness",
     "pska_alpha_trial_guide",
     "pska_alpha_recovery_plan",
+    "pska_alpha_first_run_session",
+    "pska_alpha_first_run_item_update",
     "pska_context_retrieve",
     "pska_source_read",
     "pska_source_root_list",
@@ -128,10 +130,12 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m28_alpha_recovery_plan")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m29_alpha_first_run_session")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_alpha_first_run_session", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_alpha_first_run_item_update", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -740,6 +744,39 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
         self.assertIn("backup_pska_local_state", actions)
         self.assertTrue(any(item["operation"] == "obsidian_moc" for item in result["writeback_preflight"]))
+
+    def test_alpha_first_run_session_tool_persists_checklist_progress_only(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            service = build_service_from_env()
+            tools = tool_registry(service)
+            _ingest_text(
+                tools,
+                temp_dir,
+                name="alpha-first-run.txt",
+                text="Alpha first-run session should persist checklist decisions.",
+            )
+            session = tools["pska_alpha_first_run_session"]()
+            updated = tools["pska_alpha_first_run_item_update"](
+                "confirm_runtime",
+                "done",
+                note="diagnostics checked",
+            )
+            reloaded = tools["pska_alpha_first_run_session"]()
+
+        item = {row["item_id"]: row for row in updated["checklist"]}["confirm_runtime"]
+        self.assertEqual(session["schema"], "pska.alpha_first_run_session.v1")
+        self.assertEqual(updated["status"], "in_progress")
+        self.assertEqual(item["status"], "done")
+        self.assertEqual(item["note"], "diagnostics checked")
+        self.assertTrue(updated["data_flow"]["writes_checklist_state"])
+        self.assertFalse(updated["data_flow"]["writes_source_files"])
+        self.assertFalse(updated["data_flow"]["writes_memory_directly"])
+        self.assertFalse(updated["data_flow"]["executes_trial_step"])
+        self.assertEqual({row["item_id"]: row for row in reloaded["checklist"]}["confirm_runtime"]["status"], "done")
+        actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("alpha.first_run_session.create", actions)
+        self.assertIn("alpha.first_run_session.update", actions)
 
     def test_memory_review_from_workflow_turns_transient_run_into_review(self):
         service = build_fake_service()

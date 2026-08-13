@@ -18,7 +18,7 @@ from pska_essential.contracts import (
 from pska_essential.runtime_context import build_runtime_workspace_context
 
 
-_SCOPED_TABLES = ("workflows", "proposals", "reviews", "memory_applies", "audit_events")
+_SCOPED_TABLES = ("workflows", "proposals", "reviews", "memory_applies", "audit_events", "alpha_sessions")
 
 
 class SQLiteReviewStore:
@@ -361,6 +361,48 @@ class SQLiteReviewStore:
             rows = self._conn.execute(query, tuple(params)).fetchall()
         return [AuditEvent(**json.loads(row["payload_json"])) for row in rows]
 
+    def get_alpha_session(self, session_id: str = "default") -> dict[str, Any] | None:
+        scope = _current_scope_filter()
+        selected = _normalize_alpha_session_id(session_id)
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT payload_json
+                FROM alpha_sessions
+                WHERE session_id = ? AND workspace_id = ? AND tenant_id = ?
+                """,
+                (selected, scope["workspace_id"], scope["tenant_id"]),
+            ).fetchone()
+        return json.loads(row["payload_json"]) if row else None
+
+    def save_alpha_session(self, session: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(session)
+        session_id = _normalize_alpha_session_id(str(payload.get("session_id") or "default"))
+        payload["session_id"] = session_id
+        scope = _scope_from_metadata(payload)
+        now = utc_now_iso()
+        payload.setdefault("created_at", now)
+        payload["updated_at"] = now
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO alpha_sessions(session_id, payload_json, updated_at, workspace_id, tenant_id)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(session_id, workspace_id, tenant_id) DO UPDATE SET
+                    payload_json = excluded.payload_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    session_id,
+                    json.dumps(to_jsonable(payload), ensure_ascii=False),
+                    payload["updated_at"],
+                    scope["workspace_id"],
+                    scope["tenant_id"],
+                ),
+            )
+            self._conn.commit()
+        return payload
+
     def _attach_review_revision_lineage(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not records:
             return records
@@ -477,6 +519,14 @@ class SQLiteReviewStore:
                     workspace_id TEXT NOT NULL DEFAULT 'default',
                     tenant_id TEXT NOT NULL DEFAULT ''
                 );
+                CREATE TABLE IF NOT EXISTS alpha_sessions (
+                    session_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    workspace_id TEXT NOT NULL DEFAULT 'default',
+                    tenant_id TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY(session_id, workspace_id, tenant_id)
+                );
                 """
             )
             self._migrate_workspace_columns()
@@ -516,6 +566,11 @@ def _current_scope_filter() -> dict[str, str]:
         "workspace_id": context.workspace_id,
         "tenant_id": context.tenant_id,
     }
+
+
+def _normalize_alpha_session_id(session_id: str) -> str:
+    normalized = str(session_id or "").strip()
+    return normalized or "default"
 
 
 def _ensure_metadata_scope(

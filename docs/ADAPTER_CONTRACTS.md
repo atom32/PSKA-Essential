@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M28 source-safe and memory-governed contract uses SQLite
+The implemented M1-M29 source-safe and memory-governed contract uses SQLite
 metadata plus FTS5:
 
 ```python
@@ -440,6 +440,8 @@ The current public tool surface is:
 - `pska_alpha_readiness`
 - `pska_alpha_trial_guide`
 - `pska_alpha_recovery_plan`
+- `pska_alpha_first_run_session`
+- `pska_alpha_first_run_item_update`
 - `pska_runtime_diagnostics`
 - `pska_propose`
 - `pska_review_create`

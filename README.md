@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M28 baseline into
+  engineering plan for upgrading the current PSKA-Essential M29 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -383,6 +383,8 @@ Operational loop tools:
 - `pska_alpha_readiness`
 - `pska_alpha_trial_guide`
 - `pska_alpha_recovery_plan`
+- `pska_alpha_first_run_session`
+- `pska_alpha_first_run_item_update`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
 - `pska_live_closed_loop_probe`
@@ -736,8 +738,18 @@ read-only backup/restore boundary report for alpha trials. It names PSKA-owned
 SQLite ledgers, user-owned source roots, provider-owned KB/memory state, manual
 restore drills, and writeback preflight checks without creating backups or
 restoring data.
+M29 adds `pska_alpha_first_run_session`,
+`pska_alpha_first_run_item_update`, `GET /api/alpha/first-run-session`, and
+`POST /api/alpha/first-run-session/items/{item_id}`. It persists the guided
+alpha first-run checklist in the PSKA local ledger so an operator can mark
+runtime checks, read-only source scope, sourced Ask, memory review, and
+writeback-lock checks as done or skipped. It writes only checklist state and
+audit events; it does not execute the underlying trial step, scan source
+folders, write source files, create backups, restore data, or apply durable
+memory.
 The bundled WebUI exposes this through Home's Jarvis Bar, a Home Alpha Trial
-Guide card, and a dedicated Sources panel: users can register local folders or Obsidian vaults, scan them, run
+Guide card with persisted first-run checklist, and a dedicated Sources panel:
+users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
 SQLite FTS5 with ranking/snippet cues, save reusable searches and source collections, select exact source
 sections for tag/comment proposals, apply sidecar annotations when permitted, explicitly
@@ -785,6 +797,11 @@ Sources, Ask, Review, or Settings.
 PSKA-local state that can be copied from provider-owned state that must use
 RAG/KG/memory backend tooling, and Home renders its backup objects and writeback
 preflight checks inside the Alpha Trial Guide panel.
+`pska_alpha_first_run_session` is the persisted operator checklist for that
+guide. It lets Hermes or WebUI mark individual first-run items as complete,
+pending, skipped, blocked, or needing attention while preserving the safety
+boundary: the update call records progress only and never runs the named source,
+Ask, writeback, backup, restore, or memory operation.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live

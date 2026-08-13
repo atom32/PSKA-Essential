@@ -574,6 +574,16 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
     "pska_alpha_readiness": {"category": "status", "access": "read", "durable": False},
     "pska_alpha_trial_guide": {"category": "status", "access": "read", "durable": False},
     "pska_alpha_recovery_plan": {"category": "status", "access": "read", "durable": False},
+    "pska_alpha_first_run_session": {"category": "status", "access": "read", "durable": False},
+    "pska_alpha_first_run_item_update": {
+        "category": "status",
+        "access": "write",
+        "durable": False,
+        "writes_checklist_state": True,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "executes_trial_step": False,
+    },
     "pska_runtime_diagnostics": {"category": "diagnostics", "access": "read", "durable": False},
     "pska_retrieval_probe": {"category": "diagnostics", "access": "read", "durable": False},
     "pska_memory_probe": {"category": "diagnostics", "access": "read", "durable": False},
@@ -819,7 +829,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m28_alpha_recovery_plan",
+        "status": "m29_alpha_first_run_session",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -829,6 +839,8 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_alpha_readiness",
                 "pska_alpha_trial_guide",
                 "pska_alpha_recovery_plan",
+                "pska_alpha_first_run_session",
+                "pska_alpha_first_run_item_update",
                 "pska_source_audit_run",
                 "pska_duplicate_review_list",
                 "pska_duplicate_group_mark",

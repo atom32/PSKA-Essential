@@ -47,6 +47,7 @@ const messages = {
   "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
   "toast.alphaTrialGuideLoaded": "Alpha 试用向导已加载。",
   "toast.alphaRecoveryPlanLoaded": "Alpha 恢复计划已加载。",
+  "toast.alphaFirstRunUpdated": "首次试用清单已更新。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
   "toast.loadDatasetBeforeParse": "请先加载知识库，再解析文档。",
@@ -110,6 +111,7 @@ const messages = {
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
   "empty.noAlphaTrialGuide": "Alpha 试用向导尚未加载。",
   "empty.noAlphaRecoveryPlan": "恢复计划尚未加载。",
+  "empty.noAlphaFirstRunSession": "首次试用清单尚未加载。",
   "empty.sourcesUnavailable": "资料源不可用。",
   "empty.sources": "尚未加载资料源。",
   "empty.noSourceAudit": "尚未运行资料源审计。",
@@ -264,6 +266,9 @@ const state = {
   alphaRecoveryPlan: null,
   alphaRecoveryPlanError: "",
   alphaRecoveryPlanLoading: false,
+  alphaFirstRunSession: null,
+  alphaFirstRunSessionError: "",
+  alphaFirstRunSessionLoading: false,
   sourceRoots: [],
   sourceRootError: "",
   sourceAudit: null,
@@ -576,6 +581,7 @@ async function refreshAll() {
     loadWorkspaceStatus(),
     loadAlphaTrialGuide({ silent: true }),
     loadAlphaRecoveryPlan({ silent: true }),
+    loadAlphaFirstRunSession({ silent: true }),
     loadSourceRoots(),
     loadSourceCollections({ silent: true }),
     loadSourceDuplicateReview(),
@@ -729,6 +735,36 @@ async function loadAlphaRecoveryPlan(options = {}) {
     state.alphaRecoveryPlanLoading = false;
     renderAlphaTrialGuide();
   }
+}
+
+async function loadAlphaFirstRunSession(options = {}) {
+  state.alphaFirstRunSessionLoading = true;
+  renderAlphaTrialGuide();
+  try {
+    const payload = await api("/api/alpha/first-run-session");
+    state.alphaFirstRunSession = payload.alpha_first_run_session || null;
+    state.alphaFirstRunSessionError = "";
+  } catch (error) {
+    state.alphaFirstRunSession = null;
+    state.alphaFirstRunSessionError = error.message;
+    if (!options.silent) showToast(error.message);
+  } finally {
+    state.alphaFirstRunSessionLoading = false;
+    renderAlphaTrialGuide();
+  }
+}
+
+async function updateAlphaFirstRunItem(itemId, status) {
+  const normalized = String(itemId || "").trim();
+  if (!normalized) return;
+  const payload = await api(`/api/alpha/first-run-session/items/${encodeURIComponent(normalized)}`, {
+    method: "POST",
+    body: { status },
+  });
+  state.alphaFirstRunSession = payload.alpha_first_run_session || null;
+  state.alphaFirstRunSessionError = "";
+  renderAlphaTrialGuide();
+  showToast(t("toast.alphaFirstRunUpdated"));
 }
 
 async function loadSourceRoots() {
@@ -1614,6 +1650,7 @@ function renderAlphaTrialGuide() {
   const guardrails = (guide.guardrails || []).slice(0, 4);
   const actions = (guide.next_actions || []).slice(0, 4);
   const recovery = state.alphaRecoveryPlan;
+  const firstRun = state.alphaFirstRunSession;
   container.append(
     el("div", { className: "alpha-guide-header" }, [
       el("div", {}, [
@@ -1633,9 +1670,10 @@ function renderAlphaTrialGuide() {
       alphaGuideStat("checks", summary.check_count || 0),
       alphaGuideStat("warnings", summary.warn_count || 0),
       alphaGuideStat("failures", summary.fail_count || 0),
-      alphaGuideStat("guided", guide.can_start_guided_trial ? "yes" : "no"),
+      alphaGuideStat("first run", firstRun ? `${(firstRun.progress || {}).done_count || 0}/${(firstRun.progress || {}).total_count || 0}` : "0/0"),
     ]),
   );
+  container.append(alphaFirstRunPanel(firstRun));
   container.append(
     el("div", { className: "alpha-guide-sections" }, [
       el("div", {}, [
@@ -1657,6 +1695,63 @@ function renderAlphaTrialGuide() {
       ]),
     );
   }
+}
+
+function alphaFirstRunPanel(session) {
+  if (state.alphaFirstRunSessionLoading && !session) {
+    return el("div", { className: "alpha-first-run-panel empty-list" }, "首次试用清单正在加载。");
+  }
+  if (state.alphaFirstRunSessionError) {
+    return el("div", { className: "alpha-first-run-panel" }, [
+      el("div", { className: "alpha-recovery-header" }, [
+        el("div", {}, [
+          el("h3", {}, "首次试用清单"),
+          el("p", {}, state.alphaFirstRunSessionError),
+        ]),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAlphaFirstRunSession() }, "刷新清单"),
+      ]),
+    ]);
+  }
+  if (!session) return el("div", { className: "alpha-first-run-panel empty-list" }, t("empty.noAlphaFirstRunSession"));
+  const checklist = (session.checklist || []).slice(0, 7);
+  const progress = session.progress || {};
+  return el("div", { className: "alpha-first-run-panel" }, [
+    el("div", { className: "alpha-recovery-header" }, [
+      el("div", {}, [
+        el("h3", {}, "首次试用清单"),
+        el("p", {}, "只记录人工确认进度；不会执行扫描、写回、备份或应用记忆。"),
+      ]),
+      el("div", { className: "meta-row" }, [
+        el("span", { className: `tag ${statusClass(session.status)}` }, readableName(session.status || "not_started")),
+        el("span", { className: "tag" }, `${progress.done_count || 0}/${progress.total_count || 0}`),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAlphaFirstRunSession() }, "刷新清单"),
+      ]),
+    ]),
+    el("div", { className: "alpha-checklist" }, checklist.map(alphaChecklistItem)),
+  ]);
+}
+
+function alphaChecklistItem(item) {
+  const done = item.status === "done";
+  return el("article", { className: `alpha-checklist-item ${statusClass(item.status)}` }, [
+    el("div", {}, [
+      el("header", {}, [
+        el("strong", {}, item.label || readableName(item.item_id || "item")),
+        el("span", { className: `tag ${statusClass(item.status)}` }, readableName(item.status || "pending")),
+      ]),
+      el("p", {}, item.description || ""),
+      item.note ? el("p", { className: "subtle-text" }, item.note) : null,
+      el("div", { className: "meta-row" }, [
+        item.tool ? el("span", { className: "tag" }, item.tool) : null,
+        item.view ? el("span", { className: "tag" }, item.view) : null,
+      ]),
+    ]),
+    el("div", { className: "card-actions" }, [
+      el("button", { className: done ? "secondary-button" : "primary-button", type: "button", onclick: () => updateAlphaFirstRunItem(item.item_id, done ? "pending" : "done") }, done ? "撤回" : "完成"),
+      item.required ? null : el("button", { className: "secondary-button", type: "button", onclick: () => updateAlphaFirstRunItem(item.item_id, "skipped") }, "跳过"),
+      el("button", { className: "secondary-button", type: "button", onclick: () => openWorkspaceAction({ action: "open_first_run_item", view: item.view, tool: item.tool, api: item.api, params: { item_id: item.item_id } }) }, "打开"),
+    ]),
+  ]);
 }
 
 function alphaRecoveryPanel(plan) {
@@ -1913,6 +2008,10 @@ async function openWorkspaceAction(action) {
     openView("home");
     await loadAlphaTrialGuide({ silent: true });
     await loadAlphaRecoveryPlan({ silent: true });
+    return;
+  }
+  if (action.action === "open_first_run_item") {
+    openView(action.view || "home");
     return;
   }
   if (["prepare_first_scope", "prepare_knowledge_scope"].includes(action.action)) {
@@ -6610,7 +6709,11 @@ function summarizeDocuments(documents) {
 
 function statusClass(status) {
   const value = String(status || "").toLowerCase();
-  if (["ready", "complete", "accepted", "ok", "alpha_ready", "guided_alpha"].includes(value)) return "ready";
+  if (
+    ["ready", "complete", "completed", "done", "accepted", "ok", "alpha_ready", "guided_alpha", "ready_for_repetition"].includes(value)
+  ) {
+    return "ready";
+  }
   if (
     [
       "failed",
