@@ -327,13 +327,19 @@ def _briefing_priorities(
                 )
             )
         elif queue_summary.get("candidate_quality_issue_count"):
+            breakdown = queue_summary.get("candidate_quality_breakdown") or {}
+            top_issue_type = str(breakdown.get("top_issue_type") or "")
+            top_missing_field = str(breakdown.get("top_missing_field") or "")
+            detail = f"{queue_summary.get('candidate_quality_issue_count')} candidate(s) are missing Memory Card fields or behavior impact."
+            if top_issue_type or top_missing_field:
+                detail = f"{detail} Top issue: {top_issue_type or 'quality'}; top missing field: {top_missing_field or 'none'}."
             priorities.append(
                 _priority(
                     "warning",
                     "memory",
                     "review_memory_candidate_quality",
                     "Memory candidates need quality review.",
-                    f"{queue_summary.get('candidate_quality_issue_count')} candidate(s) are missing Memory Card fields or behavior impact.",
+                    detail,
                     next_action=_queue_next_action(
                         memory_review_queue,
                         "review_memory_candidate_quality",
@@ -574,6 +580,7 @@ def _briefing_summary(
         "memory_review_queue_actionable_item_count": queue_summary.get("actionable_item_count", 0),
         "conversation_memory_candidate_count": queue_summary.get("conversation_candidate_count", 0),
         "memory_candidate_quality_issue_count": queue_summary.get("candidate_quality_issue_count", 0),
+        "memory_candidate_quality_breakdown": queue_summary.get("candidate_quality_breakdown", {}),
         "related_memory_candidate_group_count": queue_summary.get("related_candidate_group_count", 0),
         "priority_count": len(priorities),
         "next_action_count": len(next_actions),

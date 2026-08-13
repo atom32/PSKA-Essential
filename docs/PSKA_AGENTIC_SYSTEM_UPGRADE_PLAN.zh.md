@@ -328,6 +328,9 @@ item 带 `text`、`missing_fields`、Memory Card type/scope 和 behavior_delta�
 Review/apply 治理边界。P2 的第二十二块已落地为 revised replacement queue hygiene：
 普通 revision 生成 successor Review 后，旧 `needs_edit` 不再留在主动 `needs_edit`
 group，而进入低优先级 `revised_replacements`，并通过 `open_revised_review` 指向新 Review。
+P2 的第二十三块已落地为 candidate quality breakdown：Memory Review Queue summary 按
+issue type、missing field、status、severity 聚合质量问题，并提供 top issue/missing field；
+Jarvis 和 WebUI summary 会用这个信号提示优先修复方向。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pska_essential.contracts import SourceRef
+from pska_essential.contracts import MemoryPatch, Proposal, SourceRef
 from pska_essential.jarvis import build_jarvis_briefing
 from pska_essential.workflow import build_fake_service
 
@@ -162,6 +162,33 @@ class JarvisBriefingTests(unittest.TestCase):
             1,
         )
         self.assertEqual(actions["inspect_related_memory_candidates"]["tool"], "pska_memory_candidate_dedup")
+
+    def test_briefing_summarizes_memory_candidate_quality_breakdown(self):
+        service = build_fake_service()
+        run = service.start("jarvis low quality memory", {"dataset_ids": ["demo"]})
+        source_ref = SourceRef(adapter="fake", source_id="jarvis-quality-source")
+        proposal = Proposal(
+            proposal_id="prop_jarvis_low_quality_memory",
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent="unsafe memory",
+            title="Memory Patch: unsafe memory",
+            body="remember this",
+            source_refs=[source_ref],
+            memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+        )
+        service.store.save_proposal(proposal)
+        review = service.review_create(proposal.proposal_id)
+
+        briefing = build_jarvis_briefing(service=service, gateway=_Gateway())
+        priorities = {item["code"]: item for item in briefing["priorities"]}
+        breakdown = briefing["summary"]["memory_candidate_quality_breakdown"]
+
+        self.assertEqual(briefing["summary"]["memory_candidate_quality_issue_count"], 1)
+        self.assertEqual(breakdown["top_issue_type"], "missing_memory_card_fields")
+        self.assertEqual(breakdown["top_missing_field"], "behavior_delta")
+        self.assertIn("missing_memory_card_fields", priorities["review_memory_candidate_quality"]["reason"])
+        self.assertIn("behavior_delta", priorities["review_memory_candidate_quality"]["reason"])
 
 
 if __name__ == "__main__":

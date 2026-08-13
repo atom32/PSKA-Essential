@@ -42,8 +42,11 @@ Last updated: 2026-07-15
 > marking the Review `needs_edit` and submitting a revised governed Review.
 > Revised old reviews now move into low-priority `revised_replacements` keyed by
 > `next_review_id`, so successful revisions stay traceable without becoming stale
-> active `needs_edit` work. Next useful product step: a richer batch edit/merge
-> workbench and cross-project semantic clustering.
+> active `needs_edit` work. Queue summaries now include
+> `candidate_quality_breakdown` by issue type, missing field, status, and
+> severity; Jarvis/WebUI use it to show the likely batch-first repair focus.
+> Next useful product step: a richer batch edit/merge workbench and cross-project
+> semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

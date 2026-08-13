@@ -1261,6 +1261,14 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
             "behavior_delta",
             "source_count",
         ],
+        "candidate_quality_summary_fields": [
+            "issue_types",
+            "missing_fields",
+            "statuses",
+            "severities",
+            "top_issue_type",
+            "top_missing_field",
+        ],
         "writes_memory_directly": False,
         "next_actions": [
             "open_review",

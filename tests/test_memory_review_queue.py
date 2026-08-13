@@ -99,6 +99,16 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(queue["status"], "action_required")
         self.assertEqual(queue["summary"]["accepted_unapplied_count"], 0)
         self.assertEqual(queue["summary"]["candidate_quality_issue_count"], 1)
+        self.assertEqual(
+            queue["summary"]["candidate_quality_breakdown"]["issue_types"],
+            {"missing_memory_card_fields": 1, "vague_candidate_text": 1},
+        )
+        self.assertEqual(
+            queue["summary"]["candidate_quality_breakdown"]["missing_fields"],
+            {"behavior_delta": 1, "memory_scope": 1, "memory_type": 1},
+        )
+        self.assertEqual(queue["summary"]["candidate_quality_breakdown"]["top_issue_type"], "missing_memory_card_fields")
+        self.assertEqual(queue["summary"]["candidate_quality_breakdown"]["top_missing_field"], "behavior_delta")
         self.assertIn("candidate_quality", groups)
         item = groups["candidate_quality"]["items"][0]
         self.assertEqual(item["review_id"], review.review_id)

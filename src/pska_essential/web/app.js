@@ -2423,8 +2423,12 @@ function renderMemoryReviewQueue(payload = null) {
     return;
   }
   const data = queue.summary || {};
+  const qualityBreakdown = data.candidate_quality_breakdown || {};
+  const qualityFocus = qualityBreakdown.top_issue_type
+    ? ` / 质量重点 ${qualityBreakdown.top_issue_type}${qualityBreakdown.top_missing_field ? `:${qualityBreakdown.top_missing_field}` : ""}`
+    : "";
   summary.className = queue.status === "ready" ? "job-status ready" : "job-status pending";
-  summary.textContent = `${data.group_count || 0} 组 / ${data.item_count || 0} 项 / accepted ${data.accepted_unapplied_count || 0} / 质量问题 ${data.candidate_quality_issue_count || 0} / 对话候选 ${data.conversation_candidate_count || 0} / 相关候选 ${data.related_candidate_group_count || 0} / pending ${data.pending_review_count || 0}`;
+  summary.textContent = `${data.group_count || 0} 组 / ${data.item_count || 0} 项 / accepted ${data.accepted_unapplied_count || 0} / 质量问题 ${data.candidate_quality_issue_count || 0}${qualityFocus} / 对话候选 ${data.conversation_candidate_count || 0} / 相关候选 ${data.related_candidate_group_count || 0} / pending ${data.pending_review_count || 0}`;
   renderList(list, queue.groups || [], t("empty.noMemoryReviewQueue"), memoryReviewQueueGroupCard);
 }
 

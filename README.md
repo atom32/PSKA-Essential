@@ -566,7 +566,9 @@ next actions instead of `apply_accepted_memory` for accepted but low-quality
 candidates. The review queue payload now carries quality candidate draft fields
 (`text`, missing fields, Memory Card type/scope, behavior_delta), and the WebUI
 exposes inline quality-fix controls that mark a candidate `needs_edit` and submit
-a revised governed Review without writing memory directly. The WebUI also
+a revised governed Review without writing memory directly. Queue summaries also
+include `candidate_quality_breakdown` by issue type, missing field, status, and
+severity so Hermes/WebUI can choose the most useful batch-first repair path. The WebUI also
 exposes a lightweight inline merge editor on duplicate/related candidate queue
 groups; it shows member candidate texts and behavior deltas before the merged
 Review is created. M6 adds

@@ -90,6 +90,7 @@ def build_memory_review_queue(
                 accepted_unapplied_count=summary["accepted_unapplied_count"],
                 conversation_candidate_count=summary["conversation_candidate_count"],
                 candidate_quality_issue_count=summary["candidate_quality_issue_count"],
+                candidate_quality_breakdown=summary["candidate_quality_breakdown"],
                 duplicate_candidate_group_count=summary["duplicate_candidate_group_count"],
                 related_candidate_group_count=summary["related_candidate_group_count"],
                 pending_review_count=summary["pending_review_count"],
@@ -473,6 +474,7 @@ def _definition(code: str) -> tuple[str, str]:
 
 def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
     counts = {group["code"]: group["count"] for group in groups}
+    quality_group = next((group for group in groups if group["code"] == "candidate_quality"), {})
     actionable_item_count = sum(
         counts.get(code, 0)
         for code in (
@@ -493,6 +495,7 @@ def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
         "accepted_unapplied_count": counts.get("accepted_unapplied", 0),
         "conversation_candidate_count": counts.get("conversation_candidates", 0),
         "candidate_quality_issue_count": counts.get("candidate_quality", 0),
+        "candidate_quality_breakdown": _candidate_quality_breakdown(quality_group.get("items") or []),
         "duplicate_candidate_group_count": counts.get("duplicate_candidates", 0),
         "related_candidate_group_count": counts.get("related_candidates", 0),
         "pending_review_count": counts.get("pending_reviews", 0),
@@ -502,6 +505,49 @@ def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
         "memory_health_count": counts.get("memory_health", 0),
         "memory_focus_count": counts.get("memory_focus", 0),
     }
+
+
+def _candidate_quality_breakdown(items: list[dict[str, Any]]) -> dict[str, Any]:
+    issue_types: dict[str, int] = {}
+    missing_fields: dict[str, int] = {}
+    statuses: dict[str, int] = {}
+    severities: dict[str, int] = {}
+    for item in items:
+        _increment_count(statuses, str(item.get("status") or "unknown"))
+        _increment_count(severities, str(item.get("severity") or "unknown"))
+        for issue_type in item.get("issue_types") or []:
+            _increment_count(issue_types, str(issue_type or "unknown"))
+        fields = item.get("missing_fields")
+        if fields is None:
+            fields = (item.get("evidence") or {}).get("missing_fields") or []
+        for field in fields:
+            _increment_count(missing_fields, str(field or "unknown"))
+    return {
+        "issue_types": _sorted_count_map(issue_types),
+        "missing_fields": _sorted_count_map(missing_fields),
+        "statuses": _sorted_count_map(statuses),
+        "severities": _sorted_count_map(severities),
+        "top_issue_type": _top_count_key(issue_types),
+        "top_missing_field": _top_count_key(missing_fields),
+    }
+
+
+def _increment_count(counts: dict[str, int], key: str) -> None:
+    if not key:
+        return
+    counts[key] = counts.get(key, 0) + 1
+
+
+def _sorted_count_map(counts: dict[str, int]) -> dict[str, int]:
+    return {
+        key: value
+        for key, value in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    }
+
+
+def _top_count_key(counts: dict[str, int]) -> str:
+    ordered = _sorted_count_map(counts)
+    return next(iter(ordered), "")
 
 
 def _status(summary: dict[str, Any]) -> str:

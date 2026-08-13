@@ -641,6 +641,9 @@ Hermes 的默认行为：
 - Done: Memory Review Queue/WebUI 已有第一块候选工作台能力：`candidate_quality`
   item 会带候选文本、缺失字段、type/scope/behavior_delta，并可在队列里一键标为
   `needs_edit` 后提交修订 Review；仍不直接写 durable memory。
+- Done: Memory Review Queue summary 新增 `candidate_quality_breakdown`，按
+  issue type、missing field、status、severity 聚合，并给出 top issue/missing field，供
+  Hermes/WebUI 判断先批量修哪类候选。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

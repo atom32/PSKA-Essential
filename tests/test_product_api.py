@@ -392,6 +392,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("reject_review_group", review_queue_view["next_actions"])
         self.assertIn("inspect_related_memory_candidates", review_queue_view["next_actions"])
         self.assertIn("open_revised_review", review_queue_view["next_actions"])
+        self.assertIn("top_issue_type", review_queue_view["candidate_quality_summary_fields"])
+        self.assertIn("missing_fields", review_queue_view["candidate_quality_summary_fields"])
         dedup_view = capabilities["capabilities"]["memory"]["candidate_dedup_view"]
         self.assertEqual(dedup_view["schema"], "pska.memory_candidate_dedup_view.v1")
         self.assertEqual(dedup_view["mcp_tool"], "pska_memory_candidate_dedup")
@@ -2564,6 +2566,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("quality-candidate-editor", styles)
         self.assertIn("reviseMemoryReviewQueueQualityIssue", script)
         self.assertIn("candidate_quality_issue_count", script)
+        self.assertIn("candidate_quality_breakdown", script)
+        self.assertIn("top_missing_field", script)
         self.assertIn("memory.search", html)
         self.assertIn("needs_edit", html)
         self.assertIn("review.revise", html)

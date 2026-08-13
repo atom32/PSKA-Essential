@@ -349,6 +349,8 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("reject_review_group", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("inspect_related_memory_candidates", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("open_revised_review", capabilities["memory"]["review_queue_view"]["next_actions"])
+        self.assertIn("top_issue_type", capabilities["memory"]["review_queue_view"]["candidate_quality_summary_fields"])
+        self.assertIn("missing_fields", capabilities["memory"]["review_queue_view"]["candidate_quality_summary_fields"])
         self.assertEqual(capabilities["memory"]["health_view"]["schema"], "pska.memory_health_view.v1")
         self.assertEqual(capabilities["memory"]["health_view"]["mcp_tool"], "pska_memory_health_scan")
         self.assertEqual(capabilities["memory"]["use_trace_view"]["schema"], "pska.memory_use_trace_view.v1")
