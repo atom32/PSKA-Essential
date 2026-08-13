@@ -294,7 +294,11 @@ memory priority，而不是淹没在普通 pending reviews 中。P2 的第十二
 conversation candidate revision ergonomics：`needs_edit` 的 memory_patch Review
 可以通过 WebUI、`POST /api/reviews/{review_id}/revision` 和 `pska_review_revise`
 提交修订后的 `memory_candidate` 字段，重写候选文本、memory_type、memory_scope 与
-behavior_delta，同时保留原始证据 refs 与 revision lineage。
+behavior_delta，同时保留原始证据 refs 与 revision lineage。P2 的第十三块已落地为
+group-level review decisions：Memory Review Queue 会给 conversation candidates 和
+pending reviews 暴露 batch accept/reject，底层入口是
+`POST /api/reviews/batch-decision` 与 `pska_review_decide_batch`；批量决策不写
+durable memory，只把候选推进到 accepted/rejected Review 状态，后续仍需显式 apply。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

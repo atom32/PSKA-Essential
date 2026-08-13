@@ -333,6 +333,47 @@ class WorkflowTests(unittest.TestCase):
         audit = next(event for event in service.store.list_audit_events() if event.action == "review.revise")
         self.assertEqual(audit.metadata["revision_mode"], "memory_candidate")
 
+    def test_review_decide_batch_accepts_pending_candidates_without_memory_write(self):
+        service = build_fake_service()
+        result = service.conversation_memory_candidates_create(
+            session_id="sess-batch",
+            messages=[
+                {"message_id": "msg-1", "role": "user", "text": "Remember PSKA batch candidate one."},
+                {"message_id": "msg-2", "role": "user", "text": "Remember PSKA batch candidate two."},
+            ],
+            candidates=[
+                {
+                    "text": "PSKA batch candidate one should be reviewed.",
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "When reviewing PSKA batch candidates, inspect candidate one.",
+                    "message_ids": ["msg-1"],
+                },
+                {
+                    "text": "PSKA batch candidate two should be reviewed.",
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "When reviewing PSKA batch candidates, inspect candidate two.",
+                    "message_ids": ["msg-2"],
+                },
+            ],
+        )
+        review_ids = [item["review_id"] for item in result["created"]]
+
+        batch = service.review_decide_batch([review_ids[0], review_ids[0], review_ids[1]], "accept", "batch accept")
+
+        self.assertEqual(batch["schema"], "pska.review_decide_batch.v1")
+        self.assertEqual(batch["decided_count"], 2)
+        self.assertEqual(batch["skipped_count"], 0)
+        self.assertFalse(batch["data_flow"]["writes_memory_directly"])
+        self.assertTrue(batch["data_flow"]["requires_apply_for_durable_memory"])
+        self.assertEqual(service.store.get_review_record(review_ids[0])["status"], "accepted")
+        self.assertEqual(service.store.get_review_record(review_ids[1])["status"], "accepted")
+        self.assertEqual(service.memory_search("batch candidate", {}, 10), [])
+        event = next(event for event in service.store.list_audit_events() if event.action == "review.decide_batch")
+        self.assertEqual(event.metadata["decided_count"], 2)
+        self.assertEqual(event.metadata["review_ids"], review_ids)
+
     def test_conversation_memory_candidates_dedupe_existing_review(self):
         service = build_fake_service()
         payload = {

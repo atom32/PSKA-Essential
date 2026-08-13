@@ -397,6 +397,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_review_decide(review_id: str, decision: str, reason: str = ""):
         return to_jsonable(service.review_decide(review_id, decision, reason))
 
+    def pska_review_decide_batch(review_ids: list[str], decision: str, reason: str = ""):
+        return service.review_decide_batch(review_ids, decision, reason)
+
     def pska_review_revise(
         review_id: str,
         intent: str = "",
@@ -1241,6 +1244,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_review_list": pska_review_list,
         "pska_review_get": pska_review_get,
         "pska_review_decide": pska_review_decide,
+        "pska_review_decide_batch": pska_review_decide_batch,
         "pska_review_revise": pska_review_revise,
         "pska_memory_search": pska_memory_search,
         "pska_memory_card_list": pska_memory_card_list,

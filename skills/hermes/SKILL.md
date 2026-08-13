@@ -196,6 +196,10 @@ candidate memory, review, and durable export.
   candidate review instead of mutating the old review. For memory_patch
   candidates, pass a `memory_candidate` object when the human has edited the
   candidate text, memory type, scope, or behavior_delta.
+- If Memory Review Queue returns a group-level accept/reject action and the
+  human has explicitly approved that group decision, call
+  `pska_review_decide_batch`; this only changes Review states and still does not
+  write durable memory.
 - Use `pska_memory_lifecycle` to inspect a durable memory's reviewed
   apply/update/delete history; do not query backend memory history directly.
 - Use `pska_memory_health_scan` before planning memory cleanup work, then follow

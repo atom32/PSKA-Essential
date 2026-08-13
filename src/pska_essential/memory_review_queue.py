@@ -122,7 +122,7 @@ def _groups(
 
 
 def _review_group(code: str, reviews: list[dict[str, Any]], severity: str) -> dict[str, Any]:
-    return _group(
+    group = _group(
         code,
         severity,
         [
@@ -139,10 +139,11 @@ def _review_group(code: str, reviews: list[dict[str, Any]], severity: str) -> di
             for review in reviews
         ],
     )
+    return _with_review_batch_actions(group)
 
 
 def _conversation_candidate_group(reviews: list[dict[str, Any]]) -> dict[str, Any]:
-    return _group(
+    group = _group(
         "conversation_candidates",
         "medium",
         [
@@ -166,6 +167,7 @@ def _conversation_candidate_group(reviews: list[dict[str, Any]]) -> dict[str, An
             for review in reviews
         ],
     )
+    return _with_review_batch_actions(group)
 
 
 def _health_group(issues: list[dict[str, Any]]) -> dict[str, Any]:
@@ -291,6 +293,11 @@ def _related_group_actions(group: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _group(code: str, severity: str, items: list[dict[str, Any]]) -> dict[str, Any]:
     title, reason = _definition(code)
+    review_ids = [
+        str(item.get("review_id") or "")
+        for item in items
+        if str(item.get("review_id") or "")
+    ]
     return {
         "schema": MEMORY_REVIEW_QUEUE_GROUP_SCHEMA,
         "code": code,
@@ -298,8 +305,36 @@ def _group(code: str, severity: str, items: list[dict[str, Any]]) -> dict[str, A
         "reason": reason,
         "severity": severity,
         "count": len(items),
+        "review_ids": review_ids,
         "items": to_jsonable(items),
     }
+
+
+def _with_review_batch_actions(group: dict[str, Any]) -> dict[str, Any]:
+    if group["code"] not in {"conversation_candidates", "pending_reviews"}:
+        return group
+    review_ids = group.get("review_ids") or []
+    if not review_ids:
+        return group
+    group["batch_actions"] = [
+        {
+            "action": "accept_review_group",
+            "label": "Accept review group",
+            "tool": "pska_review_decide_batch",
+            "api": "POST /api/reviews/batch-decision",
+            "view": "review",
+            "params": {"review_ids": review_ids, "decision": "accept"},
+        },
+        {
+            "action": "reject_review_group",
+            "label": "Reject review group",
+            "tool": "pska_review_decide_batch",
+            "api": "POST /api/reviews/batch-decision",
+            "view": "review",
+            "params": {"review_ids": review_ids, "decision": "reject"},
+        },
+    ]
+    return group
 
 
 def _definition(code: str) -> tuple[str, str]:

@@ -141,6 +141,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/memory/conversation-candidates"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-attribution"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-suggestions"},
+    {"method": "POST", "path": "/api/reviews/batch-decision"},
     {"method": "POST", "path": "/api/kb/ingest"},
 )
 
@@ -1326,6 +1327,16 @@ def _handler_class(state: ProductApiState):
                 status = query.get("status") or None
                 limit = _int_param(query.get("limit"), 50)
                 self._send_json({"ok": True, "reviews": state.service.store.list_reviews(status=status, limit=limit)})
+                return
+
+            if method == "POST" and path == "/api/reviews/batch-decision":
+                payload = self._read_json()
+                result = state.service.review_decide_batch(
+                    _required_list(payload, "review_ids"),
+                    _required_str(payload, "decision"),
+                    str(payload.get("reason") or ""),
+                )
+                self._send_json({"ok": True, **result})
                 return
 
             review_get = _match(path, "/api/reviews/", "")

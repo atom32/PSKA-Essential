@@ -7,13 +7,17 @@ Last updated: 2026-07-15
 > [`docs/DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md) and
 > [`docs/SYSTEM_INTERACTION_MODEL.zh.md`](SYSTEM_INTERACTION_MODEL.zh.md).
 
-> Update, 2026-08-13: memory candidate revision ergonomics are now implemented.
-> A Review in `needs_edit` can create a new pending memory_patch Review from
-> edited candidate text, memory type, memory scope, and `behavior_delta`, while
-> preserving original source refs and bidirectional revision lineage. Product
-> API, MCP, and WebUI all use the same `memory_candidate` revision path. Next
-> useful product step: bulk/queue ergonomics for conversation candidates and
-> cross-project semantic clustering.
+> Update, 2026-08-13: memory candidate revision and group review ergonomics are
+> now implemented. A Review in `needs_edit` can create a new pending memory_patch
+> Review from edited candidate text, memory type, memory scope, and
+> `behavior_delta`, while preserving original source refs and bidirectional
+> revision lineage. Product API, MCP, and WebUI all use the same
+> `memory_candidate` revision path. Memory Review Queue also exposes group-level
+> accept/reject for conversation candidates and pending reviews through
+> `POST /api/reviews/batch-decision` and `pska_review_decide_batch`; this changes
+> Review state only and still requires explicit apply before durable memory
+> writes. Next useful product step: batch edit/merge ergonomics and cross-project
+> semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

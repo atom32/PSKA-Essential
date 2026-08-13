@@ -36,6 +36,7 @@ const messages = {
   "toast.memoryProbeRecorded": "记忆探针已记录。",
   "toast.memoryBriefingLoaded": "记忆简报已加载。",
   "toast.memoryReviewQueueLoaded": "记忆维护队列已加载。",
+  "toast.reviewBatchDecided": "批量审核已处理。",
   "toast.memoryCardsLoaded": "记忆卡片已加载。",
   "toast.memoryHealthLoaded": "记忆健康扫描已加载。",
   "toast.memoryAttributionLoaded": "记忆归因已加载。",
@@ -149,8 +150,10 @@ const messages = {
   "button.useTrace": "使用痕迹",
   "button.timeline": "时间线",
   "button.accept": "接受",
+  "button.acceptGroup": "批量接受",
   "button.edit": "需修改",
   "button.reject": "拒绝",
+  "button.rejectGroup": "批量拒绝",
   "button.revise": "提交修改",
   "button.history": "历史",
   "button.source": "来源",
@@ -3927,6 +3930,7 @@ function syncReviewRecord(review, options = {}) {
 
 function memoryReviewQueueGroupCard(group) {
   const items = group.items || [];
+  const batchActions = group.batch_actions || [];
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -3939,6 +3943,9 @@ function memoryReviewQueueGroupCard(group) {
       el("span", { className: "tag" }, group.code || "group"),
       el("span", { className: "tag" }, group.severity || "review"),
     ]),
+    batchActions.length
+      ? el("div", { className: "review-actions compact-actions" }, batchActions.map((action) => memoryReviewQueueBatchActionButton(action)))
+      : null,
     items.length ? el("div", { className: "source-list" }, items.slice(0, 5).map(memoryReviewQueueItemRow)) : null,
   ]);
 }
@@ -3969,6 +3976,20 @@ function memoryReviewQueueActionButton(action, item) {
       onclick: () => runMemoryReviewQueueAction(action, item),
     },
     action.label || action.action || t("button.inspect"),
+  );
+}
+
+function memoryReviewQueueBatchActionButton(action) {
+  const decision = (action.params && action.params.decision) || "";
+  const label = decision === "accept" ? t("button.acceptGroup") : decision === "reject" ? t("button.rejectGroup") : action.label;
+  return el(
+    "button",
+    {
+      className: decision === "reject" ? "danger-button" : "secondary-button",
+      type: "button",
+      onclick: () => decideReviewBatch(action),
+    },
+    label || action.action || t("button.inspect"),
   );
 }
 
@@ -5189,6 +5210,29 @@ async function decideReview(reviewId, decision, reason) {
   await loadWorkspaceStatus();
   await loadAuditEvents("review.decide");
   renderCurrentResultSurfaces();
+}
+
+async function decideReviewBatch(action) {
+  const params = action.params || {};
+  const reviewIds = params.review_ids || [];
+  if (!reviewIds.length || !params.decision) return;
+  const payload = await api("/api/reviews/batch-decision", {
+    method: "POST",
+    body: {
+      review_ids: reviewIds,
+      decision: params.decision,
+      reason: action.label || action.action || "",
+    },
+  });
+  (payload.decisions || []).forEach(syncReviewDecision);
+  setReviewStatusFilter("");
+  await loadReviews();
+  await loadPendingReviews();
+  await loadMemoryReviewQueue();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("review.decide_batch");
+  renderCurrentResultSurfaces();
+  showToast(`${t("toast.reviewBatchDecided")} ${payload.decided_count || 0}/${payload.requested_count || 0}`);
 }
 
 async function reviseReview(reviewId, intent, memoryCandidate = null) {

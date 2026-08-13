@@ -1531,6 +1531,56 @@ class WorkflowService:
         )
         return decided
 
+    def review_decide_batch(
+        self,
+        review_ids: list[str],
+        decision: str,
+        reason: str = "",
+    ) -> dict[str, Any]:
+        normalized_review_ids = _normalize_review_ids(review_ids)
+        if not normalized_review_ids:
+            raise WorkflowError("review_ids must include at least one review id")
+        decided = []
+        skipped = []
+        for review_id in normalized_review_ids:
+            try:
+                decided.append(to_jsonable(self.review_decide(review_id, decision, reason)))
+            except (KeyError, WorkflowError, ValueError) as exc:
+                skipped.append({"review_id": review_id, "reason": str(exc)})
+        result = {
+            "schema": "pska.review_decide_batch.v1",
+            "status": "decided" if decided else "empty",
+            "decision": decision,
+            "reason": reason,
+            "requested_count": len(normalized_review_ids),
+            "decided_count": len(decided),
+            "skipped_count": len(skipped),
+            "decisions": decided,
+            "skipped": skipped,
+            "data_flow": {
+                "writes_memory_directly": False,
+                "creates_review": False,
+                "requires_apply_for_durable_memory": True,
+            },
+        }
+        self.store.add_audit_event(
+            audit_event(
+                "review.decide_batch",
+                "review_batch",
+                ",".join(normalized_review_ids[:5]),
+                decision=decision,
+                reason=reason,
+                requested_count=result["requested_count"],
+                decided_count=result["decided_count"],
+                skipped_count=result["skipped_count"],
+                review_ids=normalized_review_ids,
+                decided_review_ids=[str(item.get("review_id") or "") for item in decided],
+                skipped=skipped,
+                writes_memory_directly=False,
+            )
+        )
+        return result
+
     def review_revise(
         self,
         review_id: str,
@@ -2303,6 +2353,18 @@ def _normalize_memory_candidate_confidence(value: Any, *, default: float) -> flo
     except (TypeError, ValueError) as exc:
         raise WorkflowError("memory candidate confidence must be a number") from exc
     return min(1.0, max(0.0, confidence))
+
+
+def _normalize_review_ids(review_ids: list[str]) -> list[str]:
+    normalized = []
+    seen = set()
+    for review_id in review_ids or []:
+        value = str(review_id or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
 
 
 def _source_refs_from_input(source_refs: list[SourceRef | dict[str, Any]]) -> list[SourceRef]:

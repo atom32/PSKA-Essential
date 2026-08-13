@@ -71,6 +71,7 @@ EXPECTED_TOOLS = {
     "pska_review_list",
     "pska_review_get",
     "pska_review_decide",
+    "pska_review_decide_batch",
     "pska_review_revise",
     "pska_memory_search",
     "pska_memory_card_list",
@@ -336,6 +337,8 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("conversation_candidates", capabilities["memory"]["review_queue_view"]["groups"])
         self.assertIn("related_candidates", capabilities["memory"]["review_queue_view"]["groups"])
         self.assertIn("review_conversation_memory_candidate", capabilities["memory"]["review_queue_view"]["next_actions"])
+        self.assertIn("accept_review_group", capabilities["memory"]["review_queue_view"]["next_actions"])
+        self.assertIn("reject_review_group", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("inspect_related_memory_candidates", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertEqual(capabilities["memory"]["health_view"]["schema"], "pska.memory_health_view.v1")
         self.assertEqual(capabilities["memory"]["health_view"]["mcp_tool"], "pska_memory_health_scan")
@@ -811,6 +814,42 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(patch["metadata"]["memory_scope"], "workspace")
         self.assertEqual(patch["metadata"]["revision_mode"], "memory_candidate")
         self.assertEqual(patch["source_refs"][0]["adapter"], "hermes")
+
+    def test_review_decide_batch_tool_accepts_candidates(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        result = tools["pska_conversation_memory_candidates_create"](
+            messages=[
+                {"message_id": "msg-tool-batch-1", "role": "user", "text": "Remember tool batch candidate one."},
+                {"message_id": "msg-tool-batch-2", "role": "user", "text": "Remember tool batch candidate two."},
+            ],
+            candidates=[
+                {
+                    "text": "Tool batch candidate one should be reviewed.",
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "When reviewing tool batch candidates, inspect candidate one.",
+                    "message_ids": ["msg-tool-batch-1"],
+                },
+                {
+                    "text": "Tool batch candidate two should be reviewed.",
+                    "memory_type": "project_state",
+                    "memory_scope": "project",
+                    "behavior_delta": "When reviewing tool batch candidates, inspect candidate two.",
+                    "message_ids": ["msg-tool-batch-2"],
+                },
+            ],
+            session_id="sess-tool-batch",
+        )
+        review_ids = [item["review_id"] for item in result["created"]]
+
+        batch = tools["pska_review_decide_batch"](review_ids, "accept", "batch accept")
+
+        self.assertEqual(batch["schema"], "pska.review_decide_batch.v1")
+        self.assertEqual(batch["decided_count"], 2)
+        self.assertEqual(tools["pska_review_get"](review_ids[0])["status"], "accepted")
+        self.assertEqual(tools["pska_review_get"](review_ids[1])["status"], "accepted")
+        self.assertFalse(batch["data_flow"]["writes_memory_directly"])
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):

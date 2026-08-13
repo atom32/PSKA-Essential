@@ -329,6 +329,15 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "writes_memory_directly": False,
         "groups_review_work": True,
     },
+    "pska_review_decide_batch": {
+        "category": "review",
+        "access": "write",
+        "durable": False,
+        "audit_backed": True,
+        "writes_memory_directly": False,
+        "requires_apply_for_durable_memory": True,
+        "provider_operation": "decide_batch",
+    },
     "pska_memory_candidate_dedup": {
         "category": "memory",
         "access": "read",
@@ -1232,6 +1241,8 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "next_actions": [
             "open_review",
             "review_conversation_memory_candidate",
+            "accept_review_group",
+            "reject_review_group",
             "apply_accepted_memory",
             "inspect_duplicate_memory_candidates",
             "inspect_related_memory_candidates",

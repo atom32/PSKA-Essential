@@ -444,6 +444,7 @@ Operational loop tools:
 - `pska_review_list`
 - `pska_review_get`
 - `pska_review_decide`
+- `pska_review_decide_batch`
 - `pska_review_revise`
 - `pska_memory_apply`
 - `pska_export_brief`
@@ -920,7 +921,11 @@ batch-derived memory changes. Ordinary user corrections should go through the
 conversation-native memory API/tool and usually auto-apply under workspace
 policy. Non-conversation memory candidates probe existing scoped memory before
 durable write; possible conflicts are recorded in proposal metadata and can
-downgrade `auto_apply` to pending Review. The Review queue can filter by status while Home keeps an independent
+downgrade `auto_apply` to pending Review. The Memory Review Queue exposes
+group-level accept/reject actions for pending and conversation-derived
+candidates through WebUI, Product API, and `pska_review_decide_batch`; the batch
+decision changes Review state only and still requires `pska_memory_apply` before
+durable memory is written. The Review queue can filter by status while Home keeps an independent
 pending review summary. Review records expose source trace fields, and Review cards can
 open cited sources through the Product API Reader before a durable decision is
 made, and can open the originating Writing workflow context. Review cards show

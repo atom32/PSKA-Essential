@@ -255,6 +255,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/memory/search"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-candidates"), contract_routes)
+        self.assertIn(("POST", "/api/reviews/batch-decision"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
         self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
         self.assertIn(("POST", "/api/digest"), contract_routes)
@@ -380,6 +381,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("conversation_candidates", review_queue_view["groups"])
         self.assertIn("related_candidates", review_queue_view["groups"])
         self.assertIn("review_conversation_memory_candidate", review_queue_view["next_actions"])
+        self.assertIn("accept_review_group", review_queue_view["next_actions"])
+        self.assertIn("reject_review_group", review_queue_view["next_actions"])
         self.assertIn("inspect_related_memory_candidates", review_queue_view["next_actions"])
         dedup_view = capabilities["capabilities"]["memory"]["candidate_dedup_view"]
         self.assertEqual(dedup_view["schema"], "pska.memory_candidate_dedup_view.v1")
@@ -1343,6 +1346,54 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_memory_apply")
         audit = self._get_json("/api/audit?limit=10&action=memory.review_queue")
         self.assertEqual(audit["events"][0]["metadata"]["accepted_unapplied_count"], 1)
+
+    def test_review_batch_decision_route_accepts_conversation_candidates(self):
+        created = self._post_json(
+            "/api/memory/conversation-candidates",
+            {
+                "session_id": "sess-api-batch",
+                "messages": [
+                    {"message_id": "msg-api-batch-1", "role": "user", "text": "Remember API batch candidate one."},
+                    {"message_id": "msg-api-batch-2", "role": "user", "text": "Remember API batch candidate two."},
+                ],
+                "candidates": [
+                    {
+                        "text": "API batch candidate one should stay reviewed.",
+                        "memory_type": "project_state",
+                        "memory_scope": "project",
+                        "behavior_delta": "When reviewing API batch candidates, preserve candidate one.",
+                        "message_ids": ["msg-api-batch-1"],
+                    },
+                    {
+                        "text": "API batch candidate two should stay reviewed.",
+                        "memory_type": "project_state",
+                        "memory_scope": "project",
+                        "behavior_delta": "When reviewing API batch candidates, preserve candidate two.",
+                        "message_ids": ["msg-api-batch-2"],
+                    },
+                ],
+            },
+        )
+        review_ids = [item["review_id"] for item in created["created"]]
+
+        batch = self._post_json(
+            "/api/reviews/batch-decision",
+            {"review_ids": review_ids, "decision": "accept", "reason": "batch accept"},
+        )
+
+        self.assertTrue(batch["ok"])
+        self.assertEqual(batch["schema"], "pska.review_decide_batch.v1")
+        self.assertEqual(batch["decided_count"], 2)
+        self.assertEqual(batch["skipped_count"], 0)
+        pending = self._get_json("/api/reviews?status=pending")
+        self.assertFalse([review for review in pending["reviews"] if review["review_id"] in review_ids])
+        queue = self._get_json("/api/memory/review-queue?review_limit=20&health_limit=10&focus_limit=10")
+        groups = {group["code"]: group for group in queue["groups"]}
+        self.assertIn("accepted_unapplied", groups)
+        self.assertEqual(set(groups["accepted_unapplied"]["review_ids"]), set(review_ids))
+        self.assertFalse(batch["data_flow"]["writes_memory_directly"])
+        audit = self._get_json("/api/audit?limit=10&action=review.decide_batch")
+        self.assertEqual(audit["events"][0]["metadata"]["decided_count"], 2)
 
     def test_memory_candidate_dedup_route_groups_near_duplicate_reviews(self):
         ref = SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")
@@ -2828,6 +2879,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('MEMORY_CARD_TYPES', script)
         self.assertIn('MEMORY_CARD_SCOPES', script)
         self.assertIn('memory_candidate', script)
+        self.assertIn('decideReviewBatch', script)
+        self.assertIn('memoryReviewQueueBatchActionButton', script)
+        self.assertIn('/api/reviews/batch-decision', script)
+        self.assertIn('toast.reviewBatchDecided', script)
+        self.assertIn('button.acceptGroup', script)
+        self.assertIn('button.rejectGroup', script)
         self.assertIn('"记忆候选"', script)
         self.assertIn('"候选文本"', script)
         self.assertIn('"行为变化"', script)
@@ -2839,6 +2896,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('.memory-candidate-header', styles)
         self.assertIn('.memory-candidate-text', styles)
         self.assertIn('.memory-candidate-editor', styles)
+        self.assertIn('.compact-actions', styles)
         self.assertIn('review.source_refs || proposal.source_refs', script)
         self.assertIn('review.revision || {}', script)
         self.assertIn('revision.previous_review_id', script)

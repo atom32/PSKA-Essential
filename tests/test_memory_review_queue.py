@@ -102,6 +102,10 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(item["memory_scope"], "project")
         self.assertEqual(item["message_ids"], ["msg-review-queue"])
         self.assertEqual(item["next_actions"][0]["action"], "review_conversation_memory_candidate")
+        self.assertEqual(groups["conversation_candidates"]["review_ids"], [created["created"][0]["review_id"]])
+        self.assertEqual(groups["conversation_candidates"]["batch_actions"][0]["tool"], "pska_review_decide_batch")
+        self.assertEqual(groups["conversation_candidates"]["batch_actions"][0]["params"]["decision"], "accept")
+        self.assertEqual(groups["conversation_candidates"]["batch_actions"][1]["params"]["decision"], "reject")
         self.assertEqual(queue["next_actions"][0]["action"], "review_conversation_memory_candidate")
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_review_get")
 

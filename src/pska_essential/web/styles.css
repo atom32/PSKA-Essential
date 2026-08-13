@@ -685,6 +685,10 @@ pre {
   margin-top: 12px;
 }
 
+.compact-actions {
+  margin-top: 8px;
+}
+
 .memory-candidate-panel {
   display: grid;
   gap: 8px;
