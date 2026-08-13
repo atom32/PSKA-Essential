@@ -66,7 +66,7 @@ const messages = {
   "toast.sourceTagProposalCreated": "标签提议已创建。",
   "toast.sourceTagApplied": "标签已应用。",
   "toast.sourceCommentProposalCreated": "Comment 提议已创建。",
-  "toast.sourceCommentApplied": "Comment 已写入 sidecar。",
+  "toast.sourceCommentApplied": "Comment 已应用。",
   "toast.obsidianMocProposalCreated": "Obsidian MOC 提议已创建。",
   "toast.sourceQueryRequired": "请输入资料源查询。",
   "empty.datasetsUnavailable": "知识库不可用。",
@@ -914,7 +914,7 @@ async function proposeSourceComment(form) {
       target_ref: state.selectedSourceRef,
       body,
       reason: form.get("comment_reason") || "",
-      write_target: "sidecar",
+      write_target: form.get("comment_write_target") || "sidecar",
     },
   });
   state.sourceCommentProposal = payload.proposal || null;

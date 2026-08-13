@@ -412,6 +412,16 @@ class McpContractTests(unittest.TestCase):
             policy["pska_source_tag_apply"]["requires_native_permission_for"],
             ["obsidian_frontmatter"],
         )
+        self.assertEqual(policy["pska_source_comment_apply"]["writes_source_files"], "write_target_dependent")
+        self.assertEqual(policy["pska_source_comment_apply"]["writes_sidecar"], "write_target_dependent")
+        self.assertEqual(
+            policy["pska_source_comment_apply"]["supports_write_targets"],
+            ["sidecar", "obsidian_markdown_comment"],
+        )
+        self.assertEqual(
+            policy["pska_source_comment_apply"]["requires_native_permission_for"],
+            ["obsidian_markdown_comment"],
+        )
         self.assertTrue(policy["pska_obsidian_moc_apply"]["writes_source_files"])
         self.assertTrue(policy["pska_obsidian_moc_apply"]["requires_native_permission"])
         self.assertEqual(policy["pska_kb_ingest_files"]["access"], "write")

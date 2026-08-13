@@ -372,6 +372,13 @@
                 Comment 原因
                 <input name="comment_reason" autocomplete="off" placeholder="可选" />
               </label>
+              <label>
+                Comment 写入位置
+                <select name="comment_write_target">
+                  <option value="sidecar">sidecar</option>
+                  <option value="obsidian_markdown_comment">Obsidian markdown</option>
+                </select>
+              </label>
               <div class="button-row">
                 <button name="source_action" value="comment_propose" type="submit" class="secondary-button">提议 Comment</button>
                 <button name="source_action" value="comment_apply" type="submit" class="primary-button">应用 Comment</button>

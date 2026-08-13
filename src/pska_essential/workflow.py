@@ -396,7 +396,7 @@ class WorkflowService:
                 proposal["proposal_id"],
                 target=proposal["target"],
                 reason=reason,
-                write_target=write_target,
+                write_target=proposal.get("write_target") or write_target,
                 writes_source_files=False,
             )
         )
@@ -404,6 +404,7 @@ class WorkflowService:
 
     def source_comment_apply(self, proposal_id: str) -> dict[str, Any]:
         result = self._source_registry().apply_comment(proposal_id)
+        data_flow = result.get("data_flow") or {}
         self.store.add_audit_event(
             audit_event(
                 "source.comment.apply",
@@ -411,8 +412,9 @@ class WorkflowService:
                 proposal_id,
                 target=result["proposal"]["target"],
                 already_applied=result.get("already_applied", False),
-                writes_source_files=False,
-                writes_sidecar=True,
+                write_target=data_flow.get("write_target") or result["proposal"].get("write_target") or "sidecar",
+                writes_source_files=data_flow.get("writes_source_files", False),
+                writes_sidecar=data_flow.get("writes_sidecar", False),
             )
         )
         return result

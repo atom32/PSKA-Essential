@@ -314,7 +314,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m11_obsidian_frontmatter_tag_writeback")
+        self.assertEqual(source_layer["status"], "m12_obsidian_markdown_comment_writeback")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -339,6 +339,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_memory_candidates_from_audit", source_layer["mcp_tools"]["implemented"])
         self.assertFalse(source_layer["embedding_required"])
         self.assertIn("obsidian_frontmatter_tags", source_layer["safety"]["native_write_targets"])
+        self.assertIn("obsidian_markdown_comments", source_layer["safety"]["native_write_targets"])
         self.assertIn("obsidian_moc", source_layer["safety"]["native_write_targets"])
         self.assertIn("extraction", source_layer["adapter_slots"])
         self.assertIn("builtin_text", source_layer["adapter_slots"]["extraction"])
@@ -375,6 +376,16 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(
             tool_policy["pska_source_tag_apply"]["requires_native_permission_for"],
             ["obsidian_frontmatter"],
+        )
+        self.assertEqual(tool_policy["pska_source_comment_apply"]["writes_source_files"], "write_target_dependent")
+        self.assertEqual(tool_policy["pska_source_comment_apply"]["writes_sidecar"], "write_target_dependent")
+        self.assertIn(
+            "obsidian_markdown_comment",
+            tool_policy["pska_source_comment_apply"]["supports_write_targets"],
+        )
+        self.assertEqual(
+            tool_policy["pska_source_comment_apply"]["requires_native_permission_for"],
+            ["obsidian_markdown_comment"],
         )
         thought_artifact = capabilities["capabilities"]["adapter_slots"]["slots"]["thought_artifact"]
         self.assertEqual(thought_artifact["providers"][0]["name"], "eidolia_source_ref_bridge")
@@ -1034,6 +1045,71 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("---\n# Alpha", note_text)
         apply_event = next(event for event in audit["events"] if event["action"] == "source.tag.apply")
         self.assertEqual(apply_event["metadata"]["write_target"], "obsidian_frontmatter")
+        self.assertFalse(apply_event["metadata"]["writes_sidecar"])
+
+    def test_product_api_obsidian_markdown_comment_writeback(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Vault"
+            root_path.mkdir()
+            (root_path / ".obsidian").mkdir()
+            note = root_path / "Alpha.md"
+            note.write_text(
+                "# Alpha\n\n"
+                "Hermes source note for PSKA native comments.\n",
+                encoding="utf-8",
+            )
+            registered = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_path), "kind": "auto", "permission_mode": "native_write"},
+            )
+            self._post_json(
+                f"/api/sources/roots/{registered['root']['root_id']}/scan",
+                {"max_files": 10},
+            )
+            searched = self._post_json(
+                "/api/sources/search",
+                {"query": "native comments", "scope": {"root_ids": [registered["root"]["root_id"]]}},
+            )
+            packet = searched["context_packets"][0]
+
+            comment_proposal = self._post_json(
+                "/api/sources/comments/proposals",
+                {
+                    "target_ref": packet["source_ref"],
+                    "body": "Keep this comment visible in the Obsidian note.",
+                    "reason": "make source-route note commentary visible",
+                    "write_target": "obsidian_markdown_comment",
+                },
+            )
+            comment_apply = self._post_json(
+                f"/api/sources/comments/{comment_proposal['proposal']['proposal_id']}/apply",
+                {},
+            )
+            comment_apply_again = self._post_json(
+                f"/api/sources/comments/{comment_proposal['proposal']['proposal_id']}/apply",
+                {},
+            )
+            note_text = note.read_text(encoding="utf-8")
+            sidecar_created = (root_path / ".pska").exists()
+            audit = self._get_json("/api/audit?limit=20&action=source.comment.apply")
+
+        self.assertEqual(comment_proposal["proposal"]["write_target"], "obsidian_markdown_comment")
+        self.assertFalse(comment_proposal["proposal"]["data_flow"]["writes_source_files"])
+        self.assertTrue(comment_proposal["proposal"]["data_flow"]["may_write_source_files_on_apply"])
+        self.assertTrue(comment_apply["applied"]["data_flow"]["writes_source_files"])
+        self.assertTrue(comment_apply["applied"]["data_flow"]["writes_original_source_files"])
+        self.assertFalse(comment_apply["applied"]["data_flow"]["writes_sidecar"])
+        self.assertEqual(comment_apply["applied"]["data_flow"]["write_target"], "obsidian_markdown_comment")
+        self.assertEqual(comment_apply["applied"]["record"]["markdown_comment"]["target"]["path"], "Alpha.md")
+        self.assertTrue(comment_apply_again["applied"]["already_applied"])
+        self.assertFalse(comment_apply_again["applied"]["data_flow"]["writes_source_files"])
+        self.assertFalse(sidecar_created)
+        self.assertIn("# Alpha", note_text)
+        self.assertIn("Hermes source note for PSKA native comments.", note_text)
+        self.assertIn("> [!note] PSKA Comment", note_text)
+        self.assertIn("> Keep this comment visible in the Obsidian note.", note_text)
+        apply_event = next(event for event in audit["events"] if event["action"] == "source.comment.apply")
+        self.assertEqual(apply_event["metadata"]["write_target"], "obsidian_markdown_comment")
         self.assertFalse(apply_event["metadata"]["writes_sidecar"])
 
     def test_source_watch_once_route_delegates_to_bounded_watcher(self):
@@ -2731,6 +2807,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source-selection-card", html)
         self.assertIn("source-tag-status", html)
         self.assertIn("source-comment-status", html)
+        self.assertIn("tag_write_target", html)
+        self.assertIn("comment_write_target", html)
+        self.assertIn("obsidian_frontmatter", html)
+        self.assertIn("obsidian_markdown_comment", html)
         self.assertIn("source-audit-summary", html)
         self.assertIn("source-audit-actions", html)
         self.assertIn("source-audit-details", html)
@@ -2787,6 +2867,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("async function applySourceTag", script)
         self.assertIn("async function proposeSourceComment", script)
         self.assertIn("async function applySourceComment", script)
+        self.assertIn('form.get("tag_write_target")', script)
+        self.assertIn('form.get("comment_write_target")', script)
         self.assertIn("async function proposeObsidianMoc", script)
         self.assertIn("function selectSourceForAnnotation", script)
         self.assertIn("async function scanSourceRoot", script)

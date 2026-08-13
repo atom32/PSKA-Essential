@@ -412,6 +412,95 @@ class SourceRegistryTests(unittest.TestCase):
                     write_target="obsidian_frontmatter",
                 )
 
+    def test_obsidian_markdown_comment_apply_requires_native_permission_and_preserves_body(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            note = vault / "Architecture.md"
+            original_text = "# Architecture\n\nHermes needs PSKA native source comments.\n"
+            note.write_text(original_text, encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(vault, kind="auto", permission_mode="native_write")
+            registry.scan(root["root_id"])
+            packet = registry.search("native source comments", {"root_ids": [root["root_id"]]})[0]
+
+            proposal = registry.propose_comment(
+                packet.source_ref,
+                "This note should be visible as an Obsidian-native PSKA comment.",
+                reason="native Obsidian comment writeback",
+                write_target="obsidian_markdown_comment",
+            )
+            applied = registry.apply_comment(proposal["proposal_id"])
+            applied_again = registry.apply_comment(proposal["proposal_id"])
+            note_text = note.read_text(encoding="utf-8")
+            sidecar_created = (vault / ".pska").exists()
+
+        self.assertEqual(proposal["write_target"], "obsidian_markdown_comment")
+        self.assertEqual(proposal["payload"]["schema"], "pska.obsidian_markdown_comment_proposal.v1")
+        self.assertEqual(proposal["payload"]["mode"], "append_unique_pska_comment_block")
+        self.assertFalse(proposal["data_flow"]["writes_source_files"])
+        self.assertTrue(proposal["data_flow"]["may_write_source_files_on_apply"])
+        self.assertTrue(proposal["data_flow"]["requires_native_permission"])
+        self.assertTrue(applied["applied"])
+        self.assertEqual(applied["record"]["write_target"], "obsidian_markdown_comment")
+        self.assertEqual(applied["record"]["markdown_comment"]["target"]["path"], "Architecture.md")
+        self.assertTrue(applied["data_flow"]["writes_source_files"])
+        self.assertTrue(applied["data_flow"]["writes_original_source_files"])
+        self.assertFalse(applied["data_flow"]["writes_sidecar"])
+        self.assertEqual(applied["data_flow"]["write_target"], "obsidian_markdown_comment")
+        self.assertTrue(applied_again["already_applied"])
+        self.assertFalse(applied_again["data_flow"]["writes_source_files"])
+        self.assertFalse(sidecar_created)
+        self.assertTrue(note_text.startswith(original_text.rstrip()))
+        self.assertIn("<!-- PSKA:COMMENT:", note_text)
+        self.assertIn("> [!note] PSKA Comment", note_text)
+        self.assertIn("> Target: Architecture.md:", note_text)
+        self.assertIn("> Reason: native Obsidian comment writeback", note_text)
+        self.assertIn("> This note should be visible as an Obsidian-native PSKA comment.", note_text)
+        self.assertIn("<!-- PSKA:COMMENT:END -->", note_text)
+
+    def test_obsidian_markdown_comment_apply_rejects_read_only_vault(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            note = vault / "Alpha.md"
+            original_text = "# Alpha\n\nHermes source note.\n"
+            note.write_text(original_text, encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(vault, kind="auto", permission_mode="read_only")
+            registry.scan(root["root_id"])
+            source_ref = registry.search("Hermes source", {"root_ids": [root["root_id"]]})[0].source_ref
+            proposal = registry.propose_comment(
+                source_ref,
+                "Read-only vault should not be changed.",
+                write_target="obsidian_markdown_comment",
+            )
+
+            with self.assertRaisesRegex(SourceRegistryError, "native_write or managed"):
+                registry.apply_comment(proposal["proposal_id"])
+            after_apply = note.read_text(encoding="utf-8")
+
+        self.assertEqual(after_apply, original_text)
+
+    def test_obsidian_markdown_comment_proposal_rejects_non_obsidian_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "note.md").write_text("# Note\n\nHermes source note.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path, kind="local_folder", permission_mode="native_write")
+            registry.scan(root["root_id"])
+            source_ref = registry.search("Hermes source", {"root_ids": [root["root_id"]]})[0].source_ref
+
+            with self.assertRaisesRegex(SourceRegistryError, "obsidian_vault"):
+                registry.propose_comment(
+                    source_ref,
+                    "Local folder comments must stay sidecar-only.",
+                    write_target="obsidian_markdown_comment",
+                )
+
     def test_obsidian_moc_proposal_applies_only_with_native_permission(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir) / "Vault"
@@ -538,6 +627,44 @@ class SourceRegistryTests(unittest.TestCase):
         propose_event = next(event for event in events if event.action == "source.tag.propose")
         self.assertEqual(propose_event.metadata["write_target"], "obsidian_frontmatter")
         self.assertEqual(apply_event.metadata["write_target"], "obsidian_frontmatter")
+        self.assertTrue(apply_event.metadata["writes_source_files"])
+        self.assertFalse(apply_event.metadata["writes_sidecar"])
+
+    def test_mcp_markdown_comment_tool_applies_and_audits_native_write(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Vault"
+            vault.mkdir()
+            (vault / ".obsidian").mkdir()
+            note = vault / "Alpha.md"
+            note.write_text("# Alpha\n\nHermes source note for native comments.\n", encoding="utf-8")
+            service = build_fake_service()
+            tools = tool_registry(service)
+            root = tools["pska_source_root_register"](
+                str(vault),
+                kind="auto",
+                permission_mode="native_write",
+            )
+            tools["pska_source_scan"](root["root_id"])
+            packet = tools["pska_source_search"]("native comments", {"root_ids": [root["root_id"]]})[0]
+
+            proposal = tools["pska_source_comment_propose"](
+                packet["source_ref"],
+                "Keep this as a native Obsidian note comment.",
+                reason="MCP markdown comment writeback",
+                write_target="obsidian_comment",
+            )
+            applied = tools["pska_source_comment_apply"](proposal["proposal_id"])
+            note_text = note.read_text(encoding="utf-8")
+
+        self.assertEqual(proposal["write_target"], "obsidian_markdown_comment")
+        self.assertTrue(applied["data_flow"]["writes_source_files"])
+        self.assertFalse(applied["data_flow"]["writes_sidecar"])
+        self.assertIn("> Keep this as a native Obsidian note comment.", note_text)
+        events = service.store.list_audit_events(limit=30)
+        apply_event = next(event for event in events if event.action == "source.comment.apply")
+        propose_event = next(event for event in events if event.action == "source.comment.propose")
+        self.assertEqual(propose_event.metadata["write_target"], "obsidian_markdown_comment")
+        self.assertEqual(apply_event.metadata["write_target"], "obsidian_markdown_comment")
         self.assertTrue(apply_event.metadata["writes_source_files"])
         self.assertFalse(apply_event.metadata["writes_sidecar"])
 

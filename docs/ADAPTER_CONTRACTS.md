@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M11 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M12 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -56,7 +56,7 @@ source_audit_run(scope, limit) -> SourceAuditReport
 saved_search_create(label, query, filters, scope) -> SavedSearch
 propose_tag(target_ref, tag, reason, write_target="sidecar") -> SourceActionProposal
 apply_tag(proposal_id) -> SourceActionResult
-propose_comment(target_ref, body, reason) -> SourceActionProposal
+propose_comment(target_ref, body, reason, write_target="sidecar") -> SourceActionProposal
 apply_comment(proposal_id) -> SourceActionResult
 propose_obsidian_moc(root_id, source_refs, moc_path, title, reason) -> SourceActionProposal
 apply_obsidian_moc(proposal_id) -> SourceActionResult
@@ -88,13 +88,19 @@ Rules:
   location such as `.pska/` without modifying the original file.
 - `native_write` roots may write explicit Obsidian native targets only after a
   PSKA proposal/policy decision allows the action. Current targets are YAML
-  frontmatter `tags` through `write_target="obsidian_frontmatter"` and governed
-  MOC marker blocks; markdown comment native write remains planned.
+  frontmatter `tags` through `write_target="obsidian_frontmatter"`, PSKA
+  Markdown comment blocks through `write_target="obsidian_markdown_comment"`,
+  and governed MOC marker blocks.
 - Obsidian frontmatter tag writeback is implemented through
   `pska_source_tag_propose`/`pska_source_tag_apply`. Proposal stores metadata
   only; apply requires an `obsidian_vault` root with `native_write` or `managed`
   permission, appends a unique value to YAML `tags`, preserves note body text,
   and no-ops when the tag already exists.
+- Obsidian markdown comment writeback is implemented through
+  `pska_source_comment_propose`/`pska_source_comment_apply`. Proposal stores
+  metadata only; apply requires an `obsidian_vault` root with `native_write` or
+  `managed` permission and appends a visible PSKA Comment marker block. It is not
+  arbitrary in-place note editing.
 - Obsidian MOC writeback is implemented as a governed proposal/apply path:
   proposal stores a preview in PSKA source-action metadata, and apply requires
   an `obsidian_vault` root with `native_write` or `managed` permission. Apply
@@ -506,7 +512,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M11 source-management MCP surface:
+The personal source layer has an M1-M12 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
@@ -563,13 +569,17 @@ vault permission is present. They do not edit arbitrary note text, write durable
 memory, or require embeddings.
 `pska_source_tag_propose`/`pska_source_tag_apply` also support
 `write_target="obsidian_frontmatter"` for Obsidian Markdown notes. Sidecar
-remains the default tag path, and comments remain sidecar-only.
+remains the default tag path.
+`pska_source_comment_propose`/`pska_source_comment_apply` also support
+`write_target="obsidian_markdown_comment"` for Obsidian Markdown notes. Sidecar
+remains the default comment path, and native comment apply appends only a PSKA
+Comment marker block.
 
 The remaining personal source-management capabilities are planned vNext surface
 and are not part of the current Alpha MCP registry until implemented: native
-Obsidian comment writeback, richer frontmatter fields, move/delete proposals,
-background wakeup integration, source collections, ranking improvements, and
-richer duplicate heuristics.
+Obsidian richer frontmatter fields, move/delete proposals, background wakeup
+integration, source collections, ranking improvements, and richer duplicate
+heuristics.
 
 `pska_source_read` is the common read tool for both RAGFlow source refs and
 personal source refs.

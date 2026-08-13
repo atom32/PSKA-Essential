@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M11 baseline into
+  engineering plan for upgrading the current PSKA-Essential M12 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -481,7 +481,7 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
-The personal source tools provide the M1-M11 no-embedding local source loop:
+The personal source tools provide the M1-M12 no-embedding local source loop:
 register a user-authorized local folder or Obsidian vault, scan rebuildable
 metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
 `.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
@@ -650,15 +650,20 @@ still metadata-only; apply requires an `obsidian_vault` root with `native_write`
 or `managed` permission and appends a unique value to YAML frontmatter `tags`
 without touching note body text or creating a sidecar. Existing tags are
 treated as no-op applies.
+M12 extends `pska_source_comment_propose`/`pska_source_comment_apply` with
+explicit `write_target="obsidian_markdown_comment"` for Obsidian Markdown notes.
+Proposal is metadata-only; apply requires `native_write` or `managed` permission
+and appends a visible PSKA Comment marker block to the note without changing
+existing body text.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
 SQLite FTS5, save reusable searches, select exact source sections for
 tag/comment proposals, apply sidecar annotations when permitted, explicitly
-apply Obsidian frontmatter tags when native write is authorized, and promote
-source-route candidates into Review without hidden memory writes. Obsidian MOC
-actions from source audits create a governed MOC proposal before any native
-vault write is applied.
+apply Obsidian frontmatter tags and PSKA Comment blocks when native write is
+authorized, and promote source-route candidates into Review without hidden memory
+writes. Obsidian MOC actions from source audits create a governed MOC proposal
+before any native vault write is applied.
 `pska_retrieval_probe` checks whether a ready scope can retrieve context.
 `pska_memory_change_from_conversation` is the daily Hermes path for user-driven
 memory add, correction, clarification, or deletion. It still creates proposal,
@@ -895,10 +900,11 @@ The same panel lets users save a source search and run explicit tag/comment
 proposal -> apply paths through `/api/sources/tags/*` and
 `/api/sources/comments/*`. Tags default to sidecar apply, with
 `write_target=obsidian_frontmatter` available for authorized Obsidian Markdown
-notes; comments remain sidecar-only. Obsidian MOC actions create governed
-proposals through `/api/sources/obsidian/moc/proposals`; apply is a separate
-native-write route and only updates the PSKA-managed marker block in the target
-note.
+notes; comments default to sidecar apply, with
+`write_target=obsidian_markdown_comment` available for authorized Obsidian
+Markdown notes. Obsidian MOC actions create governed proposals through
+`/api/sources/obsidian/moc/proposals`; apply is a separate native-write route
+and only updates the PSKA-managed marker block in the target note.
 Readiness responses include normalized `ingestion_status` job summaries with
 phase, progress, counts, next actions, and failure reasons so frontend and agent
 flows can distinguish uploaded, parsing, embedding, indexing, ready, failed,

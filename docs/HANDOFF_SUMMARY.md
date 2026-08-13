@@ -59,9 +59,18 @@ Last updated: 2026-07-15
 > `pska_source_tag_apply` requires `native_write` or `managed` permission, appends
 > a unique YAML frontmatter `tags` value, leaves note body text untouched, and
 > records write-target-specific `data_flow`/audit metadata. Sidecar remains the
-> default tag/comment path, comments are still sidecar-only, and next useful
-> source-governance steps are Obsidian comment native write, source collections,
-> and FTS ranking improvements.
+> default tag/comment path, and the next source-governance slice was Obsidian
+> markdown comment writeback.
+>
+> Update, 2026-08-13: Obsidian markdown comment writeback is now implemented.
+> `pska_source_comment_propose` accepts
+> `write_target="obsidian_markdown_comment"` for Markdown notes in an
+> `obsidian_vault`; `pska_source_comment_apply` requires `native_write` or
+> `managed` permission and appends a visible PSKA Comment marker block without
+> rewriting existing note body text. Comment apply now has write-target-specific
+> Product API/MCP/WebUI capability, `data_flow`, and audit metadata. Next useful
+> source-governance steps are source collections, FTS ranking/snippets, richer
+> frontmatter fields, and MOC grouping.
 
 This document is the handoff point for a fresh Codex conversation.
 

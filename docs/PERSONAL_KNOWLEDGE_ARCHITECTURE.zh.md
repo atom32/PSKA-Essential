@@ -391,7 +391,7 @@ PSKA 应支持：
 - 读取 Markdown、frontmatter、tags、links、backlinks、attachments；
 - 把 heading 作为 section；
 - 把 MOC、index note、project note 识别为路由入口；
-- 在用户确认后写入 frontmatter tag 或 MOC link；markdown comment native write 仍是后续能力；
+- 在用户确认后写入 frontmatter tag、PSKA Comment marker block 或 MOC link；
 - 把 Obsidian note 引用转换为 PSKA `SourceRef`。
 
 Obsidian 不应承担：
@@ -407,7 +407,7 @@ Obsidian 不应承担：
 ```text
 问答前：用 vault 的 links/tags/frontmatter 缩小 scope
 问答中：读取命中的 note/heading 作为 evidence
-问答后：用户确认时写回 sidecar tag/comment、Obsidian frontmatter tag、MOC 或创建整理 note
+问答后：用户确认时写回 sidecar tag/comment、Obsidian frontmatter tag、PSKA Comment block、MOC 或创建整理 note
 记忆中：只保存路由、偏好、项目状态和纠错，不保存整篇 note
 ```
 
@@ -664,8 +664,9 @@ Hermes 的默认行为：
   `pska_source_memory_candidates_from_audit`。
 - Done: Obsidian frontmatter tag native write 已通过 `pska_source_tag_propose/apply`
   的 `write_target=obsidian_frontmatter` 落地。
-- Pending: Obsidian comment native write、项目 handoff 摘要自动化、
-  后台 wakeup 集成。
+- Done: Obsidian markdown comment native write 已通过 `pska_source_comment_propose/apply`
+  的 `write_target=obsidian_markdown_comment` 落地，只追加 PSKA Comment marker block。
+- Pending: 项目 handoff 摘要自动化、后台 wakeup 集成。
 - 所有写动作仍走 PSKA proposal/review/policy。
 
 ### M7: Hermes/Jarvis Briefing
@@ -675,8 +676,7 @@ Hermes 的默认行为：
 - Done: 输出 priority codes，如 duplicate、断链、孤立笔记、source route、pending review、workspace action。
 - Done: briefing 不生成最终回答、不写源文件、不直接写 memory、不需要 embedding。
 - Done: WebUI Home 首屏增加 Jarvis Bar，加载 `/api/jarvis/briefing`，展示 priority、source audit 数字和前三个安全 action。
-- Done: WebUI 增加 Sources 面板，支持 root 注册、扫描、资料源 audit、FTS 搜索、saved search、source read、tag/comment proposal -> sidecar apply、Obsidian frontmatter tag apply，并承接 Jarvis source actions。
-- Pending: Obsidian comment native write。
+- Done: WebUI 增加 Sources 面板，支持 root 注册、扫描、资料源 audit、FTS 搜索、saved search、source read、tag/comment proposal -> sidecar apply、Obsidian frontmatter tag apply、Obsidian markdown comment apply，并承接 Jarvis source actions。
 
 ### M8: Proactive Source Audit Jobs
 
@@ -686,7 +686,7 @@ Hermes 的默认行为：
 - Done: `pska_provider_jobs` 和 workspace status 暴露 queued source audit job，Jarvis/WebUI 可把它显示为可执行 next action。
 - Done: Product API 暴露 `/api/sources/audit-jobs`、`/api/sources/audit-jobs/run-next` 和指定 job run 路由。
 - Done: job 不写源文件、不直接写 memory、不需要 embedding；source-route 仍必须进入 Review。
-- Pending: Obsidian comment native write、近似查重。
+- Pending: 近似查重。
 
 ### M9: Wall-Clock Source Audit Scheduler
 
@@ -709,7 +709,7 @@ Hermes 的默认行为：
   `/api/sources/obsidian/moc/{proposal_id}/apply`。
 - Done: source audit 对 native/managed Obsidian vault 的 unlinked notes 会给出
   `propose_obsidian_moc` next action。
-- Pending: 更丰富的 MOC 分组、Obsidian comment native write、系统级
+- Pending: 更丰富的 MOC 分组、系统级
   wakeup、近似查重。
 
 ## Non-Goals

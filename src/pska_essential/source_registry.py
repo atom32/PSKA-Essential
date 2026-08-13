@@ -27,7 +27,9 @@ PERMISSION_MODES = {"read_only", "sidecar_write", "native_write", "managed"}
 NEIGHBOR_STRATEGIES = {"auto", "links", "backlinks", "folder"}
 SIDECAR_WRITE_TARGET = "sidecar"
 OBSIDIAN_FRONTMATTER_WRITE_TARGET = "obsidian_frontmatter"
+OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET = "obsidian_markdown_comment"
 OBSIDIAN_MOC_WRITE_TARGET = "obsidian_moc"
+PSKA_COMMENT_END = "<!-- PSKA:COMMENT:END -->"
 PSKA_MOC_BEGIN = "<!-- PSKA:MOC:BEGIN -->"
 PSKA_MOC_END = "<!-- PSKA:MOC:END -->"
 SKIP_DIRS = {
@@ -627,21 +629,33 @@ class SQLiteSourceRegistry:
         normalized_body = body.strip()
         if not normalized_body:
             raise SourceRegistryError("comment body is required")
-        if write_target != SIDECAR_WRITE_TARGET:
-            raise SourceRegistryError("comment write_target must be sidecar in M3")
+        normalized_write_target = _normalize_comment_write_target(write_target)
         target = self._target_for_ref(target_ref)
+        if normalized_write_target == OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET:
+            self._ensure_obsidian_markdown_comment_target(target)
         proposal_id = _stable_id(
             "src_prop",
-            f"comment:{target['root_id']}:{target['object_id']}:{target['section_id']}:{normalized_body}:{utc_now_iso()}",
+            f"comment:{target['root_id']}:{target['object_id']}:{target['section_id']}:{normalized_body}:{normalized_write_target}:{utc_now_iso()}",
         )
+        payload = {"body": normalized_body}
+        if normalized_write_target == OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET:
+            payload.update(
+                {
+                    "schema": "pska.obsidian_markdown_comment_proposal.v1",
+                    "mode": "append_unique_pska_comment_block",
+                    "heading_path": target.get("heading_path", ""),
+                    "line_start": target.get("line_start", 1),
+                    "line_end": target.get("line_end", 1),
+                }
+            )
         proposal = self._create_action_proposal(
             proposal_id=proposal_id,
             action="comment",
             target=target,
             target_ref=target_ref,
-            payload={"body": normalized_body},
+            payload=payload,
             reason=reason,
-            write_target=SIDECAR_WRITE_TARGET,
+            write_target=normalized_write_target,
         )
         return proposal
 
@@ -655,8 +669,7 @@ class SQLiteSourceRegistry:
             raise SourceRegistryError("comment proposal payload is missing body")
         existing = self._existing_comment_for_proposal(proposal_id)
         if existing:
-            return _applied_action_result(proposal, existing, already_applied=True)
-        self._ensure_sidecar_write_allowed(proposal)
+            return _applied_comment_result(proposal, existing, already_applied=True, changed=False)
         now = utc_now_iso()
         comment_id = _stable_id("comment", f"{proposal_id}:{body}")
         record = {
@@ -666,16 +679,33 @@ class SQLiteSourceRegistry:
             "section_id": proposal["section_id"],
             "body": body,
             "origin": "pska",
-            "write_target": "sidecar",
+            "write_target": proposal["write_target"],
             "status": "active",
             "proposal_id": proposal_id,
             "created_at": now,
         }
-        sidecar = self._append_sidecar_annotation(
-            proposal,
-            {"body": body, "comment_id": comment_id},
-            applied_at=now,
-        )
+        changed = False
+        if proposal["write_target"] == SIDECAR_WRITE_TARGET:
+            self._ensure_sidecar_write_allowed(proposal)
+            sidecar = self._append_sidecar_annotation(
+                proposal,
+                {"body": body, "comment_id": comment_id},
+                applied_at=now,
+            )
+            record["sidecar"] = sidecar
+            changed = True
+        elif proposal["write_target"] == OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET:
+            self._ensure_obsidian_markdown_comment_write_allowed(proposal)
+            markdown_comment = self._apply_obsidian_markdown_comment(
+                proposal,
+                body,
+                comment_id=comment_id,
+                applied_at=now,
+            )
+            record["markdown_comment"] = markdown_comment
+            changed = bool(markdown_comment.get("changed"))
+        else:
+            raise SourceRegistryError("comment apply supports sidecar or obsidian_markdown_comment write_target")
         with self.lock:
             with self.conn:
                 self.conn.execute(
@@ -694,7 +724,7 @@ class SQLiteSourceRegistry:
                         proposal["section_id"],
                         body,
                         "pska",
-                        "sidecar",
+                        proposal["write_target"],
                         "active",
                         proposal_id,
                         now,
@@ -703,8 +733,7 @@ class SQLiteSourceRegistry:
                 self._mark_action_proposal_applied(proposal_id, now)
         proposal["status"] = "applied"
         proposal["applied_at"] = now
-        record["sidecar"] = sidecar
-        return _applied_action_result(proposal, record, already_applied=False)
+        return _applied_comment_result(proposal, record, already_applied=False, changed=changed)
 
     def propose_obsidian_moc(
         self,
@@ -857,6 +886,51 @@ class SQLiteSourceRegistry:
                     "tool": "pska_source_scan",
                     "params": {"root_id": proposal["root_id"]},
                     "reason": "frontmatter tag was written; rescan the vault to refresh indexed metadata.",
+                }
+            ],
+        }
+
+    def _apply_obsidian_markdown_comment(
+        self,
+        proposal: dict[str, Any],
+        body: str,
+        *,
+        comment_id: str,
+        applied_at: str,
+    ) -> dict[str, Any]:
+        root_path = Path(proposal["absolute_path"])
+        target_path = _path_inside_root(root_path, proposal["path"])
+        if not target_path.exists() or not target_path.is_file():
+            raise SourceRegistryError("Obsidian markdown comment apply requires an existing Markdown note")
+        before = target_path.read_text(encoding="utf-8")
+        after, markdown_comment = _upsert_obsidian_markdown_comment_block(
+            before,
+            body=body,
+            comment_id=comment_id,
+            path=str(proposal.get("path") or ""),
+            heading_path=str(proposal.get("payload", {}).get("heading_path") or proposal.get("heading_path") or ""),
+            line_start=int(proposal.get("line_start") or 1),
+            line_end=int(proposal.get("line_end") or 1),
+            reason=str(proposal.get("reason") or ""),
+            applied_at=applied_at,
+        )
+        changed = before != after
+        if changed:
+            target_path.write_text(after, encoding="utf-8")
+        return {
+            "path": proposal["path"],
+            "absolute_path": str(target_path),
+            "comment_id": comment_id,
+            "changed": changed,
+            "block_marker": markdown_comment["block_marker"],
+            "target": markdown_comment["target"],
+            "write_target": OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET,
+            "next_actions": [
+                {
+                    "action": "scan_source_root",
+                    "tool": "pska_source_scan",
+                    "params": {"root_id": proposal["root_id"]},
+                    "reason": "Markdown comment block was written; rescan the vault to refresh indexed text.",
                 }
             ],
         }
@@ -1494,6 +1568,22 @@ class SQLiteSourceRegistry:
             raise SourceRegistryError("Obsidian frontmatter tag apply requires permission_mode native_write or managed")
         if Path(str(proposal["path"] or "")).suffix.lower() not in {".md", ".markdown", ".mdown"}:
             raise SourceRegistryError("Obsidian frontmatter tag apply requires a Markdown note")
+
+    def _ensure_obsidian_markdown_comment_target(self, target: dict[str, Any]) -> None:
+        if target["root_kind"] != "obsidian_vault":
+            raise SourceRegistryError("Obsidian markdown comment proposals require an obsidian_vault source root")
+        if Path(str(target["path"] or "")).suffix.lower() not in {".md", ".markdown", ".mdown"}:
+            raise SourceRegistryError("Obsidian markdown comment proposals require a Markdown note")
+
+    def _ensure_obsidian_markdown_comment_write_allowed(self, proposal: dict[str, Any]) -> None:
+        if proposal["write_target"] != OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET:
+            raise SourceRegistryError("Obsidian markdown comment apply requires obsidian_markdown_comment write_target")
+        if proposal["root_kind"] != "obsidian_vault":
+            raise SourceRegistryError("Obsidian markdown comment apply requires an obsidian_vault source root")
+        if proposal["permission_mode"] not in {"native_write", "managed"}:
+            raise SourceRegistryError("Obsidian markdown comment apply requires permission_mode native_write or managed")
+        if Path(str(proposal["path"] or "")).suffix.lower() not in {".md", ".markdown", ".mdown"}:
+            raise SourceRegistryError("Obsidian markdown comment apply requires a Markdown note")
 
     def _ensure_obsidian_moc_write_allowed(self, proposal: dict[str, Any]) -> None:
         if proposal["write_target"] != OBSIDIAN_MOC_WRITE_TARGET:
@@ -2455,10 +2545,18 @@ def _action_proposal_payload(proposal: dict[str, Any], *, include_absolute_path:
             "writes_sidecar": False,
             "write_target": proposal["write_target"],
             "may_write_source_files_on_apply": proposal["write_target"]
-            in {OBSIDIAN_FRONTMATTER_WRITE_TARGET, OBSIDIAN_MOC_WRITE_TARGET},
+            in {
+                OBSIDIAN_FRONTMATTER_WRITE_TARGET,
+                OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET,
+                OBSIDIAN_MOC_WRITE_TARGET,
+            },
             "may_write_sidecar_on_apply": proposal["write_target"] == SIDECAR_WRITE_TARGET,
             "requires_native_permission": proposal["write_target"]
-            in {OBSIDIAN_FRONTMATTER_WRITE_TARGET, OBSIDIAN_MOC_WRITE_TARGET},
+            in {
+                OBSIDIAN_FRONTMATTER_WRITE_TARGET,
+                OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET,
+                OBSIDIAN_MOC_WRITE_TARGET,
+            },
             "requires_apply": proposal["status"] == "pending",
         },
     }
@@ -2507,6 +2605,30 @@ def _applied_tag_result(
             "writes_sidecar": write_target == SIDECAR_WRITE_TARGET and not already_applied,
             "write_target": write_target,
             "requires_native_permission": write_target == OBSIDIAN_FRONTMATTER_WRITE_TARGET,
+        },
+    }
+
+
+def _applied_comment_result(
+    proposal: dict[str, Any],
+    record: dict[str, Any],
+    *,
+    already_applied: bool,
+    changed: bool,
+) -> dict[str, Any]:
+    write_target = str(proposal.get("write_target") or SIDECAR_WRITE_TARGET)
+    writes_native = write_target == OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET and bool(changed)
+    return {
+        "proposal": _action_proposal_payload(proposal),
+        "record": to_jsonable(record),
+        "applied": True,
+        "already_applied": already_applied,
+        "data_flow": {
+            "writes_source_files": writes_native,
+            "writes_original_source_files": writes_native,
+            "writes_sidecar": write_target == SIDECAR_WRITE_TARGET and not already_applied,
+            "write_target": write_target,
+            "requires_native_permission": write_target == OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET,
         },
     }
 
@@ -2679,6 +2801,15 @@ def _normalize_tag_write_target(write_target: str) -> str:
     raise SourceRegistryError("tag write_target must be sidecar or obsidian_frontmatter")
 
 
+def _normalize_comment_write_target(write_target: str) -> str:
+    value = str(write_target or SIDECAR_WRITE_TARGET).strip().lower()
+    if value in {"", SIDECAR_WRITE_TARGET}:
+        return SIDECAR_WRITE_TARGET
+    if value in {OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET, "markdown_comment", "obsidian_comment"}:
+        return OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET
+    raise SourceRegistryError("comment write_target must be sidecar or obsidian_markdown_comment")
+
+
 def _render_moc_block(title: str, targets: list[dict[str, Any]]) -> str:
     lines = [
         PSKA_MOC_BEGIN,
@@ -2703,6 +2834,89 @@ def _upsert_moc_block(text: str, *, title: str, rendered_block: str) -> str:
         end += len(PSKA_MOC_END)
         return f"{existing[:begin].rstrip()}\n\n{rendered_block.strip()}\n\n{existing[end:].lstrip()}".rstrip() + "\n"
     return f"{existing}\n\n{rendered_block.strip()}\n"
+
+
+def _upsert_obsidian_markdown_comment_block(
+    text: str,
+    *,
+    body: str,
+    comment_id: str,
+    path: str,
+    heading_path: str,
+    line_start: int,
+    line_end: int,
+    reason: str,
+    applied_at: str,
+) -> tuple[str, dict[str, Any]]:
+    normalized_body = body.strip()
+    if not normalized_body:
+        raise SourceRegistryError("markdown comment body is required")
+    block_marker = f"<!-- PSKA:COMMENT:{comment_id} -->"
+    if block_marker in text:
+        return text, {
+            "block_marker": block_marker,
+            "target": _comment_target_payload(path, heading_path, line_start, line_end),
+        }
+    rendered_block = _render_obsidian_markdown_comment_block(
+        body=normalized_body,
+        comment_id=comment_id,
+        path=path,
+        heading_path=heading_path,
+        line_start=line_start,
+        line_end=line_end,
+        reason=reason,
+        applied_at=applied_at,
+    )
+    existing = text.rstrip()
+    if not existing:
+        updated = f"{rendered_block}\n"
+    else:
+        updated = f"{existing}\n\n{rendered_block}\n"
+    return updated, {
+        "block_marker": block_marker,
+        "target": _comment_target_payload(path, heading_path, line_start, line_end),
+    }
+
+
+def _render_obsidian_markdown_comment_block(
+    *,
+    body: str,
+    comment_id: str,
+    path: str,
+    heading_path: str,
+    line_start: int,
+    line_end: int,
+    reason: str,
+    applied_at: str,
+) -> str:
+    block_marker = f"<!-- PSKA:COMMENT:{comment_id} -->"
+    target = _comment_target_payload(path, heading_path, line_start, line_end)
+    lines = [
+        block_marker,
+        "> [!note] PSKA Comment",
+        f"> Applied: {applied_at}",
+        f"> Target: {target['path']}:{target['line_start']}-{target['line_end']}",
+    ]
+    if target["heading_path"]:
+        lines.append(f"> Heading: {target['heading_path']}")
+    if reason.strip():
+        lines.append(f"> Reason: {reason.strip()}")
+    lines.append(">")
+    for line in body.splitlines() or [body]:
+        lines.append(f"> {line}")
+    lines.append(PSKA_COMMENT_END)
+    return "\n".join(lines)
+
+
+def _comment_target_payload(path: str, heading_path: str, line_start: int, line_end: int) -> dict[str, Any]:
+    normalized_start = max(int(line_start or 1), 1)
+    normalized_end = max(int(line_end or normalized_start), normalized_start)
+    return {
+        "path": path,
+        "heading_path": heading_path,
+        "line_start": normalized_start,
+        "line_end": normalized_end,
+    }
 
 
 def _upsert_obsidian_frontmatter_tag(text: str, tag: str) -> tuple[str, dict[str, Any]]:
