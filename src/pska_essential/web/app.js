@@ -38,6 +38,7 @@ const messages = {
   "toast.memoryReviewQueueLoaded": "记忆维护队列已加载。",
   "toast.reviewBatchDecided": "批量审核已处理。",
   "toast.reviewCandidatesMerged": "候选记忆已合并。",
+  "toast.memoryCandidateReadyToEdit": "候选记忆已标记为需修改。",
   "toast.memoryCardsLoaded": "记忆卡片已加载。",
   "toast.memoryHealthLoaded": "记忆健康扫描已加载。",
   "toast.memoryAttributionLoaded": "记忆归因已加载。",
@@ -2423,7 +2424,7 @@ function renderMemoryReviewQueue(payload = null) {
   }
   const data = queue.summary || {};
   summary.className = queue.status === "ready" ? "job-status ready" : "job-status pending";
-  summary.textContent = `${data.group_count || 0} 组 / ${data.item_count || 0} 项 / accepted ${data.accepted_unapplied_count || 0} / 对话候选 ${data.conversation_candidate_count || 0} / 相关候选 ${data.related_candidate_group_count || 0} / pending ${data.pending_review_count || 0}`;
+  summary.textContent = `${data.group_count || 0} 组 / ${data.item_count || 0} 项 / accepted ${data.accepted_unapplied_count || 0} / 质量问题 ${data.candidate_quality_issue_count || 0} / 对话候选 ${data.conversation_candidate_count || 0} / 相关候选 ${data.related_candidate_group_count || 0} / pending ${data.pending_review_count || 0}`;
   renderList(list, queue.groups || [], t("empty.noMemoryReviewQueue"), memoryReviewQueueGroupCard);
 }
 
@@ -3949,7 +3950,13 @@ function memoryReviewQueueGroupCard(group) {
       ? el("div", { className: "review-actions compact-actions" }, batchActions.map((action) => memoryReviewQueueBatchActionButton(action)))
       : null,
     mergeAction ? memoryReviewQueueMergeEditor(group, mergeAction) : null,
-    items.length ? el("div", { className: "source-list" }, items.slice(0, 5).map(memoryReviewQueueItemRow)) : null,
+    items.length
+      ? el(
+          "div",
+          { className: "source-list" },
+          items.slice(0, 5).map(memoryReviewQueueItemRow),
+        )
+      : null,
   ]);
 }
 
@@ -4010,6 +4017,9 @@ function memoryReviewQueueMergeCandidateRow(candidate) {
 }
 
 function memoryReviewQueueItemRow(item) {
+  if (item.item_type === "memory_candidate_quality_issue") {
+    return memoryReviewQueueQualityIssueCard(item);
+  }
   const actions = (item.next_actions || []).slice(0, 3);
   const memoryId = item.memory_id || (item.memory_ids && item.memory_ids[0]) || "";
   const issueTypes = item.issue_types || [];
@@ -4027,6 +4037,80 @@ function memoryReviewQueueItemRow(item) {
       ? el("span", { className: "card-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
       : null,
   ]);
+}
+
+function memoryReviewQueueQualityIssueCard(item) {
+  const actions = (item.next_actions || []).slice(0, 3);
+  const missingFields = (item.missing_fields || (item.evidence && item.evidence.missing_fields) || []).filter(Boolean);
+  const canReviseInline = Number(item.source_count || 0) > 0;
+  const candidate = {
+    text: item.text || item.title || "",
+    behavior_delta: item.behavior_delta || "",
+    memory_type: item.memory_type || "project_state",
+    memory_scope: item.memory_scope || "workspace",
+    operation: item.proposal_kind || "memory_patch",
+  };
+  const editor = memoryCandidateEditor(candidate);
+  return el("article", { className: "quality-candidate-card" }, [
+    el("div", { className: "memory-candidate-header" }, [
+      el("div", {}, [
+        el("strong", {}, item.title || item.review_id || "memory candidate"),
+        item.reason ? el("p", {}, item.reason) : null,
+      ]),
+      item.severity ? el("span", { className: `tag ${statusClass(item.severity)}` }, item.severity) : null,
+    ]),
+    el("div", { className: "meta-row" }, [
+      item.review_id ? el("span", { className: "tag" }, shortId(item.review_id)) : null,
+      item.status ? el("span", { className: "tag" }, item.status) : null,
+      item.source_count !== undefined ? el("span", { className: "tag" }, `${t("label.sources")} ${item.source_count}`) : null,
+      missingFields.length ? el("span", { className: "tag pending" }, `missing ${missingFields.join(", ")}`) : null,
+    ]),
+    item.text ? el("p", { className: "memory-candidate-text" }, item.text) : null,
+    item.behavior_delta ? memoryCandidateField("行为变化", item.behavior_delta) : null,
+    missingFields.length ? memoryCandidateField("待补字段", missingFields.join(", ")) : null,
+    canReviseInline
+      ? el("div", { className: "quality-candidate-editor" }, [
+          editor,
+          el("div", { className: "review-actions compact-actions" }, [
+            el(
+              "button",
+              {
+                className: "primary-button",
+                type: "button",
+                onclick: () => reviseMemoryReviewQueueQualityIssue(item, editor),
+              },
+              t("button.revise"),
+            ),
+          ]),
+        ])
+      : memoryCandidateField("修复方式", "需要重新创建带来源证据的候选记忆。"),
+    actions.length
+      ? el("div", { className: "review-actions compact-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
+      : null,
+  ]);
+}
+
+async function reviseMemoryReviewQueueQualityIssue(item, editor) {
+  const reviewId = item.review_id || "";
+  if (!reviewId) return;
+  const memoryCandidate = memoryCandidateEditorPayload(editor);
+  if (!memoryCandidate || !memoryCandidate.text || !memoryCandidate.behavior_delta) {
+    showToast("请补全候选文本和行为变化。");
+    return;
+  }
+  if (item.status !== "needs_edit") {
+    const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}/decision`, {
+      method: "POST",
+      body: {
+        decision: "edit",
+        reason: "Memory Card candidate quality issue revised from queue.",
+      },
+    });
+    syncReviewDecision(payload.decision);
+    item.status = "needs_edit";
+    showToast(t("toast.memoryCandidateReadyToEdit"));
+  }
+  await reviseReview(reviewId, "Revise Memory Card candidate quality issue.", memoryCandidate);
 }
 
 function memoryReviewQueueActionButton(action, item) {

@@ -560,9 +560,13 @@ gate for memory_patch writes, while conversation/workflow-derived memory
 proposals now attach a conservative Memory Card envelope before review.
 Workspace status uses the same filter, so Hermes/Jarvis sees quality-review
 next actions instead of `apply_accepted_memory` for accepted but low-quality
-candidates. The WebUI exposes a lightweight inline merge editor on
-duplicate/related candidate queue groups; it shows member candidate texts and
-behavior deltas before the merged Review is created. M6 adds
+candidates. The review queue payload now carries quality candidate draft fields
+(`text`, missing fields, Memory Card type/scope, behavior_delta), and the WebUI
+exposes inline quality-fix controls that mark a candidate `needs_edit` and submit
+a revised governed Review without writing memory directly. The WebUI also
+exposes a lightweight inline merge editor on duplicate/related candidate queue
+groups; it shows member candidate texts and behavior deltas before the merged
+Review is created. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

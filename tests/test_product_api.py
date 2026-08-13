@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from pska_essential.config import build_service_from_env
-from pska_essential.contracts import MemoryFact, SourceRef
+from pska_essential.contracts import MemoryFact, MemoryPatch, Proposal, SourceRef
 from pska_essential.kb_gateway import KbGatewayError, build_kb_gateway_from_env, reset_fake_kb_gateway
 from pska_essential.product_api import build_server
 from pska_essential.workflow import build_fake_service
@@ -2038,6 +2038,58 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(patch["metadata"]["revision_mode"], "memory_candidate")
         self.assertEqual(patch["source_refs"][0]["adapter"], "hermes")
 
+    def test_quality_issue_review_can_be_marked_edit_then_revised(self):
+        run = self.service.start("api quality revision", {"dataset_ids": ["demo"]})
+        source_ref = SourceRef(adapter="fake", source_id="quality-revision-source")
+        proposal = Proposal(
+            proposal_id="prop_api_quality_revision",
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent="unsafe memory",
+            title="Memory Patch: unsafe memory",
+            body="remember this",
+            source_refs=[source_ref],
+            memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+        )
+        self.service.store.save_proposal(proposal)
+        review = self.service.store.create_review(proposal.proposal_id)
+        review_id = review.review_id
+        self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "accept", "reason": "bypass quality"})
+        queue = self._get_json("/api/memory/review-queue?review_limit=20")
+        groups = {group["code"]: group for group in queue["groups"]}
+        quality_item = groups["candidate_quality"]["items"][0]
+        self.assertEqual(quality_item["review_id"], review_id)
+        self.assertEqual(quality_item["text"], "remember this")
+        self.assertIn("memory_type", quality_item["missing_fields"])
+
+        decision = self._post_json(
+            f"/api/reviews/{review_id}/decision",
+            {"decision": "edit", "reason": "quality fix from workbench"},
+        )
+        revised = self._post_json(
+            f"/api/reviews/{review_id}/revision",
+            {
+                "intent": "quality fix",
+                "memory_candidate": {
+                    "text": "For PSKA memory, rewrite vague candidates into explicit behavior-changing Memory Cards.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When reviewing PSKA memory candidates, replace vague reminders with explicit behavior-changing Memory Cards.",
+                },
+            },
+        )
+
+        self.assertEqual(decision["decision"]["status"], "needs_edit")
+        self.assertEqual(revised["previous_review"]["status"], "needs_edit")
+        self.assertEqual(revised["review"]["status"], "pending")
+        patch = revised["proposal"]["memory_patch"]
+        self.assertEqual(patch["metadata"]["memory_type"], "working_habit")
+        self.assertEqual(patch["metadata"]["memory_scope"], "project")
+        self.assertEqual(patch["metadata"]["revision_mode"], "memory_candidate")
+        queue_after = self._get_json("/api/memory/review-queue?review_limit=20")
+        groups_after = {group["code"]: group for group in queue_after["groups"]}
+        self.assertNotIn("candidate_quality", groups_after)
+
     def test_review_revision_requires_needs_edit_status(self):
         asked = self._post_json(
             "/api/ask",
@@ -2506,6 +2558,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("记忆维护队列", html)
         self.assertIn("memory-review-queue-summary", html)
         self.assertIn("reload-memory-review-queue", html)
+        self.assertIn("quality-candidate-card", styles)
+        self.assertIn("quality-candidate-editor", styles)
+        self.assertIn("reviseMemoryReviewQueueQualityIssue", script)
+        self.assertIn("candidate_quality_issue_count", script)
         self.assertIn("memory.search", html)
         self.assertIn("needs_edit", html)
         self.assertIn("review.revise", html)

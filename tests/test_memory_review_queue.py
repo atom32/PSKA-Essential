@@ -103,6 +103,8 @@ class MemoryReviewQueueTests(unittest.TestCase):
         item = groups["candidate_quality"]["items"][0]
         self.assertEqual(item["review_id"], review.review_id)
         self.assertEqual(item["status"], "accepted")
+        self.assertEqual(item["text"], "remember this")
+        self.assertEqual(item["missing_fields"], ["memory_type", "memory_scope", "behavior_delta"])
         self.assertIn("missing_memory_card_fields", item["issue_types"])
         self.assertIn("vague_candidate_text", item["issue_types"])
         self.assertEqual(item["next_actions"][0]["action"], "review_memory_candidate_quality")

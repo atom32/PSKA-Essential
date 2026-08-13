@@ -36,9 +36,12 @@ Last updated: 2026-07-15
 > conversation/workflow-derived memory proposals now attach a conservative
 > Memory Card envelope before Review/apply. Workspace status also filters
 > accepted low-quality memory_patch reviews out of `apply_accepted_memory` and
-> routes Hermes/Jarvis to `review_memory_candidate_quality` instead. Next useful
-> product step: a richer batch edit/merge workbench and cross-project semantic
-> clustering.
+> routes Hermes/Jarvis to `review_memory_candidate_quality` instead. The first
+> Memory Candidate Workbench slice is now in WebUI: quality items carry draft
+> text/missing fields/type/scope/behavior_delta and can be fixed inline by
+> marking the Review `needs_edit` and submitting a revised governed Review.
+> Next useful product step: a richer batch edit/merge workbench and cross-project
+> semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

@@ -636,6 +636,9 @@ Hermes 的默认行为：
   memory proposal 会先补保守 Memory Card envelope，再进入 Review/apply。
 - Done: Workspace status 也复用质量门；accepted 但低质量的 memory_patch 不再显示为
   `apply_accepted_memory`，而是引导 Hermes/Jarvis 先做 quality review。
+- Done: Memory Review Queue/WebUI 已有第一块候选工作台能力：`candidate_quality`
+  item 会带候选文本、缺失字段、type/scope/behavior_delta，并可在队列里一键标为
+  `needs_edit` 后提交修订 Review；仍不直接写 durable memory。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

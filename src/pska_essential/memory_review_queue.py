@@ -226,8 +226,10 @@ def _candidate_quality_group(issues: list[dict[str, Any]]) -> dict[str, Any]:
                 "severity": str(issue.get("severity") or ""),
                 "memory_type": str(issue.get("memory_type") or ""),
                 "memory_scope": str(issue.get("memory_scope") or ""),
+                "text": str(issue.get("text") or ""),
                 "behavior_delta": str(issue.get("behavior_delta") or ""),
                 "source_count": int(issue.get("source_count") or 0),
+                "missing_fields": (issue.get("evidence") or {}).get("missing_fields") or [],
                 "evidence": issue.get("evidence") or {},
                 "next_actions": issue.get("next_actions") or [],
             }

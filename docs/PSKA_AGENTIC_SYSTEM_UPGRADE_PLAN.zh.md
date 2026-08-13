@@ -321,7 +321,11 @@ envelope；裸的低质量 memory_patch 即使绕过 queue/Review UI 被 accept�
 memory provider。P2 的第二十块已落地为 workspace status quality routing：`pska_workspace_status`
 对 accepted_unapplied memory reviews 复用 candidate quality filter；低质量 accepted
 memory_patch 不再产生 `apply_accepted_memory` next action，而是产生
-`review_memory_candidate_quality`，避免 Hermes/Jarvis 撞上必然失败的 apply gate。
+`review_memory_candidate_quality`，避免 Hermes/Jarvis 撞上必然失败的 apply gate。P2 的第二十一块
+已落地为 WebUI quality-fix workbench seed：Memory Review Queue 的 `candidate_quality`
+item 带 `text`、`missing_fields`、Memory Card type/scope 和 behavior_delta；WebUI 在队列内
+提供内联修订控件，先将未 apply 候选标为 `needs_edit`，再提交新的 revised Review，仍保持
+Review/apply 治理边界。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

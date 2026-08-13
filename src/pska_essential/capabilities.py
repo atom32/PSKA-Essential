@@ -1249,6 +1249,17 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
             "memory_focus",
         ],
         "principle": "read-only grouping view over Review records and Memory Briefing",
+        "candidate_quality_item_fields": [
+            "review_id",
+            "status",
+            "issue_types",
+            "missing_fields",
+            "text",
+            "memory_type",
+            "memory_scope",
+            "behavior_delta",
+            "source_count",
+        ],
         "writes_memory_directly": False,
         "next_actions": [
             "open_review",

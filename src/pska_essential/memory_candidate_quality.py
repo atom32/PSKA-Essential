@@ -52,6 +52,7 @@ def memory_candidate_quality_issue(
         "severity": severity,
         "memory_type": memory_type,
         "memory_scope": memory_scope,
+        "text": text,
         "behavior_delta": behavior_delta,
         "source_count": source_count,
         "evidence": {
