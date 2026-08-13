@@ -629,6 +629,8 @@ Hermes 的默认行为：
 - Done: Memory Review Queue 会把被 merge 替换的旧候选分入低优先级
   `merged_replacements` 谱系组，并从 duplicate/related candidate dedup 中排除，避免旧
   `needs_edit` 候选继续污染主动待办。
+- Done: 普通 revision 也有同样的队列卫生：产生 successor Review 的旧 `needs_edit`
+  会进入低优先级 `revised_replacements`，通过 `next_review_id` 追踪，但不再算主动修改待办。
 - Done: Memory Review Queue 新增 `candidate_quality` 质量门；pending 或 accepted 但未 apply
   的 memory_patch review 如果缺 `memory_type`、`memory_scope`、`behavior_delta`、source
   evidence，或文本/行为变化过泛，会被提示先 review/edit，而不是直接进入可 apply 待办。

@@ -254,6 +254,54 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(replacement["next_actions"][0]["params"]["review_id"], merged["review"]["review_id"])
         self.assertEqual(groups["pending_reviews"]["review_ids"], [merged["review"]["review_id"]])
 
+    def test_queue_tracks_revised_replacements_without_needs_edit_work(self):
+        service = build_fake_service()
+        result = service.conversation_memory_candidates_create(
+            session_id="sess-revised-replacement",
+            messages=[
+                {
+                    "message_id": "msg-revised-replacement",
+                    "role": "user",
+                    "text": "For PSKA memory, revised candidates should not leave stale needs_edit queue work.",
+                }
+            ],
+            candidates=[
+                {
+                    "text": "PSKA revised candidates should be traceable without stale queue work.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When revising PSKA memory candidates, keep old reviews traceable but out of active needs_edit.",
+                    "message_ids": ["msg-revised-replacement"],
+                }
+            ],
+        )
+        review_id = result["created"][0]["review_id"]
+        service.review_decide(review_id, "edit", "make it more direct")
+        revised = service.review_revise(
+            review_id,
+            "rewrite candidate",
+            memory_candidate={
+                "text": "For PSKA memory, keep revised old reviews out of active needs_edit queues.",
+                "memory_type": "working_habit",
+                "memory_scope": "project",
+                "behavior_delta": "When a PSKA memory candidate is revised, route reviewers to the successor review instead of the old needs_edit item.",
+            },
+        )
+
+        queue = build_memory_review_queue(service, audit=False)
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(queue["summary"]["needs_edit_count"], 0)
+        self.assertEqual(queue["summary"]["revised_replacement_count"], 1)
+        self.assertNotIn("needs_edit", groups)
+        self.assertIn("revised_replacements", groups)
+        replacement = groups["revised_replacements"]["items"][0]
+        self.assertEqual(replacement["item_type"], "revised_candidate_replacement")
+        self.assertEqual(replacement["review_id"], review_id)
+        self.assertEqual(replacement["next_review_id"], revised["review"]["review_id"])
+        self.assertEqual(replacement["next_actions"][0]["action"], "open_revised_review")
+        self.assertEqual(replacement["next_actions"][0]["params"]["review_id"], revised["review"]["review_id"])
+
     def test_queue_writes_audit(self):
         service = build_fake_service()
 

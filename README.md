@@ -551,8 +551,11 @@ not need to scrape audit events to trace replacements. Memory Review Queue
 separates those replaced candidates into a low-priority `merged_replacements`
 lineage group and excludes them from active duplicate/related candidate dedup,
 so merged-away reviews stay traceable without becoming false `needs_edit`
-work. Memory Review Queue also includes a `candidate_quality` gate for pending
-or accepted memory_patch reviews that are missing `memory_type`,
+work. Ordinary revised reviews get the same hygiene through a low-priority
+`revised_replacements` group keyed by `next_review_id`, so an old `needs_edit`
+review does not remain active after a successor Review exists. Memory Review
+Queue also includes a `candidate_quality` gate for pending or accepted
+memory_patch reviews that are missing `memory_type`,
 `memory_scope`, `behavior_delta`, source evidence, or clear behavior impact; it
 surfaces review/edit next actions before apply so vague memory summaries do not
 quietly become durable Memory Cards. `pska_memory_apply` uses the same quality

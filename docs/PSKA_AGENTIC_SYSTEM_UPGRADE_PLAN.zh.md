@@ -325,7 +325,9 @@ memory_patch 不再产生 `apply_accepted_memory` next action，而是产生
 已落地为 WebUI quality-fix workbench seed：Memory Review Queue 的 `candidate_quality`
 item 带 `text`、`missing_fields`、Memory Card type/scope 和 behavior_delta；WebUI 在队列内
 提供内联修订控件，先将未 apply 候选标为 `needs_edit`，再提交新的 revised Review，仍保持
-Review/apply 治理边界。
+Review/apply 治理边界。P2 的第二十二块已落地为 revised replacement queue hygiene：
+普通 revision 生成 successor Review 后，旧 `needs_edit` 不再留在主动 `needs_edit`
+group，而进入低优先级 `revised_replacements`，并通过 `open_revised_review` 指向新 Review。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

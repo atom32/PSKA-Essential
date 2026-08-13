@@ -40,8 +40,10 @@ Last updated: 2026-07-15
 > Memory Candidate Workbench slice is now in WebUI: quality items carry draft
 > text/missing fields/type/scope/behavior_delta and can be fixed inline by
 > marking the Review `needs_edit` and submitting a revised governed Review.
-> Next useful product step: a richer batch edit/merge workbench and cross-project
-> semantic clustering.
+> Revised old reviews now move into low-priority `revised_replacements` keyed by
+> `next_review_id`, so successful revisions stay traceable without becoming stale
+> active `needs_edit` work. Next useful product step: a richer batch edit/merge
+> workbench and cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 
