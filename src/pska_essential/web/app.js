@@ -36,6 +36,7 @@ const messages = {
   "toast.memoryHealthLoaded": "记忆健康扫描已加载。",
   "toast.memoryAttributionLoaded": "记忆归因已加载。",
   "toast.memoryUseTraceLoaded": "记忆使用痕迹已加载。",
+  "toast.memoryTimelineLoaded": "记忆时间线已加载。",
   "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
@@ -85,6 +86,7 @@ const messages = {
   "empty.noMemoryAttribution": "这个结果没有使用长期记忆。",
   "empty.noMemorySuggestions": "没有可治理的记忆建议。",
   "empty.noMemoryUseTrace": "没有匹配的记忆使用痕迹。",
+  "empty.noMemoryTimeline": "没有匹配的记忆时间线。",
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
   "empty.sourcesUnavailable": "资料源不可用。",
@@ -138,6 +140,7 @@ const messages = {
   "button.createDeleteReview": "创建异常删除审核",
   "button.whyUsed": "为什么用到",
   "button.useTrace": "使用痕迹",
+  "button.timeline": "时间线",
   "button.accept": "接受",
   "button.edit": "需修改",
   "button.reject": "拒绝",
@@ -262,6 +265,9 @@ const state = {
   memoryUseTraceMemoryId: "",
   memoryUseTraceQuery: "",
   memoryWhyUsed: null,
+  memoryTimeline: null,
+  memoryTimelineError: "",
+  memoryTimelineMemoryId: "",
   closedLoopProbe: null,
   askReadiness: null,
   askReadinessScopeKey: "",
@@ -487,6 +493,7 @@ function bindRefresh() {
     loadMemoryHealth();
   });
   document.getElementById("reload-memory-use-traces").addEventListener("click", () => loadMemoryUseTraces({ toast: true }));
+  document.getElementById("load-memory-timeline").addEventListener("click", loadMemoryTimelineFromInput);
   document.getElementById("memory-card-status-filter").addEventListener("change", (event) => {
     state.memoryCardStatus = event.currentTarget.value || "active";
     loadMemoryCards();
@@ -1008,11 +1015,14 @@ async function loadMemoryUseTraces(options = {}) {
     state.memoryUseTraces = payload.traces || [];
     state.memoryUseTraceError = "";
     state.memoryWhyUsed = null;
+    state.memoryTimeline = null;
+    state.memoryTimelineError = "";
     renderMemoryUseTraces(payload);
     if (options.toast) showToast(t("toast.memoryUseTraceLoaded"));
   } catch (error) {
     state.memoryUseTraces = [];
     state.memoryUseTraceError = error.message;
+    state.memoryTimeline = null;
     renderMemoryUseTraces();
     if (options.toast) showToast(error.message);
   }
@@ -1028,6 +1038,8 @@ async function explainMemoryWhyUsed(memoryId) {
     state.memoryUseTraceQuery = "";
     state.memoryUseTraces = payload.traces || [];
     state.memoryUseTraceError = "";
+    state.memoryTimeline = null;
+    state.memoryTimelineError = "";
     renderMemoryUseTraces(payload);
   } catch (error) {
     state.memoryUseTraceError = error.message;
@@ -1040,7 +1052,43 @@ async function inspectMemoryUseTrace(memoryId) {
   state.memoryUseTraceMemoryId = String(memoryId || "").trim();
   state.memoryUseTraceQuery = "";
   state.memoryWhyUsed = null;
+  state.memoryTimeline = null;
+  state.memoryTimelineError = "";
   await loadMemoryUseTraces({ toast: true });
+}
+
+async function loadMemoryTimelineFromInput() {
+  const input = document.getElementById("memory-use-trace-memory-id");
+  await openMemoryTimeline(input ? input.value : "");
+}
+
+async function openMemoryTimeline(memoryId) {
+  const selected = String(memoryId || "").trim();
+  if (!selected) {
+    showToast("需要记忆 ID。");
+    return;
+  }
+  state.memoryTimelineMemoryId = selected;
+  state.memoryUseTraceMemoryId = selected;
+  state.memoryUseTraceQuery = "";
+  try {
+    const payload = await api(`/api/memory/${encodeURIComponent(selected)}/timeline?limit=50`);
+    state.memoryTimeline = payload;
+    state.memoryTimelineError = "";
+    state.memoryWhyUsed = null;
+    state.memoryUseTraces = [];
+    state.memoryUseTraceError = "";
+    renderMemoryUseTraces(payload);
+    openView("memory");
+    showToast(t("toast.memoryTimelineLoaded"));
+  } catch (error) {
+    state.memoryTimeline = null;
+    state.memoryTimelineError = error.message;
+    state.memoryUseTraceError = "";
+    renderMemoryUseTraces();
+    openView("memory");
+    showToast(error.message);
+  }
 }
 
 async function inspectMemoryCard(memoryId) {
@@ -2357,21 +2405,25 @@ function renderMemoryUseTraces(payload = null) {
   const queryInput = document.getElementById("memory-use-trace-query");
   if (idInput && idInput.value !== state.memoryUseTraceMemoryId) idInput.value = state.memoryUseTraceMemoryId || "";
   if (queryInput && queryInput.value !== state.memoryUseTraceQuery) queryInput.value = state.memoryUseTraceQuery || "";
-  if (state.memoryUseTraceError) {
+  if (state.memoryUseTraceError || state.memoryTimelineError) {
     summary.className = "job-status failed";
-    summary.textContent = state.memoryUseTraceError;
+    summary.textContent = state.memoryUseTraceError || state.memoryTimelineError;
     renderList(list, [], t("empty.noMemoryUseTrace"));
     return;
   }
+  const timeline = payload && payload.schema === "pska.memory_timeline.v1" ? payload : state.memoryTimeline;
   const whyUsed = payload && payload.schema === "pska.memory_why_used.v1" ? payload : state.memoryWhyUsed;
   const count = payload && Number.isFinite(Number(payload.count))
     ? Number(payload.count)
     : state.memoryUseTraces.length;
   summary.className = "job-status ready";
-  summary.textContent = whyUsed
+  summary.textContent = timeline
+    ? `${timeline.entry_count || 0} 条时间线 / usage ${(timeline.summary && timeline.summary.usage_trace_count) || 0} / sources ${(timeline.summary && timeline.summary.source_anchor_count) || 0}`
+    : whyUsed
     ? `${whyUsed.confidence || "trace"} / ${whyUsed.trace_count || 0} 条痕迹`
     : `${count} 条痕迹`;
   const items = [];
+  if (timeline) items.push(memoryTimelineCard(timeline));
   if (whyUsed) items.push(memoryWhyUsedCard(whyUsed));
   items.push(...state.memoryUseTraces.map((trace) => memoryUseTraceCard(trace)));
   renderList(list, items, t("empty.noMemoryUseTrace"), (item) => item);
@@ -3489,6 +3541,9 @@ function memoryCardCard(card) {
           ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(card.memory_id) }, t("button.history"))
           : null,
         card.memory_id
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryTimeline(card.memory_id) }, t("button.timeline"))
+          : null,
+        card.memory_id
           ? el("button", { className: "secondary-button", onclick: () => explainMemoryWhyUsed(card.memory_id) }, t("button.whyUsed"))
           : null,
         card.memory_id
@@ -3546,7 +3601,12 @@ function memoryWhyUsedCard(payload) {
         el("h3", {}, card.display_text || payload.memory_id || t("button.whyUsed")),
         el("p", {}, payload.explanation || ""),
       ]),
-      el("span", { className: `tag ${statusClass(payload.confidence || "ready")}` }, payload.confidence || "trace"),
+      el("div", { className: "card-actions" }, [
+        el("span", { className: `tag ${statusClass(payload.confidence || "ready")}` }, payload.confidence || "trace"),
+        payload.memory_id
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryTimeline(payload.memory_id) }, t("button.timeline"))
+          : null,
+      ]),
     ]),
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag" }, shortId(payload.memory_id || "")),
@@ -3555,6 +3615,58 @@ function memoryWhyUsedCard(payload) {
       card.memory_scope ? el("span", { className: "tag" }, card.memory_scope) : null,
     ]),
     payload.why_use ? el("p", {}, payload.why_use) : null,
+  ]);
+}
+
+function memoryTimelineCard(payload) {
+  const summary = payload.summary || {};
+  const card = payload.card || {};
+  const entries = payload.entries || [];
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, card.display_text || payload.memory_id || t("button.timeline")),
+        el("p", {}, card.behavior_delta || "Memory Card / lifecycle / use trace / SourceRef"),
+      ]),
+      el("div", { className: "card-actions" }, [
+        el("span", { className: `tag ${statusClass(payload.status || "ready")}` }, payload.status || "ok"),
+        payload.memory_id
+          ? el("button", { className: "secondary-button", onclick: () => explainMemoryWhyUsed(payload.memory_id) }, t("button.whyUsed"))
+          : null,
+        payload.memory_id
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(payload.memory_id) }, t("button.history"))
+          : null,
+      ]),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, shortId(payload.memory_id || "")),
+      summary.memory_type ? el("span", { className: "tag" }, summary.memory_type) : null,
+      summary.memory_scope ? el("span", { className: "tag" }, summary.memory_scope) : null,
+      el("span", { className: "tag" }, `${summary.lifecycle_change_count || 0} lifecycle`),
+      el("span", { className: "tag" }, `${summary.usage_trace_count || 0} usage`),
+      el("span", { className: "tag" }, `${summary.source_anchor_count || 0} sources`),
+    ]),
+    entries.length ? el("div", { className: "source-list" }, entries.map(memoryTimelineEntryRow)) : null,
+    payload.limitations && payload.limitations.length ? el("p", { className: "empty-list" }, payload.limitations[0]) : null,
+  ]);
+}
+
+function memoryTimelineEntryRow(entry) {
+  const evidence = entry.evidence || {};
+  const detail =
+    evidence.query ||
+    evidence.action ||
+    evidence.audit_event_id ||
+    (evidence.source_ref && (evidence.source_ref.source_id || evidence.source_ref.path || evidence.source_ref.uri)) ||
+    entry.confidence ||
+    "";
+  return el("p", {}, [
+    el("strong", {}, entry.title || entry.type || "timeline"),
+    ` · ${entry.occurred_at || ""}`,
+    el("br"),
+    entry.summary || "",
+    detail ? " " : null,
+    detail ? el("span", { className: "tag" }, detail) : null,
   ]);
 }
 

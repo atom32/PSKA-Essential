@@ -511,7 +511,9 @@ remain review candidates and never write durable memory directly. P2-5 adds
 `pska_memory_timeline` and `GET /api/memory/{memory_id}/timeline`, a derived
 ledger view that combines the Memory Card snapshot, lifecycle change audit,
 candidate-use traces, and SourceRef anchors. It does not create another memory
-store or claim hidden model causality. M6 adds
+store or claim hidden model causality. Hermes WebUI exposes it from the Memory
+panel beside use traces, so operators can inspect a card's ledger without
+leaving the daily memory surface. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`
