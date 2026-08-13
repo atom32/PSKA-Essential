@@ -4154,6 +4154,8 @@ function reviewCard(review) {
       el("span", { className: "tag" }, `${t("label.sources")} ${review.source_count ?? sourceRefs.length}`),
       revision.previous_review_id ? el("span", { className: "tag" }, `from ${shortId(revision.previous_review_id)}`) : null,
       revision.next_review_id ? el("span", { className: "tag" }, `to ${shortId(revision.next_review_id)}`) : null,
+      revision.merged_from_review_ids ? el("span", { className: "tag" }, `merged from ${revision.merged_from_review_ids.length}`) : null,
+      revision.merged_into_review_id ? el("span", { className: "tag" }, `merged into ${shortId(revision.merged_into_review_id)}`) : null,
     ]),
     candidate ? memoryCandidatePanel(candidate, candidateEditor) : null,
     sourceRefs.length

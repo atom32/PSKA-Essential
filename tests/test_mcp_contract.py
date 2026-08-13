@@ -888,8 +888,13 @@ class McpContractTests(unittest.TestCase):
 
         self.assertEqual(merged["schema"], "pska.review_merge_candidates.v1")
         self.assertEqual(merged["review"]["status"], "pending")
+        self.assertEqual(merged["review"]["revision"]["merged_from_review_ids"], review_ids)
         self.assertEqual(merged["proposal"]["memory_patch"]["metadata"]["merged_review_ids"], review_ids)
         self.assertEqual(tools["pska_review_get"](review_ids[0])["status"], "needs_edit")
+        self.assertEqual(
+            tools["pska_review_get"](review_ids[0])["revision"]["merged_into_review_id"],
+            merged["review"]["review_id"],
+        )
         self.assertFalse(merged["data_flow"]["writes_memory_directly"])
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):

@@ -624,6 +624,8 @@ Hermes 的默认行为：
 - Done: duplicate/related candidate queue group 已有轻量内联合并编辑器，可在 WebUI 内填写
   合并后的候选文本与 behavior_delta 并创建合并审核；编辑器会展示成员候选的文本、行为变化、
   type/scope/status/review id，避免盲合并。
+- Done: 合并 lineage 已进入 Review API record：merged Review 暴露 `merged_from_review_ids`，
+  被替换的旧 Review 暴露 `merged_into_review_id`，WebUI Review card 会显示对应 tags。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

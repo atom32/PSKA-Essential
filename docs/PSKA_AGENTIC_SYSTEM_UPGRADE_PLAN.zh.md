@@ -305,7 +305,9 @@ merged `memory_candidate` 字段，创建新的 pending Review，合并 source r
 旧候选标为 needs_edit；它不自动 approve/apply/write memory。P2 的第十五块已落地为
 lightweight merge editor：WebUI 在 duplicate/related candidate queue group 内显示合并编辑器，
 展示成员候选的文本/behavior_delta/type/scope/status，并允许填写合并后的候选文本和
-behavior_delta 后创建 merged Review。
+behavior_delta 后创建 merged Review。P2 的第十六块已落地为 merge lineage in Review
+records：merged Review 会暴露 `merged_from_review_ids`，被替换旧 Review 会暴露
+`merged_into_review_id`，WebUI Review card 会显示 merge tags。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

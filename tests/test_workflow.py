@@ -414,6 +414,11 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(len(proposal.memory_patch.source_refs), 2)
         self.assertEqual(service.store.get_review_record(review_ids[0])["status"], "needs_edit")
         self.assertEqual(service.store.get_review_record(review_ids[1])["status"], "needs_edit")
+        self.assertEqual(merged["review"]["revision"]["merged_from_review_ids"], review_ids)
+        self.assertEqual(
+            service.store.get_review_record(review_ids[0])["revision"]["merged_into_review_id"],
+            merged["review"]["review_id"],
+        )
         self.assertFalse(merged["data_flow"]["writes_memory_directly"])
         self.assertEqual(service.memory_search("Architecture.md", {}, 10), [])
         event = next(event for event in service.store.list_audit_events() if event.action == "review.merge_candidates")

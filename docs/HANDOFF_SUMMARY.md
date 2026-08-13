@@ -22,8 +22,10 @@ Last updated: 2026-07-15
 > preserves source refs, and marks replaced pending candidates as `needs_edit`.
 > WebUI now exposes a lightweight inline merge editor on duplicate/related
 > candidate queue groups and shows the member candidate texts/behavior deltas
-> before merge. Next useful product step: a richer batch edit/merge workbench and
-> cross-project semantic clustering.
+> before merge. Review records now expose merge lineage (`merged_from_review_ids`
+> on merged Reviews and `merged_into_review_id` on replaced Reviews), with tags
+> in the WebUI Review card. Next useful product step: a richer batch edit/merge
+> workbench and cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

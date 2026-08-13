@@ -372,15 +372,19 @@ class SQLiteReviewStore:
                 """
                 SELECT target_id, payload_json
                 FROM audit_events
-                WHERE action = ? AND workspace_id = ? AND tenant_id = ?
+                WHERE action IN (?, ?) AND workspace_id = ? AND tenant_id = ?
                 ORDER BY created_at ASC
                 """,
-                ("review.revise", scope["workspace_id"], scope["tenant_id"]),
+                ("review.revise", "review.merge_candidates", scope["workspace_id"], scope["tenant_id"]),
             ).fetchall()
 
         for row in rows:
             event = json.loads(row["payload_json"])
             metadata = event.get("metadata") or {}
+            action = str(event.get("action") or "")
+            if action == "review.merge_candidates":
+                _attach_review_merge_lineage(by_review_id, event, metadata, row)
+                continue
             previous_review_id = _nonempty_str(metadata.get("previous_review_id"))
             previous_proposal_id = _nonempty_str(metadata.get("previous_proposal_id"))
             next_review_id = _nonempty_str(event.get("target_id")) or _nonempty_str(row["target_id"])
@@ -549,9 +553,46 @@ def _nonempty_str(value: Any) -> str:
     return str(value) if value else ""
 
 
-def _merge_revision(record: dict[str, Any], **fields: str) -> None:
+def _merge_revision(record: dict[str, Any], **fields: Any) -> None:
     revision = record.setdefault("revision", {})
     revision.update({key: value for key, value in fields.items() if value})
+
+
+def _attach_review_merge_lineage(
+    by_review_id: dict[str, dict[str, Any]],
+    event: dict[str, Any],
+    metadata: dict[str, Any],
+    row: sqlite3.Row,
+) -> None:
+    merged_review_id = (
+        _nonempty_str(metadata.get("merged_review_id"))
+        or _nonempty_str(event.get("target_id"))
+        or _nonempty_str(row["target_id"])
+    )
+    merged_proposal_id = _nonempty_str(metadata.get("merged_proposal_id"))
+    source_review_ids = [
+        str(review_id)
+        for review_id in metadata.get("review_ids") or []
+        if str(review_id)
+    ]
+    source_proposal_ids = [
+        str(proposal_id)
+        for proposal_id in metadata.get("proposal_ids") or []
+        if str(proposal_id)
+    ]
+    if merged_review_id in by_review_id:
+        _merge_revision(
+            by_review_id[merged_review_id],
+            merged_from_review_ids=source_review_ids,
+            merged_from_proposal_ids=source_proposal_ids,
+        )
+    for review_id in source_review_ids:
+        if review_id in by_review_id:
+            _merge_revision(
+                by_review_id[review_id],
+                merged_into_review_id=merged_review_id,
+                merged_into_proposal_id=merged_proposal_id,
+            )
 
 
 def _review_record_from_row(row: sqlite3.Row) -> dict[str, Any]:

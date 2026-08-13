@@ -545,9 +545,12 @@ path is `pska_review_merge_candidates` /
 `POST /api/reviews/merge-candidates`: it requires caller-supplied merged
 candidate text and behavior_delta, creates a new pending Review with merged
 source refs, marks replaced pending candidates as `needs_edit`, and still does
-not write durable memory directly. The WebUI exposes a lightweight inline merge
-editor on duplicate/related candidate queue groups; it shows member candidate
-texts and behavior deltas before the merged Review is created. M6 adds
+not write durable memory directly. Review records expose merge lineage through
+`merged_from_review_ids` and `merged_into_review_id`, so agents and the WebUI do
+not need to scrape audit events to trace replacements. The WebUI exposes a
+lightweight inline merge editor on duplicate/related candidate queue groups; it
+shows member candidate texts and behavior deltas before the merged Review is
+created. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`
