@@ -590,7 +590,12 @@ Hermes 的默认行为：
   不 approve/apply/write Memory。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
-- Pending: 批量候选去重、从 folder audit 自动生成候选。
+- Done: `pska_source_memory_candidates_from_audit` 与
+  `POST /api/sources/memory-candidates/from-audit` 可以从 folder/source audit 的
+  route candidates 批量生成 governed Memory Card review candidate。
+- Done: 批量候选使用 SourceRef、memory_type、memory_scope、behavior_delta 做确定性去重；
+  已存在 pending/accepted/needs_edit review 时跳过，不直接写 memory。
+- Pending: 近似语义去重、跨项目候选聚类、从 conversation/Eidolia thought 自动生成候选。
 
 ### M6: Agentic Routines
 
@@ -598,6 +603,8 @@ Hermes 的默认行为：
 - Done: audit 输出 root summary、exact duplicate preview、unresolved links、
   unlinked Markdown notes、source-route candidates 和结构化 `next_actions`。
 - Done: audit 不写源文件、不直接写 memory、不需要 embedding。
+- Done: audit 的 source-route `next_action` 已升级为批量创建记忆候选，入口是
+  `pska_source_memory_candidates_from_audit`。
 - Pending: Obsidian frontmatter/tag/comment native write、项目 handoff 摘要自动化、
   后台 wakeup 集成。
 - 所有写动作仍走 PSKA proposal/review/policy。

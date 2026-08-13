@@ -117,6 +117,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/obsidian/moc/proposals"},
     {"method": "POST", "path": "/api/sources/obsidian/moc/{proposal_id}/apply"},
     {"method": "POST", "path": "/api/sources/memory-reviews"},
+    {"method": "POST", "path": "/api/sources/memory-candidates/from-audit"},
     {"method": "POST", "path": "/api/sources/read"},
     {"method": "GET", "path": "/api/memory/cards"},
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
@@ -1041,6 +1042,18 @@ def _handler_class(state: ProductApiState):
                     scope=_optional_dict(payload, "scope"),
                 )
                 self._send_json({"ok": True, **created}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/sources/memory-candidates/from-audit":
+                payload = self._read_json()
+                result = state.service.source_memory_candidates_from_audit(
+                    _optional_dict(payload, "scope"),
+                    audit_limit=int(payload.get("audit_limit") or 20),
+                    candidate_limit=int(payload.get("candidate_limit") or 5),
+                    memory_scope=str(payload.get("memory_scope") or "project"),
+                    dedupe_existing=_bool_value(payload.get("dedupe_existing"), True),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/memory/search":

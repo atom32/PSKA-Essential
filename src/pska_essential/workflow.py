@@ -699,6 +699,116 @@ class WorkflowService:
             "artifact": self.workflow_artifact(run.run_id),
         }
 
+    def source_memory_candidates_from_audit(
+        self,
+        scope: dict[str, Any] | None = None,
+        *,
+        audit_limit: int = 20,
+        candidate_limit: int = 5,
+        memory_scope: str = "project",
+        dedupe_existing: bool = True,
+    ) -> dict[str, Any]:
+        """Promote source-audit route candidates into governed review items."""
+
+        normalized_scope = dict(scope or {})
+        normalized_memory_scope = _normalize_memory_card_scope(memory_scope)
+        limit = max(1, min(int(candidate_limit or 5), 25))
+        audit = self.source_audit_run(normalized_scope, limit=max(int(audit_limit or 20), limit))
+        existing_keys = _existing_source_memory_review_keys(self.store.list_reviews(limit=200)) if dedupe_existing else set()
+        seen_keys: set[str] = set()
+        created: list[dict[str, Any]] = []
+        skipped: list[dict[str, Any]] = []
+        for candidate in audit.get("route_candidates") or []:
+            if len(created) >= limit:
+                break
+            source_ref = candidate.get("source_ref")
+            if source_ref is None:
+                skipped.append(
+                    {
+                        "path": str(candidate.get("path") or ""),
+                        "reason": "missing_source_ref",
+                    }
+                )
+                continue
+            ref = source_ref if isinstance(source_ref, SourceRef) else SourceRef.from_dict(source_ref)
+            text = _source_route_memory_text(candidate)
+            behavior_delta = _source_route_behavior_delta(candidate)
+            key = _source_memory_candidate_key(
+                [ref],
+                memory_type="source_route",
+                memory_scope=normalized_memory_scope,
+                behavior_delta=behavior_delta,
+            )
+            if key in seen_keys:
+                skipped.append(_skipped_source_memory_candidate(candidate, "duplicate_in_audit"))
+                continue
+            seen_keys.add(key)
+            if key in existing_keys:
+                skipped.append(_skipped_source_memory_candidate(candidate, "existing_review"))
+                continue
+            result = self.source_memory_review_create(
+                [ref],
+                text=text,
+                memory_type="source_route",
+                behavior_delta=behavior_delta,
+                memory_scope=normalized_memory_scope,
+                reason="source audit route candidate",
+                confidence=0.82,
+                scope=normalized_scope,
+            )
+            created.append(
+                {
+                    "schema": "pska.source_memory_candidate.v1",
+                    "path": str(candidate.get("path") or ref.path or ""),
+                    "title": str(candidate.get("title") or ref.title or ""),
+                    "memory_type": "source_route",
+                    "memory_scope": normalized_memory_scope,
+                    "text": text,
+                    "behavior_delta": behavior_delta,
+                    "source_refs": to_jsonable([ref]),
+                    "review_id": result["review"]["review_id"],
+                    "proposal_id": result["proposal"]["proposal_id"],
+                    "status": result["review"]["status"],
+                }
+            )
+            existing_keys.add(key)
+        result = {
+            "schema": "pska.source_memory_candidates_from_audit.v1",
+            "status": "created" if created else "empty",
+            "scope": normalized_scope,
+            "audit": audit,
+            "audit_id": audit.get("audit_id") or "",
+            "route_candidate_count": len(audit.get("route_candidates") or []),
+            "created_count": len(created),
+            "skipped_count": len(skipped),
+            "created": created,
+            "skipped": skipped,
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_memory_directly": False,
+                "creates_review": bool(created),
+                "embedding_required": False,
+            },
+        }
+        self.store.add_audit_event(
+            audit_event(
+                "source.memory_candidates.from_audit",
+                "source_audit",
+                result["audit_id"] or "source_audit",
+                scope=normalized_scope,
+                audit_limit=audit_limit,
+                candidate_limit=limit,
+                route_candidate_count=result["route_candidate_count"],
+                created_count=result["created_count"],
+                skipped_count=result["skipped_count"],
+                writes_source_files=False,
+                writes_memory_directly=False,
+                creates_review=bool(created),
+                embedding_required=False,
+            )
+        )
+        return result
+
     def memory_delete_review(self, memory_fact: MemoryFact | dict[str, Any], reason: str = "") -> dict[str, Any]:
         """Govern durable memory deletion from an explicit PSKA memory fact."""
 
@@ -1852,6 +1962,84 @@ def _source_refs_from_input(source_refs: list[SourceRef | dict[str, Any]]) -> li
     for item in source_refs or []:
         refs.append(item if isinstance(item, SourceRef) else SourceRef.from_dict(item))
     return _unique_source_refs(refs)
+
+
+def _source_route_memory_text(candidate: dict[str, Any]) -> str:
+    title = str(candidate.get("title") or candidate.get("path") or "this source").strip()
+    path = str(candidate.get("path") or title).strip()
+    return f"When this workspace asks about {title}, inspect {path} first."
+
+
+def _source_route_behavior_delta(candidate: dict[str, Any]) -> str:
+    path = str(candidate.get("path") or candidate.get("title") or "this source").strip()
+    return f"Route future related questions to {path} before broad search."
+
+
+def _skipped_source_memory_candidate(candidate: dict[str, Any], reason: str) -> dict[str, Any]:
+    ref = candidate.get("source_ref")
+    source_refs = [ref] if ref is not None else []
+    return {
+        "path": str(candidate.get("path") or ""),
+        "title": str(candidate.get("title") or ""),
+        "reason": reason,
+        "source_refs": to_jsonable(source_refs),
+    }
+
+
+def _existing_source_memory_review_keys(reviews: list[dict[str, Any]]) -> set[str]:
+    keys: set[str] = set()
+    for review in reviews:
+        if str(review.get("status") or "") not in {"pending", "accepted", "needs_edit"}:
+            continue
+        proposal = review.get("proposal") or {}
+        memory_patch = proposal.get("memory_patch") or {}
+        metadata = memory_patch.get("metadata") or proposal.get("metadata") or {}
+        memory_type = str(metadata.get("memory_type") or "")
+        behavior_delta = str(metadata.get("behavior_delta") or "")
+        memory_scope = str(metadata.get("memory_scope") or "workspace")
+        source_refs = _source_refs_from_input(memory_patch.get("source_refs") or proposal.get("source_refs") or [])
+        if memory_type and behavior_delta and source_refs:
+            keys.add(
+                _source_memory_candidate_key(
+                    source_refs,
+                    memory_type=memory_type,
+                    memory_scope=memory_scope,
+                    behavior_delta=behavior_delta,
+                )
+            )
+    return keys
+
+
+def _source_memory_candidate_key(
+    source_refs: list[SourceRef],
+    *,
+    memory_type: str,
+    memory_scope: str,
+    behavior_delta: str,
+) -> str:
+    ref_keys = [
+        "|".join(
+            [
+                ref.adapter,
+                ref.dataset_id or "",
+                ref.document_id or "",
+                ref.chunk_id or "",
+                ref.source_id or "",
+                ref.external_id or "",
+                ref.path or "",
+            ]
+        )
+        for ref in source_refs
+    ]
+    return json.dumps(
+        {
+            "source_refs": sorted(ref_keys),
+            "memory_type": _normalize_memory_card_type(memory_type),
+            "memory_scope": _normalize_memory_card_scope(memory_scope),
+            "behavior_delta": " ".join(behavior_delta.strip().lower().split()),
+        },
+        sort_keys=True,
+    )
 
 
 def _memory_runtime_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]:

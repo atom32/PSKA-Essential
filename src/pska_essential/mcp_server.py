@@ -532,6 +532,21 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             scope=scope or {},
         )
 
+    def pska_source_memory_candidates_from_audit(
+        scope: dict[str, Any] | None = None,
+        audit_limit: int = 20,
+        candidate_limit: int = 5,
+        memory_scope: str = "project",
+        dedupe_existing: bool = True,
+    ):
+        return service.source_memory_candidates_from_audit(
+            scope or {},
+            audit_limit=audit_limit,
+            candidate_limit=candidate_limit,
+            memory_scope=memory_scope,
+            dedupe_existing=dedupe_existing,
+        )
+
     def pska_memory_change_from_conversation(
         user_message: str,
         operation: str = "auto",
@@ -1104,6 +1119,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_timeline": pska_memory_timeline,
         "pska_memory_apply": pska_memory_apply,
         "pska_source_memory_review_create": pska_source_memory_review_create,
+        "pska_source_memory_candidates_from_audit": pska_source_memory_candidates_from_audit,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_workflow_memory_attribution": pska_workflow_memory_attribution,

@@ -287,6 +287,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/obsidian/moc/proposals"), contract_routes)
         self.assertIn(("POST", "/api/sources/obsidian/moc/{proposal_id}/apply"), contract_routes)
         self.assertIn(("POST", "/api/sources/memory-reviews"), contract_routes)
+        self.assertIn(("POST", "/api/sources/memory-candidates/from-audit"), contract_routes)
         self.assertIn(("POST", "/api/sources/read"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
@@ -326,6 +327,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_obsidian_moc_propose", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_obsidian_moc_apply", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_memory_review_create", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_memory_candidates_from_audit", source_layer["mcp_tools"]["implemented"])
         self.assertFalse(source_layer["embedding_required"])
         self.assertIn("extraction", source_layer["adapter_slots"])
         self.assertIn("builtin_text", source_layer["adapter_slots"]["extraction"])
@@ -345,6 +347,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_workflow_memory_attribution", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_workflow_memory_suggestions", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_memory_timeline", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_memory_candidates_from_audit", assistant_layer["mcp_tools"]["implemented"])
         search_view = capabilities["capabilities"]["memory"]["search_view"]
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
         self.assertTrue(search_view["default_filters_superseded"])
@@ -782,6 +785,24 @@ class ProductApiTests(unittest.TestCase):
                     "reason": "stable project source route",
                 },
             )
+            memory_candidates = self._post_json(
+                "/api/sources/memory-candidates/from-audit",
+                {
+                    "scope": {"root_ids": [registered["root"]["root_id"]]},
+                    "audit_limit": 10,
+                    "candidate_limit": 5,
+                    "memory_scope": "project",
+                },
+            )
+            memory_candidates_again = self._post_json(
+                "/api/sources/memory-candidates/from-audit",
+                {
+                    "scope": {"root_ids": [registered["root"]["root_id"]]},
+                    "audit_limit": 10,
+                    "candidate_limit": 5,
+                    "memory_scope": "project",
+                },
+            )
             sidecar_entries = [
                 json.loads(line)
                 for line in (root_path / ".pska" / "annotations.jsonl").read_text(encoding="utf-8").splitlines()
@@ -802,7 +823,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(source_audit["audit"]["root_count"], 1)
         self.assertEqual(source_audit["audit"]["duplicate_preview"]["group_count"], 0)
         self.assertIn("Architecture.md", {item["path"] for item in source_audit["audit"]["route_candidates"]})
-        self.assertIn("create_source_route_memory", {item["action"] for item in source_audit["audit"]["next_actions"]})
+        self.assertIn("create_source_memory_candidates_from_audit", {item["action"] for item in source_audit["audit"]["next_actions"]})
         self.assertEqual(queued_audit_job["status"], "queued")
         self.assertEqual(queued_audit_job["source_audit_job"]["request"]["cadence"], "daily")
         self.assertEqual(queued_jobs["source_audit_jobs"][0]["job"]["run_id"], queued_audit_job["job"]["run_id"])
@@ -838,7 +859,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(jarvis["briefing"]["schema"], "pska.jarvis_briefing.v1")
         self.assertEqual(jarvis["briefing"]["agent"]["primary"], "Hermes")
         self.assertEqual(jarvis["briefing"]["source_layer"]["root_count"], 1)
-        self.assertIn("create_source_route_memory", {item["action"] for item in jarvis["briefing"]["next_actions"]})
+        self.assertIn("create_source_memory_candidates_from_audit", {item["action"] for item in jarvis["briefing"]["next_actions"]})
         self.assertFalse(jarvis["briefing"]["data_flow"]["writes_source_files"])
         self.assertEqual(saved["saved_search"]["label"], "Hermes source evidence")
         self.assertEqual(architecture_packet["source_ref"]["adapter"], "obsidian_vault")
@@ -853,6 +874,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(moc_proposal["proposal"]["action"], "obsidian_moc")
         self.assertEqual(moc_proposal["proposal"]["payload"]["link_count"], 1)
         self.assertTrue(moc_apply["applied"]["data_flow"]["writes_source_files"])
+        self.assertEqual(memory_candidates["schema"], "pska.source_memory_candidates_from_audit.v1")
+        self.assertGreaterEqual(memory_candidates["created_count"], 1)
+        self.assertFalse(memory_candidates["data_flow"]["writes_memory_directly"])
+        self.assertEqual(memory_candidates_again["created_count"], 0)
+        self.assertGreaterEqual(memory_candidates_again["skipped_count"], 1)
         self.assertIn("<!-- PSKA:MOC:BEGIN -->", moc_text)
         self.assertIn("[[Architecture|Hermes]]", moc_text)
         self.assertEqual(memory_review["proposal"]["kind"], "memory_patch")

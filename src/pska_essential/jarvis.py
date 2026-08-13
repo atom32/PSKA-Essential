@@ -16,6 +16,7 @@ SOURCE_ACTION_APIS = {
     "pska_source_audit_run": "POST /api/sources/audits/run",
     "pska_source_read": "POST /api/sources/read",
     "pska_source_memory_review_create": "POST /api/sources/memory-reviews",
+    "pska_source_memory_candidates_from_audit": "POST /api/sources/memory-candidates/from-audit",
 }
 
 
@@ -286,7 +287,7 @@ def _briefing_priorities(
                 _priority(
                     "info",
                     "memory",
-                    "create_source_route_memory",
+                    "create_source_memory_candidates_from_audit",
                     "Route-like source entry points found.",
                     f"{len(routes)} file(s) look useful as stable source routes.",
                 )

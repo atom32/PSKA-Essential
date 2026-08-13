@@ -527,7 +527,13 @@ memory directly. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`
-for Hermes/WebUI to follow.
+for Hermes/WebUI to follow. M6-1 adds
+`pska_source_memory_candidates_from_audit` and
+`POST /api/sources/memory-candidates/from-audit`, which turn route-like audit
+findings into deduped governed Memory Card review candidates. It reruns the
+same read-only audit, skips existing pending/accepted candidates with matching
+source refs and behavior deltas, never writes source files, never writes memory
+directly, and does not require embeddings.
 M7 adds `pska_jarvis_briefing`, a Hermes-facing briefing contract that composes
 workspace status, source audit findings, memory/review cues, and prioritized
 `next_actions` into a dashboard-ready payload. It does not generate answer text,
@@ -791,7 +797,9 @@ durable memory through Product API routes.
 The Sources panel is the landing surface for personal source actions from
 Jarvis: `register_source_root` opens registration, `scan_source_root` scans the
 selected root, duplicate/link actions rerun source audit, and source-route
-actions create governed Review candidates through `/api/sources/memory-reviews`.
+actions create governed Review candidates through
+`/api/sources/memory-candidates/from-audit` or the single-candidate
+`/api/sources/memory-reviews` fallback.
 The same panel lets users save a source search and run the explicit
 tag/comment proposal -> sidecar apply path through `/api/sources/tags/*` and
 `/api/sources/comments/*`. Obsidian MOC actions create governed proposals

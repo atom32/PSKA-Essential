@@ -75,11 +75,14 @@ class JarvisBriefingTests(unittest.TestCase):
         priority_codes = {item["code"] for item in briefing["priorities"]}
         self.assertIn("review_duplicates", priority_codes)
         self.assertIn("inspect_unresolved_links", priority_codes)
-        self.assertIn("create_source_route_memory", priority_codes)
+        self.assertIn("create_source_memory_candidates_from_audit", priority_codes)
         actions = {item["action"]: item for item in briefing["next_actions"]}
         self.assertEqual(actions["review_duplicates"]["api"], "POST /api/sources/duplicates")
         self.assertEqual(actions["inspect_unresolved_links"]["tool"], "pska_source_audit_run")
-        self.assertEqual(actions["create_source_route_memory"]["api"], "POST /api/sources/memory-reviews")
+        self.assertEqual(
+            actions["create_source_memory_candidates_from_audit"]["api"],
+            "POST /api/sources/memory-candidates/from-audit",
+        )
         self.assertFalse(briefing["data_flow"]["writes_source_files"])
         self.assertFalse(briefing["data_flow"]["writes_memory_directly"])
         self.assertFalse(briefing["data_flow"]["embedding_required"])

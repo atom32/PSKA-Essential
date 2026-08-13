@@ -309,6 +309,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_obsidian_moc_propose",
             "pska_obsidian_moc_apply",
             "pska_source_memory_review_create",
+            "pska_source_memory_candidates_from_audit",
             "pska_memory_card_list",
             "pska_memory_card_get",
             "pska_agentic_question_start",

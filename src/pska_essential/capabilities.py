@@ -223,6 +223,17 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "creates_review": True,
         "requires_source_refs": True,
     },
+    "pska_source_memory_candidates_from_audit": {
+        "category": "source",
+        "access": "write",
+        "durable": False,
+        "writes_source_registry": False,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "creates_review": True,
+        "dedupe_existing_reviews": True,
+        "embedding_required": False,
+    },
     "pska_agentic_question_start": {
         "category": "ask",
         "access": "write",
@@ -579,6 +590,7 @@ def source_layer_contract() -> dict[str, Any]:
                 "pska_obsidian_moc_propose",
                 "pska_obsidian_moc_apply",
                 "pska_source_memory_review_create",
+                "pska_source_memory_candidates_from_audit",
             ],
             "planned": [],
         },
@@ -652,6 +664,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_workflow_memory_suggestions",
                 "pska_memory_change_from_conversation",
                 "pska_source_memory_review_create",
+                "pska_source_memory_candidates_from_audit",
             ],
             "planned": [
                 "approximate_duplicate_report",

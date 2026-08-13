@@ -492,12 +492,54 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertIn("review_duplicates", next_actions)
         self.assertIn("inspect_unresolved_links", next_actions)
         self.assertIn("inspect_unlinked_notes", next_actions)
-        self.assertIn("create_source_route_memory", next_actions)
+        self.assertIn("create_source_memory_candidates_from_audit", next_actions)
         self.assertFalse(audit["data_flow"]["writes_source_files"])
         self.assertFalse(audit["data_flow"]["writes_memory_directly"])
         self.assertFalse(audit["data_flow"]["embedding_required"])
         actions = {event.action for event in service.store.list_audit_events(limit=40)}
         self.assertIn("source.audit.run", actions)
+
+    def test_mcp_source_memory_candidates_from_audit_creates_deduped_reviews(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "README.md").write_text("# README\n\nStart here for the project.\n", encoding="utf-8")
+            (root_path / "Architecture.md").write_text(
+                "# Architecture\n\nStart here for architecture decisions.\n",
+                encoding="utf-8",
+            )
+            service = build_fake_service()
+            tools = tool_registry(service)
+            root = tools["pska_source_root_register"](str(root_path), label="Project Files")
+            tools["pska_source_scan"](root["root_id"])
+
+            first = tools["pska_source_memory_candidates_from_audit"](
+                {"root_ids": [root["root_id"]]},
+                audit_limit=10,
+                candidate_limit=10,
+                memory_scope="project",
+            )
+            second = tools["pska_source_memory_candidates_from_audit"](
+                {"root_ids": [root["root_id"]]},
+                audit_limit=10,
+                candidate_limit=10,
+                memory_scope="project",
+            )
+
+        self.assertEqual(first["schema"], "pska.source_memory_candidates_from_audit.v1")
+        self.assertEqual(first["created_count"], 2)
+        self.assertEqual(first["skipped_count"], 0)
+        self.assertEqual({item["status"] for item in first["created"]}, {"pending"})
+        self.assertIn("README.md", {item["path"] for item in first["created"]})
+        self.assertIn("Architecture.md", {item["path"] for item in first["created"]})
+        self.assertEqual(second["created_count"], 0)
+        self.assertEqual(second["skipped_count"], 2)
+        self.assertEqual({item["reason"] for item in second["skipped"]}, {"existing_review"})
+        self.assertFalse(first["data_flow"]["writes_source_files"])
+        self.assertFalse(first["data_flow"]["writes_memory_directly"])
+        self.assertTrue(first["data_flow"]["creates_review"])
+        actions = {event.action for event in service.store.list_audit_events(limit=80)}
+        self.assertIn("source.memory_candidates.from_audit", actions)
 
 
 if __name__ == "__main__":

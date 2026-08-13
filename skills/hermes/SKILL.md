@@ -146,8 +146,11 @@ candidate memory, review, and durable export.
   correction was recorded; do not claim the backend fact was rewritten in place.
 - If a user wants an existing transient workflow to become durable memory, call
   `pska_memory_review_from_workflow`; do not write memory directly.
-- If inspected local-folder or Obsidian evidence should affect future behavior,
-  call `pska_source_memory_review_create` with explicit `memory_type`,
+- If source audit reports route-like local-folder or Obsidian entry points,
+  call `pska_source_memory_candidates_from_audit` to create deduped governed
+  Memory Card review candidates.
+- If one inspected source should affect future behavior, call
+  `pska_source_memory_review_create` with explicit `memory_type`,
   `behavior_delta`, and source refs. Prefer `source_route` and `project_state`
   for source-derived memory; do not promote generic file summaries.
 - If an existing durable memory must be changed outside the normal conversation

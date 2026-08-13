@@ -268,11 +268,18 @@ issues、recent use traces 和 timeline/why-used next actions 合并为 Hermes/J
 `GET /api/memory/review-queue` 与 `pska_memory_review_queue` 将 pending/accepted
 Review records、Memory Briefing focus items 和 health issues 分组成只读维护队列；
 WebUI “异常审核”面板新增“记忆维护队列”。它只帮助 triage，不 approve/apply/write
-memory。
+memory。P2 的第八块已落地为 source audit -> memory candidate：
+`POST /api/sources/memory-candidates/from-audit` 与
+`pska_source_memory_candidates_from_audit` 将 folder/vault audit 发现的 route-like
+entry points 批量转换为 governed Memory Card review candidates。它使用 SourceRef、
+memory_type、memory_scope、behavior_delta 做确定性去重，跳过已有
+pending/accepted/needs_edit review；它不写源文件、不直接写 memory、不需要
+embedding。
 
 新增 Product API / MCP：
 
 ```text
+POST /api/sources/memory-candidates/from-audit
 GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
 GET  /api/memory/briefing
@@ -299,6 +306,7 @@ pska_workflow_memory_attribution
 pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
 pska_memory_review_from_workflow
+pska_source_memory_candidates_from_audit
 ```
 
 SQLite memory provider 或 PSKA audit store 需要记录：

@@ -54,6 +54,7 @@ const messages = {
   "toast.sourceExtractionJobQueued": "资料源抽取任务已入队。",
   "toast.sourceExtractionJobCompleted": "资料源抽取任务已运行。",
   "toast.sourceMemoryReviewCreated": "资料源记忆审核已创建。",
+  "toast.sourceMemoryCandidatesCreated": "资料源记忆候选已创建。",
   "toast.sourceSavedSearchCreated": "资料源查询已保存。",
   "toast.sourceSelected": "资料源已选中。",
   "toast.sourceSelectRequired": "请先选择一个资料源。",
@@ -1380,6 +1381,7 @@ function workspaceActionButtonLabel(action) {
     inspect_unresolved_links: t("button.inspect"),
     inspect_unlinked_notes: t("button.source"),
     create_source_route_memory: t("button.review"),
+    create_source_memory_candidates_from_audit: t("button.review"),
     propose_obsidian_moc: t("button.review"),
     register_source_root: t("button.upload"),
     scan_source_root: t("button.track"),
@@ -1502,6 +1504,10 @@ async function openWorkspaceAction(action) {
   }
   if (action.action === "create_source_route_memory") {
     await createSourceMemoryReview(params);
+    return;
+  }
+  if (action.action === "create_source_memory_candidates_from_audit") {
+    await createSourceMemoryCandidatesFromAudit(params);
     return;
   }
   if (action.action === "propose_obsidian_moc") {
@@ -4858,6 +4864,32 @@ async function createSourceMemoryReview(params = {}) {
   await loadAuditEvents(payload.memory_apply ? memoryApplyAction(payload.memory_apply) : "source.memory_review.create");
   openView("review");
   showToast(payload.memory_apply ? memoryApplyToast(payload.memory_apply) : t("toast.sourceMemoryReviewCreated"));
+}
+
+async function createSourceMemoryCandidatesFromAudit(params = {}) {
+  const payload = await api("/api/sources/memory-candidates/from-audit", {
+    method: "POST",
+    body: {
+      scope: params.scope || {},
+      audit_limit: params.audit_limit || 20,
+      candidate_limit: params.candidate_limit || 5,
+      memory_scope: params.memory_scope || "project",
+      dedupe_existing: params.dedupe_existing !== false,
+    },
+  });
+  (payload.created || []).forEach((item) => {
+    if (item.review_id) state.focusReviewId = item.review_id;
+  });
+  await loadReviews();
+  await loadPendingReviews();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("source.memory_candidates.from_audit");
+  openView(payload.created_count ? "review" : "sources");
+  showToast(
+    payload.created_count
+      ? `${t("toast.sourceMemoryCandidatesCreated")} ${payload.created_count} 个；跳过 ${payload.skipped_count || 0} 个。`
+      : "没有新的资料源记忆候选。",
+  );
 }
 
 async function proposeObsidianMoc(params = {}) {

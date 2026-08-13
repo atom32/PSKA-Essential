@@ -48,6 +48,7 @@ EXPECTED_TOOLS = {
     "pska_obsidian_moc_propose",
     "pska_obsidian_moc_apply",
     "pska_source_memory_review_create",
+    "pska_source_memory_candidates_from_audit",
     "pska_policy_get",
     "pska_capabilities_get",
     "pska_migration_manifest",

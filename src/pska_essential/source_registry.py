@@ -2531,19 +2531,16 @@ def _source_audit_next_actions(
                     }
                 )
     if route_candidates:
-        first = route_candidates[0]
         actions.append(
             {
-                "action": "create_source_route_memory",
-                "tool": "pska_source_memory_review_create",
+                "action": "create_source_memory_candidates_from_audit",
+                "tool": "pska_source_memory_candidates_from_audit",
                 "params": {
-                    "source_refs": [to_jsonable(first["source_ref"])],
-                    "memory_type": "source_route",
+                    "scope": scope,
+                    "candidate_limit": min(len(route_candidates), 5),
                     "memory_scope": "project",
-                    "text": f"When this workspace asks about {first['title']}, inspect {first['path']} first.",
-                    "behavior_delta": f"Route future related questions to {first['path']} before broad search.",
                 },
-                "reason": "route-like source entry point found",
+                "reason": f"{len(route_candidates)} route-like source entry point(s) can become governed Memory Card candidates",
             }
         )
     return actions
