@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M26 baseline into
+  engineering plan for upgrading the current PSKA-Essential M28 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -382,6 +382,7 @@ Operational loop tools:
 - `pska_workspace_status`
 - `pska_alpha_readiness`
 - `pska_alpha_trial_guide`
+- `pska_alpha_recovery_plan`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
 - `pska_live_closed_loop_probe`
@@ -730,6 +731,11 @@ M26 adds `pska_alpha_trial_guide` and `GET /api/alpha/trial-guide`, a read-only
 first-run guide that turns the readiness result into guarded phases for
 environment setup, one-scope knowledge trial, sourced Ask, memory review,
 writeback backup checks, and broader-alpha exit criteria.
+M28 adds `pska_alpha_recovery_plan` and `GET /api/alpha/recovery-plan`, a
+read-only backup/restore boundary report for alpha trials. It names PSKA-owned
+SQLite ledgers, user-owned source roots, provider-owned KB/memory state, manual
+restore drills, and writeback preflight checks without creating backups or
+restoring data.
 The bundled WebUI exposes this through Home's Jarvis Bar, a Home Alpha Trial
 Guide card, and a dedicated Sources panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
@@ -775,6 +781,10 @@ verification, and never registers roots, scans files, applies memory, or writes
 source files by itself. Home renders the same guide as phase cards, guardrails,
 and next-action buttons so operators can see the trial path before moving into
 Sources, Ask, Review, or Settings.
+`pska_alpha_recovery_plan` is the companion recovery contract: it separates
+PSKA-local state that can be copied from provider-owned state that must use
+RAG/KG/memory backend tooling, and Home renders its backup objects and writeback
+preflight checks inside the Alpha Trial Guide panel.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live
@@ -836,6 +846,7 @@ Implemented Alpha routes:
 - `GET /api/capabilities`
 - `GET /api/alpha/readiness`
 - `GET /api/alpha/trial-guide`
+- `GET /api/alpha/recovery-plan`
 - `GET /api/migration/manifest`
 - `GET /api/policy`
 - `GET /api/runtime/diagnostics`

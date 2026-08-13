@@ -26,6 +26,7 @@ EXPECTED_TOOLS = {
     "pska_jarvis_briefing",
     "pska_alpha_readiness",
     "pska_alpha_trial_guide",
+    "pska_alpha_recovery_plan",
     "pska_context_retrieve",
     "pska_source_read",
     "pska_source_root_list",
@@ -127,9 +128,10 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m26_alpha_trial_guide")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m28_alpha_recovery_plan")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -709,6 +711,35 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(phases["writeback_pilot"]["status"], "needs_attention")
         self.assertIn("configure_live_providers", actions)
         self.assertIn("keep_writeback_locked", actions)
+        self.assertEqual(actions["keep_writeback_locked"]["tool"], "pska_alpha_recovery_plan")
+
+    def test_alpha_recovery_plan_tool_reports_backup_boundaries(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            tools = tool_registry(build_service_from_env())
+            _ingest_text(
+                tools,
+                temp_dir,
+                name="alpha-recovery.txt",
+                text="Alpha recovery plan should describe backups without executing them.",
+            )
+            result = tools["pska_alpha_recovery_plan"]()
+
+        items = {item["item_id"]: item for item in result["backup_items"]}
+        actions = {action["action"]: action for action in result["next_actions"]}
+        self.assertEqual(result["schema"], "pska.alpha_recovery_plan.v1")
+        self.assertEqual(result["providers"]["kb"], "fake")
+        self.assertIn("review_store", items)
+        self.assertIn("source_registry", items)
+        self.assertIn("user_source_roots", items)
+        self.assertEqual(items["review_store"]["kind"], "sqlite")
+        self.assertEqual(items["user_source_roots"]["owner"], "user")
+        self.assertFalse(result["data_flow"]["creates_backup"])
+        self.assertFalse(result["data_flow"]["restores_data"])
+        self.assertFalse(result["data_flow"]["writes_source_files"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertIn("backup_pska_local_state", actions)
+        self.assertTrue(any(item["operation"] == "obsidian_moc" for item in result["writeback_preflight"]))
 
     def test_memory_review_from_workflow_turns_transient_run_into_review(self):
         service = build_fake_service()

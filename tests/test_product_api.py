@@ -20,6 +20,8 @@ from pska_essential.workflow import build_fake_service
 
 
 class _FakeGateway:
+    backend_name = "fake-kb"
+
     def __init__(self) -> None:
         self.uploaded: list[dict[str, str]] = []
         self.parse_calls: list[dict[str, object]] = []
@@ -254,6 +256,7 @@ class ProductApiTests(unittest.TestCase):
         }
         self.assertIn(("GET", "/api/alpha/readiness"), contract_routes)
         self.assertIn(("GET", "/api/alpha/trial-guide"), contract_routes)
+        self.assertIn(("GET", "/api/alpha/recovery-plan"), contract_routes)
         self.assertIn(("POST", "/api/memory/search"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-candidates"), contract_routes)
@@ -374,10 +377,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m26_alpha_trial_guide")
+        self.assertEqual(assistant_layer["status"], "m28_alpha_recovery_plan")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_alpha_readiness", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_alpha_recovery_plan", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_group_mark", assistant_layer["mcp_tools"]["implemented"])
@@ -403,6 +407,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(tool_policy["pska_alpha_readiness"]["access"], "read")
         self.assertEqual(tool_policy["pska_alpha_trial_guide"]["category"], "status")
         self.assertEqual(tool_policy["pska_alpha_trial_guide"]["access"], "read")
+        self.assertEqual(tool_policy["pska_alpha_recovery_plan"]["category"], "status")
+        self.assertEqual(tool_policy["pska_alpha_recovery_plan"]["access"], "read")
         self.assertEqual(tool_policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
         self.assertTrue(tool_policy["pska_source_search"]["snippet_metadata"])
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
@@ -2281,7 +2287,29 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(phases["writeback_pilot"]["status"], "needs_attention")
         self.assertEqual(phases["broader_alpha"]["status"], "needs_attention")
         self.assertEqual(actions["configure_live_providers"]["api"], "GET /api/runtime/diagnostics")
-        self.assertEqual(actions["keep_writeback_locked"]["tool"], "pska_alpha_trial_guide")
+        self.assertEqual(actions["keep_writeback_locked"]["tool"], "pska_alpha_recovery_plan")
+
+    def test_alpha_recovery_plan_route_reports_backup_and_restore_boundaries(self):
+        plan = self._get_json("/api/alpha/recovery-plan")["alpha_recovery_plan"]
+        items = {item["item_id"]: item for item in plan["backup_items"]}
+        actions = {action["action"]: action for action in plan["next_actions"]}
+
+        self.assertEqual(plan["schema"], "pska.alpha_recovery_plan.v1")
+        self.assertEqual(plan["purpose"], "backup_restore_rehearsal_before_writeback_or_broader_alpha")
+        self.assertEqual(plan["providers"]["kb"], "fake-kb")
+        self.assertEqual(plan["providers"]["review_store"], "SQLiteReviewStore")
+        self.assertIn("review_store", items)
+        self.assertIn("source_registry", items)
+        self.assertIn("user_source_roots", items)
+        self.assertEqual(items["review_store"]["kind"], "sqlite")
+        self.assertEqual(items["source_registry"]["backup_method"], "sqlite_online_backup_or_copy_when_service_stopped")
+        self.assertEqual(items["user_source_roots"]["required_before"], ["native_source_writeback", "obsidian_frontmatter", "obsidian_comment", "obsidian_moc"])
+        self.assertFalse(plan["data_flow"]["creates_backup"])
+        self.assertFalse(plan["data_flow"]["restores_data"])
+        self.assertFalse(plan["data_flow"]["writes_source_files"])
+        self.assertFalse(plan["data_flow"]["writes_memory_directly"])
+        self.assertIn("native_writeback_rollback", [drill["drill_id"] for drill in plan["restore_drills"]])
+        self.assertIn("verify_source_writeback_backup", actions)
 
     def test_turn_context_route_assembles_evidence_and_memory_without_ask(self):
         self.service.memory.facts.append(
@@ -3411,13 +3439,22 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/workspace/status', script)
         self.assertIn('/api/jarvis/briefing', script)
         self.assertIn('/api/alpha/trial-guide', script)
+        self.assertIn('/api/alpha/recovery-plan', script)
         self.assertIn('function loadJarvisBriefing', script)
         self.assertIn('function renderJarvisBar', script)
         self.assertIn('function loadAlphaTrialGuide', script)
         self.assertIn('function renderAlphaTrialGuide', script)
+        self.assertIn('function loadAlphaRecoveryPlan', script)
+        self.assertIn('function alphaRecoveryPanel', script)
+        self.assertIn('backup_pska_local_state', script)
+        self.assertIn('verify_source_writeback_backup', script)
         self.assertIn('id="jarvis-bar"', html)
         self.assertIn('id="alpha-trial-guide"', html)
-        self.assertIn('openView("settings");\n    await loadAlphaTrialGuide({ silent: true });', script)
+        self.assertIn('openView("settings");', script)
+        self.assertIn('await loadAlphaRecoveryPlan({ silent: true });', script)
+        self.assertIn('await loadAlphaTrialGuide({ silent: true });', script)
+        self.assertIn(".alpha-recovery-panel", styles)
+        self.assertIn(".alpha-backup-item", styles)
         self.assertIn('loadWorkspaceStatus', script)
         self.assertIn('workspaceActionCard', script)
         self.assertIn('openWorkspaceAction', script)

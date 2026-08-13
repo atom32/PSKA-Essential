@@ -20,11 +20,11 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M26 alpha trial guide：
+当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M28 alpha recovery plan：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
-| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics、alpha readiness、alpha trial guide | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
+| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics、alpha readiness、alpha trial guide、alpha recovery plan | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
 | File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity`、`media_metadata` 和 optional `image_phash` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
@@ -369,6 +369,12 @@ P2 的第三十一块已落地为 WebUI alpha trial guide surface：
 Home 会加载 `/api/alpha/trial-guide`，展示 trial mode、check/warn/fail 计数、phase cards、
 guardrails 与 next-action buttons。按钮只导航到 Settings、Sources、Ask 或 Review，并复用
 PSKA action dispatch；不会从 Home 自动执行 source scan、source writeback 或 memory apply。
+P2 的第三十二块已落地为 alpha recovery plan：
+`GET /api/alpha/recovery-plan` 与 `pska_alpha_recovery_plan` 会只读列出 PSKA-owned
+SQLite ledgers、user-owned source roots、provider-owned KB/memory state、restore drills、
+writeback preflight 和 operator checklist。它不创建备份、不恢复数据、不导出 provider、
+不写 source files，也不直接写 durable memory；WebUI Home 在 Alpha Trial Guide 内展示
+备份对象和写回前置检查。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -398,12 +404,14 @@ GET  /api/memory/cards/conflicts
 GET  /api/memory/cards/stale
 GET  /api/alpha/readiness
 GET  /api/alpha/trial-guide
+GET  /api/alpha/recovery-plan
 POST /api/memory/cards/{memory_id}/refresh-review
 
 pska_memory_card_list
 pska_memory_card_get
 pska_alpha_readiness
 pska_alpha_trial_guide
+pska_alpha_recovery_plan
 pska_memory_refresh_review
 pska_memory_briefing
 pska_memory_review_queue
@@ -831,6 +839,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add read-only alpha readiness gate for guided trial decisions.
 - [x] Add read-only alpha trial guide for safe first-run owner/guided-alpha trials.
 - [x] Surface alpha trial guide on WebUI Home as guarded phase/action cards.
+- [x] Add read-only alpha recovery plan and surface backup/writeback preflight on Home.
 
 ### P3 Backlog
 

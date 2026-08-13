@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
 
 from pska_essential.capabilities import product_capabilities
 from pska_essential.contracts import to_jsonable
 from pska_essential.diagnostics import build_runtime_diagnostics
+from pska_essential.runtime_context import build_runtime_workspace_context
 from pska_essential.workspace_status import build_workspace_status
 
 
 ALPHA_READINESS_SCHEMA = "pska.alpha_readiness.v1"
 ALPHA_TRIAL_GUIDE_SCHEMA = "pska.alpha_trial_guide.v1"
+ALPHA_RECOVERY_PLAN_SCHEMA = "pska.alpha_recovery_plan.v1"
 
 
 def build_alpha_readiness(
@@ -127,6 +131,43 @@ def build_alpha_trial_guide_from_readiness(readiness: dict[str, Any]) -> dict[st
             "writes_source_files": False,
             "writes_memory_directly": False,
             "executes_trial_steps": False,
+        },
+    }
+
+
+def build_alpha_recovery_plan(*, service: Any, gateway: Any) -> dict[str, Any]:
+    """Return a read-only backup/recovery plan for alpha trials."""
+
+    workspace = build_runtime_workspace_context().to_dict()
+    providers = {
+        "kb": str(getattr(gateway, "backend_name", "") or os.getenv("PSKA_KB_PROVIDER", "") or "unknown"),
+        "retrieval": str(getattr(service.retrieval, "backend_name", "") or os.getenv("PSKA_RETRIEVAL_PROVIDER", "") or "unknown"),
+        "memory": str(getattr(service.memory, "backend_name", "") or os.getenv("PSKA_MEMORY_PROVIDER", "") or "unknown"),
+        "source_registry": str(getattr(getattr(service, "source_registry", None), "backend_name", "") or "unconfigured"),
+        "review_store": type(service.store).__name__,
+    }
+    backup_items = _recovery_backup_items(service=service, providers=providers)
+    restore_drills = _recovery_drills(backup_items=backup_items, providers=providers)
+    warnings = _recovery_warnings(backup_items=backup_items, providers=providers, workspace=workspace)
+    return {
+        "schema": ALPHA_RECOVERY_PLAN_SCHEMA,
+        "status": "needs_rehearsal" if warnings else "ready",
+        "purpose": "backup_restore_rehearsal_before_writeback_or_broader_alpha",
+        "workspace": workspace,
+        "providers": providers,
+        "backup_items": backup_items,
+        "restore_drills": restore_drills,
+        "writeback_preflight": _writeback_preflight(),
+        "operator_checklist": _operator_checklist(warnings),
+        "warnings": warnings,
+        "next_actions": _recovery_next_actions(warnings),
+        "data_flow": {
+            "read_only": True,
+            "creates_backup": False,
+            "restores_data": False,
+            "writes_source_files": False,
+            "writes_memory_directly": False,
+            "executes_provider_export": False,
         },
     }
 
@@ -325,6 +366,338 @@ def _check(code: str, status: str, message: str, *, required: bool, evidence: di
     }
 
 
+def _recovery_backup_items(*, service: Any, providers: dict[str, str]) -> list[dict[str, Any]]:
+    items = [
+        _sqlite_backup_item(
+            item_id="review_store",
+            label="Review, workflow, and audit ledger",
+            path=getattr(service.store, "path", ""),
+            owner="pska",
+            reason="Contains workflows, proposals, Review decisions, memory apply records, and audit events.",
+        ),
+    ]
+    source_registry = getattr(service, "source_registry", None)
+    if source_registry is not None:
+        items.append(
+            _sqlite_backup_item(
+                item_id="source_registry",
+                label="Personal source registry and rebuildable FTS index",
+                path=getattr(source_registry, "path", ""),
+                owner="pska",
+                reason="Contains registered roots, indexed metadata, source sections, saved searches, collections, duplicate review state, and sidecar proposal metadata.",
+                rebuildable=True,
+            )
+        )
+    memory_path = getattr(service.memory, "path", "")
+    if providers["memory"] == "sqlite" or memory_path:
+        items.append(
+            _sqlite_backup_item(
+                item_id="sqlite_memory",
+                label="SQLite durable memory provider",
+                path=memory_path or os.getenv("PSKA_MEMORY_DB", ""),
+                owner="pska",
+                reason="Contains governed durable Memory Cards when PSKA_MEMORY_PROVIDER=sqlite.",
+            )
+        )
+    else:
+        items.append(
+            _external_backup_item(
+                item_id="external_memory_provider",
+                label=f"{providers['memory']} memory provider",
+                owner="provider",
+                reason="Durable memory lives outside PSKA local SQLite; use the provider's export, snapshot, or backup process.",
+                required_before=["durable_memory_apply", "memory_update", "memory_delete"],
+            )
+        )
+    items.append(
+        _external_backup_item(
+            item_id="kb_provider",
+            label=f"{providers['kb']} knowledge base provider",
+            owner="provider",
+            reason="Datasets, chunks, embeddings, and provider document records are owned by the KB backend; PSKA can re-upload known source files but does not snapshot provider internals.",
+            required_before=["dataset_delete", "broad_reingest", "broader_alpha_invite"],
+        )
+    )
+    items.append(
+        {
+            "item_id": "user_source_roots",
+            "label": "User-owned source folders and Obsidian vaults",
+            "owner": "user",
+            "kind": "filesystem_source",
+            "path": "",
+            "exists": None,
+            "backup_method": "user_filesystem_backup_or_vcs",
+            "restore_method": "restore original files or vault from user backup, then rerun PSKA source scan",
+            "rebuildable_from_source": False,
+            "required_before": ["native_source_writeback", "obsidian_frontmatter", "obsidian_comment", "obsidian_moc"],
+            "reason": "These files are canonical user data. PSKA source indices are rebuildable, but native writeback modifies the user's files.",
+        }
+    )
+    return items
+
+
+def _sqlite_backup_item(
+    *,
+    item_id: str,
+    label: str,
+    path: str,
+    owner: str,
+    reason: str,
+    rebuildable: bool = False,
+) -> dict[str, Any]:
+    normalized = str(path or "")
+    return {
+        "item_id": item_id,
+        "label": label,
+        "owner": owner,
+        "kind": "sqlite",
+        "path": normalized,
+        "exists": _path_exists(normalized),
+        "backup_method": "sqlite_online_backup_or_copy_when_service_stopped",
+        "restore_method": "stop PSKA, restore the sqlite file, restart Product API, rerun diagnostics",
+        "rebuildable_from_source": rebuildable,
+        "required_before": ["guided_alpha", "writeback_pilot", "durable_memory_apply"],
+        "reason": reason,
+    }
+
+
+def _external_backup_item(
+    *,
+    item_id: str,
+    label: str,
+    owner: str,
+    reason: str,
+    required_before: list[str],
+) -> dict[str, Any]:
+    return {
+        "item_id": item_id,
+        "label": label,
+        "owner": owner,
+        "kind": "external_provider",
+        "path": "",
+        "exists": None,
+        "backup_method": "provider_export_snapshot_or_documented_restore",
+        "restore_method": "restore through provider tooling, then rerun PSKA readiness and probes",
+        "rebuildable_from_source": False,
+        "required_before": required_before,
+        "reason": reason,
+    }
+
+
+def _path_exists(path: str) -> bool | None:
+    if not path:
+        return False
+    if path == ":memory:":
+        return False
+    return Path(path).exists()
+
+
+def _recovery_drills(*, backup_items: list[dict[str, Any]], providers: dict[str, str]) -> list[dict[str, Any]]:
+    drills = [
+        {
+            "drill_id": "copy_pska_local_state",
+            "status": "manual",
+            "goal": "Verify PSKA-owned ledgers can be backed up before alpha work.",
+            "covers": [
+                item["item_id"]
+                for item in backup_items
+                if item.get("owner") == "pska" and item.get("kind") == "sqlite"
+            ],
+            "steps": [
+                "Stop Product API or use SQLite online backup.",
+                "Copy review/source/memory SQLite files that exist.",
+                "Restart Product API and rerun alpha readiness.",
+            ],
+        },
+        {
+            "drill_id": "restore_pska_local_state",
+            "status": "manual",
+            "goal": "Prove a copied PSKA ledger can be restored without touching source files.",
+            "covers": ["review_store", "source_registry", "sqlite_memory"],
+            "steps": [
+                "Start from a copy in a throwaway workspace.",
+                "Restore SQLite files to the configured paths.",
+                "Run workspace status, memory health, and trace query spot checks.",
+            ],
+        },
+        {
+            "drill_id": "provider_restore_boundary",
+            "status": "provider_owned",
+            "goal": "Confirm external KB and memory providers have their own backup path.",
+            "covers": ["kb_provider", "external_memory_provider"],
+            "steps": [
+                f"Use {providers['kb']} tooling for dataset/document/chunk backup when applicable.",
+                f"Use {providers['memory']} tooling for durable memory backup when applicable.",
+                "Rerun PSKA diagnostics after provider restore.",
+            ],
+        },
+        {
+            "drill_id": "native_writeback_rollback",
+            "status": "manual",
+            "goal": "Confirm a source-root backup can reverse native tag/comment/MOC writes.",
+            "covers": ["user_source_roots"],
+            "steps": [
+                "Create a file-level backup or VCS checkpoint outside PSKA.",
+                "Apply one explicit writeback proposal in a small test folder.",
+                "Restore the file from backup and rerun source scan.",
+            ],
+        },
+    ]
+    return drills
+
+
+def _recovery_warnings(
+    *,
+    backup_items: list[dict[str, Any]],
+    providers: dict[str, str],
+    workspace: dict[str, Any],
+) -> list[dict[str, Any]]:
+    warnings: list[dict[str, Any]] = []
+    for item in backup_items:
+        if item.get("owner") == "pska" and item.get("kind") == "sqlite" and item.get("exists") is False:
+            warnings.append(
+                {
+                    "code": f"{item['item_id']}_not_materialized",
+                    "severity": "warning",
+                    "message": f"{item['label']} does not exist on disk yet; create state or configure a persistent path before relying on restore.",
+                    "item_id": item["item_id"],
+                }
+            )
+    if providers["memory"] not in {"sqlite", "fake"}:
+        warnings.append(
+            {
+                "code": "external_memory_backup_provider_owned",
+                "severity": "warning",
+                "message": "Memory provider backup is outside PSKA; rehearse provider export/restore before durable memory changes.",
+                "item_id": "external_memory_provider",
+            }
+        )
+    if providers["kb"] not in {"fake", "unknown"}:
+        warnings.append(
+            {
+                "code": "kb_backup_provider_owned",
+                "severity": "warning",
+                "message": "KB datasets/chunks/embeddings are provider-owned; PSKA can describe scope but cannot snapshot provider internals.",
+                "item_id": "kb_provider",
+            }
+        )
+    if not workspace.get("workspace_configured"):
+        warnings.append(
+            {
+                "code": "workspace_identity_default",
+                "severity": "warning",
+                "message": "Workspace identity is still default; set PSKA_WORKSPACE_ID before multi-user or long-lived alpha trials.",
+                "item_id": "workspace",
+            }
+        )
+    return warnings
+
+
+def _writeback_preflight() -> list[dict[str, Any]]:
+    return [
+        {
+            "operation": "sidecar_annotation",
+            "minimum_backup": "PSKA source registry backup",
+            "human_confirmation": "confirm sidecar target and proposal diff",
+            "allowed_first_trial": True,
+        },
+        {
+            "operation": "obsidian_frontmatter_tags",
+            "minimum_backup": "Obsidian vault file backup or VCS checkpoint",
+            "human_confirmation": "confirm native write target and changed file list",
+            "allowed_first_trial": False,
+        },
+        {
+            "operation": "obsidian_markdown_comment",
+            "minimum_backup": "Obsidian vault file backup or VCS checkpoint",
+            "human_confirmation": "confirm inserted PSKA Comment block",
+            "allowed_first_trial": False,
+        },
+        {
+            "operation": "obsidian_moc",
+            "minimum_backup": "Obsidian vault file backup or VCS checkpoint",
+            "human_confirmation": "confirm generated MOC marker block",
+            "allowed_first_trial": False,
+        },
+        {
+            "operation": "duplicate_cleanup",
+            "minimum_backup": "not supported by PSKA alpha",
+            "human_confirmation": "cleanup remains proposal-only",
+            "allowed_first_trial": False,
+        },
+    ]
+
+
+def _operator_checklist(warnings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "item": "persistent_local_state",
+            "status": "needs_attention" if any("not_materialized" in str(w.get("code")) for w in warnings) else "ready",
+            "message": "Use persistent SQLite paths for review, source registry, and SQLite memory before relying on restore.",
+        },
+        {
+            "item": "provider_backup_documented",
+            "status": "needs_attention" if any("provider_owned" in str(w.get("code")) for w in warnings) else "ready",
+            "message": "Document provider-side backup/export for KB and non-SQLite memory providers.",
+        },
+        {
+            "item": "source_writeback_backup",
+            "status": "needs_attention",
+            "message": "Before native source writeback, create a user-visible folder/vault backup or VCS checkpoint.",
+        },
+        {
+            "item": "restore_rehearsal",
+            "status": "needs_attention",
+            "message": "Rehearse one restore in a throwaway workspace before inviting broader alpha users.",
+        },
+    ]
+
+
+def _recovery_next_actions(warnings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    actions = [
+        {
+            "action": "backup_pska_local_state",
+            "label": "Back up PSKA local state",
+            "reason": "Copy review/source/memory SQLite files or configure persistent paths before trial.",
+            "tool": "pska_alpha_recovery_plan",
+            "api": "GET /api/alpha/recovery-plan",
+            "view": "settings",
+            "params": {"drill_id": "copy_pska_local_state"},
+        },
+        {
+            "action": "document_provider_backups",
+            "label": "Document provider backups",
+            "reason": "KB and external memory providers need their own export/snapshot process.",
+            "tool": "pska_alpha_recovery_plan",
+            "api": "GET /api/alpha/recovery-plan",
+            "view": "settings",
+            "params": {"drill_id": "provider_restore_boundary"},
+        },
+        {
+            "action": "verify_source_writeback_backup",
+            "label": "Verify source writeback backup",
+            "reason": "Native source writes require a folder/vault backup or VCS checkpoint.",
+            "tool": "pska_alpha_recovery_plan",
+            "api": "GET /api/alpha/recovery-plan",
+            "view": "sources",
+            "params": {"drill_id": "native_writeback_rollback"},
+        },
+    ]
+    if not warnings:
+        actions.append(
+            {
+                "action": "rerun_alpha_trial_guide",
+                "label": "Rerun alpha trial guide",
+                "reason": "Recovery plan has no warnings; return to the guided trial path.",
+                "tool": "pska_alpha_trial_guide",
+                "api": "GET /api/alpha/trial-guide",
+                "view": "home",
+                "params": {},
+            }
+        )
+    return actions
+
+
 def _trial_mode(status: str) -> str:
     return {
         "alpha_ready": "guided_alpha",
@@ -394,7 +767,7 @@ def _trial_phases(*, checks: dict[str, dict[str, Any]], readiness_status: str) -
             steps=[
                 _trial_step("propose_tag", "Create a tag proposal before source writeback", "pska_source_tag_propose", "POST /api/sources/tags/proposals", "sources"),
                 _trial_step("prefer_sidecar", "Apply sidecar annotations before native writes", "pska_source_tag_apply", "POST /api/sources/tags/{proposal_id}/apply", "sources"),
-                _trial_step("native_write_after_backup", "Use native Obsidian writeback only after backup verification", "pska_obsidian_moc_apply", "POST /api/sources/obsidian/moc/{proposal_id}/apply", "sources"),
+                _trial_step("native_write_after_backup", "Use native Obsidian writeback only after backup verification", "pska_alpha_recovery_plan", "GET /api/alpha/recovery-plan", "settings"),
             ],
         ),
         _trial_phase(
@@ -413,7 +786,7 @@ def _trial_phases(*, checks: dict[str, dict[str, Any]], readiness_status: str) -
             default_status=_broader_alpha_phase_status(readiness_status),
             steps=[
                 _trial_step("run_component_check", "Run component acceptance check", "pska_component_check", "POST /api/runtime/component-check", "settings"),
-                _trial_step("rehearse_recovery", "Rehearse backup, restore, and rollback steps", "pska_alpha_trial_guide", "GET /api/alpha/trial-guide", "settings"),
+                _trial_step("rehearse_recovery", "Rehearse backup, restore, and rollback steps", "pska_alpha_recovery_plan", "GET /api/alpha/recovery-plan", "settings"),
                 _trial_step("rerun_readiness", "Rerun alpha readiness before inviting users", "pska_alpha_readiness", "GET /api/alpha/readiness", "settings"),
             ],
         ),
@@ -516,7 +889,7 @@ def _trial_next_actions(*, readiness: dict[str, Any], phases: list[dict[str, Any
         "knowledge_scope": ("prepare_first_scope", "Prepare first knowledge scope", "pska_workspace_status", "GET /api/workspace/status", "kb"),
         "first_read_only_run": ("run_first_read_only_ask", "Run first read-only Ask", "pska_agentic_question_start", "POST /api/ask", "ask"),
         "memory_review": ("review_memory_before_apply", "Review memory queue", "pska_memory_review_queue", "GET /api/memory/review-queue", "review"),
-        "writeback_pilot": ("keep_writeback_locked", "Keep writeback locked until backup is verified", "pska_alpha_trial_guide", "GET /api/alpha/trial-guide", "settings"),
+        "writeback_pilot": ("keep_writeback_locked", "Keep writeback locked until backup is verified", "pska_alpha_recovery_plan", "GET /api/alpha/recovery-plan", "settings"),
         "broader_alpha": ("close_alpha_warnings", "Close readiness warnings before broader alpha", "pska_alpha_readiness", "GET /api/alpha/readiness", "settings"),
     }
     seen = {str(action.get("action") or "") for action in actions}

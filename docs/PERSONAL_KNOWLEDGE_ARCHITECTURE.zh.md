@@ -678,6 +678,10 @@ Hermes 的默认行为：
   phases 与 exit criteria，但不自动扫描、写源文件或 apply durable memory。
 - Done: WebUI Home 已展示 Alpha Trial Guide，包含 trial mode、阶段卡、guardrails 和
   next actions；按钮只导航到 Settings/Sources/Ask/Review，不从向导直接执行危险写入。
+- Done: Alpha recovery plan 已接入；`pska_alpha_recovery_plan` 与
+  `GET /api/alpha/recovery-plan` 会只读列出 PSKA 本地 SQLite 状态、用户 source roots、
+  provider-owned KB/memory state、restore drills 和 writeback preflight，并在 WebUI Home
+  的 Alpha Trial Guide 内显示备份/写回边界。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

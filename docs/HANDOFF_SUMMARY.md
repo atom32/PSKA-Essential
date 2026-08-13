@@ -165,6 +165,15 @@ Last updated: 2026-07-15
 > to Settings, Sources, Ask, or Review and reuse the existing action dispatcher;
 > they do not execute source scans, source writeback, or durable memory apply
 > from the guide surface.
+>
+> Update, 2026-08-14: Alpha recovery plan is implemented as M28.
+> `GET /api/alpha/recovery-plan` and `pska_alpha_recovery_plan` expose a
+> read-only backup/restore boundary report: PSKA-owned SQLite ledgers,
+> user-owned source roots, provider-owned KB/memory state, restore drills,
+> writeback preflight checks, operator checklist, and next actions. It does not
+> create backups, restore data, export providers, write source files, or write
+> durable memory. WebUI Home renders backup objects and writeback preflight
+> inside the Alpha Trial Guide panel.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.
@@ -719,6 +728,7 @@ pska_capabilities_get
 pska_workspace_status
 pska_alpha_readiness
 pska_alpha_trial_guide
+pska_alpha_recovery_plan
 pska_runtime_diagnostics
 pska_workflow_list
 pska_workflow_artifact

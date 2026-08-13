@@ -34,6 +34,10 @@ candidate memory, review, and durable export.
   run a guided alpha. Treat it as a read-only first-run checklist: it can name
   phases, guardrails, tools, views, and exit criteria, but it does not execute
   registration, scans, source writeback, or durable memory apply.
+- Use `pska_alpha_recovery_plan` before recommending native source writeback,
+  durable memory apply/update/delete rehearsals, or broader alpha invitations.
+  Treat it as a read-only backup/restore boundary report; it does not create
+  backups, restore data, export providers, or write source files.
 - Use `pska_capabilities_get` as the stable PSKA operation capability contract
   before durable memory apply, update, or delete work. If an operation is not
   supported, report that PSKA cannot perform it with the current memory adapter.

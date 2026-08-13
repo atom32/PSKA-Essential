@@ -46,6 +46,7 @@ const messages = {
   "toast.memoryTimelineLoaded": "记忆时间线已加载。",
   "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
   "toast.alphaTrialGuideLoaded": "Alpha 试用向导已加载。",
+  "toast.alphaRecoveryPlanLoaded": "Alpha 恢复计划已加载。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
   "toast.loadDatasetBeforeParse": "请先加载知识库，再解析文档。",
@@ -108,6 +109,7 @@ const messages = {
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
   "empty.noAlphaTrialGuide": "Alpha 试用向导尚未加载。",
+  "empty.noAlphaRecoveryPlan": "恢复计划尚未加载。",
   "empty.sourcesUnavailable": "资料源不可用。",
   "empty.sources": "尚未加载资料源。",
   "empty.noSourceAudit": "尚未运行资料源审计。",
@@ -259,6 +261,9 @@ const state = {
   alphaTrialGuide: null,
   alphaTrialGuideError: "",
   alphaTrialGuideLoading: false,
+  alphaRecoveryPlan: null,
+  alphaRecoveryPlanError: "",
+  alphaRecoveryPlanLoading: false,
   sourceRoots: [],
   sourceRootError: "",
   sourceAudit: null,
@@ -570,6 +575,7 @@ async function refreshAll() {
     loadDiagnostics(),
     loadWorkspaceStatus(),
     loadAlphaTrialGuide({ silent: true }),
+    loadAlphaRecoveryPlan({ silent: true }),
     loadSourceRoots(),
     loadSourceCollections({ silent: true }),
     loadSourceDuplicateReview(),
@@ -703,6 +709,24 @@ async function loadAlphaTrialGuide(options = {}) {
     if (!options.silent) showToast(error.message);
   } finally {
     state.alphaTrialGuideLoading = false;
+    renderAlphaTrialGuide();
+  }
+}
+
+async function loadAlphaRecoveryPlan(options = {}) {
+  state.alphaRecoveryPlanLoading = true;
+  renderAlphaTrialGuide();
+  try {
+    const payload = await api("/api/alpha/recovery-plan");
+    state.alphaRecoveryPlan = payload.alpha_recovery_plan || null;
+    state.alphaRecoveryPlanError = "";
+    if (!options.silent) showToast(t("toast.alphaRecoveryPlanLoaded"));
+  } catch (error) {
+    state.alphaRecoveryPlan = null;
+    state.alphaRecoveryPlanError = error.message;
+    if (!options.silent) showToast(error.message);
+  } finally {
+    state.alphaRecoveryPlanLoading = false;
     renderAlphaTrialGuide();
   }
 }
@@ -1589,6 +1613,7 @@ function renderAlphaTrialGuide() {
   const phases = (guide.phases || []).slice(0, 6);
   const guardrails = (guide.guardrails || []).slice(0, 4);
   const actions = (guide.next_actions || []).slice(0, 4);
+  const recovery = state.alphaRecoveryPlan;
   container.append(
     el("div", { className: "alpha-guide-header" }, [
       el("div", {}, [
@@ -1623,6 +1648,7 @@ function renderAlphaTrialGuide() {
       ]),
     ]),
   );
+  container.append(alphaRecoveryPanel(recovery));
   if (actions.length) {
     container.append(
       el("div", { className: "alpha-actions" }, [
@@ -1631,6 +1657,89 @@ function renderAlphaTrialGuide() {
       ]),
     );
   }
+}
+
+function alphaRecoveryPanel(plan) {
+  if (state.alphaRecoveryPlanLoading && !plan) {
+    return el("div", { className: "alpha-recovery-panel empty-list" }, "恢复计划正在加载。");
+  }
+  if (state.alphaRecoveryPlanError) {
+    return el("div", { className: "alpha-recovery-panel" }, [
+      el("div", { className: "alpha-recovery-header" }, [
+        el("div", {}, [
+          el("h3", {}, "备份与恢复"),
+          el("p", {}, state.alphaRecoveryPlanError),
+        ]),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAlphaRecoveryPlan() }, "刷新恢复计划"),
+      ]),
+    ]);
+  }
+  if (!plan) return el("div", { className: "alpha-recovery-panel empty-list" }, t("empty.noAlphaRecoveryPlan"));
+  const items = (plan.backup_items || []).slice(0, 4);
+  const writeback = (plan.writeback_preflight || []).slice(0, 3);
+  const actions = (plan.next_actions || []).slice(0, 3);
+  return el("div", { className: "alpha-recovery-panel" }, [
+    el("div", { className: "alpha-recovery-header" }, [
+      el("div", {}, [
+        el("h3", {}, "备份与恢复"),
+        el("p", {}, "写回或邀请他人之前，先确认哪些状态可备份、哪些必须到外部 provider 处理。"),
+      ]),
+      el("div", { className: "meta-row" }, [
+        el("span", { className: `tag ${statusClass(plan.status)}` }, readableName(plan.status || "unknown")),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAlphaRecoveryPlan() }, "刷新恢复计划"),
+      ]),
+    ]),
+    el("div", { className: "alpha-recovery-grid" }, [
+      el("div", {}, [
+        el("h3", {}, "备份对象"),
+        el("div", { className: "alpha-backup-list" }, items.map(alphaBackupItem)),
+      ]),
+      el("div", {}, [
+        el("h3", {}, "写回前置"),
+        el("div", { className: "alpha-backup-list" }, writeback.map(alphaWritebackItem)),
+      ]),
+    ]),
+    actions.length
+      ? el("div", { className: "alpha-actions" }, [
+          el("h3", {}, "恢复动作"),
+          el("div", { className: "jarvis-actions" }, actions.map(jarvisActionRow)),
+        ])
+      : null,
+  ]);
+}
+
+function alphaBackupItem(item) {
+  return el("article", { className: "alpha-backup-item" }, [
+    el("header", {}, [
+      el("strong", {}, item.label || readableName(item.item_id || "backup")),
+      el("span", { className: `tag ${backupItemClass(item)}` }, item.owner || "unknown"),
+    ]),
+    el("p", {}, item.reason || ""),
+    el("div", { className: "meta-row" }, [
+      item.kind ? el("span", { className: "tag" }, item.kind) : null,
+      item.path ? el("span", { className: "tag" }, shortPath(item.path)) : null,
+      item.exists === false ? el("span", { className: "tag pending" }, "not materialized") : null,
+    ]),
+  ]);
+}
+
+function alphaWritebackItem(item) {
+  return el("article", { className: "alpha-backup-item" }, [
+    el("header", {}, [
+      el("strong", {}, readableName(item.operation || "writeback")),
+      el("span", { className: `tag ${item.allowed_first_trial ? "ready" : "pending"}` }, item.allowed_first_trial ? "first trial" : "backup first"),
+    ]),
+    el("p", {}, item.minimum_backup || ""),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, item.human_confirmation || "confirm"),
+    ]),
+  ]);
+}
+
+function backupItemClass(item) {
+  if (item.owner === "pska" && item.exists !== false) return "ready";
+  if (item.owner === "provider" || item.exists === false) return "pending";
+  return "";
 }
 
 function alphaGuideLead(guide) {
@@ -1785,10 +1894,25 @@ async function openWorkspaceAction(action) {
       "run_guided_alpha_checklist",
       "keep_writeback_locked",
       "close_alpha_warnings",
+      "backup_pska_local_state",
+      "document_provider_backups",
     ].includes(action.action)
   ) {
     openView("settings");
+    await loadAlphaRecoveryPlan({ silent: true });
     await loadAlphaTrialGuide({ silent: true });
+    return;
+  }
+  if (action.action === "verify_source_writeback_backup") {
+    openView("sources");
+    await loadAlphaRecoveryPlan({ silent: true });
+    showToast(action.reason || "请先确认源文件夹或 vault 备份。");
+    return;
+  }
+  if (action.action === "rerun_alpha_trial_guide") {
+    openView("home");
+    await loadAlphaTrialGuide({ silent: true });
+    await loadAlphaRecoveryPlan({ silent: true });
     return;
   }
   if (["prepare_first_scope", "prepare_knowledge_scope"].includes(action.action)) {
@@ -6404,6 +6528,15 @@ function shortId(value) {
   if (!text) return "none";
   if (text.length <= 12) return text;
   return `${text.slice(0, 6)}...${text.slice(-4)}`;
+}
+
+function shortPath(value) {
+  const text = String(value || "");
+  if (!text) return "";
+  if (text === ":memory:") return text;
+  const parts = text.split("/");
+  if (parts.length <= 3) return text;
+  return `.../${parts.slice(-2).join("/")}`;
 }
 
 function readableName(value) {

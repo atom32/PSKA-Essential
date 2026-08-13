@@ -380,6 +380,61 @@ h3 {
   padding-top: 14px;
 }
 
+.alpha-recovery-panel {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.alpha-recovery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.alpha-recovery-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.alpha-recovery-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.alpha-recovery-grid h3 {
+  margin-bottom: 10px;
+}
+
+.alpha-backup-list {
+  display: grid;
+  gap: 8px;
+}
+
+.alpha-backup-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.alpha-backup-item header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.alpha-backup-item p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 6px 0 8px;
+}
+
 .jarvis-priorities,
 .jarvis-actions {
   display: grid;
@@ -1127,6 +1182,7 @@ pre {
   .jarvis-stats,
   .alpha-guide-stats,
   .alpha-guide-sections,
+  .alpha-recovery-grid,
   .work-band,
   .two-column,
   .sources-layout,
@@ -1143,6 +1199,7 @@ pre {
   .topbar,
   .jarvis-header,
   .alpha-guide-header,
+  .alpha-recovery-header,
   .panel-header {
     display: grid;
   }
