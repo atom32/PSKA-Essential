@@ -20,11 +20,11 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M25 alpha readiness gate：
+当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M26 alpha trial guide：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
-| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics、alpha readiness | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
+| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics、alpha readiness、alpha trial guide | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
 | File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity`、`media_metadata` 和 optional `image_phash` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
@@ -359,6 +359,12 @@ P2 的第二十九块已落地为 alpha readiness gate：
 workspace status、source safety、memory governance、KB readiness、memory health 与 UX 缺口，
 输出 `alpha_ready` / `technical_alpha` / `not_ready` 级别、required failures 和 next actions；
 它不运行 closed-loop probe、不写 source、不写 durable memory。
+P2 的第三十块已落地为 alpha trial guide：
+`GET /api/alpha/trial-guide` 与 `pska_alpha_trial_guide` 会把 readiness verdict 转译成
+只读优先的首次试用路线：runtime/provider/workspace 配置、一组小范围 knowledge scope、
+sourced Ask、Memory Review、写回前备份检查，以及 broader-alpha exit criteria。
+它返回 phases、guardrails、first-run scope、next actions 和 exit criteria，但不会自动注册 root、
+扫描文件、apply durable memory 或写 source files。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -387,11 +393,13 @@ GET  /api/memory/cards/suggestions
 GET  /api/memory/cards/conflicts
 GET  /api/memory/cards/stale
 GET  /api/alpha/readiness
+GET  /api/alpha/trial-guide
 POST /api/memory/cards/{memory_id}/refresh-review
 
 pska_memory_card_list
 pska_memory_card_get
 pska_alpha_readiness
+pska_alpha_trial_guide
 pska_memory_refresh_review
 pska_memory_briefing
 pska_memory_review_queue
@@ -817,6 +825,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Surface existing Memory Card refresh reviews in Memory Review Queue and Jarvis briefing.
 - [x] Add WebUI refresh-review workbench card with previous/proposed text comparison.
 - [x] Add read-only alpha readiness gate for guided trial decisions.
+- [x] Add read-only alpha trial guide for safe first-run owner/guided-alpha trials.
 
 ### P3 Backlog
 

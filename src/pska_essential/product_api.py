@@ -20,7 +20,7 @@ from pska_essential.agentic_loop import (
     run_digest_scope,
     run_agentic_question_with_readiness,
 )
-from pska_essential.alpha_readiness import build_alpha_readiness
+from pska_essential.alpha_readiness import build_alpha_readiness, build_alpha_trial_guide
 from pska_essential.capabilities import product_capabilities
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
@@ -85,6 +85,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/health"},
     {"method": "GET", "path": "/api/capabilities"},
     {"method": "GET", "path": "/api/alpha/readiness"},
+    {"method": "GET", "path": "/api/alpha/trial-guide"},
     {"method": "GET", "path": "/api/workspace/status"},
     {"method": "POST", "path": "/api/jarvis/briefing"},
     {"method": "GET", "path": "/api/provider/jobs"},
@@ -323,6 +324,19 @@ def _handler_class(state: ProductApiState):
                     workflow_limit=_int_param(query.get("workflow_limit"), 50),
                 )
                 self._send_json({"ok": True, "alpha_readiness": readiness})
+                return
+
+            if method == "GET" and path == "/api/alpha/trial-guide":
+                gateway = state.kb_gateway_factory()
+                guide = build_alpha_trial_guide(
+                    service=state.service,
+                    gateway=gateway,
+                    kb_gateway_factory=lambda: gateway,
+                    dataset_page_size=_int_param(query.get("dataset_page_size"), 30),
+                    review_limit=_int_param(query.get("review_limit"), 50),
+                    workflow_limit=_int_param(query.get("workflow_limit"), 50),
+                )
+                self._send_json({"ok": True, "alpha_trial_guide": guide})
                 return
 
             if method == "GET" and path == "/api/workspace/status":

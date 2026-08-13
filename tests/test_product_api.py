@@ -253,6 +253,7 @@ class ProductApiTests(unittest.TestCase):
             for route in capabilities["product_api_contract"]["required_routes"]
         }
         self.assertIn(("GET", "/api/alpha/readiness"), contract_routes)
+        self.assertIn(("GET", "/api/alpha/trial-guide"), contract_routes)
         self.assertIn(("POST", "/api/memory/search"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-candidates"), contract_routes)
@@ -373,9 +374,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m25_alpha_readiness_gate")
+        self.assertEqual(assistant_layer["status"], "m26_alpha_trial_guide")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_alpha_readiness", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_alpha_trial_guide", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_group_mark", assistant_layer["mcp_tools"]["implemented"])
@@ -399,6 +401,8 @@ class ProductApiTests(unittest.TestCase):
         tool_policy = capabilities["capabilities"]["tool_policy"]["tools"]
         self.assertEqual(tool_policy["pska_alpha_readiness"]["category"], "status")
         self.assertEqual(tool_policy["pska_alpha_readiness"]["access"], "read")
+        self.assertEqual(tool_policy["pska_alpha_trial_guide"]["category"], "status")
+        self.assertEqual(tool_policy["pska_alpha_trial_guide"]["access"], "read")
         self.assertEqual(tool_policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
         self.assertTrue(tool_policy["pska_source_search"]["snippet_metadata"])
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
@@ -2255,6 +2259,29 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(readiness["data_flow"]["writes_memory_directly"])
         self.assertFalse(readiness["data_flow"]["writes_source_files"])
         self.assertEqual(actions["configure_live_providers"]["tool"], "pska_runtime_diagnostics")
+
+    def test_alpha_trial_guide_route_reports_guided_first_run_plan(self):
+        guide = self._get_json("/api/alpha/trial-guide")["alpha_trial_guide"]
+        phases = {phase["phase_id"]: phase for phase in guide["phases"]}
+        actions = {action["action"]: action for action in guide["next_actions"]}
+
+        self.assertEqual(guide["schema"], "pska.alpha_trial_guide.v1")
+        self.assertEqual(guide["readiness_schema"], "pska.alpha_readiness.v1")
+        self.assertEqual(guide["readiness_status"], "technical_alpha")
+        self.assertEqual(guide["trial_mode"], "guided_technical_alpha")
+        self.assertTrue(guide["can_start_owner_dogfooding"])
+        self.assertTrue(guide["can_start_guided_trial"])
+        self.assertEqual(guide["first_run_scope"]["permission_mode"], "read_only")
+        self.assertIn("direct_durable_memory_write", guide["first_run_scope"]["avoid_on_first_run"])
+        self.assertFalse(guide["data_flow"]["writes_source_files"])
+        self.assertFalse(guide["data_flow"]["writes_memory_directly"])
+        self.assertFalse(guide["data_flow"]["executes_trial_steps"])
+        self.assertEqual(phases["environment"]["status"], "needs_attention")
+        self.assertEqual(phases["knowledge_scope"]["status"], "ready")
+        self.assertEqual(phases["writeback_pilot"]["status"], "needs_attention")
+        self.assertEqual(phases["broader_alpha"]["status"], "needs_attention")
+        self.assertEqual(actions["configure_live_providers"]["api"], "GET /api/runtime/diagnostics")
+        self.assertEqual(actions["keep_writeback_locked"]["tool"], "pska_alpha_trial_guide")
 
     def test_turn_context_route_assembles_evidence_and_memory_without_ask(self):
         self.service.memory.facts.append(

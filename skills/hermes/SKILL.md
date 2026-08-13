@@ -30,6 +30,10 @@ candidate memory, review, and durable export.
   for self-use, technical alpha, or broader user trial. Treat `not_ready` as
   demo/development only, and treat `technical_alpha` as guided trial rather than
   ordinary To C readiness.
+- Use `pska_alpha_trial_guide` when the user asks how to start dogfooding or
+  run a guided alpha. Treat it as a read-only first-run checklist: it can name
+  phases, guardrails, tools, views, and exit criteria, but it does not execute
+  registration, scans, source writeback, or durable memory apply.
 - Use `pska_capabilities_get` as the stable PSKA operation capability contract
   before durable memory apply, update, or delete work. If an operation is not
   supported, report that PSKA cannot perform it with the current memory adapter.

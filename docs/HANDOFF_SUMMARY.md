@@ -152,6 +152,12 @@ Last updated: 2026-07-15
 > read-only trial report. It classifies the instance as `alpha_ready`,
 > `technical_alpha`, `technical_alpha_only`, or `not_ready`, includes required
 > failures and next actions, and never runs writes or a closed-loop probe.
+>
+> Update, 2026-08-14: Alpha trial guide is implemented as M26.
+> `GET /api/alpha/trial-guide` and `pska_alpha_trial_guide` turn the readiness
+> verdict into read-only first-run phases, guardrails, recommended scope,
+> next actions, and broader-alpha exit criteria. It does not register roots,
+> scan files, apply memory, write source files, or run trial steps by itself.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.
@@ -705,6 +711,7 @@ pska_policy_get
 pska_capabilities_get
 pska_workspace_status
 pska_alpha_readiness
+pska_alpha_trial_guide
 pska_runtime_diagnostics
 pska_workflow_list
 pska_workflow_artifact

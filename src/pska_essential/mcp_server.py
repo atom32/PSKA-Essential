@@ -11,7 +11,7 @@ from pska_essential.agentic_loop import (
     run_digest_scope,
     run_agentic_question_with_readiness,
 )
-from pska_essential.alpha_readiness import build_alpha_readiness
+from pska_essential.alpha_readiness import build_alpha_readiness, build_alpha_trial_guide
 from pska_essential.capabilities import product_capabilities
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
@@ -440,6 +440,21 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     ):
         gateway = build_kb_gateway_from_env()
         return build_alpha_readiness(
+            service=service,
+            gateway=gateway,
+            kb_gateway_factory=lambda: gateway,
+            dataset_page_size=dataset_page_size,
+            review_limit=review_limit,
+            workflow_limit=workflow_limit,
+        )
+
+    def pska_alpha_trial_guide(
+        dataset_page_size: int = 30,
+        review_limit: int = 50,
+        workflow_limit: int = 50,
+    ):
+        gateway = build_kb_gateway_from_env()
+        return build_alpha_trial_guide(
             service=service,
             gateway=gateway,
             kb_gateway_factory=lambda: gateway,
@@ -1333,6 +1348,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_jarvis_briefing": pska_jarvis_briefing,
         "pska_runtime_diagnostics": pska_runtime_diagnostics,
         "pska_alpha_readiness": pska_alpha_readiness,
+        "pska_alpha_trial_guide": pska_alpha_trial_guide,
         "pska_propose": pska_propose,
         "pska_review_create": pska_review_create,
         "pska_review_list": pska_review_list,

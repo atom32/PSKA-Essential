@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "pska_workspace_status",
     "pska_jarvis_briefing",
     "pska_alpha_readiness",
+    "pska_alpha_trial_guide",
     "pska_context_retrieve",
     "pska_source_read",
     "pska_source_root_list",
@@ -126,8 +127,9 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m25_alpha_readiness_gate")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m26_alpha_trial_guide")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -676,6 +678,37 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(checks["memory_governance"]["status"], "pass")
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
         self.assertIn("configure_live_providers", [action["action"] for action in result["next_actions"]])
+
+    def test_alpha_trial_guide_tool_turns_readiness_into_guided_first_run(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            tools = tool_registry(build_service_from_env())
+            _ingest_text(
+                tools,
+                temp_dir,
+                name="alpha-guide.txt",
+                text="Alpha trial guide should turn readiness into guarded user trial steps.",
+            )
+            result = tools["pska_alpha_trial_guide"]()
+
+        phases = {phase["phase_id"]: phase for phase in result["phases"]}
+        actions = {action["action"]: action for action in result["next_actions"]}
+        self.assertEqual(result["schema"], "pska.alpha_trial_guide.v1")
+        self.assertEqual(result["readiness_status"], "technical_alpha")
+        self.assertEqual(result["trial_mode"], "guided_technical_alpha")
+        self.assertTrue(result["can_start_owner_dogfooding"])
+        self.assertTrue(result["can_start_guided_trial"])
+        self.assertFalse(result["data_flow"]["writes_source_files"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertFalse(result["data_flow"]["executes_trial_steps"])
+        self.assertEqual(result["first_run_scope"]["permission_mode"], "read_only")
+        self.assertIn("full_disk_scan", result["first_run_scope"]["avoid_on_first_run"])
+        self.assertEqual(phases["knowledge_scope"]["status"], "ready")
+        self.assertEqual(phases["first_read_only_run"]["status"], "ready")
+        self.assertEqual(phases["memory_review"]["status"], "ready")
+        self.assertEqual(phases["writeback_pilot"]["status"], "needs_attention")
+        self.assertIn("configure_live_providers", actions)
+        self.assertIn("keep_writeback_locked", actions)
 
     def test_memory_review_from_workflow_turns_transient_run_into_review(self):
         service = build_fake_service()

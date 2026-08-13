@@ -9,6 +9,7 @@ from pska_essential.workspace_status import build_workspace_status
 
 
 ALPHA_READINESS_SCHEMA = "pska.alpha_readiness.v1"
+ALPHA_TRIAL_GUIDE_SCHEMA = "pska.alpha_trial_guide.v1"
 
 
 def build_alpha_readiness(
@@ -62,6 +63,70 @@ def build_alpha_readiness(
             "writes_source_files": False,
             "writes_memory_directly": False,
             "runs_closed_loop_probe": False,
+        },
+    }
+
+
+def build_alpha_trial_guide(
+    *,
+    service: Any,
+    gateway: Any,
+    kb_gateway_factory: Any | None = None,
+    dataset_page_size: int = 30,
+    review_limit: int = 50,
+    workflow_limit: int = 50,
+) -> dict[str, Any]:
+    """Return a guided first-run plan derived from alpha readiness.
+
+    The guide is intentionally read-only. It translates readiness checks into
+    a user-facing trial path without registering roots, scanning files, applying
+    memory, or writing source annotations.
+    """
+
+    gateway_factory = kb_gateway_factory or (lambda: gateway)
+    readiness = build_alpha_readiness(
+        service=service,
+        gateway=gateway,
+        kb_gateway_factory=gateway_factory,
+        dataset_page_size=dataset_page_size,
+        review_limit=review_limit,
+        workflow_limit=workflow_limit,
+    )
+    return build_alpha_trial_guide_from_readiness(readiness)
+
+
+def build_alpha_trial_guide_from_readiness(readiness: dict[str, Any]) -> dict[str, Any]:
+    checks = {str(check.get("code") or ""): check for check in readiness.get("checks") or []}
+    status = str(readiness.get("status") or "not_ready")
+    phases = _trial_phases(checks=checks, readiness_status=status)
+    return {
+        "schema": ALPHA_TRIAL_GUIDE_SCHEMA,
+        "readiness_schema": readiness.get("schema") or ALPHA_READINESS_SCHEMA,
+        "readiness_status": status,
+        "trial_mode": _trial_mode(status),
+        "can_start_owner_dogfooding": status in {"alpha_ready", "technical_alpha", "technical_alpha_only"},
+        "can_start_guided_trial": status in {"alpha_ready", "technical_alpha"},
+        "audience": readiness.get("audience") or _audience(status),
+        "summary": readiness.get("summary") or {},
+        "first_run_scope": {
+            "permission_mode": "read_only",
+            "recommended_sources": ["one small local folder", "one Obsidian vault subset", "one curated KB dataset"],
+            "avoid_on_first_run": [
+                "full_disk_scan",
+                "native_source_writeback",
+                "automatic_duplicate_cleanup",
+                "direct_durable_memory_write",
+            ],
+        },
+        "guardrails": _trial_guardrails(),
+        "phases": phases,
+        "next_actions": _trial_next_actions(readiness=readiness, phases=phases),
+        "exit_criteria": _trial_exit_criteria(),
+        "data_flow": {
+            "read_only": True,
+            "writes_source_files": False,
+            "writes_memory_directly": False,
+            "executes_trial_steps": False,
         },
     }
 
@@ -235,7 +300,7 @@ def _action_for_check(code: str, check: dict[str, Any]) -> dict[str, Any]:
         "memory_governance": ("inspect_memory_governance", "Inspect memory governance", "pska_capabilities_get", "GET /api/capabilities", "memory"),
         "memory_health": ("inspect_memory_health", "Inspect memory health", "pska_memory_health_scan", "GET /api/memory/health", "memory"),
         "review_queue_load": ("inspect_memory_review_queue", "Inspect memory review queue", "pska_memory_review_queue", "GET /api/memory/review-queue", "review"),
-        "user_trial_ux": ("run_guided_alpha_checklist", "Run guided alpha checklist", "pska_alpha_readiness", "GET /api/alpha/readiness", "settings"),
+        "user_trial_ux": ("run_guided_alpha_checklist", "Run guided alpha checklist", "pska_alpha_trial_guide", "GET /api/alpha/trial-guide", "settings"),
     }
     action, label, tool, api, view = mapping.get(code, ("inspect_alpha_readiness", "Inspect alpha readiness", "pska_alpha_readiness", "GET /api/alpha/readiness", "settings"))
     return {
@@ -258,6 +323,239 @@ def _check(code: str, status: str, message: str, *, required: bool, evidence: di
         "message": message,
         "evidence": to_jsonable(evidence or {}),
     }
+
+
+def _trial_mode(status: str) -> str:
+    return {
+        "alpha_ready": "guided_alpha",
+        "technical_alpha": "guided_technical_alpha",
+        "technical_alpha_only": "owner_dogfooding_only",
+        "not_ready": "development_only",
+    }.get(status, "development_only")
+
+
+def _trial_phases(*, checks: dict[str, dict[str, Any]], readiness_status: str) -> list[dict[str, Any]]:
+    return [
+        _trial_phase(
+            phase_id="environment",
+            title="Configure runtime",
+            goal="Confirm providers, workspace identity, and KB gateway before user data enters the system.",
+            check_codes=["runtime_diagnostics", "provider_configuration", "workspace_context", "kb_gateway"],
+            checks=checks,
+            steps=[
+                _trial_step("inspect_runtime", "Inspect runtime diagnostics", "pska_runtime_diagnostics", "GET /api/runtime/diagnostics", "settings"),
+                _trial_step("configure_providers", "Configure non-fake providers for live trial", "pska_runtime_diagnostics", "GET /api/runtime/diagnostics", "settings"),
+                _trial_step("configure_workspace", "Set workspace and tenant identity", "pska_workspace_status", "GET /api/workspace/status", "settings"),
+            ],
+        ),
+        _trial_phase(
+            phase_id="knowledge_scope",
+            title="Prepare one knowledge scope",
+            goal="Start with a small, named, read-only scope that can be searched and cited.",
+            check_codes=["kb_readiness"],
+            checks=checks,
+            steps=[
+                _trial_step("register_source_root", "Register one read-only source root", "pska_source_root_register", "POST /api/sources/roots", "sources"),
+                _trial_step("scan_source_root", "Scan the root into rebuildable metadata", "pska_source_scan", "POST /api/sources/roots/{root_id}/scan", "sources"),
+                _trial_step("verify_scope", "Verify KB readiness for the selected scope", "pska_workspace_status", "GET /api/workspace/status", "kb"),
+            ],
+        ),
+        _trial_phase(
+            phase_id="first_read_only_run",
+            title="Run a sourced Ask",
+            goal="Answer one real question from the prepared scope and inspect citations before creating memory.",
+            check_codes=["runtime_diagnostics", "kb_gateway", "kb_readiness", "source_safety"],
+            checks=checks,
+            steps=[
+                _trial_step("run_ask", "Run Ask against the ready scope", "pska_agentic_question_start", "POST /api/ask", "ask"),
+                _trial_step("inspect_sources", "Open cited source snippets", "pska_source_read", "POST /api/sources/read", "writing"),
+                _trial_step("export_brief", "Export a traceable brief only after sourced output exists", "pska_export_brief", "GET /api/workflows/{run_id}/export", "writing"),
+            ],
+        ),
+        _trial_phase(
+            phase_id="memory_review",
+            title="Review memory before apply",
+            goal="Convert only explicit, source-backed, or user-approved claims into durable memory.",
+            check_codes=["memory_governance", "memory_health", "review_queue_load"],
+            checks=checks,
+            steps=[
+                _trial_step("inspect_review_queue", "Inspect pending memory reviews", "pska_memory_review_queue", "GET /api/memory/review-queue", "review"),
+                _trial_step("inspect_memory_cards", "Inspect existing Memory Cards and health", "pska_memory_health_scan", "GET /api/memory/health", "memory"),
+                _trial_step("apply_accepted_only", "Apply only accepted reviews", "pska_memory_apply", "POST /api/reviews/{review_id}/apply", "review"),
+            ],
+        ),
+        _trial_phase(
+            phase_id="writeback_pilot",
+            title="Pilot writeback only after backup",
+            goal="Keep the first trial read-only; test tag/comment/MOC writeback only with explicit permission and backups.",
+            check_codes=["source_safety", "memory_governance"],
+            checks=checks,
+            default_status="needs_attention",
+            steps=[
+                _trial_step("propose_tag", "Create a tag proposal before source writeback", "pska_source_tag_propose", "POST /api/sources/tags/proposals", "sources"),
+                _trial_step("prefer_sidecar", "Apply sidecar annotations before native writes", "pska_source_tag_apply", "POST /api/sources/tags/{proposal_id}/apply", "sources"),
+                _trial_step("native_write_after_backup", "Use native Obsidian writeback only after backup verification", "pska_obsidian_moc_apply", "POST /api/sources/obsidian/moc/{proposal_id}/apply", "sources"),
+            ],
+        ),
+        _trial_phase(
+            phase_id="broader_alpha",
+            title="Expand beyond one user",
+            goal="Move beyond owner dogfooding only after warnings are closed and recovery paths are rehearsed.",
+            check_codes=[
+                "provider_configuration",
+                "workspace_context",
+                "kb_readiness",
+                "memory_health",
+                "review_queue_load",
+                "user_trial_ux",
+            ],
+            checks=checks,
+            default_status=_broader_alpha_phase_status(readiness_status),
+            steps=[
+                _trial_step("run_component_check", "Run component acceptance check", "pska_component_check", "POST /api/runtime/component-check", "settings"),
+                _trial_step("rehearse_recovery", "Rehearse backup, restore, and rollback steps", "pska_alpha_trial_guide", "GET /api/alpha/trial-guide", "settings"),
+                _trial_step("rerun_readiness", "Rerun alpha readiness before inviting users", "pska_alpha_readiness", "GET /api/alpha/readiness", "settings"),
+            ],
+        ),
+    ]
+
+
+def _trial_phase(
+    *,
+    phase_id: str,
+    title: str,
+    goal: str,
+    check_codes: list[str],
+    checks: dict[str, dict[str, Any]],
+    steps: list[dict[str, Any]],
+    default_status: str = "ready",
+) -> dict[str, Any]:
+    selected = [checks[code] for code in check_codes if code in checks]
+    status = _phase_status(selected, default_status=default_status)
+    blockers = [
+        str(check.get("code") or "")
+        for check in selected
+        if check.get("required") and check.get("status") == "fail"
+    ]
+    warnings = [
+        str(check.get("code") or "")
+        for check in selected
+        if check.get("status") == "warn"
+    ]
+    return {
+        "phase_id": phase_id,
+        "title": title,
+        "status": status,
+        "goal": goal,
+        "check_codes": check_codes,
+        "blockers": blockers,
+        "warnings": warnings,
+        "steps": steps,
+    }
+
+
+def _phase_status(checks: list[dict[str, Any]], *, default_status: str) -> str:
+    if any(check.get("required") and check.get("status") == "fail" for check in checks):
+        return "blocked"
+    if any(check.get("status") == "fail" for check in checks):
+        return "blocked"
+    if default_status != "ready":
+        return default_status
+    if any(check.get("status") == "warn" for check in checks):
+        return "needs_attention"
+    return "ready"
+
+
+def _broader_alpha_phase_status(readiness_status: str) -> str:
+    if readiness_status == "alpha_ready":
+        return "ready"
+    if readiness_status == "technical_alpha":
+        return "needs_attention"
+    return "blocked"
+
+
+def _trial_step(step_id: str, label: str, tool: str, api: str, view: str) -> dict[str, Any]:
+    return {
+        "step_id": step_id,
+        "label": label,
+        "tool": tool,
+        "api": api,
+        "view": view,
+    }
+
+
+def _trial_guardrails() -> list[dict[str, Any]]:
+    return [
+        {
+            "guardrail": "read_only_first_run",
+            "required": True,
+            "message": "The first user trial should register and scan sources without editing source files.",
+        },
+        {
+            "guardrail": "review_before_durable_memory",
+            "required": True,
+            "message": "Durable memory should come from accepted reviews, not hidden extraction.",
+        },
+        {
+            "guardrail": "backup_before_native_writeback",
+            "required": True,
+            "message": "Native Obsidian/tag/comment/MOC writes need an operator-verified backup first.",
+        },
+        {
+            "guardrail": "no_cleanup_apply",
+            "required": True,
+            "message": "Duplicate cleanup remains proposal-only; do not delete, move, merge, or archive files.",
+        },
+    ]
+
+
+def _trial_next_actions(*, readiness: dict[str, Any], phases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    actions = list(readiness.get("next_actions") or [])
+    phase_actions = {
+        "environment": ("inspect_trial_environment", "Inspect trial environment", "pska_runtime_diagnostics", "GET /api/runtime/diagnostics", "settings"),
+        "knowledge_scope": ("prepare_first_scope", "Prepare first knowledge scope", "pska_workspace_status", "GET /api/workspace/status", "kb"),
+        "first_read_only_run": ("run_first_read_only_ask", "Run first read-only Ask", "pska_agentic_question_start", "POST /api/ask", "ask"),
+        "memory_review": ("review_memory_before_apply", "Review memory queue", "pska_memory_review_queue", "GET /api/memory/review-queue", "review"),
+        "writeback_pilot": ("keep_writeback_locked", "Keep writeback locked until backup is verified", "pska_alpha_trial_guide", "GET /api/alpha/trial-guide", "settings"),
+        "broader_alpha": ("close_alpha_warnings", "Close readiness warnings before broader alpha", "pska_alpha_readiness", "GET /api/alpha/readiness", "settings"),
+    }
+    seen = {str(action.get("action") or "") for action in actions}
+    for phase in phases:
+        if phase.get("status") == "ready":
+            continue
+        action, label, tool, api, view = phase_actions[str(phase.get("phase_id") or "")]
+        if action in seen:
+            continue
+        actions.append(
+            {
+                "action": action,
+                "label": label,
+                "reason": str(phase.get("goal") or ""),
+                "tool": tool,
+                "api": api,
+                "view": view,
+                "params": {"phase_id": phase.get("phase_id")},
+            }
+        )
+        seen.add(action)
+    return actions
+
+
+def _trial_exit_criteria() -> list[dict[str, Any]]:
+    return [
+        {
+            "criterion": "single_scope_read_only_run_completed",
+            "evidence": ["sourced Ask artifact", "source citations inspected", "export generated only after source trace exists"],
+        },
+        {
+            "criterion": "memory_review_rehearsed",
+            "evidence": ["pending Review inspected", "accepted-only apply path verified", "memory health scan reviewed"],
+        },
+        {
+            "criterion": "recovery_rehearsed",
+            "evidence": ["workspace backup location known", "native writeback rollback path documented", "operator can rerun readiness"],
+        },
+    ]
 
 
 def _map_runtime_status(status: str) -> str:
