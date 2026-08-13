@@ -44,6 +44,9 @@ mcp_servers:
         - pska_retrieval_probe
         - pska_context_retrieve
         - pska_source_read
+        - pska_source_extract_job_enqueue
+        - pska_source_extract_job_list
+        - pska_source_extract_job_run
         - pska_agentic_question_start
         - pska_agentic_question_resumable
         - pska_agentic_question_resume

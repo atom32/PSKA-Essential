@@ -7,6 +7,7 @@ from pska_essential.contracts import to_jsonable, utc_now_iso
 from pska_essential.digest_jobs import list_digest_jobs
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.source_audit_jobs import list_source_audit_jobs
+from pska_essential.source_extraction_jobs import list_source_extraction_jobs
 
 
 def build_provider_job_status(
@@ -16,6 +17,7 @@ def build_provider_job_status(
     dataset_page_size: int = 50,
     digest_limit: int = 50,
     source_audit_limit: int = 50,
+    source_extraction_limit: int = 50,
     audit_limit: int = 50,
     include_ready: bool = True,
 ) -> dict[str, Any]:
@@ -27,13 +29,16 @@ def build_provider_job_status(
         raise ValueError("digest_limit must be greater than 0")
     if source_audit_limit < 1:
         raise ValueError("source_audit_limit must be greater than 0")
+    if source_extraction_limit < 1:
+        raise ValueError("source_extraction_limit must be greater than 0")
     if audit_limit < 1:
         raise ValueError("audit_limit must be greater than 0")
     kb_jobs, kb_error = _kb_jobs(gateway, page_size=dataset_page_size, include_ready=include_ready)
     digest_jobs = _digest_jobs(service, limit=digest_limit)
     source_audit_jobs = _source_audit_jobs(service, limit=source_audit_limit)
+    source_extraction_jobs = _source_extraction_jobs(service, limit=source_extraction_limit)
     recent_provider_events = _recent_provider_events(service, limit=audit_limit)
-    jobs = [*kb_jobs, *digest_jobs, *source_audit_jobs]
+    jobs = [*kb_jobs, *digest_jobs, *source_audit_jobs, *source_extraction_jobs]
     if not include_ready:
         jobs = [job for job in jobs if job.get("status") != "ready"]
     summary = _job_summary(jobs, kb_error)
@@ -56,7 +61,8 @@ def build_provider_job_status(
         "error": kb_error,
         "note": (
             "PSKA reports normalized job state from provider readiness, audit, and explicit digest metadata. "
-            "It also reports PSKA-owned source audit jobs. It does not own or replace provider-native queues."
+            "It also reports PSKA-owned source audit and extraction jobs. "
+            "It does not own or replace provider-native queues."
         ),
     }
 
@@ -221,8 +227,57 @@ def _source_audit_jobs(service: Any, *, limit: int) -> list[dict[str, Any]]:
     return jobs
 
 
+def _source_extraction_jobs(service: Any, *, limit: int) -> list[dict[str, Any]]:
+    jobs: list[dict[str, Any]] = []
+    for item in list_source_extraction_jobs(service, limit=limit):
+        run = dict(item.get("job") or {})
+        source_extraction_job = dict(item.get("source_extraction_job") or {})
+        request = dict(source_extraction_job.get("request") or {})
+        status = str(source_extraction_job.get("status") or run.get("status") or "unknown")
+        summary = dict(source_extraction_job.get("summary") or {})
+        jobs.append(
+            {
+                "kind": "pska_source_extraction_job",
+                "job_id": str(run.get("run_id") or ""),
+                "provider": "pska",
+                "status": status,
+                "phase": status,
+                "progress": _source_extraction_progress(status),
+                "label": str(request.get("label") or ""),
+                "root_id": str(request.get("root_id") or ""),
+                "extractor": str(request.get("extractor") or "auto"),
+                "max_files": int(request.get("max_files") or 0),
+                "max_bytes": int(request.get("max_bytes") or 0),
+                "priority": int(source_extraction_job.get("priority") or 0),
+                "attempt_count": int(source_extraction_job.get("attempt_count") or 0),
+                "last_status": str(source_extraction_job.get("last_status") or ""),
+                "last_message": str(source_extraction_job.get("last_message") or ""),
+                "summary": to_jsonable(summary),
+                "next_actions": _source_extraction_next_actions(status),
+                "message": str(source_extraction_job.get("last_message") or ""),
+                "created_at": str(source_extraction_job.get("created_at") or run.get("created_at") or ""),
+                "updated_at": str(source_extraction_job.get("updated_at") or run.get("updated_at") or ""),
+                "data_flow": {
+                    "source": "personal_source_root_scan",
+                    "writes_source_files": False,
+                    "writes_memory_directly": False,
+                    "embedding_required": False,
+                    "writes_index": True,
+                },
+            }
+        )
+    return jobs
+
+
 def _recent_provider_events(service: Any, *, limit: int) -> list[dict[str, Any]]:
-    provider_actions = {"kb.ingest", "kb.parse", "kb.dataset.create", "kb.dataset.delete"}
+    provider_actions = {
+        "kb.ingest",
+        "kb.parse",
+        "kb.dataset.create",
+        "kb.dataset.delete",
+        "source.extraction_job.enqueue",
+        "source.extraction_job.run",
+    }
     events = [
         event
         for event in service.store.list_audit_events(limit=limit, descending=True)
@@ -249,6 +304,11 @@ def _recent_provider_events(service: Any, *, limit: int) -> list[dict[str, Any]]
                     "parse_started",
                     "dataset_created",
                     "deleted",
+                    "request",
+                    "status",
+                    "summary",
+                    "error_type",
+                    "error",
                 }
             },
         }
@@ -325,6 +385,26 @@ def _source_audit_next_actions(status: str, *, due: bool = False) -> list[str]:
         return ["activate_due_source_audit_job"] if due else ["wait_until_due"]
     if status == "queued":
         return ["run_source_audit_job"]
+    if status == "failed":
+        return ["inspect_failure"]
+    return []
+
+
+def _source_extraction_progress(status: str) -> float:
+    if status == "completed":
+        return 1.0
+    if status == "running":
+        return 0.5
+    if status == "queued":
+        return 0.0
+    if status == "failed":
+        return 0.0
+    return 0.0
+
+
+def _source_extraction_next_actions(status: str) -> list[str]:
+    if status == "queued":
+        return ["run_source_extraction_job"]
     if status == "failed":
         return ["inspect_failure"]
     return []

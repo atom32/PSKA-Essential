@@ -407,6 +407,9 @@ Operational loop tools:
 - `pska_source_audit_job_list`
 - `pska_source_audit_job_tick`
 - `pska_source_audit_job_run`
+- `pska_source_extract_job_enqueue`
+- `pska_source_extract_job_list`
+- `pska_source_extract_job_run`
 - `pska_saved_search_create`
 - `pska_source_tag_propose`
 - `pska_source_tag_apply`
@@ -493,6 +496,11 @@ memory directly, and do not require embeddings. M9 adds
 jobs wait on `due_at`, the tick turns due jobs into queued jobs, and recurring
 cadences create the next waiting job after a run completes. This gives Hermes a
 wall-clock scheduler contract without a hidden background source-file scanner.
+P1 adapter work adds `pska_source_extract_job_enqueue`,
+`pska_source_extract_job_list`, and `pska_source_extract_job_run` as the
+Jarvis-friendly source extraction queue. Jobs run `pska_source_scan` with the
+selected extractor, update rebuildable source index metadata/FTS sections, never
+write source files or memory directly, and do not require embeddings.
 M10 adds `pska_obsidian_moc_propose` and `pska_obsidian_moc_apply` for governed
 Obsidian MOC writeback. Proposal builds a preview from explicit source refs and
 writes only PSKA registry metadata; apply requires an `obsidian_vault` root with

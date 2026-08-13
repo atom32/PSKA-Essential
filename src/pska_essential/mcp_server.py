@@ -48,6 +48,11 @@ from pska_essential.source_audit_jobs import (
     run_source_audit_job,
     schedule_source_audit_job,
 )
+from pska_essential.source_extraction_jobs import (
+    enqueue_source_extraction_job,
+    list_source_extraction_jobs,
+    run_source_extraction_job,
+)
 from pska_essential.workspace_status import build_workspace_status
 
 
@@ -187,6 +192,30 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_source_audit_job_run(run_id: str = ""):
         return run_source_audit_job(service, run_id=run_id)
+
+    def pska_source_extract_job_enqueue(
+        root_id: str,
+        label: str = "",
+        priority: int = 0,
+        max_files: int = 1000,
+        max_bytes: int = 1_000_000,
+        extractor: str = "auto",
+    ):
+        return enqueue_source_extraction_job(
+            service,
+            root_id=root_id,
+            label=label,
+            priority=priority,
+            max_files=max_files,
+            max_bytes=max_bytes,
+            extractor=extractor,
+        )
+
+    def pska_source_extract_job_list(status: str | None = None, limit: int = 50):
+        return list_source_extraction_jobs(service, status=status or None, limit=limit)
+
+    def pska_source_extract_job_run(run_id: str = ""):
+        return run_source_extraction_job(service, run_id=run_id)
 
     def pska_saved_search_create(
         label: str,
@@ -896,6 +925,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_audit_job_list": pska_source_audit_job_list,
         "pska_source_audit_job_tick": pska_source_audit_job_tick,
         "pska_source_audit_job_run": pska_source_audit_job_run,
+        "pska_source_extract_job_enqueue": pska_source_extract_job_enqueue,
+        "pska_source_extract_job_list": pska_source_extract_job_list,
+        "pska_source_extract_job_run": pska_source_extract_job_run,
         "pska_saved_search_create": pska_saved_search_create,
         "pska_source_tag_propose": pska_source_tag_propose,
         "pska_source_tag_apply": pska_source_tag_apply,

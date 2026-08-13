@@ -43,6 +43,8 @@ const messages = {
   "toast.sourceAuditCompleted": "资料源审计完成。",
   "toast.sourceAuditJobsActivated": "到期资料源审计已入队。",
   "toast.sourceAuditJobCompleted": "资料源审计队列已运行。",
+  "toast.sourceExtractionJobQueued": "资料源抽取任务已入队。",
+  "toast.sourceExtractionJobCompleted": "资料源抽取任务已运行。",
   "toast.sourceMemoryReviewCreated": "资料源记忆审核已创建。",
   "toast.sourceSavedSearchCreated": "资料源查询已保存。",
   "toast.sourceSelected": "资料源已选中。",
@@ -215,6 +217,7 @@ const state = {
   sourceRootError: "",
   sourceAudit: null,
   sourceAuditScope: {},
+  sourceExtractionJob: null,
   sourceSearchResults: [],
   sourceSearchError: "",
   sourceSearchCount: null,
@@ -417,6 +420,7 @@ function bindRefresh() {
   document.getElementById("ask-load-documents").addEventListener("click", loadAskDocuments);
   document.getElementById("ask-check-readiness").addEventListener("click", () => checkAskReadiness());
   document.getElementById("reload-sources").addEventListener("click", loadSourceRoots);
+  document.getElementById("run-source-extraction-job").addEventListener("click", () => runSourceExtractionJob());
   document.getElementById("run-source-audit").addEventListener("click", () => runSourceAudit());
   document.getElementById("source-root-filter").addEventListener("change", (event) => {
     state.activeSourceRootId = event.currentTarget.value || "";
@@ -651,6 +655,39 @@ async function runSourceAuditJob(runId = "") {
   await loadWorkspaceStatus();
   await loadAuditEvents("source.audit_job.run");
   showToast(t("toast.sourceAuditJobCompleted"));
+}
+
+async function enqueueSourceExtractionJob(rootId) {
+  const normalized = String(rootId || "").trim();
+  if (!normalized) return;
+  const payload = await api("/api/sources/extraction-jobs", {
+    method: "POST",
+    body: {
+      root_id: normalized,
+      max_files: 1000,
+      extractor: "auto",
+    },
+  });
+  state.sourceExtractionJob = payload.source_extraction_job || null;
+  await loadWorkspaceStatus();
+  await loadAuditEvents("source.extraction_job.enqueue");
+  renderSources();
+  showToast(t("toast.sourceExtractionJobQueued"));
+}
+
+async function runSourceExtractionJob(runId = "") {
+  const path = runId
+    ? `/api/sources/extraction-jobs/${encodeURIComponent(runId)}/run`
+    : "/api/sources/extraction-jobs/run-next";
+  const payload = await api(path, { method: "POST", body: {} });
+  state.sourceExtractionJob = payload.source_extraction_job || null;
+  if (payload.scan && payload.scan.root && payload.scan.root.root_id) {
+    state.sourceScanResults[payload.scan.root.root_id] = payload.scan;
+  }
+  await loadSourceRoots();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("source.extraction_job.run");
+  showToast(t("toast.sourceExtractionJobCompleted"));
 }
 
 async function tickSourceAuditJobs() {
@@ -1109,6 +1146,7 @@ function workspaceActionButtonLabel(action) {
     scan_source_root: t("button.track"),
     activate_due_source_audit_jobs: t("button.track"),
     run_source_audit_job: t("button.audit"),
+    run_source_extraction_job: t("button.scan"),
     run_file_to_work_product_loop: t("button.start"),
     run_agentic_question: t("button.ask"),
     track_ingestion_status: t("button.track"),
@@ -1126,6 +1164,7 @@ function workspaceActionButtonClass(action) {
     "parse_documents",
     "activate_due_source_audit_jobs",
     "run_source_audit_job",
+    "run_source_extraction_job",
     "resume_blocked_ask",
     "resume_ingest_loop",
     "run_file_to_work_product_loop",
@@ -1193,6 +1232,11 @@ async function openWorkspaceAction(action) {
   if (action.action === "run_source_audit_job") {
     openView("sources");
     await runSourceAuditJob(params.run_id || "");
+    return;
+  }
+  if (action.action === "run_source_extraction_job") {
+    openView("sources");
+    await runSourceExtractionJob(params.run_id || "");
     return;
   }
   if (action.action === "activate_due_source_audit_jobs") {
@@ -1958,6 +2002,11 @@ function sourceRootCard(root) {
     el("div", { className: "meta-row" }, tags),
     el("div", { className: "card-actions" }, [
       el("button", { className: "secondary-button", type: "button", onclick: () => scanSourceRoot(root.root_id) }, t("button.scan")),
+      el(
+        "button",
+        { className: "secondary-button", type: "button", onclick: () => enqueueSourceExtractionJob(root.root_id) },
+        "队列抽取",
+      ),
       el(
         "button",
         { className: "secondary-button", type: "button", onclick: () => runSourceAudit(sourceScopeFromRootId(root.root_id)) },
@@ -3674,6 +3723,12 @@ function auditSummary(event) {
   }
   if (event.action === "source.audit_job.run") {
     return `Source audit job ${metadata.status || "recorded"} for ${shortId(event.target_id || "")}.`;
+  }
+  if (event.action === "source.extraction_job.enqueue") {
+    return `Queued source extraction job ${shortId(event.target_id || "")}.`;
+  }
+  if (event.action === "source.extraction_job.run") {
+    return `Source extraction job ${metadata.status || "recorded"} for ${shortId(event.target_id || "")}.`;
   }
   if (event.action === "source.obsidian_moc.propose") {
     return `Obsidian MOC proposal created for ${metadata.moc_path || "MOC"} with ${metadata.link_count || 0} link(s).`;

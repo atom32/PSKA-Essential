@@ -39,7 +39,10 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 2026-08-13 更新：P1 的第一批 optional adapter 已接入代码路径。MarkItDown 和 fclones
 仍不属于默认依赖；PSKA 现在会通过 capabilities/diagnostics 报告它们是 `available` 还是
-`unavailable`，并在缺失时保持 core 功能可用。
+`unavailable`，并在缺失时保持 core 功能可用。资料源抽取也已经有 PSKA-owned job
+ledger、Product API、MCP tool、workspace next action 和 WebUI 入口；任务运行时只写
+可重建的 source index metadata/FTS sections，不改用户源文件，不直写 memory，不要求
+embedding。
 
 ## 3. Target Requirements
 
@@ -310,7 +313,6 @@ source_scan
 pska_source_extract_job_enqueue
 pska_source_extract_job_list
 pska_source_extract_job_run
-pska_source_extract_job_tick
 ```
 
 第一版 adapter：
@@ -538,7 +540,7 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 ### P1 Backlog
 
 - [x] Add `ExtractionPort` dataclasses: `ExtractionResult`, `ExtractedSection`, `ExtractionWarning`.
-- [ ] Add source extract job ledger and API/MCP routes.
+- [x] Add source extract job ledger and API/MCP routes.
 - [x] Add builtin extractor wrapper around current Markdown/txt/code behavior.
 - [x] Add MarkItDown adapter behind optional import.
 - [x] Add `DedupPort` and fclones CLI adapter behind command discovery.

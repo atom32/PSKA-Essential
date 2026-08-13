@@ -369,6 +369,28 @@ def _next_actions(
             )
         )
 
+    source_extraction_jobs = _pending_source_extraction_jobs(provider_jobs)
+    if source_extraction_jobs:
+        job = source_extraction_jobs[0]
+        job_id = str(job.get("job_id") or "")
+        extractor = str(job.get("extractor") or "auto")
+        actions.append(
+            _action(
+                "run_source_extraction_job",
+                "Run source extraction job",
+                (
+                    f"{len(source_extraction_jobs)} source extraction job(s) are queued. "
+                    f"Extractor={extractor}; the job writes PSKA index metadata only, not source files or memory."
+                ),
+                api=f"POST /api/sources/extraction-jobs/{job_id}/run"
+                if job_id
+                else "POST /api/sources/extraction-jobs/run-next",
+                tool="pska_source_extract_job_run",
+                view="sources",
+                params={"run_id": job_id} if job_id else {},
+            )
+        )
+
     digest_jobs = _pending_digest_jobs(provider_jobs)
     if digest_jobs:
         job = digest_jobs[0]
@@ -421,6 +443,17 @@ def _pending_source_audit_jobs(provider_jobs: dict[str, Any] | None) -> list[dic
         dict(job)
         for job in jobs
         if job.get("kind") == "pska_source_audit_job" and str(job.get("status") or "") == "queued"
+    ]
+
+
+def _pending_source_extraction_jobs(provider_jobs: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not provider_jobs:
+        return []
+    jobs = provider_jobs.get("jobs") or []
+    return [
+        dict(job)
+        for job in jobs
+        if job.get("kind") == "pska_source_extraction_job" and str(job.get("status") or "") == "queued"
     ]
 
 

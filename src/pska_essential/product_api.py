@@ -58,6 +58,11 @@ from pska_essential.source_audit_jobs import (
     run_source_audit_job,
     schedule_source_audit_job,
 )
+from pska_essential.source_extraction_jobs import (
+    enqueue_source_extraction_job,
+    list_source_extraction_jobs,
+    run_source_extraction_job,
+)
 from pska_essential.workflow import WorkflowError, WorkflowService
 from pska_essential.workspace_status import build_workspace_status
 
@@ -85,6 +90,10 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/audit-jobs/tick"},
     {"method": "POST", "path": "/api/sources/audit-jobs/run-next"},
     {"method": "POST", "path": "/api/sources/audit-jobs/{run_id}/run"},
+    {"method": "POST", "path": "/api/sources/extraction-jobs"},
+    {"method": "GET", "path": "/api/sources/extraction-jobs"},
+    {"method": "POST", "path": "/api/sources/extraction-jobs/run-next"},
+    {"method": "POST", "path": "/api/sources/extraction-jobs/{run_id}/run"},
     {"method": "GET", "path": "/api/sources/roots"},
     {"method": "POST", "path": "/api/sources/roots"},
     {"method": "POST", "path": "/api/sources/roots/{root_id}/scan"},
@@ -669,6 +678,40 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, **result})
                 return
 
+            if method == "POST" and path == "/api/sources/extraction-jobs":
+                payload = self._read_json()
+                result = enqueue_source_extraction_job(
+                    state.service,
+                    root_id=str(payload.get("root_id") or ""),
+                    label=str(payload.get("label") or ""),
+                    priority=int(payload.get("priority") or 0),
+                    max_files=int(payload.get("max_files") or 1000),
+                    max_bytes=int(payload.get("max_bytes") or 1_000_000),
+                    extractor=str(payload.get("extractor") or "auto"),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            if method == "GET" and path == "/api/sources/extraction-jobs":
+                status = str(query.get("status") or "")
+                limit = _int_param(query.get("limit"), 50)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "source_extraction_jobs": list_source_extraction_jobs(
+                            state.service,
+                            status=status or None,
+                            limit=limit,
+                        ),
+                    }
+                )
+                return
+
+            if method == "POST" and path == "/api/sources/extraction-jobs/run-next":
+                result = run_source_extraction_job(state.service)
+                self._send_json({"ok": True, **result})
+                return
+
             if method == "POST" and path == "/api/jarvis/briefing":
                 payload = self._read_json()
                 briefing = build_jarvis_briefing(
@@ -697,6 +740,12 @@ def _handler_class(state: ProductApiState):
             source_audit_job_run = _match(path, "/api/sources/audit-jobs/", "/run")
             if method == "POST" and source_audit_job_run:
                 result = run_source_audit_job(state.service, run_id=source_audit_job_run)
+                self._send_json({"ok": True, **result})
+                return
+
+            source_extraction_job_run = _match(path, "/api/sources/extraction-jobs/", "/run")
+            if method == "POST" and source_extraction_job_run:
+                result = run_source_extraction_job(state.service, run_id=source_extraction_job_run)
                 self._send_json({"ok": True, **result})
                 return
 

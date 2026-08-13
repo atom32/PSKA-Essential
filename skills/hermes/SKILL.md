@@ -95,6 +95,14 @@ candidate memory, review, and durable export.
   reports before any heavier operation. Do not delete, move, merge, or natively
   edit user files unless PSKA policy/tool output explicitly authorizes that
   action.
+- For source extraction/index refresh work, queue roots with
+  `pska_source_extract_job_enqueue`, inspect queued or completed extraction
+  work with `pska_source_extract_job_list`, and run either the next queued job
+  or a selected job with `pska_source_extract_job_run`. Extraction jobs may use
+  builtin text parsing or optional adapters such as MarkItDown, but they still
+  write only PSKA source index metadata/FTS sections. They must not be treated
+  as permission to edit source files, write durable memory, or require
+  embeddings.
 - For Obsidian organization, use `pska_obsidian_moc_propose` to create a
   governed MOC writeback preview from explicit source refs. Only call
   `pska_obsidian_moc_apply` when the selected root is an Obsidian vault with

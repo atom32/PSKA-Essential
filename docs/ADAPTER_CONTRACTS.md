@@ -372,6 +372,9 @@ The current public tool surface is:
 - `pska_source_audit_job_list`
 - `pska_source_audit_job_tick`
 - `pska_source_audit_job_run`
+- `pska_source_extract_job_enqueue`
+- `pska_source_extract_job_list`
+- `pska_source_extract_job_run`
 - `pska_saved_search_create`
 - `pska_source_tag_propose`
 - `pska_source_tag_apply`
@@ -494,6 +497,9 @@ The personal source layer has an M1-M10 source-management MCP surface:
 - `pska_source_audit_job_list`
 - `pska_source_audit_job_tick`
 - `pska_source_audit_job_run`
+- `pska_source_extract_job_enqueue`
+- `pska_source_extract_job_list`
+- `pska_source_extract_job_run`
 - `pska_saved_search_create`
 - `pska_source_tag_propose`
 - `pska_source_tag_apply`
@@ -515,6 +521,11 @@ same routine. Jobs are stored as workflow metadata, surfaced through
 keep the same no source-file write, no direct memory write, no embedding
 guarantee. `pska_source_audit_job_tick` only promotes due waiting jobs to queued
 jobs; scanning still requires running the explicit audit job.
+`pska_source_extract_job_enqueue`, `pska_source_extract_job_list`, and
+`pska_source_extract_job_run` provide the PSKA-owned source extraction queue.
+Jobs run a selected extractor through `pska_source_scan`, update rebuildable
+source index metadata and FTS sections, and keep the no source-file write, no
+direct memory write, and no embedding requirement guarantees.
 `pska_obsidian_moc_propose` and `pska_obsidian_moc_apply` provide the current
 native Obsidian writeback path. They collect explicit source refs into a MOC
 preview, then apply only the PSKA-managed Markdown block after native/managed

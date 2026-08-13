@@ -267,6 +267,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/audit-jobs/tick"), contract_routes)
         self.assertIn(("POST", "/api/sources/audit-jobs/run-next"), contract_routes)
         self.assertIn(("POST", "/api/sources/audit-jobs/{run_id}/run"), contract_routes)
+        self.assertIn(("POST", "/api/sources/extraction-jobs"), contract_routes)
+        self.assertIn(("GET", "/api/sources/extraction-jobs"), contract_routes)
+        self.assertIn(("POST", "/api/sources/extraction-jobs/run-next"), contract_routes)
+        self.assertIn(("POST", "/api/sources/extraction-jobs/{run_id}/run"), contract_routes)
         self.assertIn(("GET", "/api/sources/roots"), contract_routes)
         self.assertIn(("POST", "/api/sources/roots"), contract_routes)
         self.assertIn(("POST", "/api/sources/roots/{root_id}/scan"), contract_routes)
@@ -299,6 +303,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_audit_job_list", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_run", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_extract_job_enqueue", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_extract_job_list", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_extract_job_run", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_saved_search_create", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_tag_propose", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_tag_apply", source_layer["mcp_tools"]["implemented"])
@@ -320,6 +327,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_run", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_extract_job_run", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_obsidian_moc_propose", assistant_layer["mcp_tools"]["implemented"])
         search_view = capabilities["capabilities"]["memory"]["search_view"]
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
@@ -641,6 +649,18 @@ class ProductApiTests(unittest.TestCase):
                 {"now": "2000-01-01T00:00:01+00:00", "limit": 5},
             )
             scheduled_audit_run = self._post_json("/api/sources/audit-jobs/run-next", {})
+            queued_extraction_job = self._post_json(
+                "/api/sources/extraction-jobs",
+                {
+                    "root_id": registered["root"]["root_id"],
+                    "label": "Extract Hermes source files",
+                    "priority": 6,
+                    "max_files": 10,
+                    "extractor": "auto",
+                },
+            )
+            extraction_jobs = self._get_json("/api/sources/extraction-jobs?status=queued")
+            extraction_job_result = self._post_json("/api/sources/extraction-jobs/run-next", {})
             jarvis = self._post_json(
                 "/api/jarvis/briefing",
                 {"source_scope": {"root_ids": [registered["root"]["root_id"]]}, "audit_limit": 10},
@@ -754,6 +774,14 @@ class ProductApiTests(unittest.TestCase):
             scheduled_audit_run["next_job"]["source_audit_job"]["previous_run_id"],
             scheduled_audit_run["job"]["run_id"],
         )
+        self.assertEqual(queued_extraction_job["status"], "queued")
+        self.assertEqual(
+            extraction_jobs["source_extraction_jobs"][0]["job"]["run_id"],
+            queued_extraction_job["job"]["run_id"],
+        )
+        self.assertEqual(extraction_job_result["status"], "completed")
+        self.assertEqual(extraction_job_result["scan"]["counts"]["indexed"], 2)
+        self.assertEqual(extraction_job_result["source_extraction_job"]["summary"]["indexed"], 2)
         self.assertEqual(jarvis["briefing"]["schema"], "pska.jarvis_briefing.v1")
         self.assertEqual(jarvis["briefing"]["agent"]["primary"], "Hermes")
         self.assertEqual(jarvis["briefing"]["source_layer"]["root_count"], 1)
@@ -789,6 +817,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source.audit_job.enqueue", actions)
         self.assertIn("source.audit_job.due", actions)
         self.assertIn("source.audit_job.run", actions)
+        self.assertIn("source.extraction_job.enqueue", actions)
+        self.assertIn("source.extraction_job.run", actions)
         self.assertIn("source.obsidian_moc.propose", actions)
         self.assertIn("source.obsidian_moc.apply", actions)
 
@@ -1756,10 +1786,15 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source-audit-summary", html)
         self.assertIn("source-audit-actions", html)
         self.assertIn("source-audit-details", html)
+        self.assertIn("run-source-extraction-job", html)
+        self.assertIn("队列抽取", script)
         self.assertIn('/api/sources/roots', script)
         self.assertIn('/api/sources/roots/${encodeURIComponent(normalized)}/scan', script)
         self.assertIn('/api/sources/search', script)
         self.assertIn('/api/sources/audits/run', script)
+        self.assertIn('/api/sources/extraction-jobs', script)
+        self.assertIn('/api/sources/extraction-jobs/run-next', script)
+        self.assertIn('/api/sources/extraction-jobs/${encodeURIComponent(runId)}/run', script)
         self.assertIn('/api/sources/audit-jobs/tick', script)
         self.assertIn('/api/sources/audit-jobs/run-next', script)
         self.assertIn('/api/sources/audit-jobs/${encodeURIComponent(runId)}/run', script)
@@ -1774,6 +1809,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("function renderSources", script)
         self.assertIn("function runSourceAudit", script)
         self.assertIn("async function runSourceAuditJob", script)
+        self.assertIn("async function enqueueSourceExtractionJob", script)
+        self.assertIn("async function runSourceExtractionJob", script)
         self.assertIn("async function tickSourceAuditJobs", script)
         self.assertIn("async function searchSources", script)
         self.assertIn("async function saveSourceSearch", script)
