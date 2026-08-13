@@ -12,6 +12,7 @@ from pska_essential.governance import (
     WorkspaceGovernancePolicy,
     build_workspace_policy_from_env,
 )
+from pska_essential.memory_attribution import build_memory_attribution, build_memory_suggestions
 from pska_essential.readiness import build_not_ready_ask_result, build_readiness_loop_step, evaluate_kb_readiness
 from pska_essential.workflow import WorkflowService
 
@@ -254,6 +255,26 @@ def run_agentic_question(
             resumed_from_run_id=resumed_from_run_id or "",
         )
         _save_loop_metadata(service, run.run_id, loop)
+        memory_attribution = build_memory_attribution(
+            run_id=run.run_id,
+            question=normalized_question,
+            status="insufficient_context",
+            memory_facts=memory_facts,
+            context_packets=retrieved,
+        )
+        memory_suggestions = build_memory_suggestions(
+            run_id=run.run_id,
+            question=normalized_question,
+            status="insufficient_context",
+            context_packets=retrieved,
+            memory_facts=memory_facts,
+        )
+        _save_memory_attribution(
+            service,
+            run.run_id,
+            memory_attribution,
+            memory_suggestions=memory_suggestions,
+        )
         service.store.add_audit_event(
             audit_event(
                 "agentic_loop.insufficient_context",
@@ -274,6 +295,8 @@ def run_agentic_question(
             "review_decision": None,
             "memory_apply": None,
             "memory_facts": to_jsonable(memory_facts),
+            "memory_attribution": memory_attribution,
+            "memory_suggestions": memory_suggestions,
             "brief": "",
             "loop": loop,
             "message": message,
@@ -353,6 +376,28 @@ def run_agentic_question(
         resumed_from_run_id=resumed_from_run_id or "",
     )
     _save_loop_metadata(service, run.run_id, loop)
+    memory_attribution = build_memory_attribution(
+        run_id=run.run_id,
+        question=normalized_question,
+        status="ready",
+        memory_facts=memory_facts,
+        context_packets=retrieved,
+        proposal=proposal,
+    )
+    memory_suggestions = build_memory_suggestions(
+        run_id=run.run_id,
+        question=normalized_question,
+        status="ready",
+        context_packets=retrieved,
+        memory_facts=memory_facts,
+        proposal=proposal,
+    )
+    _save_memory_attribution(
+        service,
+        run.run_id,
+        memory_attribution,
+        memory_suggestions=memory_suggestions,
+    )
     brief = service.render_brief(run.run_id, "markdown")
     artifact = service.workflow_artifact(run.run_id)
     service.store.add_audit_event(
@@ -365,6 +410,8 @@ def run_agentic_question(
             proposal_id=proposal.proposal_id,
             review_id=review.review_id if review else "",
             governance_action=governance_action,
+            used_memory_ids=memory_attribution["used_memory_ids"],
+            memory_suggestion_count=memory_suggestions["suggestion_count"],
             resumed_from_run_id=resumed_from_run_id or "",
         )
     )
@@ -389,6 +436,8 @@ def run_agentic_question(
         "review_decision": to_jsonable(review_decision) if review_decision else None,
         "memory_apply": to_jsonable(memory_apply) if memory_apply else None,
         "memory_facts": to_jsonable(memory_facts),
+        "memory_attribution": memory_attribution,
+        "memory_suggestions": memory_suggestions,
         "artifact": artifact,
         "brief": brief,
         "loop": loop,
@@ -928,6 +977,21 @@ def _save_loop_metadata(service: WorkflowService, run_id: str, loop: dict[str, A
 def _save_memory_context(service: WorkflowService, run_id: str, memory_facts: list[Any]) -> None:
     run = service.state(run_id)
     run.metadata["memory_context"] = to_jsonable(memory_facts)
+    service.store.save_workflow(run)
+
+
+def _save_memory_attribution(
+    service: WorkflowService,
+    run_id: str,
+    memory_attribution: dict[str, Any],
+    *,
+    memory_suggestions: dict[str, Any] | None = None,
+) -> None:
+    run = service.state(run_id)
+    run.metadata["memory_attribution"] = to_jsonable(memory_attribution)
+    if memory_suggestions is not None:
+        run.metadata["memory_suggestions"] = to_jsonable(memory_suggestions)
+    run.updated_at = utc_now_iso()
     service.store.save_workflow(run)
 
 

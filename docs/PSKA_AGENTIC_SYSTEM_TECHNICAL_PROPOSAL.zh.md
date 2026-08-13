@@ -464,8 +464,9 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 ### Phase 1: Memory Productization
 
 - Memory Card UI：active 与 health scan 已落地；suggestions 仍待做。
-- Memory use trace / why-used：第一版已能解释 search/card inspection 何时触达某条记忆；最终回答级 used_memory_ids 仍待做。
+- Memory use trace / why-used：第一版已能解释 search/card inspection 何时触达某条记忆；回答级 `memory_attribution` 已能在 Ask/workflow artifact 上输出 `used_memory_ids`。
 - Memory health scan：第一版已覆盖 missing envelope、refresh/stale candidate 和保守的 active-card conflict。
+- Memory suggestions：第一版已能从 sourced workflow 产出可治理的 memory review suggestion，不直接写 durable memory。
 - Better supersession：冲突合并、scope 缩窄、refresh rule。
 - Eidolia thought -> Memory Card candidate。
 

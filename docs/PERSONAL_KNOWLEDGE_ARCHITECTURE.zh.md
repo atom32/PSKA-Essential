@@ -490,6 +490,8 @@ pska_memory_card_get
 pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
+pska_workflow_memory_attribution
+pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
 pska_memory_search
 pska_review_*
@@ -571,6 +573,10 @@ Hermes 的默认行为：
 - Done: P2-3 已新增 `pska_memory_health_scan` 与 `GET /api/memory/health`；
   当前扫描 low-quality、stale/refresh 和 conservative active-card conflicts，并进入
   workspace/Jarvis next actions。
+- Done: P2-4 已新增回答级 `memory_attribution`/`used_memory_ids` 与
+  `memory_suggestions`；Ask/workflow artifact、export JSON、WebUI Ask/Writing、
+  Product API 和 MCP 均可读取。归因只声明 PSKA supplied memory context，
+  suggestion 只走 Review，不直接写 Memory。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
 - Pending: 批量候选去重、UI review 队列分组、从 folder audit 自动生成候选。

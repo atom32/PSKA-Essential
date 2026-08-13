@@ -71,6 +71,8 @@ EXPECTED_TOOLS = {
     "pska_memory_health_scan",
     "pska_memory_use_trace",
     "pska_memory_why_used",
+    "pska_workflow_memory_attribution",
+    "pska_workflow_memory_suggestions",
     "pska_memory_apply",
     "pska_memory_change_from_conversation",
     "pska_memory_delete_review",
@@ -375,6 +377,10 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(memory_card["card"]["memory_id"], applied["target_id"])
         memory_health = tools["pska_memory_health_scan"]({}, limit=10)
         self.assertEqual(memory_health["schema"], "pska.memory_health.v1")
+        memory_attribution = tools["pska_workflow_memory_attribution"](run["run_id"])
+        memory_suggestions = tools["pska_workflow_memory_suggestions"](run["run_id"])
+        self.assertEqual(memory_attribution["schema"], "pska.memory_attribution.v1")
+        self.assertEqual(memory_suggestions["schema"], "pska.memory_suggestions.v1")
         facts = tools["pska_memory_search"]("mcp memory", {}, 10)
         use_trace = tools["pska_memory_use_trace"](applied["target_id"], limit=10)
         why_used = tools["pska_memory_why_used"](applied["target_id"])

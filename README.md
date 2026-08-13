@@ -423,6 +423,8 @@ Operational loop tools:
 - `pska_memory_health_scan`
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
+- `pska_workflow_memory_attribution`
+- `pska_workflow_memory_suggestions`
 - `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
@@ -493,7 +495,12 @@ memory provider or bypass review-gated update/delete flows. P2-2 adds
 and Memory Card inspection audit events into an explicit explanation of when a
 memory was surfaced as candidate context. P2-3 adds `pska_memory_health_scan`
 and `GET /api/memory/health`, a conservative Memory Card health scan for missing
-envelope fields, refresh/stale candidates, and likely active-card conflicts. M6 adds
+envelope fields, refresh/stale candidates, and likely active-card conflicts.
+P2-4 adds answer-level `memory_attribution`/`used_memory_ids` and governed
+`memory_suggestions` on Ask/workflow artifacts, plus
+`pska_workflow_memory_attribution` and `pska_workflow_memory_suggestions`.
+Attribution records memory context supplied to the work product; suggestions
+remain review candidates and never write durable memory directly. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

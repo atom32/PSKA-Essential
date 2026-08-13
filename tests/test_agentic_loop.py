@@ -453,6 +453,14 @@ class AgenticLoopTests(unittest.TestCase):
         expected_memory_source_count = len(result["memory_facts"][0]["source_refs"])
         self.assertEqual(result["artifact"]["traceability"]["memory_count"], 1)
         self.assertEqual(result["artifact"]["traceability"]["memory_source_count"], expected_memory_source_count)
+        self.assertEqual(result["memory_attribution"]["schema"], "pska.memory_attribution.v1")
+        self.assertEqual(result["memory_attribution"]["used_memory_ids"], [result["memory_facts"][0]["fact_id"]])
+        self.assertEqual(
+            result["artifact"]["memory_attribution"]["used_memory_ids"],
+            result["memory_attribution"]["used_memory_ids"],
+        )
+        self.assertEqual(result["memory_suggestions"]["schema"], "pska.memory_suggestions.v1")
+        self.assertEqual(result["memory_suggestions"]["suggestions"][0]["next_actions"][0]["tool"], "pska_memory_review_from_workflow")
         self.assertEqual(len(result["artifact"]["memory_source_manifest"]), expected_memory_source_count)
         self.assertEqual(result["artifact"]["memory_source_manifest"][0]["adapter"], "fake")
         self.assertEqual(result["artifact"]["memory_facts"][0]["fact_id"], result["memory_facts"][0]["fact_id"])
@@ -466,6 +474,7 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertEqual(exported_json["traceability"]["source_inspection_count"], 2)
         self.assertEqual(exported_json["traceability"]["export"]["source_inspection_count"], 2)
         self.assertEqual(exported_json["traceability"]["memory_source_count"], expected_memory_source_count)
+        self.assertEqual(exported_json["memory_attribution"]["used_memory_ids"], [result["memory_facts"][0]["fact_id"]])
         export_events = [
             event for event in service.store.list_audit_events() if event.action == "workflow.export"
         ]
@@ -479,6 +488,12 @@ class AgenticLoopTests(unittest.TestCase):
         ]
         self.assertGreaterEqual(len(memory_search_events), 2)
         self.assertEqual(memory_search_events[-1].metadata["count"], 1)
+        complete_event = next(
+            event
+            for event in service.store.list_audit_events(action="agentic_loop.complete")
+            if event.target_id == result["run"]["run_id"]
+        )
+        self.assertEqual(complete_event.metadata["used_memory_ids"], [result["memory_facts"][0]["fact_id"]])
 
     def test_correction_episode_memory_uses_display_text_in_agent_facing_outputs(self):
         memory = FakeMemoryAdapter()

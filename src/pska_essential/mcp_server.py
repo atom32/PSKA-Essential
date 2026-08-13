@@ -425,6 +425,12 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_memory_review_from_workflow(run_id: str, intent: str = ""):
         return service.memory_review_from_workflow(run_id, intent)
 
+    def pska_workflow_memory_attribution(run_id: str):
+        return service.workflow_artifact(run_id)["memory_attribution"]
+
+    def pska_workflow_memory_suggestions(run_id: str):
+        return service.workflow_artifact(run_id)["memory_suggestions"]
+
     def pska_source_memory_review_create(
         source_refs: list[dict[str, Any]],
         text: str,
@@ -1016,6 +1022,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_memory_review_create": pska_source_memory_review_create,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
+        "pska_workflow_memory_attribution": pska_workflow_memory_attribution,
+        "pska_workflow_memory_suggestions": pska_workflow_memory_suggestions,
         "pska_memory_delete_review": pska_memory_delete_review,
         "pska_memory_update_review": pska_memory_update_review,
         "pska_memory_lifecycle": pska_memory_lifecycle,

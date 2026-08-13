@@ -42,6 +42,7 @@ from pska_essential.governance import (
     MANUAL_REVIEW,
     build_workspace_policy_from_env,
 )
+from pska_essential.memory_attribution import build_attribution_from_artifact, build_suggestions_from_artifact
 from pska_essential.memory_use_trace import memory_search_trace_metadata
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
@@ -1442,6 +1443,7 @@ class WorkflowService:
         source_inspections = artifact.get("source_inspections") or []
         memory_facts = artifact.get("memory_facts") or []
         memory_source_manifest = artifact.get("memory_source_manifest") or []
+        memory_attribution = artifact.get("memory_attribution") or {}
         if fmt == "json":
             return artifact
         lines = [
@@ -1452,6 +1454,7 @@ class WorkflowService:
             f"- Scope: `{_json_inline(run.scope)}`",
             f"- Source count: `{len(source_manifest)}`",
             f"- Inspected source count: `{len(source_inspections)}`",
+            f"- Used memory count: `{len(memory_attribution.get('used_memory_ids') or [])}`",
         ]
         export_trace = artifact.get("traceability", {}).get("export")
         if export_trace:
@@ -1573,7 +1576,7 @@ class WorkflowService:
         source_inspections = list(run.metadata.get("source_inspections") or [])
         source_manifest = _source_manifest(run.context_packets, proposal_source_refs)
         memory_source_manifest = _memory_source_manifest(memory_facts)
-        return {
+        artifact = {
             "run": to_jsonable(run),
             "scope": run.scope,
             "proposals": proposal_payload,
@@ -1583,6 +1586,8 @@ class WorkflowService:
             "source_inspections": source_inspections,
             "memory_facts": memory_facts,
             "memory_source_manifest": memory_source_manifest,
+            "memory_attribution": run.metadata.get("memory_attribution") or {},
+            "memory_suggestions": run.metadata.get("memory_suggestions") or {},
             "traceability": {
                 "context_count": len(packet_payload),
                 "source_inspection_count": len(source_inspections),
@@ -1592,6 +1597,11 @@ class WorkflowService:
                 "source_count": len(source_manifest),
             },
         }
+        if not artifact["memory_attribution"]:
+            artifact["memory_attribution"] = build_attribution_from_artifact(artifact)
+        if not artifact["memory_suggestions"]:
+            artifact["memory_suggestions"] = build_suggestions_from_artifact(artifact)
+        return artifact
 
     def _create_memory_patch_proposal(
         self,

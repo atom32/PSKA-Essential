@@ -249,7 +249,12 @@ Memory use trace / why-used：`GET /api/memory/use-traces`、
 search 或 card inspection 作为候选上下文触达。P2 的第三块已落地为
 Memory health scan：`GET /api/memory/health` 与 `pska_memory_health_scan`
 扫描 low-quality、stale/refresh 和 conservative active-card conflicts，并进入
-workspace/Jarvis next actions。最终回答级 used_memory_ids 仍是后续 P2。
+workspace/Jarvis next actions。P2 的第四块已落地为 answer-level memory
+attribution：Ask/workflow artifact、export JSON、WebUI Ask/Writing、
+`GET /api/workflows/{run_id}/memory-attribution` 和
+`pska_workflow_memory_attribution` 均暴露 `used_memory_ids`；同时新增
+`memory_suggestions`、`GET /api/workflows/{run_id}/memory-suggestions` 与
+`pska_workflow_memory_suggestions`，只提供 Review 候选，不直接写 Memory。
 
 新增 Product API / MCP：
 
@@ -270,10 +275,10 @@ pska_memory_card_get
 pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
-pska_memory_card_suggestions
-pska_memory_card_conflicts
-pska_memory_card_stale
-pska_memory_refresh_review_create
+pska_workflow_memory_attribution
+pska_workflow_memory_suggestions
+pska_memory_change_from_conversation
+pska_memory_review_from_workflow
 ```
 
 SQLite memory provider 或 PSKA audit store 需要记录：
@@ -570,6 +575,8 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 - [x] Add memory use trace table or audit action.
 - [x] Add WebUI Memory panel.
 - [x] Add Jarvis memory conflict/stale next actions.
+- [x] Add final-answer-level `used_memory_ids` / memory citation trace.
+- [x] Add proactive memory suggestions from sourced workflows.
 
 ### P3 Backlog
 

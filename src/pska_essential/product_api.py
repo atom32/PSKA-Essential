@@ -121,6 +121,8 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/memory/{memory_id}/why-used"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
+    {"method": "GET", "path": "/api/workflows/{run_id}/memory-attribution"},
+    {"method": "GET", "path": "/api/workflows/{run_id}/memory-suggestions"},
     {"method": "POST", "path": "/api/kb/ingest"},
 )
 
@@ -822,6 +824,18 @@ def _handler_class(state: ProductApiState):
                     intent=str(payload.get("intent") or ""),
                 )
                 self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            workflow_memory_attribution = _match(path, "/api/workflows/", "/memory-attribution")
+            if method == "GET" and workflow_memory_attribution:
+                artifact = state.service.workflow_artifact(workflow_memory_attribution)
+                self._send_json({"ok": True, "memory_attribution": artifact["memory_attribution"]})
+                return
+
+            workflow_memory_suggestions = _match(path, "/api/workflows/", "/memory-suggestions")
+            if method == "GET" and workflow_memory_suggestions:
+                artifact = state.service.workflow_artifact(workflow_memory_suggestions)
+                self._send_json({"ok": True, "memory_suggestions": artifact["memory_suggestions"]})
                 return
 
             export_id = _match(path, "/api/workflows/", "/export")

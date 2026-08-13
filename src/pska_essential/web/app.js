@@ -34,6 +34,7 @@ const messages = {
   "toast.memoryProbeRecorded": "记忆探针已记录。",
   "toast.memoryCardsLoaded": "记忆卡片已加载。",
   "toast.memoryHealthLoaded": "记忆健康扫描已加载。",
+  "toast.memoryAttributionLoaded": "记忆归因已加载。",
   "toast.memoryUseTraceLoaded": "记忆使用痕迹已加载。",
   "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
   "toast.askScopeReady": "提问范围已就绪。",
@@ -81,6 +82,8 @@ const messages = {
   "empty.noMemoryProbe": "尚未运行记忆探针。",
   "empty.noMemoryCards": "没有匹配的记忆卡片。",
   "empty.noMemoryHealthIssues": "没有匹配的记忆健康问题。",
+  "empty.noMemoryAttribution": "这个结果没有使用长期记忆。",
+  "empty.noMemorySuggestions": "没有可治理的记忆建议。",
   "empty.noMemoryUseTrace": "没有匹配的记忆使用痕迹。",
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
@@ -189,6 +192,8 @@ const messages = {
   "heading.nextActions": "下一步",
   "heading.appliedKnowledge": "已应用长期知识",
   "heading.durableMemory": "长期记忆",
+  "heading.memoryAttribution": "记忆归因",
+  "heading.memorySuggestions": "记忆建议",
   "heading.inspectedSources": "已检查来源",
   "heading.sourceManifest": "来源清单",
   "heading.componentCheck": "组件检查",
@@ -428,6 +433,8 @@ async function applyAskResult(result, options = {}) {
         review_decision: result.review_decision,
         memory_apply: result.memory_apply,
         memory_facts: result.memory_facts || [],
+        memory_attribution: result.memory_attribution || (result.artifact && result.artifact.memory_attribution) || null,
+        memory_suggestions: result.memory_suggestions || (result.artifact && result.artifact.memory_suggestions) || null,
       }
     : null;
   renderAskResult(result);
@@ -1801,6 +1808,8 @@ function openLoopWorkProduct(result) {
     review_decision: result.review_decision || null,
     memory_apply: result.memory_apply || null,
     memory_facts: result.memory_facts || artifact.memory_facts || [],
+    memory_attribution: result.memory_attribution || artifact.memory_attribution || null,
+    memory_suggestions: result.memory_suggestions || artifact.memory_suggestions || null,
     brief: typeof exported === "string" ? exported : JSON.stringify(exported || artifact, null, 2),
     status: result.ask_status || result.status || "ready",
   };
@@ -2930,6 +2939,8 @@ function renderAskResult(result) {
     ]),
   );
   container.append(askResultActions(result));
+  container.append(memoryAttributionPanel(result.memory_attribution || (result.artifact && result.artifact.memory_attribution)));
+  container.append(memorySuggestionsPanel(result.memory_suggestions || (result.artifact && result.artifact.memory_suggestions)));
   container.append(loopPanel(result));
   container.append(
       el("div", { className: "panel" }, [
@@ -3209,6 +3220,8 @@ function renderWriting() {
       ]),
     );
   }
+  container.append(memoryAttributionPanel(state.currentBrief.memory_attribution || artifact.memory_attribution));
+  container.append(memorySuggestionsPanel(state.currentBrief.memory_suggestions || artifact.memory_suggestions));
   if (!state.currentBrief.brief && memoryFacts.length) {
     container.append(
       el("div", { className: "panel" }, [
@@ -3241,6 +3254,70 @@ function renderWriting() {
       ]),
     );
   }
+}
+
+function memoryAttributionPanel(attribution) {
+  const used = (attribution && attribution.used_memories) || [];
+  return el("div", { className: "panel" }, [
+    el("div", { className: "panel-header" }, [
+      el("h2", {}, t("heading.memoryAttribution")),
+      el("span", { className: `tag ${used.length ? "ready" : "pending"}` }, `${used.length} memories`),
+    ]),
+    used.length
+      ? el("div", { className: "source-list" }, used.map(memoryAttributionCard))
+      : el("p", { className: "empty-list" }, t("empty.noMemoryAttribution")),
+  ]);
+}
+
+function memoryAttributionCard(memory) {
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, memory.display_text || memory.memory_id || "memory"),
+        el("p", {}, memory.evidence_status || memory.used_as || ""),
+      ]),
+      el("button", { className: "secondary-button", onclick: () => inspectMemoryCard(memory.memory_id) }, t("button.inspect")),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, shortId(memory.memory_id || "")),
+      memory.memory_type ? el("span", { className: "tag" }, memory.memory_type) : null,
+      memory.memory_scope ? el("span", { className: "tag" }, memory.memory_scope) : null,
+      el("span", { className: "tag" }, `${memory.source_count || 0} sources`),
+    ]),
+  ]);
+}
+
+function memorySuggestionsPanel(payload) {
+  const suggestions = (payload && payload.suggestions) || [];
+  return el("div", { className: "panel" }, [
+    el("div", { className: "panel-header" }, [
+      el("h2", {}, t("heading.memorySuggestions")),
+      el("span", { className: `tag ${suggestions.length ? "pending" : "ready"}` }, `${suggestions.length} suggestions`),
+    ]),
+    suggestions.length
+      ? el("div", { className: "source-list" }, suggestions.map(memorySuggestionCard))
+      : el("p", { className: "empty-list" }, t("empty.noMemorySuggestions")),
+  ]);
+}
+
+function memorySuggestionCard(suggestion) {
+  const runId = suggestion.run_id || (suggestion.evidence && suggestion.evidence.run_id) || "";
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, suggestion.title || suggestion.type || "memory suggestion"),
+        el("p", {}, suggestion.reason || ""),
+      ]),
+      runId
+        ? el("button", { className: "primary-button", onclick: () => createMemoryReviewFromRun(runId) }, t("button.memoryReview"))
+        : null,
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, suggestion.type || "suggestion"),
+      el("span", { className: "tag" }, `confidence ${Number(suggestion.confidence || 0).toFixed(2)}`),
+      el("span", { className: "tag" }, `${suggestion.source_count || 0} sources`),
+    ]),
+  ]);
 }
 
 function workProductBlock(proposal) {
@@ -4172,6 +4249,9 @@ async function openWorkflowRun(runId) {
     artifact,
     brief: "",
     status: loopStatus || workflow.status || "active",
+    memory_facts: artifact.memory_facts || [],
+    memory_attribution: artifact.memory_attribution || null,
+    memory_suggestions: artifact.memory_suggestions || null,
   };
   renderWriting();
   document.querySelector('.nav-item[data-view="writing"]').click();
@@ -4330,6 +4410,14 @@ async function openWritingRun(runId) {
       review_decision: state.currentAskResult.review_decision,
       memory_apply: state.currentAskResult.memory_apply,
       memory_facts: state.currentAskResult.memory_facts || [],
+      memory_attribution:
+        state.currentAskResult.memory_attribution ||
+        (state.currentAskResult.artifact && state.currentAskResult.artifact.memory_attribution) ||
+        null,
+      memory_suggestions:
+        state.currentAskResult.memory_suggestions ||
+        (state.currentAskResult.artifact && state.currentAskResult.artifact.memory_suggestions) ||
+        null,
     };
     renderWriting();
     document.querySelector('.nav-item[data-view="writing"]').click();
@@ -4381,6 +4469,9 @@ async function exportWorkflow(runId, format, options = {}) {
     state.currentBrief.brief = content;
     if (payload.export && typeof payload.export === "object") {
       state.currentBrief.artifact = payload.export;
+      state.currentBrief.memory_attribution = payload.export.memory_attribution || null;
+      state.currentBrief.memory_suggestions = payload.export.memory_suggestions || null;
+      state.currentBrief.memory_facts = payload.export.memory_facts || state.currentBrief.memory_facts || [];
     }
     renderWriting();
     await loadAuditEvents("workflow.export");

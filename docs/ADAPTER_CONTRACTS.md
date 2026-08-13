@@ -399,6 +399,8 @@ The current public tool surface is:
 - `pska_memory_health_scan`
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
+- `pska_workflow_memory_attribution`
+- `pska_workflow_memory_suggestions`
 - `pska_memory_apply`
 - `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
@@ -669,6 +671,8 @@ Memory use trace and why-used:
 pska_memory_health_scan(scope, issue_type, limit) -> provider-neutral health issues for quality/stale/conflict
 pska_memory_use_trace(memory_id, query, action, limit) -> audit-backed candidate retrieval / card inspection trace
 pska_memory_why_used(memory_id, scope, limit) -> Memory Card plus recent trace explanation
+pska_workflow_memory_attribution(run_id) -> answer-level used_memory_ids for a PSKA workflow
+pska_workflow_memory_suggestions(run_id) -> governed memory review suggestions for a PSKA workflow
 ```
 
 Durable memory lifecycle inspection:

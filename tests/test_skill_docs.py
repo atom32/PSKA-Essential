@@ -44,6 +44,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_memory_health_scan", text)
         self.assertIn("pska_memory_use_trace", text)
         self.assertIn("pska_memory_why_used", text)
+        self.assertIn("pska_workflow_memory_attribution", text)
+        self.assertIn("pska_workflow_memory_suggestions", text)
         self.assertIn("pska_obsidian_moc_propose", text)
         self.assertIn("pska_obsidian_moc_apply", text)
 
@@ -296,6 +298,8 @@ class SkillDocsTests(unittest.TestCase):
             "pska_memory_health_scan",
             "pska_memory_use_trace",
             "pska_memory_why_used",
+            "pska_workflow_memory_attribution",
+            "pska_workflow_memory_suggestions",
             "pska_memory_change_from_conversation",
             "pska_memory_lifecycle",
             "pska_review_list",

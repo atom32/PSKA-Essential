@@ -47,6 +47,13 @@ candidate memory, review, and durable export.
   query/tool surfaced it. Treat the result as audit-backed candidate retrieval
   or card inspection evidence, not proof that the final model response depended
   on that memory.
+- Use `pska_workflow_memory_attribution` for answer-level memory attribution
+  after a PSKA Ask/workflow run. Report `used_memory_ids` as explicit
+  answer-context trace, and keep the limitation clear: it records what PSKA
+  supplied to the work product, not hidden model causality.
+- Use `pska_workflow_memory_suggestions` when deciding whether an answer should
+  become durable memory. Treat suggestions as review candidates only; follow
+  `pska_memory_review_from_workflow` instead of writing memory directly.
 - Use `pska_migration_manifest` when the user asks how to migrate, back up, or
   inspect component ownership. Treat it as an inventory, not a raw provider data
   export.
@@ -153,6 +160,9 @@ candidate memory, review, and durable export.
 - Use `pska_memory_why_used` before claiming that a Memory Card shaped an
   answer. If the trace confidence is only `candidate_retrieval`, say that the
   memory was surfaced as context rather than asserting final-answer influence.
+- Use `pska_workflow_memory_attribution` for final-answer `used_memory_ids`; use
+  `pska_workflow_memory_suggestions` before offering to preserve an answer as
+  durable memory.
 - Export briefs from workflow context only when the user needs an explicit
   Markdown or JSON handoff.
 

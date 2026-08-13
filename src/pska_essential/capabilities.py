@@ -286,6 +286,19 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "review_required": True,
         "may_auto_apply": True,
     },
+    "pska_workflow_memory_attribution": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "answer_level_trace": True,
+    },
+    "pska_workflow_memory_suggestions": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "may_create_review": True,
+        "writes_memory_directly": False,
+    },
     "pska_memory_apply": {
         "category": "memory",
         "access": "write",
@@ -381,6 +394,8 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "search_view": memory_search_view_contract(),
         "card_view": memory_card_view_contract(),
         "health_view": memory_health_view_contract(),
+        "attribution_view": memory_attribution_view_contract(),
+        "suggestion_view": memory_suggestion_view_contract(),
         "use_trace_view": memory_use_trace_view_contract(),
         "interaction_model": memory_interaction_model_contract(),
     }
@@ -590,6 +605,8 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_memory_health_scan",
                 "pska_memory_use_trace",
                 "pska_memory_why_used",
+                "pska_workflow_memory_attribution",
+                "pska_workflow_memory_suggestions",
                 "pska_memory_change_from_conversation",
                 "pska_source_memory_review_create",
             ],
@@ -995,6 +1012,31 @@ def memory_health_view_contract() -> dict[str, Any]:
             "create_memory_update_review",
         ],
         "limitation": "provider-neutral health scan; conflict detection is conservative and does not auto-resolve memory",
+    }
+
+
+def memory_attribution_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_attribution_view.v1",
+        "api": "GET /api/workflows/{run_id}/memory-attribution",
+        "mcp_tool": "pska_workflow_memory_attribution",
+        "output_schema": "pska.memory_attribution.v1",
+        "fields": ["run_id", "used_memory_ids", "used_memories", "proposal_id", "confidence", "limitations"],
+        "principle": "answer-level memory context attribution is explicit and separate from provider retrieval traces",
+        "limitation": "records context supplied to the answer/work product, not hidden model causality",
+    }
+
+
+def memory_suggestion_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_suggestion_view.v1",
+        "api": "GET /api/workflows/{run_id}/memory-suggestions",
+        "mcp_tool": "pska_workflow_memory_suggestions",
+        "output_schema": "pska.memory_suggestions.v1",
+        "suggestion_schema": "pska.memory_suggestion.v1",
+        "next_actions": ["create_memory_review_from_workflow"],
+        "writes_memory_directly": False,
+        "review_tool": "pska_memory_review_from_workflow",
     }
 
 
