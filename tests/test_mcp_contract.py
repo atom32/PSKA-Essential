@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from pska_essential.config import build_service_from_env
+from pska_essential.contracts import SourceRef
 from pska_essential.kb_gateway import reset_fake_kb_gateway
 from pska_essential.mcp_server import tool_registry
 from pska_essential.workflow import build_fake_service
@@ -72,6 +73,7 @@ EXPECTED_TOOLS = {
     "pska_review_get",
     "pska_review_decide",
     "pska_review_decide_batch",
+    "pska_review_merge_candidates",
     "pska_review_revise",
     "pska_memory_search",
     "pska_memory_card_list",
@@ -332,6 +334,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(capabilities["memory"]["card_view"]["mcp_tools"]["list"], "pska_memory_card_list")
         self.assertEqual(capabilities["memory"]["briefing_view"]["schema"], "pska.memory_briefing_view.v1")
         self.assertEqual(capabilities["memory"]["briefing_view"]["mcp_tool"], "pska_memory_briefing")
+        self.assertIn("pska_review_merge_candidates", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertEqual(capabilities["memory"]["review_queue_view"]["schema"], "pska.memory_review_queue_view.v1")
         self.assertEqual(capabilities["memory"]["review_queue_view"]["mcp_tool"], "pska_memory_review_queue")
         self.assertIn("conversation_candidates", capabilities["memory"]["review_queue_view"]["groups"])
@@ -850,6 +853,44 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(tools["pska_review_get"](review_ids[0])["status"], "accepted")
         self.assertEqual(tools["pska_review_get"](review_ids[1])["status"], "accepted")
         self.assertFalse(batch["data_flow"]["writes_memory_directly"])
+
+    def test_review_merge_candidates_tool_creates_merged_review(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        first = service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")],
+            text="When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route one",
+        )
+        second = service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture-v2", path="Architecture.md")],
+            text="When the workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route future PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route two",
+        )
+        review_ids = [first["review"]["review_id"], second["review"]["review_id"]]
+
+        merged = tools["pska_review_merge_candidates"](
+            review_ids,
+            memory_candidate={
+                "text": "When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+                "memory_type": "source_route",
+                "memory_scope": "project",
+                "behavior_delta": "Route future PSKA architecture questions to Architecture.md before broad search.",
+            },
+            reason="merge duplicate route candidates",
+        )
+
+        self.assertEqual(merged["schema"], "pska.review_merge_candidates.v1")
+        self.assertEqual(merged["review"]["status"], "pending")
+        self.assertEqual(merged["proposal"]["memory_patch"]["metadata"]["merged_review_ids"], review_ids)
+        self.assertEqual(tools["pska_review_get"](review_ids[0])["status"], "needs_edit")
+        self.assertFalse(merged["data_flow"]["writes_memory_directly"])
 
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):

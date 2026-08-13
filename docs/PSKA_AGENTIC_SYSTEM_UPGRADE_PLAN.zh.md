@@ -298,7 +298,11 @@ behavior_delta，同时保留原始证据 refs 与 revision lineage。P2 的第�
 group-level review decisions：Memory Review Queue 会给 conversation candidates 和
 pending reviews 暴露 batch accept/reject，底层入口是
 `POST /api/reviews/batch-decision` 与 `pska_review_decide_batch`；批量决策不写
-durable memory，只把候选推进到 accepted/rejected Review 状态，后续仍需显式 apply。
+durable memory，只把候选推进到 accepted/rejected Review 状态，后续仍需显式 apply。P2
+的第十四块已落地为 explicit candidate merge primitive：`POST /api/reviews/merge-candidates`
+与 `pska_review_merge_candidates` 接收 duplicate/related candidate review ids 和人工确认的
+merged `memory_candidate` 字段，创建新的 pending Review，合并 source refs，并将仍 pending 的
+旧候选标为 needs_edit；它不自动 approve/apply/write memory。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

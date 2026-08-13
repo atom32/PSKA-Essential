@@ -1620,6 +1620,117 @@ class WorkflowService:
             "artifact": self.workflow_artifact(proposal.run_id),
         }
 
+    def review_merge_candidates(
+        self,
+        review_ids: list[str],
+        *,
+        memory_candidate: dict[str, Any],
+        intent: str = "",
+        reason: str = "",
+    ) -> dict[str, Any]:
+        self._ensure_memory_operation_supported("apply")
+        normalized_review_ids = _normalize_review_ids(review_ids)
+        if len(normalized_review_ids) < 2:
+            raise WorkflowError("candidate merge requires at least two review ids")
+        originals = [self.store.get_review_record(review_id) for review_id in normalized_review_ids]
+        proposals = [Proposal.from_dict(review["proposal"]) for review in originals]
+        if any(proposal.kind != "memory_patch" or proposal.memory_patch is None for proposal in proposals):
+            raise WorkflowError("candidate merge only supports memory_patch reviews")
+        text = str(memory_candidate.get("text") or "").strip()
+        behavior_delta = str(memory_candidate.get("behavior_delta") or "").strip()
+        if not text:
+            raise WorkflowError("candidate merge requires memory_candidate.text")
+        if not behavior_delta:
+            raise WorkflowError("candidate merge requires memory_candidate.behavior_delta")
+        memory_type = _normalize_memory_card_type(str(memory_candidate.get("memory_type") or _first_memory_metadata(proposals, "memory_type", "project_state")))
+        memory_scope = _normalize_memory_card_scope(str(memory_candidate.get("memory_scope") or _first_memory_metadata(proposals, "memory_scope", "workspace")))
+        source_refs = _unique_source_refs(
+            [
+                source_ref
+                for proposal in proposals
+                for source_ref in list((proposal.memory_patch.source_refs if proposal.memory_patch else proposal.source_refs) or [])
+            ]
+        )
+        if not source_refs:
+            raise WorkflowError("candidate merge requires source refs")
+        confidence = _normalize_memory_candidate_confidence(memory_candidate.get("confidence"), default=_average_memory_confidence(proposals))
+        merged_reason = reason or str(memory_candidate.get("reason") or "") or "merged candidate reviews"
+        run = self.start(
+            f"merged memory candidate: {memory_type}",
+            {
+                "operation": "memory_patch",
+                "origin": "memory_candidate_merge",
+                "memory_type": memory_type,
+                "memory_scope": memory_scope,
+                "merged_review_ids": normalized_review_ids,
+                "merged_proposal_ids": [proposal.proposal_id for proposal in proposals],
+            },
+        )
+        patch = MemoryPatch(
+            text=text,
+            source_refs=source_refs,
+            confidence=confidence,
+            metadata={
+                "origin": "memory_candidate_merge",
+                "candidate_origin": "memory_candidate_merge",
+                "memory_type": memory_type,
+                "memory_scope": memory_scope,
+                "behavior_delta": behavior_delta,
+                "display_text": text,
+                "reason": merged_reason,
+                "merged_review_ids": normalized_review_ids,
+                "merged_proposal_ids": [proposal.proposal_id for proposal in proposals],
+                "merged_candidate_count": len(proposals),
+                "merged_candidate_texts": [proposal.memory_patch.text for proposal in proposals if proposal.memory_patch],
+            },
+        )
+        proposal = self._create_memory_patch_proposal(
+            run,
+            intent=intent or merged_reason,
+            memory_patch=patch,
+        )
+        review = self.review_create(proposal.proposal_id)
+        skipped = []
+        marked_reviews = []
+        for old_review_id in normalized_review_ids:
+            current = self.store.get_review_record(old_review_id)
+            if current.get("status") == "pending":
+                marked_reviews.append(to_jsonable(self.review_decide(old_review_id, "edit", f"superseded by merged review {review.review_id}: {merged_reason}")))
+            else:
+                skipped.append({"review_id": old_review_id, "reason": f"status is {current.get('status')}"})
+        self.store.add_audit_event(
+            audit_event(
+                "review.merge_candidates",
+                "review",
+                review.review_id,
+                review_ids=normalized_review_ids,
+                proposal_ids=[proposal.proposal_id for proposal in proposals],
+                merged_review_id=review.review_id,
+                merged_proposal_id=proposal.proposal_id,
+                marked_count=len(marked_reviews),
+                skipped_count=len(skipped),
+                source_count=len(source_refs),
+                memory_type=memory_type,
+                memory_scope=memory_scope,
+                writes_memory_directly=False,
+            )
+        )
+        return {
+            "schema": "pska.review_merge_candidates.v1",
+            "status": "created",
+            "review_ids": normalized_review_ids,
+            "marked_reviews": marked_reviews,
+            "skipped": skipped,
+            "proposal": to_jsonable(proposal),
+            "review": self.store.get_review_record(review.review_id),
+            "artifact": self.workflow_artifact(proposal.run_id),
+            "data_flow": {
+                "writes_memory_directly": False,
+                "creates_review": True,
+                "requires_apply_for_durable_memory": True,
+            },
+        }
+
     def _revise_memory_patch_proposal(
         self,
         original: Proposal,
@@ -2365,6 +2476,26 @@ def _normalize_review_ids(review_ids: list[str]) -> list[str]:
         seen.add(value)
         normalized.append(value)
     return normalized
+
+
+def _first_memory_metadata(proposals: list[Proposal], key: str, default: str) -> str:
+    for proposal in proposals:
+        metadata = (proposal.memory_patch.metadata if proposal.memory_patch else proposal.metadata) or {}
+        value = str(metadata.get(key) or "").strip()
+        if value:
+            return value
+    return default
+
+
+def _average_memory_confidence(proposals: list[Proposal]) -> float:
+    values = [
+        float(proposal.memory_patch.confidence)
+        for proposal in proposals
+        if proposal.memory_patch is not None
+    ]
+    if not values:
+        return 0.8
+    return sum(values) / len(values)
 
 
 def _source_refs_from_input(source_refs: list[SourceRef | dict[str, Any]]) -> list[SourceRef]:

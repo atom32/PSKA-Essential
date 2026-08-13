@@ -37,6 +37,7 @@ const messages = {
   "toast.memoryBriefingLoaded": "记忆简报已加载。",
   "toast.memoryReviewQueueLoaded": "记忆维护队列已加载。",
   "toast.reviewBatchDecided": "批量审核已处理。",
+  "toast.reviewCandidatesMerged": "候选记忆已合并。",
   "toast.memoryCardsLoaded": "记忆卡片已加载。",
   "toast.memoryHealthLoaded": "记忆健康扫描已加载。",
   "toast.memoryAttributionLoaded": "记忆归因已加载。",
@@ -4886,6 +4887,10 @@ async function runMemoryReviewQueueAction(action, item = {}) {
     openView("review");
     return;
   }
+  if (action.tool === "pska_review_merge_candidates" || action.action === "merge_candidate_group") {
+    await mergeMemoryCandidateGroup(action);
+    return;
+  }
   if (action.tool === "pska_memory_health_scan" || action.action === "inspect_memory_health") {
     openView("memory");
     await loadMemoryHealth({ toast: true });
@@ -4905,6 +4910,39 @@ async function runMemoryReviewQueueAction(action, item = {}) {
     return;
   }
   showToast(action.label || action.action || "无法执行该操作。");
+}
+
+async function mergeMemoryCandidateGroup(action) {
+  const params = action.params || {};
+  const reviewIds = params.review_ids || [];
+  if (reviewIds.length < 2) return;
+  const text = window.prompt("合并后的候选记忆文本");
+  if (!text || !text.trim()) return;
+  const behaviorDelta = window.prompt("这条记忆应如何改变未来行为？");
+  if (!behaviorDelta || !behaviorDelta.trim()) return;
+  const payload = await api("/api/reviews/merge-candidates", {
+    method: "POST",
+    body: {
+      review_ids: reviewIds,
+      reason: action.label || "merge candidate group",
+      memory_candidate: {
+        text: text.trim(),
+        behavior_delta: behaviorDelta.trim(),
+        memory_type: params.memory_type || "project_state",
+        memory_scope: params.memory_scope || "workspace",
+      },
+    },
+  });
+  syncReviewRecord(payload.review);
+  state.focusReviewId = payload.review && payload.review.review_id;
+  setReviewStatusFilter("");
+  await loadReviews();
+  await loadPendingReviews();
+  await loadMemoryReviewQueue();
+  await loadWorkspaceStatus();
+  await loadAuditEvents("review.merge_candidates");
+  renderCurrentResultSurfaces();
+  showToast(t("toast.reviewCandidatesMerged"));
 }
 
 async function exportCurrent(format) {

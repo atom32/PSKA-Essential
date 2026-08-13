@@ -400,6 +400,19 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     def pska_review_decide_batch(review_ids: list[str], decision: str, reason: str = ""):
         return service.review_decide_batch(review_ids, decision, reason)
 
+    def pska_review_merge_candidates(
+        review_ids: list[str],
+        memory_candidate: dict[str, Any],
+        intent: str = "",
+        reason: str = "",
+    ):
+        return service.review_merge_candidates(
+            review_ids,
+            memory_candidate=memory_candidate,
+            intent=intent,
+            reason=reason,
+        )
+
     def pska_review_revise(
         review_id: str,
         intent: str = "",
@@ -1245,6 +1258,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_review_get": pska_review_get,
         "pska_review_decide": pska_review_decide,
         "pska_review_decide_batch": pska_review_decide_batch,
+        "pska_review_merge_candidates": pska_review_merge_candidates,
         "pska_review_revise": pska_review_revise,
         "pska_memory_search": pska_memory_search,
         "pska_memory_card_list": pska_memory_card_list,

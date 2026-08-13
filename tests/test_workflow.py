@@ -374,6 +374,52 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(event.metadata["decided_count"], 2)
         self.assertEqual(event.metadata["review_ids"], review_ids)
 
+    def test_review_merge_candidates_creates_new_pending_review_and_marks_sources_for_edit(self):
+        service = build_fake_service()
+        first = service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")],
+            text="When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route one",
+        )
+        second = service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture-v2", path="Architecture.md")],
+            text="When the workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route future PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route two",
+        )
+        review_ids = [first["review"]["review_id"], second["review"]["review_id"]]
+
+        merged = service.review_merge_candidates(
+            review_ids,
+            memory_candidate={
+                "text": "When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+                "memory_type": "source_route",
+                "memory_scope": "project",
+                "behavior_delta": "Route future PSKA architecture questions to Architecture.md before broad search.",
+            },
+            reason="merge duplicate source route candidates",
+        )
+
+        proposal = Proposal.from_dict(merged["proposal"])
+        self.assertEqual(merged["schema"], "pska.review_merge_candidates.v1")
+        self.assertEqual(merged["review"]["status"], "pending")
+        self.assertEqual(proposal.memory_patch.metadata["candidate_origin"], "memory_candidate_merge")
+        self.assertEqual(proposal.memory_patch.metadata["merged_review_ids"], review_ids)
+        self.assertEqual(proposal.memory_patch.metadata["merged_candidate_count"], 2)
+        self.assertEqual(len(proposal.memory_patch.source_refs), 2)
+        self.assertEqual(service.store.get_review_record(review_ids[0])["status"], "needs_edit")
+        self.assertEqual(service.store.get_review_record(review_ids[1])["status"], "needs_edit")
+        self.assertFalse(merged["data_flow"]["writes_memory_directly"])
+        self.assertEqual(service.memory_search("Architecture.md", {}, 10), [])
+        event = next(event for event in service.store.list_audit_events() if event.action == "review.merge_candidates")
+        self.assertEqual(event.metadata["merged_review_id"], merged["review"]["review_id"])
+        self.assertFalse(event.metadata["writes_memory_directly"])
+
     def test_conversation_memory_candidates_dedupe_existing_review(self):
         service = build_fake_service()
         payload = {

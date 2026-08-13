@@ -16,7 +16,11 @@ Last updated: 2026-07-15
 > accept/reject for conversation candidates and pending reviews through
 > `POST /api/reviews/batch-decision` and `pska_review_decide_batch`; this changes
 > Review state only and still requires explicit apply before durable memory
-> writes. Next useful product step: batch edit/merge ergonomics and cross-project
+> writes. Explicit candidate merge is also available through
+> `POST /api/reviews/merge-candidates` and `pska_review_merge_candidates`; it
+> creates a new pending merged Review from caller-supplied candidate text,
+> preserves source refs, and marks replaced pending candidates as `needs_edit`.
+> Next useful product step: full WebUI for batch edit/merge and cross-project
 > semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.

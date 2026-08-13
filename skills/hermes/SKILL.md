@@ -47,7 +47,9 @@ candidate memory, review, and durable export.
   based on lexical fingerprints and SourceRefs. Its `related_groups` may flag
   cross-scope scope collisions, such as a preference appearing as both global
   and project memory. Do not merge, reject, revise, approve, or apply memory
-  from this result alone.
+  from this result alone; if the human approves a merged candidate text, call
+  `pska_review_merge_candidates` with the source review ids and explicit
+  `memory_candidate` fields.
 - Use `pska_memory_use_trace` and `pska_memory_why_used` when the user asks why a
   durable memory appeared, whether a memory has been used recently, or which
   query/tool surfaced it. Treat the result as audit-backed candidate retrieval

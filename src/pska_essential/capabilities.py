@@ -435,6 +435,15 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
     "pska_review_list": {"category": "review", "access": "read", "durable": False},
     "pska_review_get": {"category": "review", "access": "read", "durable": False},
     "pska_review_decide": {"category": "review", "access": "write", "durable": False},
+    "pska_review_merge_candidates": {
+        "category": "review",
+        "access": "write",
+        "durable": False,
+        "audit_backed": True,
+        "writes_memory_directly": False,
+        "creates_review": True,
+        "requires_apply_for_durable_memory": True,
+    },
     "pska_review_revise": {"category": "review", "access": "write", "durable": False},
     "pska_kb_list": {"category": "kb", "access": "read", "durable": False},
     "pska_kb_document_status": {"category": "kb", "access": "read", "durable": False},
@@ -738,6 +747,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_memory_briefing",
                 "pska_memory_review_queue",
                 "pska_memory_candidate_dedup",
+                "pska_review_merge_candidates",
                 "pska_memory_use_trace",
                 "pska_memory_why_used",
                 "pska_memory_timeline",
@@ -1271,7 +1281,12 @@ def memory_candidate_dedup_view_contract() -> dict[str, Any]:
         "principle": "embedding-free duplicate and related-candidate hints before human review decisions",
         "writes_memory_directly": False,
         "embedding_required": False,
-        "next_actions": ["open_review", "review_pending_durable_knowledge", "inspect_related_memory_candidates"],
+        "next_actions": [
+            "open_review",
+            "review_pending_durable_knowledge",
+            "inspect_related_memory_candidates",
+            "merge_candidate_group",
+        ],
     }
 
 

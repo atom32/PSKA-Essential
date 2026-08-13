@@ -337,6 +337,13 @@ def _group_payload(members: list[_Candidate], reasons: dict[tuple[str, str], dic
         "shared_sources": shared_sources,
         "shared_paths": shared_paths,
         "items": [_candidate_item_payload(member) for member in members],
+        "next_actions": _candidate_group_actions(
+            member_ids,
+            inspect_action="inspect_duplicate_memory_candidates",
+            inspect_label="Inspect duplicate memory candidates",
+            memory_type=first.memory_type,
+            memory_scope=first.memory_scope,
+        ),
     }
 
 
@@ -359,7 +366,13 @@ def _related_group_payload(members: list[_Candidate], reasons: list[dict[str, An
         "shared_sources": shared_sources,
         "shared_paths": shared_paths,
         "items": [_candidate_item_payload(member) for member in members],
-        "next_actions": _related_group_actions(member_ids),
+        "next_actions": _candidate_group_actions(
+            member_ids,
+            inspect_action="inspect_related_memory_candidates",
+            inspect_label="Inspect related memory candidates",
+            memory_type=first.memory_type,
+            memory_scope=scopes[0] if scopes else "workspace",
+        ),
     }
 
 
@@ -388,16 +401,35 @@ def _candidate_item_payload(member: _Candidate) -> dict[str, Any]:
     }
 
 
-def _related_group_actions(review_ids: list[str]) -> list[dict[str, Any]]:
+def _candidate_group_actions(
+    review_ids: list[str],
+    *,
+    inspect_action: str,
+    inspect_label: str,
+    memory_type: str,
+    memory_scope: str,
+) -> list[dict[str, Any]]:
     review_id = next((item for item in review_ids if item), "")
     return [
         {
-            "action": "inspect_related_memory_candidates",
-            "label": "Inspect related memory candidates",
+            "action": inspect_action,
+            "label": inspect_label,
             "tool": "pska_memory_candidate_dedup",
             "api": "GET /api/memory/candidate-dedup",
             "view": "review",
             "params": {"review_id": review_id} if review_id else {},
+        },
+        {
+            "action": "merge_candidate_group",
+            "label": "Merge candidate group",
+            "tool": "pska_review_merge_candidates",
+            "api": "POST /api/reviews/merge-candidates",
+            "view": "review",
+            "params": {
+                "review_ids": review_ids,
+                "memory_type": memory_type,
+                "memory_scope": memory_scope,
+            },
         }
     ]
 

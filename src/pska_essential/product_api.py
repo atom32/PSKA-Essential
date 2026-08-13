@@ -142,6 +142,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-attribution"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-suggestions"},
     {"method": "POST", "path": "/api/reviews/batch-decision"},
+    {"method": "POST", "path": "/api/reviews/merge-candidates"},
     {"method": "POST", "path": "/api/kb/ingest"},
 )
 
@@ -1337,6 +1338,17 @@ def _handler_class(state: ProductApiState):
                     str(payload.get("reason") or ""),
                 )
                 self._send_json({"ok": True, **result})
+                return
+
+            if method == "POST" and path == "/api/reviews/merge-candidates":
+                payload = self._read_json()
+                result = state.service.review_merge_candidates(
+                    _required_list(payload, "review_ids"),
+                    memory_candidate=_optional_dict(payload, "memory_candidate"),
+                    intent=str(payload.get("intent") or ""),
+                    reason=str(payload.get("reason") or ""),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return
 
             review_get = _match(path, "/api/reviews/", "")

@@ -256,6 +256,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-candidates"), contract_routes)
         self.assertIn(("POST", "/api/reviews/batch-decision"), contract_routes)
+        self.assertIn(("POST", "/api/reviews/merge-candidates"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
         self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
         self.assertIn(("POST", "/api/digest"), contract_routes)
@@ -356,6 +357,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_workflow_memory_suggestions", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_memory_timeline", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_memory_candidate_dedup", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_review_merge_candidates", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_memory_candidates_from_audit", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_context_read", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_memory_review_create", assistant_layer["mcp_tools"]["implemented"])
@@ -389,6 +391,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(dedup_view["mcp_tool"], "pska_memory_candidate_dedup")
         self.assertEqual(dedup_view["related_group_schema"], "pska.memory_candidate_related_group.v1")
         self.assertIn("related_threshold", dedup_view["inputs"])
+        self.assertIn("merge_candidate_group", dedup_view["next_actions"])
         self.assertFalse(dedup_view["embedding_required"])
         attribution_view = capabilities["capabilities"]["memory"]["attribution_view"]
         self.assertEqual(attribution_view["schema"], "pska.memory_attribution_view.v1")
@@ -1394,6 +1397,49 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(batch["data_flow"]["writes_memory_directly"])
         audit = self._get_json("/api/audit?limit=10&action=review.decide_batch")
         self.assertEqual(audit["events"][0]["metadata"]["decided_count"], 2)
+
+    def test_review_merge_candidates_route_creates_merged_pending_review(self):
+        first = self.service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")],
+            text="When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route one",
+        )
+        second = self.service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture-v2", path="Architecture.md")],
+            text="When the workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route future PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route two",
+        )
+        review_ids = [first["review"]["review_id"], second["review"]["review_id"]]
+
+        merged = self._post_json(
+            "/api/reviews/merge-candidates",
+            {
+                "review_ids": review_ids,
+                "reason": "merge duplicate route candidates",
+                "memory_candidate": {
+                    "text": "When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+                    "memory_type": "source_route",
+                    "memory_scope": "project",
+                    "behavior_delta": "Route future PSKA architecture questions to Architecture.md before broad search.",
+                },
+            },
+        )
+
+        self.assertTrue(merged["ok"])
+        self.assertEqual(merged["schema"], "pska.review_merge_candidates.v1")
+        self.assertEqual(merged["review"]["status"], "pending")
+        self.assertEqual(merged["proposal"]["memory_patch"]["metadata"]["merged_review_ids"], review_ids)
+        self.assertFalse(merged["data_flow"]["writes_memory_directly"])
+        self.assertEqual(self._get_json(f"/api/reviews/{review_ids[0]}")["review"]["status"], "needs_edit")
+        self.assertEqual(self._get_json(f"/api/reviews/{review_ids[1]}")["review"]["status"], "needs_edit")
+        audit = self._get_json("/api/audit?limit=10&action=review.merge_candidates")
+        self.assertEqual(audit["events"][0]["metadata"]["merged_review_id"], merged["review"]["review_id"])
 
     def test_memory_candidate_dedup_route_groups_near_duplicate_reviews(self):
         ref = SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")
@@ -2882,6 +2928,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('decideReviewBatch', script)
         self.assertIn('memoryReviewQueueBatchActionButton', script)
         self.assertIn('/api/reviews/batch-decision', script)
+        self.assertIn('/api/reviews/merge-candidates', script)
         self.assertIn('toast.reviewBatchDecided', script)
         self.assertIn('button.acceptGroup', script)
         self.assertIn('button.rejectGroup', script)

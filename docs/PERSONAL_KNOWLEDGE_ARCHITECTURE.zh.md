@@ -617,9 +617,13 @@ Hermes 的默认行为：
   pending reviews 暴露 group-level accept/reject，底层入口是
   `POST /api/reviews/batch-decision` 与 `pska_review_decide_batch`。批量决策只改变
   Review 状态，不直接写 durable memory。
+- Done: 显式候选合并原语已接入；`POST /api/reviews/merge-candidates` 与
+  `pska_review_merge_candidates` 可把 duplicate/related candidate review ids 和人工确认的
+  merged `memory_candidate` 文本合并成新的 pending Review，保留合并来源 refs，并把仍 pending
+  的旧候选标为 needs_edit；它不自动 approve/apply/write memory。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
-- Pending: 更高级的跨项目语义聚类、批量候选编辑/合并 UX。
+- Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的完整 WebUI。
 
 ### M6: Agentic Routines
 

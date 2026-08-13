@@ -52,6 +52,8 @@ class MemoryCandidateDedupTests(unittest.TestCase):
             {item["review_id"] for item in group["items"]},
             {first["review"]["review_id"], second["review"]["review_id"]},
         )
+        self.assertEqual(group["next_actions"][1]["action"], "merge_candidate_group")
+        self.assertEqual(group["next_actions"][1]["tool"], "pska_review_merge_candidates")
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
         self.assertFalse(result["data_flow"]["embedding_required"])
 
@@ -90,6 +92,7 @@ class MemoryCandidateDedupTests(unittest.TestCase):
             {first["review"]["review_id"], second["review"]["review_id"]},
         )
         self.assertEqual(related["next_actions"][0]["action"], "inspect_related_memory_candidates")
+        self.assertEqual(related["next_actions"][1]["action"], "merge_candidate_group")
 
     def test_related_candidate_groups_cluster_more_than_two_scopes(self):
         service = build_fake_service()

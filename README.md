@@ -445,6 +445,7 @@ Operational loop tools:
 - `pska_review_get`
 - `pska_review_decide`
 - `pska_review_decide_batch`
+- `pska_review_merge_candidates`
 - `pska_review_revise`
 - `pska_memory_apply`
 - `pska_export_brief`
@@ -539,7 +540,12 @@ behavior-delta fingerprints; it only produces review hints and never merges,
 rejects, approves, applies, or writes memory. It also surfaces `related_groups`
 for cross-scope scope collisions, such as the same preference appearing as both
 global and project memory, so reviewers can choose whether to merge, narrow,
-widen, or reject candidates through the normal Review flow. M6 adds
+widen, or reject candidates through the normal Review flow. The explicit merge
+path is `pska_review_merge_candidates` /
+`POST /api/reviews/merge-candidates`: it requires caller-supplied merged
+candidate text and behavior_delta, creates a new pending Review with merged
+source refs, marks replaced pending candidates as `needs_edit`, and still does
+not write durable memory directly. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

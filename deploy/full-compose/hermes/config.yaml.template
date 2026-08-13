@@ -62,6 +62,7 @@ mcp_servers:
         - pska_memory_lifecycle
         - pska_review_list
         - pska_review_get
+        - pska_review_merge_candidates
         - pska_provider_jobs
         - pska_runtime_diagnostics
         - pska_component_check
