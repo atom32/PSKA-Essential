@@ -7,6 +7,7 @@ const messages = {
   "view.ask": "提问",
   "view.reader": "来源",
   "view.writing": "写作",
+  "view.memory": "记忆",
   "view.review": "异常审核",
   "view.activity": "活动",
   "view.settings": "设置",
@@ -31,6 +32,7 @@ const messages = {
   "toast.componentCheckRecorded": "组件检查已记录。",
   "toast.productEvalCompleted": "产品验收已完成。",
   "toast.memoryProbeRecorded": "记忆探针已记录。",
+  "toast.memoryCardsLoaded": "记忆卡片已加载。",
   "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
@@ -75,6 +77,7 @@ const messages = {
   "empty.noProductEval": "尚未运行产品验收。",
   "empty.noRetrievalProbe": "尚未运行检索探针。",
   "empty.noMemoryProbe": "尚未运行记忆探针。",
+  "empty.noMemoryCards": "没有匹配的记忆卡片。",
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
   "empty.sourcesUnavailable": "资料源不可用。",
@@ -150,6 +153,7 @@ const messages = {
   "label.memoryApply": "记忆应用",
   "label.memoryUpdate": "记忆更新",
   "label.memoryDelete": "记忆删除",
+  "label.memoryCard": "记忆卡片",
   "label.durableMemory": "长期记忆",
   "label.durableProposalKinds": "长期提案类型",
   "label.availableModes": "可用模式",
@@ -234,6 +238,11 @@ const state = {
   productEval: null,
   retrievalProbe: null,
   memoryProbe: null,
+  memoryCards: [],
+  memoryCardsError: "",
+  memoryCardStatus: "active",
+  memoryCardType: "",
+  memoryCardQuery: "",
   closedLoopProbe: null,
   askReadiness: null,
   askReadinessScopeKey: "",
@@ -256,6 +265,7 @@ const titles = {
   ask: t("view.ask"),
   reader: t("view.reader"),
   writing: t("view.writing"),
+  memory: t("view.memory"),
   review: t("view.review"),
   activity: t("view.activity"),
   settings: t("view.settings"),
@@ -377,6 +387,11 @@ function bindForms() {
   document.getElementById("source-search-form").addEventListener("submit", searchSources);
   document.getElementById("source-saved-search-form").addEventListener("submit", saveSourceSearch);
   document.getElementById("source-annotation-form").addEventListener("submit", handleSourceAnnotation);
+  document.getElementById("memory-card-search-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    state.memoryCardQuery = document.getElementById("memory-card-query").value || "";
+    loadMemoryCards();
+  });
 }
 
 async function applyAskResult(result, options = {}) {
@@ -438,6 +453,15 @@ function bindRefresh() {
   document.getElementById("run-product-eval").addEventListener("click", runProductEval);
   document.getElementById("run-retrieval-probe").addEventListener("click", runRetrievalProbe);
   document.getElementById("run-memory-probe").addEventListener("click", runMemoryProbe);
+  document.getElementById("reload-memory-cards").addEventListener("click", () => loadMemoryCards({ toast: true }));
+  document.getElementById("memory-card-status-filter").addEventListener("change", (event) => {
+    state.memoryCardStatus = event.currentTarget.value || "active";
+    loadMemoryCards();
+  });
+  document.getElementById("memory-card-type-filter").addEventListener("change", (event) => {
+    state.memoryCardType = event.currentTarget.value || "";
+    loadMemoryCards();
+  });
   document.getElementById("run-closed-loop-probe").addEventListener("click", runClosedLoopProbe);
   document.getElementById("audit-action-filter").addEventListener("change", (event) => {
     state.auditAction = event.currentTarget.value || "";
@@ -458,6 +482,7 @@ async function refreshAll() {
     loadSourceRoots(),
     loadDatasets(),
     loadReviews(),
+    loadMemoryCards(),
     loadPendingReviews(),
     loadWorkflows(),
     loadResumableAsks(),
@@ -897,6 +922,26 @@ async function loadReviews() {
   } catch (error) {
     renderList(document.getElementById("reviews-list"), [], t("empty.reviewsUnavailable"));
     showToast(error.message);
+  }
+}
+
+async function loadMemoryCards(options = {}) {
+  const params = new URLSearchParams();
+  params.set("limit", "50");
+  params.set("status", state.memoryCardStatus || "active");
+  if (state.memoryCardType) params.set("memory_type", state.memoryCardType);
+  if (state.memoryCardQuery) params.set("query", state.memoryCardQuery);
+  try {
+    const payload = await api(`/api/memory/cards?${params.toString()}`);
+    state.memoryCards = payload.cards || [];
+    state.memoryCardsError = "";
+    renderMemoryCards(payload);
+    if (options.toast) showToast(t("toast.memoryCardsLoaded"));
+  } catch (error) {
+    state.memoryCards = [];
+    state.memoryCardsError = error.message;
+    renderMemoryCards();
+    if (options.toast) showToast(error.message);
   }
 }
 
@@ -2151,6 +2196,28 @@ function renderReviews() {
   renderList(document.getElementById("reviews-list"), state.reviewView, t("empty.reviews"), reviewCard);
 }
 
+function renderMemoryCards(payload = null) {
+  const list = document.getElementById("memory-cards-list");
+  const summary = document.getElementById("memory-card-summary");
+  if (!list || !summary) return;
+  const filter = document.getElementById("memory-card-status-filter");
+  if (filter) filter.value = state.memoryCardStatus || "active";
+  const typeFilter = document.getElementById("memory-card-type-filter");
+  if (typeFilter) typeFilter.value = state.memoryCardType || "";
+  const query = document.getElementById("memory-card-query");
+  if (query && query.value !== state.memoryCardQuery) query.value = state.memoryCardQuery || "";
+  if (state.memoryCardsError) {
+    summary.className = "job-status failed";
+    summary.textContent = state.memoryCardsError;
+    renderList(list, [], t("empty.noMemoryCards"));
+    return;
+  }
+  const count = payload && Number.isFinite(Number(payload.count)) ? Number(payload.count) : state.memoryCards.length;
+  summary.className = "job-status ready";
+  summary.textContent = `${count} 张卡片 / ${state.memoryCardStatus || "active"}`;
+  renderList(list, state.memoryCards, t("empty.noMemoryCards"), memoryCardCard);
+}
+
 function setReviewStatusFilter(status) {
   state.reviewStatus = status || "";
   const filter = document.getElementById("review-status-filter");
@@ -3164,6 +3231,77 @@ function memoryFactCard(fact) {
         deleteSupported ? t("button.createDeleteReview") : t("button.unsupportedDelete"),
       ),
     ]),
+  ]);
+}
+
+function memoryCardCard(card) {
+  const sourceRefs = card.source_refs || [];
+  const quality = card.quality || {};
+  const agentView = card.agent_view || {};
+  const reason = el("input", { placeholder: t("label.reviewReason"), value: "" });
+  const updatedText = el("textarea", { placeholder: "Updated memory text", value: card.display_text || card.text || "" });
+  const fact = {
+    fact_id: card.memory_id || card.fact_id,
+    text: card.text || card.display_text || "",
+    source_refs: sourceRefs,
+    metadata: card.metadata || {},
+  };
+  const updateSupported = memoryOperationSupported("update");
+  const deleteSupported = memoryOperationSupported("delete");
+  const updateReason = memoryCapabilityReason("update");
+  const deleteReason = memoryCapabilityReason("delete");
+  return el("article", { className: "item-card" }, [
+    el("header", {}, [
+      el("div", {}, [
+        el("h3", {}, card.display_text || card.memory_id || t("label.memoryCard")),
+        el("p", {}, agentView.why_use || card.behavior_delta || card.text || ""),
+      ]),
+      el("div", { className: "card-actions" }, [
+        el("span", { className: `tag ${statusClass(card.status || "pending")}` }, card.status || "active"),
+        card.memory_id
+          ? el("button", { className: "secondary-button", onclick: () => openMemoryLifecycle(card.memory_id) }, t("button.history"))
+          : null,
+      ]),
+    ]),
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag" }, card.memory_type || "unspecified"),
+      el("span", { className: "tag" }, card.memory_scope || "scope"),
+      el("span", { className: quality.needs_review ? "tag pending" : "tag ready" }, quality.needs_review ? "needs envelope" : "complete"),
+      el("span", { className: "tag" }, `${t("label.sources")} ${sourceRefs.length}`),
+      card.memory_id ? el("span", { className: "tag" }, shortId(card.memory_id)) : null,
+    ]),
+    quality.missing_fields && quality.missing_fields.length
+      ? el("p", { className: "empty-list" }, `缺少字段：${quality.missing_fields.join(", ")}`)
+      : null,
+    sourceRefs.length
+      ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
+      : null,
+    card.status === "active"
+      ? el("div", { className: "review-actions" }, [
+          updatedText,
+          reason,
+          el(
+            "button",
+            {
+              className: "primary-button",
+              onclick: () => createMemoryUpdateReview(fact, updatedText.value, reason.value),
+              ...(sourceRefs.length && updateSupported ? {} : { disabled: true }),
+              title: updateSupported ? "" : updateReason,
+            },
+            updateSupported ? t("button.createUpdateReview") : t("button.unsupportedUpdate"),
+          ),
+          el(
+            "button",
+            {
+              className: "secondary-button",
+              onclick: () => createMemoryDeleteReview(fact, reason.value),
+              ...(sourceRefs.length && deleteSupported ? {} : { disabled: true }),
+              title: deleteSupported ? "" : deleteReason,
+            },
+            deleteSupported ? t("button.createDeleteReview") : t("button.unsupportedDelete"),
+          ),
+        ])
+      : null,
   ]);
 }
 
@@ -4280,6 +4418,7 @@ async function applyMemory(reviewId) {
   const action = memoryApplyAction(payload.applied);
   showToast(memoryApplyToast(payload.applied));
   await loadReviews();
+  await loadMemoryCards();
   await loadPendingReviews();
   await loadWorkspaceStatus();
   await loadAuditEvents(action);
@@ -4295,6 +4434,7 @@ async function createMemoryUpdateReview(fact, text, reason) {
   state.focusReviewId = payload.review && payload.review.review_id;
   setReviewStatusFilter("");
   await loadReviews();
+  await loadMemoryCards();
   await loadPendingReviews();
   await loadWorkspaceStatus();
   await loadAuditEvents("review.create");
@@ -4311,6 +4451,7 @@ async function createMemoryDeleteReview(fact, reason) {
   state.focusReviewId = payload.review && payload.review.review_id;
   setReviewStatusFilter("");
   await loadReviews();
+  await loadMemoryCards();
   await loadPendingReviews();
   await loadWorkspaceStatus();
   await loadAuditEvents("review.create");

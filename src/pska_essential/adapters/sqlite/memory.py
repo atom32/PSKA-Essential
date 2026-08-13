@@ -31,6 +31,8 @@ class SQLiteMemoryAdapter:
     backend_name = "sqlite"
     memory_capabilities = {
         "search": True,
+        "list": True,
+        "get": True,
         "apply": True,
         "update": True,
         "delete": True,
@@ -77,6 +79,56 @@ class SQLiteMemoryAdapter:
         ranked = [item for item in matches if item[0] > 0 or not terms]
         ranked.sort(key=lambda item: (item[0], _fact_recency(item[1]), item[1].fact_id), reverse=True)
         return [fact for _, fact in ranked[:requested_limit]]
+
+    def list_facts(self, scope: dict[str, Any], limit: int, *, include_inactive: bool = False) -> list[MemoryFact]:
+        requested_limit = max(0, int(limit))
+        if requested_limit <= 0:
+            return []
+        search_scope = _runtime_scope(scope)
+        invalid_filter = "" if include_inactive else "AND (invalid_at IS NULL OR invalid_at = '')"
+        with self._lock:
+            rows = self._conn.execute(
+                f"""
+                SELECT fact_id, text, source_refs_json, valid_at, invalid_at, metadata_json
+                FROM memory_facts
+                WHERE workspace_id = ? AND tenant_id = ?
+                  AND memory_namespace = ?
+                  {invalid_filter}
+                ORDER BY updated_at DESC, fact_id DESC
+                LIMIT ?
+                """,
+                (
+                    search_scope["workspace_id"],
+                    search_scope["tenant_id"],
+                    search_scope["memory_namespace"],
+                    requested_limit,
+                ),
+            ).fetchall()
+        return [_fact_from_row(row) for row in rows]
+
+    def get_fact(self, fact_id: str, scope: dict[str, Any]) -> MemoryFact | None:
+        selected = str(fact_id or "").strip()
+        if not selected:
+            return None
+        search_scope = _runtime_scope(scope)
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT fact_id, text, source_refs_json, valid_at, invalid_at, metadata_json
+                FROM memory_facts
+                WHERE fact_id = ?
+                  AND workspace_id = ?
+                  AND tenant_id = ?
+                  AND memory_namespace = ?
+                """,
+                (
+                    selected,
+                    search_scope["workspace_id"],
+                    search_scope["tenant_id"],
+                    search_scope["memory_namespace"],
+                ),
+            ).fetchone()
+        return _fact_from_row(row) if row is not None else None
 
     def apply(self, reviewed_patch: MemoryPatch) -> MemoryApplyResult:
         if not reviewed_patch.text.strip():

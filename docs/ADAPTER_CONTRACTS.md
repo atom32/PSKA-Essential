@@ -394,6 +394,8 @@ The current public tool surface is:
 - `pska_review_decide`
 - `pska_review_revise`
 - `pska_memory_search`
+- `pska_memory_card_list`
+- `pska_memory_card_get`
 - `pska_memory_apply`
 - `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
@@ -649,6 +651,13 @@ Memory update flow:
 
 ```text
 memory_search -> pska_memory_update_review(MemoryFact, text) -> review_decide(accept) -> memory_apply
+```
+
+Memory Card inventory and inspection:
+
+```text
+pska_memory_card_list(scope, limit, query, status, memory_type) -> Memory Card inventory/envelope view
+pska_memory_card_get(memory_id, scope) -> single Memory Card envelope
 ```
 
 Durable memory lifecycle inspection:

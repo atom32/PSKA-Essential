@@ -6,6 +6,7 @@ from typing import Any
 from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.capabilities import memory_capabilities, memory_operation_for_proposal_kind
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
+from pska_essential.memory_cards import list_memory_cards
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
@@ -40,6 +41,7 @@ def build_workspace_status(
     resumable, resumable_error = _resumable_state(service, gateway, limit=workflow_limit)
     provider_jobs, provider_jobs_error = _provider_jobs_state(service, gateway, dataset_page_size=dataset_page_size)
     memory_caps = memory_capabilities(service.memory)
+    memory_cards, memory_cards_error = _memory_cards_state(service, memory_caps)
     next_actions = _next_actions(
         datasets=datasets,
         readiness=readiness,
@@ -48,6 +50,8 @@ def build_workspace_status(
         pending_reviews=pending_reviews,
         accepted_unapplied=accepted_unapplied,
         memory_caps=memory_caps,
+        memory_cards=memory_cards,
+        memory_cards_error=memory_cards_error,
         resumable=resumable,
         resumable_error=resumable_error,
         provider_jobs=provider_jobs,
@@ -75,6 +79,10 @@ def build_workspace_status(
         "governance": build_workspace_policy_from_env().to_dict(),
         "capabilities": {
             "memory": memory_caps,
+        },
+        "memory": {
+            "cards": memory_cards,
+            "cards_error": memory_cards_error,
         },
         "kb": {
             "status": "error" if kb_error else (readiness or {}).get("status", "empty"),
@@ -150,6 +158,16 @@ def _provider_jobs_state(service: Any, gateway: Any, *, dataset_page_size: int) 
         return None, {"type": exc.__class__.__name__, "message": str(exc)}
 
 
+def _memory_cards_state(service: Any, memory_caps: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, str] | None]:
+    list_capability = (memory_caps.get("operations") or {}).get("list") or {}
+    if list_capability.get("supported") is False:
+        return None, None
+    try:
+        return list_memory_cards(service, limit=20, status="active", audit=False), None
+    except Exception as exc:  # noqa: BLE001 - status must surface explicit backend errors.
+        return None, {"type": exc.__class__.__name__, "message": str(exc)}
+
+
 def _next_actions(
     *,
     datasets: list[dict[str, Any]],
@@ -159,6 +177,8 @@ def _next_actions(
     pending_reviews: list[dict[str, Any]],
     accepted_unapplied: list[dict[str, Any]],
     memory_caps: dict[str, Any],
+    memory_cards: dict[str, Any] | None,
+    memory_cards_error: dict[str, str] | None,
     resumable: list[dict[str, Any]],
     resumable_error: dict[str, str] | None,
     provider_jobs: dict[str, Any] | None,
@@ -409,6 +429,33 @@ def _next_actions(
                 params={"run_id": job_id} if job_id else {},
             )
         )
+
+    if memory_cards_error:
+        actions.append(
+            _action(
+                "inspect_memory_cards_error",
+                "Inspect memory cards",
+                memory_cards_error["message"],
+                api="GET /api/memory/cards",
+                tool="pska_memory_card_list",
+                view="memory",
+            )
+        )
+    elif memory_cards:
+        card_actions = memory_cards.get("next_actions") or []
+        if card_actions:
+            first = dict(card_actions[0])
+            actions.append(
+                _action(
+                    str(first.get("action") or "inspect_memory_card_quality"),
+                    str(first.get("label") or "Inspect memory card quality"),
+                    "Some durable memories are missing PSKA Memory Card envelope fields.",
+                    api=str(first.get("api") or "GET /api/memory/cards"),
+                    tool=str(first.get("tool") or "pska_memory_card_list"),
+                    view=str(first.get("view") or "memory"),
+                    params=dict(first.get("params") or {}),
+                )
+            )
 
     if not actions:
         actions.append(

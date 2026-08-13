@@ -7,7 +7,7 @@ from typing import Any
 from pska_essential.governance import MEMORY_PRIMARY_USER_PATH, REVIEW_QUEUE_ROLE
 
 
-MEMORY_OPERATIONS = ("search", "apply", "update", "delete")
+MEMORY_OPERATIONS = ("search", "list", "get", "apply", "update", "delete")
 MEMORY_PROPOSAL_OPERATIONS = {
     "memory_patch": "apply",
     "memory_update": "update",
@@ -241,6 +241,18 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "may_create_review": True,
     },
     "pska_memory_search": {"category": "memory", "access": "read", "durable": False},
+    "pska_memory_card_list": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "provider_operation": "list",
+    },
+    "pska_memory_card_get": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "provider_operation": "get",
+    },
     "pska_memory_change_from_conversation": {
         "category": "memory",
         "access": "write",
@@ -348,6 +360,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "inflow": memory_inflow_contract(),
         "lineage": memory_lineage_contract(),
         "search_view": memory_search_view_contract(),
+        "card_view": memory_card_view_contract(),
         "interaction_model": memory_interaction_model_contract(),
     }
 
@@ -551,12 +564,13 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_source_extract_job_run",
                 "pska_obsidian_moc_propose",
                 "pska_obsidian_moc_apply",
+                "pska_memory_card_list",
+                "pska_memory_card_get",
                 "pska_memory_change_from_conversation",
                 "pska_source_memory_review_create",
             ],
             "planned": [
                 "approximate_duplicate_report",
-                "pska_memory_card_list",
                 "pska_memory_why_used",
                 "pska_eidolia_context_read",
                 "pska_trace_query",
@@ -876,6 +890,37 @@ def memory_search_view_contract() -> dict[str, Any]:
                 "include_superseded",
             ],
         },
+    }
+
+
+def memory_card_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_card_view.v1",
+        "apis": {
+            "list": "GET /api/memory/cards",
+            "get": "GET /api/memory/cards/{memory_id}",
+        },
+        "mcp_tools": {
+            "list": "pska_memory_card_list",
+            "get": "pska_memory_card_get",
+        },
+        "card_schema": "pska.memory_card.v1",
+        "statuses": ["active", "superseded", "deleted", "all"],
+        "provider_operations": {
+            "list": "required for unqueried card inventory",
+            "get": "required for direct card lookup",
+            "search": "used for queried card inventory",
+        },
+        "agent_facing_fields": [
+            "display_text",
+            "memory_type",
+            "memory_scope",
+            "behavior_delta",
+            "agent_view.why_use",
+            "source_refs",
+            "quality",
+            "lifecycle",
+        ],
     }
 
 

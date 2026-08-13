@@ -39,6 +39,14 @@ class GraphitiMemoryAdapter:
     backend_name = "graphiti"
     memory_capabilities = {
         "search": True,
+        "list": {
+            "supported": False,
+            "reason": "Graphiti search is supported, but the current adapter does not expose a provider-neutral full memory enumeration endpoint.",
+        },
+        "get": {
+            "supported": False,
+            "reason": "Graphiti fact lookup needs a provider fact endpoint plus PSKA provenance mapping.",
+        },
         "apply": True,
         "update": {
             "supported": False,
@@ -78,6 +86,14 @@ class GraphitiMemoryAdapter:
             episode_provenance = self._http_episode_provenance(group_ids, episode_ids)
             return [_fact_dict_to_fact(item, episode_provenance) for item in facts]
         raise GraphitiAdapterError("Graphiti adapter requires a graphiti client or base_url")
+
+    def list_facts(self, scope: dict[str, Any], limit: int, *, include_inactive: bool = False) -> list[MemoryFact]:
+        raise GraphitiAdapterError(
+            "Graphiti search is supported, but full provider-neutral memory enumeration is not available"
+        )
+
+    def get_fact(self, fact_id: str, scope: dict[str, Any]) -> MemoryFact | None:
+        raise GraphitiAdapterError("Graphiti provider-neutral memory fact lookup is not available")
 
     def apply(self, reviewed_patch: MemoryPatch) -> MemoryApplyResult:
         if not reviewed_patch.source_refs:

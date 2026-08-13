@@ -23,6 +23,7 @@
           <button class="nav-item" data-view="ask">提问</button>
           <button class="nav-item" data-view="reader">来源</button>
           <button class="nav-item" data-view="writing">写作</button>
+          <button class="nav-item" data-view="memory">记忆</button>
           <button class="nav-item" data-view="review">异常审核</button>
           <button class="nav-item" data-view="activity">活动</button>
           <button class="nav-item" data-view="settings">设置</button>
@@ -454,6 +455,48 @@
           </form>
 
           <div id="ask-result" class="results-zone"></div>
+        </section>
+
+        <section id="memory" class="view">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>记忆卡片</h2>
+              <div class="status-strip">
+                <label class="inline-control">
+                  <span>状态</span>
+                  <select id="memory-card-status-filter">
+                    <option value="active">active</option>
+                    <option value="superseded">superseded</option>
+                    <option value="deleted">deleted</option>
+                    <option value="all">all</option>
+                  </select>
+                </label>
+                <label class="inline-control">
+                  <span>类型</span>
+                  <select id="memory-card-type-filter">
+                    <option value="">全部</option>
+                    <option value="identity">identity</option>
+                    <option value="preference">preference</option>
+                    <option value="project_state">project_state</option>
+                    <option value="working_habit">working_habit</option>
+                    <option value="source_route">source_route</option>
+                    <option value="correction">correction</option>
+                    <option value="exclusion">exclusion</option>
+                  </select>
+                </label>
+                <button id="reload-memory-cards" class="secondary-button" type="button">重新加载</button>
+              </div>
+            </div>
+            <form id="memory-card-search-form" class="compact-form">
+              <label>
+                查询
+                <input id="memory-card-query" autocomplete="off" placeholder="项目、偏好、路线或纠错" />
+              </label>
+              <button type="submit" class="secondary-button">搜索</button>
+            </form>
+            <div id="memory-card-summary" class="job-status pending">尚未加载记忆卡片。</div>
+            <div id="memory-cards-list" class="list empty-list">尚未加载记忆卡片。</div>
+          </div>
         </section>
 
         <section id="review" class="view">

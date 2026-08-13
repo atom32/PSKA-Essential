@@ -485,6 +485,8 @@ pska_source_extract_job_list
 pska_source_extract_job_run
 pska_jarvis_briefing
 pska_source_memory_review_create
+pska_memory_card_list
+pska_memory_card_get
 pska_memory_change_from_conversation
 pska_memory_search
 pska_review_*
@@ -557,6 +559,9 @@ Hermes 的默认行为：
 
 - Done: 文件查询或整理结果可以生成“建议记忆”。
 - Done: Memory Card 使用本文 taxonomy，需要 `memory_type`、`behavior_delta`、`memory_scope`。
+- Done: P2-1 已新增 Memory Card inventory/envelope view：`pska_memory_card_list`、
+  `pska_memory_card_get`、`GET /api/memory/cards`、`GET /api/memory/cards/{memory_id}`
+  和 WebUI “记忆”面板。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
 - Pending: 批量候选去重、UI review 队列分组、从 folder audit 自动生成候选。

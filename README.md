@@ -418,6 +418,8 @@ Operational loop tools:
 - `pska_obsidian_moc_propose`
 - `pska_obsidian_moc_apply`
 - `pska_source_memory_review_create`
+- `pska_memory_card_list`
+- `pska_memory_card_get`
 - `pska_memory_change_from_conversation`
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
@@ -478,7 +480,12 @@ for outgoing links, backlinks, and same-folder neighbors from local Markdown or
 Obsidian notes, again without embeddings or source-file writes. M5 adds
 `pska_source_memory_review_create`, which turns explicit source refs into a
 governed Memory Card candidate with `memory_type`, `behavior_delta`, and Review;
-it does not write the memory provider directly. M6 adds
+it does not write the memory provider directly. P2-1 adds
+`pska_memory_card_list` and `pska_memory_card_get` as the provider-neutral
+Memory Card inventory view. It wraps durable provider facts with
+`display_text`, `memory_type`, `memory_scope`, `behavior_delta`, quality, source
+refs, lifecycle, and agent-facing why-use fields; it does not replace the
+memory provider or bypass review-gated update/delete flows. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`

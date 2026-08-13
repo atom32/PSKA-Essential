@@ -39,6 +39,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_source_extract_job_enqueue", text)
         self.assertIn("pska_source_extract_job_list", text)
         self.assertIn("pska_source_extract_job_run", text)
+        self.assertIn("pska_memory_card_list", text)
+        self.assertIn("pska_memory_card_get", text)
         self.assertIn("pska_obsidian_moc_propose", text)
         self.assertIn("pska_obsidian_moc_apply", text)
 
@@ -280,10 +282,14 @@ class SkillDocsTests(unittest.TestCase):
             "pska_obsidian_moc_propose",
             "pska_obsidian_moc_apply",
             "pska_source_memory_review_create",
+            "pska_memory_card_list",
+            "pska_memory_card_get",
             "pska_agentic_question_start",
             "pska_agentic_question_resumable",
             "pska_agentic_question_resume",
             "pska_memory_search",
+            "pska_memory_card_list",
+            "pska_memory_card_get",
             "pska_memory_change_from_conversation",
             "pska_memory_lifecycle",
             "pska_review_list",

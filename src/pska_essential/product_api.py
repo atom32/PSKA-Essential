@@ -47,6 +47,7 @@ from pska_essential.kb_audit import (
     add_kb_parse_audit,
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
@@ -110,6 +111,8 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/obsidian/moc/{proposal_id}/apply"},
     {"method": "POST", "path": "/api/sources/memory-reviews"},
     {"method": "POST", "path": "/api/sources/read"},
+    {"method": "GET", "path": "/api/memory/cards"},
+    {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
     {"method": "POST", "path": "/api/kb/ingest"},
@@ -1009,6 +1012,28 @@ def _handler_class(state: ProductApiState):
                 )
                 return
 
+            if method == "GET" and path == "/api/memory/cards":
+                result = list_memory_cards(
+                    state.service,
+                    scope=_query_scope(query),
+                    limit=_int_param(query.get("limit"), 50),
+                    query=str(query.get("query") or ""),
+                    status=str(query.get("status") or "active"),
+                    memory_type=str(query.get("memory_type") or ""),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            memory_card_id = _match(path, "/api/memory/cards/", "")
+            if method == "GET" and memory_card_id and "/" not in memory_card_id:
+                result = get_memory_card(
+                    state.service,
+                    unquote(memory_card_id),
+                    scope=_query_scope(query),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
             if method == "POST" and path == "/api/memory/conversation-change":
                 payload = self._read_json()
                 source_refs = payload.get("source_refs") or []
@@ -1538,6 +1563,25 @@ def _optional_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ApiError(f"{key} must be an object", HTTPStatus.BAD_REQUEST)
     return dict(value)
+
+
+def _query_scope(query: dict[str, str]) -> dict[str, Any]:
+    scope: dict[str, Any] = {}
+    for key in (
+        "memory_namespace",
+        "workspace_id",
+        "tenant_id",
+        "include_superseded_memory",
+        "include_superseded",
+    ):
+        value = query.get(key)
+        if value is None or value == "":
+            continue
+        if key in {"include_superseded_memory", "include_superseded"}:
+            scope[key] = _bool_value(value, False)
+        else:
+            scope[key] = value
+    return scope
 
 
 def _int_param(value: str | None, default: int) -> int:

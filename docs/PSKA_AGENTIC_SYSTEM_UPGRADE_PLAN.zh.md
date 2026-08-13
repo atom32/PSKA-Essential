@@ -238,6 +238,13 @@ last_extracted_at
 当前 `MemoryPatch.metadata` 已承载 `memory_type`、`behavior_delta`、`memory_scope`。
 下一步应把 Memory Card 产品化为显式视图，而不是更换 memory provider：
 
+2026-08-13 更新：P2 的第一块已落地为 Memory Card inventory/envelope view。
+`GET /api/memory/cards`、`GET /api/memory/cards/{memory_id}`、
+`pska_memory_card_list`、`pska_memory_card_get` 和 WebUI “记忆”面板已经可用。
+Fake/SQLite memory provider 支持 full card inventory；Graphiti 当前只支持 search，
+不支持 provider-neutral full enumeration。conflicts、stale、why-used 和 use trace
+仍是后续 P2。
+
 新增 Product API / MCP：
 
 ```text
@@ -548,9 +555,9 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 
 ### P2 Backlog
 
-- [ ] Add explicit Memory Card list/search view.
+- [x] Add explicit Memory Card list/search view.
 - [ ] Add memory use trace table or audit action.
-- [ ] Add WebUI Memory panel.
+- [x] Add WebUI Memory panel.
 - [ ] Add Jarvis memory conflict/stale next actions.
 
 ### P3 Backlog

@@ -38,6 +38,7 @@ from pska_essential.kb_audit import (
     add_kb_parse_audit,
 )
 from pska_essential.kb_gateway import build_kb_gateway_from_env
+from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
@@ -360,6 +361,25 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_memory_search(query: str, scope: dict[str, Any] | None = None, limit: int = 10):
         return to_jsonable(service.memory_search(query, scope or {}, limit))
+
+    def pska_memory_card_list(
+        scope: dict[str, Any] | None = None,
+        limit: int = 50,
+        query: str = "",
+        status: str = "active",
+        memory_type: str = "",
+    ):
+        return list_memory_cards(
+            service,
+            scope=scope or {},
+            limit=limit,
+            query=query,
+            status=status,
+            memory_type=memory_type,
+        )
+
+    def pska_memory_card_get(memory_id: str, scope: dict[str, Any] | None = None):
+        return get_memory_card(service, memory_id, scope=scope or {})
 
     def pska_memory_apply(review_id: str):
         return to_jsonable(service.memory_apply(review_id))
@@ -949,6 +969,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_review_decide": pska_review_decide,
         "pska_review_revise": pska_review_revise,
         "pska_memory_search": pska_memory_search,
+        "pska_memory_card_list": pska_memory_card_list,
+        "pska_memory_card_get": pska_memory_card_get,
         "pska_memory_apply": pska_memory_apply,
         "pska_source_memory_review_create": pska_source_memory_review_create,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,

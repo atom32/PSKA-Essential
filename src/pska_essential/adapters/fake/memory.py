@@ -10,6 +10,8 @@ class FakeMemoryAdapter:
     backend_name = "fake"
     memory_capabilities = {
         "search": True,
+        "list": True,
+        "get": True,
         "apply": True,
         "update": True,
         "delete": True,
@@ -29,6 +31,21 @@ class FakeMemoryAdapter:
             and (not words or any(word in fact.text.lower() for word in words))
         ]
         return _rank_memory_facts(matches)[:limit]
+
+    def list_facts(self, scope: dict[str, Any], limit: int, *, include_inactive: bool = False) -> list[MemoryFact]:
+        matches = [
+            fact
+            for fact in self.facts
+            if _fact_in_scope(fact, scope) and (include_inactive or not fact.invalid_at)
+        ]
+        return _rank_memory_facts(matches)[: max(0, int(limit))]
+
+    def get_fact(self, fact_id: str, scope: dict[str, Any]) -> MemoryFact | None:
+        selected = str(fact_id or "")
+        for fact in self.facts:
+            if fact.fact_id == selected and _fact_in_scope(fact, scope):
+                return fact
+        return None
 
     def apply(self, reviewed_patch: MemoryPatch) -> MemoryApplyResult:
         fact = MemoryFact(

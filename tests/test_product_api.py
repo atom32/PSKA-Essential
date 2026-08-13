@@ -287,8 +287,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/obsidian/moc/{proposal_id}/apply"), contract_routes)
         self.assertIn(("POST", "/api/sources/memory-reviews"), contract_routes)
         self.assertIn(("POST", "/api/sources/read"), contract_routes)
+        self.assertIn(("GET", "/api/memory/cards"), contract_routes)
+        self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
         self.assertIn(("POST", "/api/turn-context"), contract_routes)
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["apply"]["supported"])
+        self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["list"]["supported"])
+        self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["get"]["supported"])
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["update"]["supported"])
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
@@ -333,6 +337,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
         self.assertTrue(search_view["default_filters_superseded"])
         self.assertIn("display_text", search_view["agent_facing_text"]["metadata_keys"])
+        card_view = capabilities["capabilities"]["memory"]["card_view"]
+        self.assertEqual(card_view["schema"], "pska.memory_card_view.v1")
+        self.assertEqual(card_view["apis"]["list"], "GET /api/memory/cards")
         interaction_model = capabilities["capabilities"]["memory"]["interaction_model"]
         self.assertEqual(interaction_model["schema"], "pska.memory_interaction_model.v1")
         self.assertEqual(interaction_model["primary_user_path"], "conversation")
@@ -971,6 +978,34 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(result["search_view"]["default_filters_superseded"])
         audit = self._get_json("/api/audit?limit=10&action=memory.search")
         self.assertEqual(audit["events"][0]["metadata"]["superseded_fact_ids"], ["old-editor"])
+
+    def test_memory_cards_routes_return_card_envelope(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-route",
+                text="Use the PSKA architecture note before broad source search.",
+                source_refs=[SourceRef(adapter="fake", source_id="note-1")],
+                metadata={
+                    "memory_type": "source_route",
+                    "memory_scope": "project",
+                    "behavior_delta": "Route future PSKA questions to the architecture note first.",
+                    "display_text": "PSKA questions should start from the architecture note.",
+                    "confidence": 0.93,
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                },
+            )
+        )
+
+        cards = self._get_json("/api/memory/cards?limit=10")
+        card = self._get_json("/api/memory/cards/mem-route")
+
+        self.assertTrue(cards["ok"])
+        self.assertEqual(cards["schema"], "pska.memory_card_collection.v1")
+        self.assertEqual(cards["cards"][0]["memory_id"], "mem-route")
+        self.assertEqual(cards["cards"][0]["agent_view"]["why_use"], cards["cards"][0]["behavior_delta"])
+        self.assertEqual(card["card"]["memory_type"], "source_route")
+        audit = self._get_json("/api/audit?limit=10&action=memory.card.list")
+        self.assertEqual(audit["events"][0]["metadata"]["count"], 1)
 
     def test_memory_search_route_can_include_superseded_for_diagnostics(self):
         self.service.memory.facts.extend(
@@ -1857,6 +1892,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("run-retrieval-probe", html)
         self.assertIn("memory-probe-result", html)
         self.assertIn("run-memory-probe", html)
+        self.assertIn('data-view="memory"', html)
+        self.assertIn("memory-cards-list", html)
+        self.assertIn("memory-card-search-form", html)
+        self.assertIn("memory-card-status-filter", html)
+        self.assertIn("reload-memory-cards", html)
         self.assertIn("closed-loop-probe-result", html)
         self.assertIn("run-closed-loop-probe", html)
         self.assertIn("probe-dataset-picker", html)
@@ -2058,6 +2098,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('loop.durable_proposal', script)
         self.assertIn('container.append(loopPanel({ loop }));', script)
         self.assertIn('memoryFactCard', script)
+        self.assertIn('loadMemoryCards', script)
+        self.assertIn('renderMemoryCards', script)
+        self.assertIn('memoryCardCard', script)
+        self.assertIn('/api/memory/cards?${params.toString()}', script)
         self.assertIn('artifact.memory_facts', script)
         self.assertIn('sourceInspectionCard', script)
         self.assertIn('artifact.source_inspections', script)

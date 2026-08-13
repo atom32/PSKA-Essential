@@ -33,6 +33,11 @@ candidate memory, review, and durable export.
   display and filtering semantics. Prefer the declared agent-facing metadata
   keys, such as `display_text` or `current_text`, over raw correction episode
   text when explaining memory to the user.
+- Use `pska_memory_card_list` and `pska_memory_card_get` when the user asks to
+  inspect or manage durable memories as Memory Cards. Treat these tools as the
+  PSKA envelope view over provider facts: use `display_text`, `memory_type`,
+  `memory_scope`, `behavior_delta`, `quality`, source refs, and lifecycle rather
+  than raw provider text alone.
 - Use `pska_migration_manifest` when the user asks how to migrate, back up, or
   inspect component ownership. Treat it as an inventory, not a raw provider data
   export.
@@ -125,10 +130,10 @@ candidate memory, review, and durable export.
   `behavior_delta`, and source refs. Prefer `source_route` and `project_state`
   for source-derived memory; do not promote generic file summaries.
 - If an existing durable memory must be changed outside the normal conversation
-  flow, start from a `pska_memory_search` result and call
+  flow, start from a `pska_memory_search` or `pska_memory_card_list` result and call
   `pska_memory_update_review`; do not call backend update tools directly.
 - If an existing durable memory must be removed outside the normal conversation
-  flow, start from a `pska_memory_search` result and call
+  flow, start from a `pska_memory_search` or `pska_memory_card_get` result and call
   `pska_memory_delete_review`; do not call backend delete tools directly.
 - If a review is marked `needs_edit`, use `pska_review_revise` to create a new
   candidate review instead of mutating the old review.
