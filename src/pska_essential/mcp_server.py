@@ -560,6 +560,64 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             dedupe_existing=dedupe_existing,
         )
 
+    def pska_eidolia_context_read(
+        project_id: str,
+        node_id: str,
+        node_type: str = "thought",
+        text: str = "",
+        title: str = "",
+        canvas_path: str = "",
+        role: str = "",
+        artifact_kind: str = "",
+        metadata: dict[str, Any] | None = None,
+    ):
+        return service.eidolia_context_read(
+            project_id=project_id,
+            node_id=node_id,
+            node_type=node_type,
+            text=text,
+            title=title,
+            canvas_path=canvas_path,
+            role=role,
+            artifact_kind=artifact_kind,
+            metadata=metadata or {},
+        )
+
+    def pska_eidolia_memory_review_create(
+        project_id: str,
+        node_id: str,
+        text: str,
+        behavior_delta: str,
+        node_type: str = "thought",
+        title: str = "",
+        canvas_path: str = "",
+        role: str = "",
+        artifact_kind: str = "",
+        memory_type: str = "project_state",
+        memory_scope: str = "project",
+        reason: str = "",
+        confidence: float = 0.82,
+        scope: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ):
+        return service.eidolia_memory_review_create(
+            project_id=project_id,
+            node_id=node_id,
+            text=text,
+            behavior_delta=behavior_delta,
+            node_type=node_type,
+            title=title,
+            canvas_path=canvas_path,
+            role=role,
+            artifact_kind=artifact_kind,
+            memory_type=memory_type,
+            memory_scope=memory_scope,
+            reason=reason,
+            confidence=confidence,
+            scope=scope or {},
+            metadata=metadata or {},
+        )
+
     def pska_memory_change_from_conversation(
         user_message: str,
         operation: str = "auto",
@@ -1134,6 +1192,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_apply": pska_memory_apply,
         "pska_source_memory_review_create": pska_source_memory_review_create,
         "pska_source_memory_candidates_from_audit": pska_source_memory_candidates_from_audit,
+        "pska_eidolia_context_read": pska_eidolia_context_read,
+        "pska_eidolia_memory_review_create": pska_eidolia_memory_review_create,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_workflow_memory_attribution": pska_workflow_memory_attribution,

@@ -344,13 +344,15 @@ Trace event: generated_from / cited_source / promoted_to_memory / superseded
 新增接口：
 
 ```text
-pska_eidolia_context_read
-pska_eidolia_memory_review_create
+pska_eidolia_context_read              # Done: payload -> SourceRef(adapter="eidolia")
+pska_eidolia_memory_review_create      # Done: thought/artifact -> governed Memory Card review
 pska_trace_query
 ```
 
-实现上优先通过 Eidolia existing project files / sidecar JSON 读取，不把 Eidolia 数据复制成
-PSKA canonical store。
+当前 v1 先提供 payload bridge：调用方传入 project/node/text/role/kind，PSKA 生成
+Eidolia SourceRef、audit 和 Review candidate，不读取、不复制、不修改 Eidolia project files。
+后续再接 Eidolia existing project files / sidecar JSON 读取，不把 Eidolia 数据复制成 PSKA
+canonical store。
 
 ### 7.6 Source Extraction Jobs
 
@@ -621,9 +623,9 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 改动：
 
-- Eidolia node refs 转成 `SourceRef(adapter="eidolia")`。
+- Done: Eidolia node refs 转成 `SourceRef(adapter="eidolia")`。
 - `pska_trace_query` 支持按 artifact/memory/source 找时间线。
-- `pska_eidolia_memory_review_create` 从 thought 创建 Memory Card candidate。
+- Done: `pska_eidolia_memory_review_create` 从 thought/artifact 创建 Memory Card candidate。
 - Hermes skill 增加 specialist consultation 规则。
 - Specialist 先作为 tools/profile，不作为独立常驻 agent。
 
@@ -707,9 +709,9 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 ### P4 Backlog
 
-- [ ] Eidolia `SourceRef` adapter.
+- [x] Eidolia `SourceRef` adapter.
 - [ ] Thought/artifact trace import.
-- [ ] Memory review creation from Eidolia thought.
+- [x] Memory review creation from Eidolia thought.
 - [ ] Specialist tool profiles.
 
 ## 10. What Not To Do Yet

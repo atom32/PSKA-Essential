@@ -809,6 +809,146 @@ class WorkflowService:
         )
         return result
 
+    def eidolia_context_read(
+        self,
+        *,
+        project_id: str,
+        node_id: str,
+        node_type: str = "thought",
+        text: str = "",
+        title: str = "",
+        canvas_path: str = "",
+        role: str = "",
+        artifact_kind: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Represent an Eidolia thought/artifact as source-safe PSKA context."""
+
+        ref = _eidolia_source_ref(
+            project_id=project_id,
+            node_id=node_id,
+            node_type=node_type,
+            title=title,
+            canvas_path=canvas_path,
+            role=role,
+            artifact_kind=artifact_kind,
+            metadata=metadata or {},
+        )
+        normalized_text = text.strip()
+        result = {
+            "schema": "pska.eidolia_context.v1",
+            "source_ref": to_jsonable(ref),
+            "text": normalized_text,
+            "metadata": {
+                "source_layer": "thought_artifact",
+                "project_id": project_id.strip(),
+                "node_id": node_id.strip(),
+                "node_type": _normalize_eidolia_node_type(node_type),
+                "role": role.strip(),
+                "artifact_kind": artifact_kind.strip(),
+                "canvas_path": canvas_path.strip(),
+                "read_mode": "request_payload",
+                "canonical_owner": "eidolia_project",
+            },
+            "data_flow": {
+                "writes_memory_directly": False,
+                "writes_source_files": False,
+                "embedding_required": False,
+            },
+            "limitations": [
+                "This v1 bridge reads the caller-provided Eidolia node payload and normalizes SourceRef metadata.",
+                "It does not copy Eidolia project files into PSKA or mutate the canvas.",
+            ],
+        }
+        self.store.add_audit_event(
+            audit_event(
+                "eidolia.context.read",
+                "eidolia_node",
+                ref.external_id or ref.source_id or "eidolia_node",
+                project_id=ref.source_id or "",
+                node_id=ref.external_id or "",
+                node_type=ref.metadata.get("node_type") or "",
+                role=ref.metadata.get("role") or "",
+                artifact_kind=ref.metadata.get("artifact_kind") or "",
+                writes_memory_directly=False,
+                writes_source_files=False,
+            )
+        )
+        return result
+
+    def eidolia_memory_review_create(
+        self,
+        *,
+        project_id: str,
+        node_id: str,
+        text: str,
+        behavior_delta: str,
+        node_type: str = "thought",
+        title: str = "",
+        canvas_path: str = "",
+        role: str = "",
+        artifact_kind: str = "",
+        memory_type: str = "project_state",
+        memory_scope: str = "project",
+        reason: str = "",
+        confidence: float = 0.82,
+        scope: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Promote an Eidolia thought/artifact node into a governed Memory Card candidate."""
+
+        ref = _eidolia_source_ref(
+            project_id=project_id,
+            node_id=node_id,
+            node_type=node_type,
+            title=title,
+            canvas_path=canvas_path,
+            role=role,
+            artifact_kind=artifact_kind,
+            metadata=metadata or {},
+        )
+        normalized_scope = {
+            **dict(scope or {}),
+            "eidolia_project_id": ref.source_id or "",
+            "eidolia_node_id": ref.external_id or "",
+        }
+        created = self.source_memory_review_create(
+            [ref],
+            text=text,
+            memory_type=memory_type,
+            behavior_delta=behavior_delta,
+            memory_scope=memory_scope,
+            reason=reason or f"Promote Eidolia {ref.metadata.get('node_type')} to memory",
+            confidence=confidence,
+            scope=normalized_scope,
+        )
+        created["eidolia"] = {
+            "schema": "pska.eidolia_memory_review.v1",
+            "project_id": ref.source_id or "",
+            "node_id": ref.external_id or "",
+            "node_type": ref.metadata.get("node_type") or "",
+            "role": ref.metadata.get("role") or "",
+            "artifact_kind": ref.metadata.get("artifact_kind") or "",
+            "canvas_path": ref.path or "",
+            "source_ref": to_jsonable(ref),
+        }
+        created["memory_card"]["source_origin"] = "eidolia"
+        self.store.add_audit_event(
+            audit_event(
+                "eidolia.memory_review.create",
+                "review",
+                created["review"]["review_id"],
+                project_id=ref.source_id or "",
+                node_id=ref.external_id or "",
+                node_type=ref.metadata.get("node_type") or "",
+                memory_type=created["memory_card"]["type"],
+                memory_scope=created["memory_card"]["scope"],
+                writes_memory_directly=False,
+                writes_source_files=False,
+            )
+        )
+        return created
+
     def memory_delete_review(self, memory_fact: MemoryFact | dict[str, Any], reason: str = "") -> dict[str, Any]:
         """Govern durable memory deletion from an explicit PSKA memory fact."""
 
@@ -2040,6 +2180,54 @@ def _source_memory_candidate_key(
         },
         sort_keys=True,
     )
+
+
+def _eidolia_source_ref(
+    *,
+    project_id: str,
+    node_id: str,
+    node_type: str,
+    title: str = "",
+    canvas_path: str = "",
+    role: str = "",
+    artifact_kind: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> SourceRef:
+    normalized_project = project_id.strip()
+    normalized_node = node_id.strip()
+    normalized_type = _normalize_eidolia_node_type(node_type)
+    if not normalized_project:
+        raise WorkflowError("Eidolia source ref requires project_id")
+    if not normalized_node:
+        raise WorkflowError("Eidolia source ref requires node_id")
+    normalized_path = canvas_path.strip() or f"{normalized_project}/{normalized_node}"
+    values = {
+        "source_layer": "thought_artifact",
+        "project_id": normalized_project,
+        "node_id": normalized_node,
+        "node_type": normalized_type,
+        "role": role.strip(),
+        "artifact_kind": artifact_kind.strip(),
+        "canvas_path": normalized_path,
+        "canonical_owner": "eidolia_project",
+        "writes_source_files": False,
+    }
+    values.update({str(key): value for key, value in (metadata or {}).items()})
+    return SourceRef(
+        adapter="eidolia",
+        source_id=normalized_project,
+        external_id=normalized_node,
+        title=title.strip() or normalized_node,
+        path=normalized_path,
+        metadata=values,
+    )
+
+
+def _normalize_eidolia_node_type(node_type: str) -> str:
+    normalized = (node_type or "thought").strip().lower()
+    if normalized not in {"thought", "artifact"}:
+        raise WorkflowError("Eidolia node_type must be thought or artifact")
+    return normalized
 
 
 def _memory_runtime_scope(scope: dict[str, Any] | None = None) -> dict[str, Any]:

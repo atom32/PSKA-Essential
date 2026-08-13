@@ -486,6 +486,8 @@ pska_source_extract_job_run
 pska_source_watch_once
 pska_jarvis_briefing
 pska_source_memory_review_create
+pska_eidolia_context_read
+pska_eidolia_memory_review_create
 pska_memory_card_list
 pska_memory_card_get
 pska_memory_health_scan
@@ -599,7 +601,11 @@ Hermes 的默认行为：
   route candidates 批量生成 governed Memory Card review candidate。
 - Done: 批量候选使用 SourceRef、memory_type、memory_scope、behavior_delta 做确定性去重；
   已存在 pending/accepted/needs_edit review 时跳过，不直接写 memory。
-- Pending: 更高级的跨项目语义聚类、从 conversation/Eidolia thought 自动生成候选。
+- Done: Eidolia thought/artifact 可通过 `pska_eidolia_context_read` 规范成
+  `SourceRef(adapter="eidolia")`，并通过 `pska_eidolia_memory_review_create`
+  创建 governed Memory Card candidate。
+- Pending: 更高级的跨项目语义聚类、从 conversation 自动生成候选、Eidolia project
+  files/trace import。
 
 ### M6: Agentic Routines
 

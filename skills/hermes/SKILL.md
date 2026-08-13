@@ -157,6 +157,13 @@ candidate memory, review, and durable export.
   `pska_source_memory_review_create` with explicit `memory_type`,
   `behavior_delta`, and source refs. Prefer `source_route` and `project_state`
   for source-derived memory; do not promote generic file summaries.
+- If an Eidolia `thought` or `artifact` node is cited as context, call
+  `pska_eidolia_context_read` with the project/node metadata so PSKA records a
+  source-safe `SourceRef(adapter="eidolia")`.
+- If an Eidolia `thought` or `artifact` is explicitly meant to affect future
+  behavior, call `pska_eidolia_memory_review_create` to create a governed
+  Memory Card candidate. Keep Eidolia's user-facing ontology to `thought` and
+  `artifact`; do not invent new canvas node types.
 - If an existing durable memory must be changed outside the normal conversation
   flow, start from a `pska_memory_search` or `pska_memory_card_list` result and call
   `pska_memory_update_review`; do not call backend update tools directly.

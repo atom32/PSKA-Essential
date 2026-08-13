@@ -234,6 +234,24 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "dedupe_existing_reviews": True,
         "embedding_required": False,
     },
+    "pska_eidolia_context_read": {
+        "category": "thought_artifact",
+        "access": "read",
+        "durable": False,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "embedding_required": False,
+    },
+    "pska_eidolia_memory_review_create": {
+        "category": "thought_artifact",
+        "access": "write",
+        "durable": False,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "creates_review": True,
+        "requires_source_refs": True,
+        "embedding_required": False,
+    },
     "pska_agentic_question_start": {
         "category": "ask",
         "access": "write",
@@ -676,10 +694,11 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_memory_change_from_conversation",
                 "pska_source_memory_review_create",
                 "pska_source_memory_candidates_from_audit",
+                "pska_eidolia_context_read",
+                "pska_eidolia_memory_review_create",
             ],
             "planned": [
                 "approximate_duplicate_report",
-                "pska_eidolia_context_read",
                 "pska_trace_query",
             ],
         },
@@ -834,11 +853,19 @@ def adapter_slots_contract() -> dict[str, Any]:
             "default_provider": "",
             "providers": [
                 _provider(
+                    "eidolia_source_ref_bridge",
+                    status="implemented",
+                    maturity="partial",
+                    integration="pska_payload_adapter",
+                    supports=["thought_refs", "artifact_refs", "memory_review_creation"],
+                    safety={"writes_canvas": False, "writes_memory_directly": False},
+                ),
+                _provider(
                     "eidolia_project_files",
                     status="planned",
                     maturity="planned",
                     integration="file_adapter",
-                    supports=["thought_refs", "artifact_refs", "agentic_traces"],
+                    supports=["project_file_read", "agentic_traces"],
                 ),
                 _service_provider(
                     "eidolia_product_api",

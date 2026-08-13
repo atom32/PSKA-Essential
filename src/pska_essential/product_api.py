@@ -120,6 +120,8 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/memory-reviews"},
     {"method": "POST", "path": "/api/sources/memory-candidates/from-audit"},
     {"method": "POST", "path": "/api/sources/read"},
+    {"method": "POST", "path": "/api/eidolia/context/read"},
+    {"method": "POST", "path": "/api/eidolia/memory-reviews"},
     {"method": "GET", "path": "/api/memory/cards"},
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
     {"method": "GET", "path": "/api/memory/briefing"},
@@ -1056,6 +1058,44 @@ def _handler_class(state: ProductApiState):
                     dedupe_existing=_bool_value(payload.get("dedupe_existing"), True),
                 )
                 self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/eidolia/context/read":
+                payload = self._read_json()
+                result = state.service.eidolia_context_read(
+                    project_id=_required_str(payload, "project_id"),
+                    node_id=_required_str(payload, "node_id"),
+                    node_type=str(payload.get("node_type") or "thought"),
+                    text=str(payload.get("text") or ""),
+                    title=str(payload.get("title") or ""),
+                    canvas_path=str(payload.get("canvas_path") or ""),
+                    role=str(payload.get("role") or ""),
+                    artifact_kind=str(payload.get("artifact_kind") or ""),
+                    metadata=_optional_dict(payload, "metadata"),
+                )
+                self._send_json({"ok": True, "context": result})
+                return
+
+            if method == "POST" and path == "/api/eidolia/memory-reviews":
+                payload = self._read_json()
+                created = state.service.eidolia_memory_review_create(
+                    project_id=_required_str(payload, "project_id"),
+                    node_id=_required_str(payload, "node_id"),
+                    text=_required_str(payload, "text"),
+                    behavior_delta=_required_str(payload, "behavior_delta"),
+                    node_type=str(payload.get("node_type") or "thought"),
+                    title=str(payload.get("title") or ""),
+                    canvas_path=str(payload.get("canvas_path") or ""),
+                    role=str(payload.get("role") or ""),
+                    artifact_kind=str(payload.get("artifact_kind") or ""),
+                    memory_type=str(payload.get("memory_type") or "project_state"),
+                    memory_scope=str(payload.get("memory_scope") or "project"),
+                    reason=str(payload.get("reason") or ""),
+                    confidence=float(payload.get("confidence") or 0.82),
+                    scope=_optional_dict(payload, "scope"),
+                    metadata=_optional_dict(payload, "metadata"),
+                )
+                self._send_json({"ok": True, **created}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/memory/search":

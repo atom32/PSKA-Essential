@@ -289,6 +289,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/memory-reviews"), contract_routes)
         self.assertIn(("POST", "/api/sources/memory-candidates/from-audit"), contract_routes)
         self.assertIn(("POST", "/api/sources/read"), contract_routes)
+        self.assertIn(("POST", "/api/eidolia/context/read"), contract_routes)
+        self.assertIn(("POST", "/api/eidolia/memory-reviews"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards"), contract_routes)
         self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
         self.assertIn(("GET", "/api/memory/health"), contract_routes)
@@ -350,6 +352,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_memory_timeline", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_memory_candidate_dedup", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_memory_candidates_from_audit", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_eidolia_context_read", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_eidolia_memory_review_create", assistant_layer["mcp_tools"]["implemented"])
+        thought_artifact = capabilities["capabilities"]["adapter_slots"]["slots"]["thought_artifact"]
+        self.assertEqual(thought_artifact["providers"][0]["name"], "eidolia_source_ref_bridge")
+        self.assertEqual(thought_artifact["providers"][0]["status"], "implemented")
         search_view = capabilities["capabilities"]["memory"]["search_view"]
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
         self.assertTrue(search_view["default_filters_superseded"])
@@ -1301,6 +1308,51 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("duplicate_candidates", groups)
         self.assertEqual(queue["summary"]["duplicate_candidate_group_count"], 1)
         self.assertEqual(groups["duplicate_candidates"]["items"][0]["item_type"], "memory_candidate_duplicate_group")
+
+    def test_eidolia_context_and_memory_review_routes_create_sourced_candidate(self):
+        context = self._post_json(
+            "/api/eidolia/context/read",
+            {
+                "project_id": "novel-x",
+                "node_id": "thought-1",
+                "node_type": "thought",
+                "text": "PSKA should keep Eidolia thought and artifact nodes as canvas primitives.",
+                "title": "Canvas primitives",
+                "canvas_path": "boards/novel-x.canvas",
+                "role": "decision",
+            },
+        )
+        created = self._post_json(
+            "/api/eidolia/memory-reviews",
+            {
+                "project_id": "novel-x",
+                "node_id": "thought-1",
+                "node_type": "thought",
+                "text": "Eidolia keeps thought and artifact as its only user-visible node types.",
+                "behavior_delta": "When discussing Eidolia architecture, keep thought/artifact as the canvas primitives.",
+                "title": "Canvas primitives",
+                "canvas_path": "boards/novel-x.canvas",
+                "role": "decision",
+                "memory_type": "project_state",
+                "memory_scope": "project",
+                "reason": "stable Eidolia ontology decision",
+            },
+        )
+
+        self.assertTrue(context["ok"])
+        self.assertEqual(context["context"]["schema"], "pska.eidolia_context.v1")
+        self.assertEqual(context["context"]["source_ref"]["adapter"], "eidolia")
+        self.assertEqual(context["context"]["source_ref"]["metadata"]["role"], "decision")
+        self.assertTrue(created["ok"])
+        self.assertEqual(created["proposal"]["kind"], "memory_patch")
+        self.assertEqual(created["review"]["status"], "pending")
+        self.assertIsNone(created["memory_apply"])
+        self.assertEqual(created["memory_card"]["source_origin"], "eidolia")
+        self.assertEqual(created["memory_card"]["source_refs"][0]["metadata"]["node_type"], "thought")
+        self.assertFalse(created["governance"]["writes_memory_directly"])
+        actions = {event.action for event in self.service.store.list_audit_events(limit=40)}
+        self.assertIn("eidolia.context.read", actions)
+        self.assertIn("eidolia.memory_review.create", actions)
 
     def test_memory_health_route_reports_quality_stale_and_conflict(self):
         self.service.memory.facts.extend(

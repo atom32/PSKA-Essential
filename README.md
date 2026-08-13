@@ -419,6 +419,8 @@ Operational loop tools:
 - `pska_obsidian_moc_propose`
 - `pska_obsidian_moc_apply`
 - `pska_source_memory_review_create`
+- `pska_eidolia_context_read`
+- `pska_eidolia_memory_review_create`
 - `pska_memory_candidate_dedup`
 - `pska_memory_card_list`
 - `pska_memory_card_get`
@@ -553,6 +555,11 @@ memory directly, and do not require embeddings. M9 adds
 jobs wait on `due_at`, the tick turns due jobs into queued jobs, and recurring
 cadences create the next waiting job after a run completes. This gives Hermes a
 wall-clock scheduler contract without a hidden background source-file scanner.
+P4 begins the Eidolia bridge with `pska_eidolia_context_read` and
+`pska_eidolia_memory_review_create`: Eidolia `thought`/`artifact` payloads are
+normalized into `SourceRef(adapter="eidolia")`, can become governed Memory Card
+review candidates, and never mutate the canvas, copy project files, or write
+durable memory directly.
 P1 adapter work adds `pska_source_extract_job_enqueue`,
 `pska_source_extract_job_list`, and `pska_source_extract_job_run` as the
 Jarvis-friendly source extraction queue. Jobs run `pska_source_scan` with the

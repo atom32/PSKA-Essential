@@ -171,6 +171,11 @@ PSKA/Hermes 在背后给 thought/artifact 加 metadata 和 trace。适合：
 - 设计决策对比；
 - 多版本 artifact 生成。
 
+当前 v1 已落地 payload bridge：`pska_eidolia_context_read` 将调用方提供的
+project/node/text/role/kind 规范为 `SourceRef(adapter="eidolia")`，
+`pska_eidolia_memory_review_create` 可把 thought/artifact 提升为 governed Memory Card
+candidate。它不新增画布节点类型，不读取/复制 Eidolia project files，不直接写 memory。
+
 ### 4.6 Decision And Belief Reconstruction
 
 系统不是只保存结论，而是保存判断形成过程：

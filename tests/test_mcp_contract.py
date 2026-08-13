@@ -49,6 +49,8 @@ EXPECTED_TOOLS = {
     "pska_obsidian_moc_apply",
     "pska_source_memory_review_create",
     "pska_source_memory_candidates_from_audit",
+    "pska_eidolia_context_read",
+    "pska_eidolia_memory_review_create",
     "pska_policy_get",
     "pska_capabilities_get",
     "pska_migration_manifest",
@@ -565,6 +567,48 @@ class McpContractTests(unittest.TestCase):
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("proposal.create", actions)
         self.assertIn("review.create", actions)
+
+    def test_eidolia_thought_can_be_promoted_to_memory_review(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        context = tools["pska_eidolia_context_read"](
+            project_id="novel-x",
+            node_id="thought-1",
+            node_type="thought",
+            text="PSKA should keep Eidolia thought and artifact nodes as the canvas primitives.",
+            title="Canvas primitives",
+            canvas_path="boards/novel-x.canvas",
+            role="decision",
+        )
+        created = tools["pska_eidolia_memory_review_create"](
+            project_id="novel-x",
+            node_id="thought-1",
+            node_type="thought",
+            text="Eidolia keeps thought and artifact as its only user-visible node types.",
+            behavior_delta="When discussing Eidolia architecture, keep thought/artifact as the canvas primitives.",
+            title="Canvas primitives",
+            canvas_path="boards/novel-x.canvas",
+            role="decision",
+            memory_type="project_state",
+            memory_scope="project",
+            reason="stable Eidolia ontology decision",
+        )
+
+        self.assertEqual(context["schema"], "pska.eidolia_context.v1")
+        self.assertEqual(context["source_ref"]["adapter"], "eidolia")
+        self.assertEqual(context["source_ref"]["metadata"]["node_type"], "thought")
+        self.assertEqual(created["proposal"]["kind"], "memory_patch")
+        self.assertEqual(created["review"]["status"], "pending")
+        self.assertIsNone(created["memory_apply"])
+        self.assertEqual(created["memory_card"]["source_origin"], "eidolia")
+        self.assertEqual(created["memory_card"]["source_refs"][0]["adapter"], "eidolia")
+        self.assertEqual(created["eidolia"]["project_id"], "novel-x")
+        self.assertEqual(created["eidolia"]["node_id"], "thought-1")
+        self.assertEqual(created["artifact"]["traceability"]["source_count"], 1)
+        actions = [event.action for event in service.store.list_audit_events()]
+        self.assertIn("eidolia.context.read", actions)
+        self.assertIn("eidolia.memory_review.create", actions)
 
     def test_memory_change_from_conversation_tool_auto_applies(self):
         service = build_fake_service()

@@ -50,6 +50,8 @@ mcp_servers:
         - pska_obsidian_moc_apply
         - pska_source_memory_review_create
         - pska_source_memory_candidates_from_audit
+        - pska_eidolia_context_read
+        - pska_eidolia_memory_review_create
         - pska_agentic_question_start
         - pska_agentic_question_resumable
         - pska_agentic_question_resume
