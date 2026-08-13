@@ -519,6 +519,11 @@ make live-docling-smoke PYTHON=.venv/bin/python
 安装后会用真实 Docling 转换临时 HTML，并检查 `adapter_slots.summary.extraction.available`
 中出现 `docling`。
 
+2026-08-13 P3-4 live 更新：已在项目 `.venv` 中安装 `extract-docling`，当前
+Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
+已通过，输出 `available_extractors=["builtin_text", "markitdown", "docling"]`，
+并用真实 Docling 转换临时 HTML。
+
 ### Phase 2: Memory Productization
 
 目标：让记忆从“review/apply 功能”变成可管理资产。
