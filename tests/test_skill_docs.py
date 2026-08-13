@@ -318,6 +318,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_memory_search",
             "pska_memory_card_list",
             "pska_memory_card_get",
+            "pska_memory_candidate_dedup",
             "pska_memory_health_scan",
             "pska_memory_use_trace",
             "pska_memory_why_used",

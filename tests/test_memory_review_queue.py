@@ -36,6 +36,23 @@ class MemoryReviewQueueTests(unittest.TestCase):
             )
         )
         service.memory_search("PSKA docs", {}, 10)
+        ref = SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")
+        first_duplicate = service.source_memory_review_create(
+            [ref],
+            text="When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route future PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route one",
+        )
+        service.source_memory_review_create(
+            [ref],
+            text="When the workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route two",
+        )
 
         queue = build_memory_review_queue(service, audit=False)
         groups = {group["code"]: group for group in queue["groups"]}
@@ -43,6 +60,8 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(queue["schema"], "pska.memory_review_queue.v1")
         self.assertEqual(queue["status"], "apply_ready")
         self.assertEqual(groups["accepted_unapplied"]["items"][0]["review_id"], review.review_id)
+        self.assertIn("duplicate_candidates", groups)
+        self.assertIn(first_duplicate["review"]["review_id"], groups["duplicate_candidates"]["items"][0]["review_ids"])
         self.assertIn("memory_health", groups)
         self.assertIn("memory_focus", groups)
         self.assertFalse(queue["data_flow"]["writes_memory_directly"])

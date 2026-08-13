@@ -588,6 +588,10 @@ Hermes 的默认行为：
   `GET /api/memory/review-queue`；它把 pending/accepted Review records、
   Memory Briefing focus items 和 health issues 分组到 WebUI “记忆维护队列”，只读 triage，
   不 approve/apply/write Memory。
+- Done: P2-8 已新增 `pska_memory_candidate_dedup` 与
+  `GET /api/memory/candidate-dedup`；它对 Review 里的 durable memory candidates
+  做无 embedding 去重提示，使用 normalized text、token overlap、SourceRef fingerprint
+  和 behavior_delta fingerprint 分组，并将 duplicate candidates 接入 Memory Review Queue。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
 - Done: `pska_source_memory_candidates_from_audit` 与
@@ -595,7 +599,7 @@ Hermes 的默认行为：
   route candidates 批量生成 governed Memory Card review candidate。
 - Done: 批量候选使用 SourceRef、memory_type、memory_scope、behavior_delta 做确定性去重；
   已存在 pending/accepted/needs_edit review 时跳过，不直接写 memory。
-- Pending: 近似语义去重、跨项目候选聚类、从 conversation/Eidolia thought 自动生成候选。
+- Pending: 更高级的跨项目语义聚类、从 conversation/Eidolia thought 自动生成候选。
 
 ### M6: Agentic Routines
 

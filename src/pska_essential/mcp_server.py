@@ -40,6 +40,7 @@ from pska_essential.kb_audit import (
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.memory_briefing import build_memory_briefing
+from pska_essential.memory_candidate_dedup import build_memory_candidate_dedup
 from pska_essential.memory_health import scan_memory_health
 from pska_essential.memory_review_queue import build_memory_review_queue
 from pska_essential.memory_timeline import build_memory_timeline
@@ -464,6 +465,18 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             review_limit=review_limit,
             health_limit=health_limit,
             focus_limit=focus_limit,
+        )
+
+    def pska_memory_candidate_dedup(
+        scope: dict[str, Any] | None = None,
+        review_limit: int = 100,
+        similarity_threshold: float = 0.82,
+    ):
+        return build_memory_candidate_dedup(
+            service,
+            scope=scope or {},
+            review_limit=review_limit,
+            similarity_threshold=similarity_threshold,
         )
 
     def pska_memory_use_trace(
@@ -1113,6 +1126,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_card_get": pska_memory_card_get,
         "pska_memory_briefing": pska_memory_briefing,
         "pska_memory_review_queue": pska_memory_review_queue,
+        "pska_memory_candidate_dedup": pska_memory_candidate_dedup,
         "pska_memory_health_scan": pska_memory_health_scan,
         "pska_memory_use_trace": pska_memory_use_trace,
         "pska_memory_why_used": pska_memory_why_used,

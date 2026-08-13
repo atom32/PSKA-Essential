@@ -293,6 +293,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("GET", "/api/memory/cards/{memory_id}"), contract_routes)
         self.assertIn(("GET", "/api/memory/health"), contract_routes)
         self.assertIn(("GET", "/api/memory/use-traces"), contract_routes)
+        self.assertIn(("GET", "/api/memory/candidate-dedup"), contract_routes)
         self.assertIn(("GET", "/api/memory/{memory_id}/use-trace"), contract_routes)
         self.assertIn(("GET", "/api/memory/{memory_id}/why-used"), contract_routes)
         self.assertIn(("GET", "/api/workflows/{run_id}/memory-attribution"), contract_routes)
@@ -347,6 +348,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_workflow_memory_attribution", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_workflow_memory_suggestions", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_memory_timeline", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_memory_candidate_dedup", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_memory_candidates_from_audit", assistant_layer["mcp_tools"]["implemented"])
         search_view = capabilities["capabilities"]["memory"]["search_view"]
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
@@ -358,6 +360,10 @@ class ProductApiTests(unittest.TestCase):
         health_view = capabilities["capabilities"]["memory"]["health_view"]
         self.assertEqual(health_view["schema"], "pska.memory_health_view.v1")
         self.assertEqual(health_view["mcp_tool"], "pska_memory_health_scan")
+        dedup_view = capabilities["capabilities"]["memory"]["candidate_dedup_view"]
+        self.assertEqual(dedup_view["schema"], "pska.memory_candidate_dedup_view.v1")
+        self.assertEqual(dedup_view["mcp_tool"], "pska_memory_candidate_dedup")
+        self.assertFalse(dedup_view["embedding_required"])
         attribution_view = capabilities["capabilities"]["memory"]["attribution_view"]
         self.assertEqual(attribution_view["schema"], "pska.memory_attribution_view.v1")
         self.assertEqual(attribution_view["mcp_tool"], "pska_workflow_memory_attribution")
@@ -1260,6 +1266,41 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_memory_apply")
         audit = self._get_json("/api/audit?limit=10&action=memory.review_queue")
         self.assertEqual(audit["events"][0]["metadata"]["accepted_unapplied_count"], 1)
+
+    def test_memory_candidate_dedup_route_groups_near_duplicate_reviews(self):
+        ref = SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")
+        first = self.service.source_memory_review_create(
+            [ref],
+            text="When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route future PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route one",
+        )
+        second = self.service.source_memory_review_create(
+            [ref],
+            text="When the workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route two",
+        )
+
+        dedup = self._get_json("/api/memory/candidate-dedup?review_limit=20&similarity_threshold=0.8")
+        queue = self._get_json("/api/memory/review-queue?review_limit=20&health_limit=10&focus_limit=10")
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertTrue(dedup["ok"])
+        self.assertEqual(dedup["schema"], "pska.memory_candidate_dedup.v1")
+        self.assertEqual(dedup["summary"]["group_count"], 1)
+        self.assertEqual(
+            {item["review_id"] for item in dedup["groups"][0]["items"]},
+            {first["review"]["review_id"], second["review"]["review_id"]},
+        )
+        self.assertFalse(dedup["data_flow"]["embedding_required"])
+        self.assertIn("duplicate_candidates", groups)
+        self.assertEqual(queue["summary"]["duplicate_candidate_group_count"], 1)
+        self.assertEqual(groups["duplicate_candidates"]["items"][0]["item_type"], "memory_candidate_duplicate_group")
 
     def test_memory_health_route_reports_quality_stale_and_conflict(self):
         self.service.memory.facts.extend(

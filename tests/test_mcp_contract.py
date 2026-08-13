@@ -72,6 +72,7 @@ EXPECTED_TOOLS = {
     "pska_memory_card_get",
     "pska_memory_briefing",
     "pska_memory_review_queue",
+    "pska_memory_candidate_dedup",
     "pska_memory_health_scan",
     "pska_memory_use_trace",
     "pska_memory_why_used",
@@ -404,6 +405,9 @@ class McpContractTests(unittest.TestCase):
         memory_review_queue = tools["pska_memory_review_queue"]({}, review_limit=10, health_limit=10, focus_limit=10)
         self.assertEqual(memory_review_queue["schema"], "pska.memory_review_queue.v1")
         self.assertGreaterEqual(memory_review_queue["summary"]["memory_focus_count"], 1)
+        memory_candidate_dedup = tools["pska_memory_candidate_dedup"]({}, review_limit=10, similarity_threshold=0.82)
+        self.assertEqual(memory_candidate_dedup["schema"], "pska.memory_candidate_dedup.v1")
+        self.assertFalse(memory_candidate_dedup["data_flow"]["embedding_required"])
         memory_health = tools["pska_memory_health_scan"]({}, limit=10)
         self.assertEqual(memory_health["schema"], "pska.memory_health.v1")
         memory_attribution = tools["pska_workflow_memory_attribution"](run["run_id"])

@@ -274,7 +274,12 @@ memory。P2 的第八块已落地为 source audit -> memory candidate：
 entry points 批量转换为 governed Memory Card review candidates。它使用 SourceRef、
 memory_type、memory_scope、behavior_delta 做确定性去重，跳过已有
 pending/accepted/needs_edit review；它不写源文件、不直接写 memory、不需要
-embedding。
+embedding。P2 的第九块已落地为 embedding-free candidate dedup：
+`GET /api/memory/candidate-dedup` 与 `pska_memory_candidate_dedup` 对 Review
+里的 durable memory candidates 做重复候选提示。它使用 normalized text、token
+overlap、SourceRef fingerprint、behavior_delta fingerprint 聚类，并将
+`duplicate_candidates` 接入 Memory Review Queue；它不合并、不拒绝、不审批、不 apply、
+不写 durable memory。
 
 新增 Product API / MCP：
 
@@ -284,6 +289,7 @@ GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
 GET  /api/memory/briefing
 GET  /api/memory/review-queue
+GET  /api/memory/candidate-dedup
 GET  /api/memory/health
 GET  /api/memory/use-traces
 GET  /api/memory/{memory_id}/use-trace
@@ -298,6 +304,7 @@ pska_memory_card_list
 pska_memory_card_get
 pska_memory_briefing
 pska_memory_review_queue
+pska_memory_candidate_dedup
 pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used

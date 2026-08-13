@@ -300,6 +300,15 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "writes_memory_directly": False,
         "groups_review_work": True,
     },
+    "pska_memory_candidate_dedup": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "writes_memory_directly": False,
+        "embedding_required": False,
+        "groups_review_work": True,
+    },
     "pska_memory_use_trace": {
         "category": "memory",
         "access": "read",
@@ -442,6 +451,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "health_view": memory_health_view_contract(),
         "briefing_view": memory_briefing_view_contract(),
         "review_queue_view": memory_review_queue_view_contract(),
+        "candidate_dedup_view": memory_candidate_dedup_view_contract(),
         "attribution_view": memory_attribution_view_contract(),
         "suggestion_view": memory_suggestion_view_contract(),
         "use_trace_view": memory_use_trace_view_contract(),
@@ -657,6 +667,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_memory_health_scan",
                 "pska_memory_briefing",
                 "pska_memory_review_queue",
+                "pska_memory_candidate_dedup",
                 "pska_memory_use_trace",
                 "pska_memory_why_used",
                 "pska_memory_timeline",
@@ -1113,10 +1124,39 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "mcp_tool": "pska_memory_review_queue",
         "output_schema": "pska.memory_review_queue.v1",
         "group_schema": "pska.memory_review_queue_group.v1",
-        "groups": ["accepted_unapplied", "pending_reviews", "needs_edit", "memory_health", "memory_focus"],
+        "groups": [
+            "accepted_unapplied",
+            "duplicate_candidates",
+            "pending_reviews",
+            "needs_edit",
+            "memory_health",
+            "memory_focus",
+        ],
         "principle": "read-only grouping view over Review records and Memory Briefing",
         "writes_memory_directly": False,
-        "next_actions": ["open_review", "apply_accepted_memory", "inspect_memory_health", "inspect_memory_timeline"],
+        "next_actions": [
+            "open_review",
+            "apply_accepted_memory",
+            "inspect_duplicate_memory_candidates",
+            "inspect_memory_health",
+            "inspect_memory_timeline",
+        ],
+    }
+
+
+def memory_candidate_dedup_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_candidate_dedup_view.v1",
+        "api": "GET /api/memory/candidate-dedup",
+        "mcp_tool": "pska_memory_candidate_dedup",
+        "output_schema": "pska.memory_candidate_dedup.v1",
+        "group_schema": "pska.memory_candidate_dedup_group.v1",
+        "inputs": ["scope", "review_limit", "similarity_threshold"],
+        "signals": ["normalized_text", "token_jaccard", "SourceRef fingerprint", "behavior_delta fingerprint"],
+        "principle": "embedding-free duplicate-candidate hints before human review decisions",
+        "writes_memory_directly": False,
+        "embedding_required": False,
+        "next_actions": ["open_review", "review_pending_durable_knowledge"],
     }
 
 

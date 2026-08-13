@@ -49,6 +49,7 @@ from pska_essential.kb_audit import (
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.memory_briefing import build_memory_briefing
+from pska_essential.memory_candidate_dedup import build_memory_candidate_dedup
 from pska_essential.memory_health import scan_memory_health
 from pska_essential.memory_review_queue import build_memory_review_queue
 from pska_essential.memory_timeline import build_memory_timeline
@@ -123,6 +124,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/memory/cards/{memory_id}"},
     {"method": "GET", "path": "/api/memory/briefing"},
     {"method": "GET", "path": "/api/memory/review-queue"},
+    {"method": "GET", "path": "/api/memory/candidate-dedup"},
     {"method": "GET", "path": "/api/memory/health"},
     {"method": "GET", "path": "/api/memory/use-traces"},
     {"method": "GET", "path": "/api/memory/{memory_id}/use-trace"},
@@ -1133,6 +1135,16 @@ def _handler_class(state: ProductApiState):
                     review_limit=_int_param(query.get("review_limit"), 50),
                     health_limit=_int_param(query.get("health_limit"), 20),
                     focus_limit=_int_param(query.get("focus_limit"), 20),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "GET" and path == "/api/memory/candidate-dedup":
+                result = build_memory_candidate_dedup(
+                    state.service,
+                    scope=_query_scope(query),
+                    review_limit=_int_param(query.get("review_limit"), 100),
+                    similarity_threshold=float(query.get("similarity_threshold") or 0.82),
                 )
                 self._send_json({"ok": True, **result})
                 return

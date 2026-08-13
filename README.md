@@ -419,6 +419,7 @@ Operational loop tools:
 - `pska_obsidian_moc_propose`
 - `pska_obsidian_moc_apply`
 - `pska_source_memory_review_create`
+- `pska_memory_candidate_dedup`
 - `pska_memory_card_list`
 - `pska_memory_card_get`
 - `pska_memory_briefing`
@@ -523,7 +524,12 @@ items, and safe next actions without writing durable memory. P2-7 adds
 read-only grouped maintenance view over pending/accepted Review records, Memory
 Briefing focus items, and health issues. Hermes/Jarvis and the WebUI Review
 page can use it to triage memory work without approving, applying, or writing
-memory directly. M6 adds
+memory directly. P2-8 adds `pska_memory_candidate_dedup` and
+`GET /api/memory/candidate-dedup`, an embedding-free duplicate-candidate view
+over Review records. It groups possible duplicate durable memory candidates
+with normalized text, lexical token overlap, SourceRef fingerprints, and
+behavior-delta fingerprints; it only produces review hints and never merges,
+rejects, approves, applies, or writes memory. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`
