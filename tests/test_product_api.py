@@ -344,6 +344,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_obsidian_moc_propose", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_workflow_memory_attribution", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_workflow_memory_suggestions", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_memory_timeline", assistant_layer["mcp_tools"]["implemented"])
         search_view = capabilities["capabilities"]["memory"]["search_view"]
         self.assertEqual(search_view["schema"], "pska.memory_search_view.v1")
         self.assertTrue(search_view["default_filters_superseded"])
@@ -363,6 +364,9 @@ class ProductApiTests(unittest.TestCase):
         use_trace_view = capabilities["capabilities"]["memory"]["use_trace_view"]
         self.assertEqual(use_trace_view["schema"], "pska.memory_use_trace_view.v1")
         self.assertEqual(use_trace_view["apis"]["why_used"], "GET /api/memory/{memory_id}/why-used")
+        timeline_view = capabilities["capabilities"]["memory"]["timeline_view"]
+        self.assertEqual(timeline_view["schema"], "pska.memory_timeline_view.v1")
+        self.assertEqual(timeline_view["api"], "GET /api/memory/{memory_id}/timeline")
         interaction_model = capabilities["capabilities"]["memory"]["interaction_model"]
         self.assertEqual(interaction_model["schema"], "pska.memory_interaction_model.v1")
         self.assertEqual(interaction_model["primary_user_path"], "conversation")
@@ -1123,6 +1127,38 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("PSKA architecture", why_used["explanation"])
         self.assertEqual(listed["count"], 1)
         audit = self._get_json("/api/audit?limit=10&action=memory.why_used")
+        self.assertEqual(audit["events"][0]["target_id"], "mem-route")
+
+    def test_memory_timeline_route_combines_card_trace_and_source_anchor(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-route",
+                text="Use the PSKA architecture note before broad source search.",
+                source_refs=[SourceRef(adapter="fake", source_id="note-1")],
+                metadata={
+                    "memory_type": "source_route",
+                    "memory_scope": "project",
+                    "behavior_delta": "Route future PSKA questions to the architecture note first.",
+                    "display_text": "PSKA questions should start from the architecture note.",
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                },
+            )
+        )
+        self._post_json(
+            "/api/memory/search",
+            {"query": "PSKA architecture", "caller": "api-test", "purpose": "answer_context"},
+        )
+
+        timeline = self._get_json("/api/memory/mem-route/timeline?limit=10")
+        entry_types = [entry["type"] for entry in timeline["entries"]]
+
+        self.assertEqual(timeline["schema"], "pska.memory_timeline.v1")
+        self.assertIn("card_snapshot", entry_types)
+        self.assertIn("usage_trace", entry_types)
+        self.assertIn("source_anchor", entry_types)
+        self.assertEqual(timeline["summary"]["usage_trace_count"], 1)
+        self.assertEqual(timeline["summary"]["source_anchor_count"], 1)
+        audit = self._get_json("/api/audit?limit=10&action=memory.timeline")
         self.assertEqual(audit["events"][0]["target_id"], "mem-route")
 
     def test_memory_health_route_reports_quality_stale_and_conflict(self):

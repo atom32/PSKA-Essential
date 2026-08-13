@@ -40,6 +40,7 @@ from pska_essential.kb_audit import (
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.memory_health import scan_memory_health
+from pska_essential.memory_timeline import build_memory_timeline
 from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
@@ -451,6 +452,22 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_memory_why_used(memory_id: str, scope: dict[str, Any] | None = None, limit: int = 20):
         return explain_memory_why_used(service, memory_id, scope=scope or {}, limit=limit)
+
+    def pska_memory_timeline(
+        memory_id: str,
+        scope: dict[str, Any] | None = None,
+        limit: int = 50,
+        include_usage: bool = True,
+        include_sources: bool = True,
+    ):
+        return build_memory_timeline(
+            service,
+            memory_id,
+            scope=scope or {},
+            limit=limit,
+            include_usage=include_usage,
+            include_sources=include_sources,
+        )
 
     def pska_memory_apply(review_id: str):
         return to_jsonable(service.memory_apply(review_id))
@@ -1052,6 +1069,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_memory_health_scan": pska_memory_health_scan,
         "pska_memory_use_trace": pska_memory_use_trace,
         "pska_memory_why_used": pska_memory_why_used,
+        "pska_memory_timeline": pska_memory_timeline,
         "pska_memory_apply": pska_memory_apply,
         "pska_source_memory_review_create": pska_source_memory_review_create,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,

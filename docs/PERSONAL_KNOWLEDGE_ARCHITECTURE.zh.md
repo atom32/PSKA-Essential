@@ -578,6 +578,9 @@ Hermes 的默认行为：
   `memory_suggestions`；Ask/workflow artifact、export JSON、WebUI Ask/Writing、
   Product API 和 MCP 均可读取。归因只声明 PSKA supplied memory context，
   suggestion 只走 Review，不直接写 Memory。
+- Done: P2-5 已新增 `pska_memory_timeline` 与
+  `GET /api/memory/{memory_id}/timeline`；它把 Memory Card、lifecycle audit、
+  use trace 和 SourceRef 派生成一条时间线，不新建第二套 memory store。
 - Done: source_route 和 project_state 作为优先用例，当前由 `pska_source_memory_review_create` 支持。
 - Done: source-derived memory 默认进入 Review，不直接写 memory provider。
 - Pending: 批量候选去重、UI review 队列分组、从 folder audit 自动生成候选。

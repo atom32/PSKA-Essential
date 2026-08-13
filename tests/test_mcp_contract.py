@@ -72,6 +72,7 @@ EXPECTED_TOOLS = {
     "pska_memory_health_scan",
     "pska_memory_use_trace",
     "pska_memory_why_used",
+    "pska_memory_timeline",
     "pska_workflow_memory_attribution",
     "pska_workflow_memory_suggestions",
     "pska_memory_apply",
@@ -322,6 +323,8 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(capabilities["memory"]["health_view"]["mcp_tool"], "pska_memory_health_scan")
         self.assertEqual(capabilities["memory"]["use_trace_view"]["schema"], "pska.memory_use_trace_view.v1")
         self.assertEqual(capabilities["memory"]["use_trace_view"]["mcp_tools"]["why_used"], "pska_memory_why_used")
+        self.assertEqual(capabilities["memory"]["timeline_view"]["schema"], "pska.memory_timeline_view.v1")
+        self.assertEqual(capabilities["memory"]["timeline_view"]["mcp_tool"], "pska_memory_timeline")
         self.assertEqual(capabilities["memory"]["search_view"]["schema"], "pska.memory_search_view.v1")
         self.assertTrue(capabilities["memory"]["search_view"]["default_filters_superseded"])
         self.assertIn(
@@ -397,9 +400,12 @@ class McpContractTests(unittest.TestCase):
         facts = tools["pska_memory_search"]("mcp memory", {}, 10)
         use_trace = tools["pska_memory_use_trace"](applied["target_id"], limit=10)
         why_used = tools["pska_memory_why_used"](applied["target_id"])
+        timeline = tools["pska_memory_timeline"](applied["target_id"], limit=10)
         self.assertEqual(use_trace["traces"][0]["memory_ids"], [applied["target_id"]])
         self.assertEqual(why_used["memory_id"], applied["target_id"])
         self.assertEqual(why_used["confidence"], "candidate_retrieval")
+        self.assertEqual(timeline["schema"], "pska.memory_timeline.v1")
+        self.assertEqual(timeline["memory_id"], applied["target_id"])
         probe = tools["pska_memory_probe"]("mcp memory", {}, 1, require_live=False)
         self.assertEqual(probe["status"], "ok")
         self.assertEqual(probe["memory_count"], 1)

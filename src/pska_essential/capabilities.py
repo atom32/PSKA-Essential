@@ -286,6 +286,12 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "durable": False,
         "audit_backed": True,
     },
+    "pska_memory_timeline": {
+        "category": "memory",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+    },
     "pska_memory_change_from_conversation": {
         "category": "memory",
         "access": "write",
@@ -411,6 +417,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "attribution_view": memory_attribution_view_contract(),
         "suggestion_view": memory_suggestion_view_contract(),
         "use_trace_view": memory_use_trace_view_contract(),
+        "timeline_view": memory_timeline_view_contract(),
         "interaction_model": memory_interaction_model_contract(),
     }
 
@@ -621,6 +628,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_memory_health_scan",
                 "pska_memory_use_trace",
                 "pska_memory_why_used",
+                "pska_memory_timeline",
                 "pska_workflow_memory_attribution",
                 "pska_workflow_memory_suggestions",
                 "pska_memory_change_from_conversation",
@@ -1011,6 +1019,19 @@ def memory_use_trace_view_contract() -> dict[str, Any]:
             "purpose",
         ],
         "limitation": "candidate retrieval or card inspection only; final answer influence must be attached by a later response-level trace",
+    }
+
+
+def memory_timeline_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.memory_timeline_view.v1",
+        "api": "GET /api/memory/{memory_id}/timeline",
+        "mcp_tool": "pska_memory_timeline",
+        "output_schema": "pska.memory_timeline.v1",
+        "entry_types": ["card_snapshot", "lifecycle_change", "usage_trace", "source_anchor"],
+        "evidence_sources": ["Memory Card envelope", "PSKA audit lifecycle", "memory use trace", "SourceRef"],
+        "principle": "timeline is a derived ledger view and does not create a second memory store",
+        "limitation": "provider-neutral timeline; hidden model causality and provider-native graph state are out of scope",
     }
 
 

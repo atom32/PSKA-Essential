@@ -49,6 +49,7 @@ from pska_essential.kb_audit import (
 from pska_essential.kb_gateway import build_kb_gateway_from_env
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.memory_health import scan_memory_health
+from pska_essential.memory_timeline import build_memory_timeline
 from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
 from pska_essential.provider_jobs import build_provider_job_status
@@ -121,6 +122,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/memory/use-traces"},
     {"method": "GET", "path": "/api/memory/{memory_id}/use-trace"},
     {"method": "GET", "path": "/api/memory/{memory_id}/why-used"},
+    {"method": "GET", "path": "/api/memory/{memory_id}/timeline"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-attribution"},
@@ -1119,6 +1121,19 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, **result})
                 return
 
+            memory_timeline_id = _match(path, "/api/memory/", "/timeline")
+            if method == "GET" and memory_timeline_id:
+                result = build_memory_timeline(
+                    state.service,
+                    unquote(memory_timeline_id),
+                    scope=_query_scope(query),
+                    limit=_int_param(query.get("limit"), 50),
+                    include_usage=_bool_param(query.get("include_usage"), True),
+                    include_sources=_bool_param(query.get("include_sources"), True),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
             memory_card_id = _match(path, "/api/memory/cards/", "")
             if method == "GET" and memory_card_id and "/" not in memory_card_id:
                 result = get_memory_card(
@@ -1695,6 +1710,10 @@ def _int_param(value: str | None, default: int) -> int:
     if not value:
         return default
     return int(value)
+
+
+def _bool_param(value: str | None, default: bool) -> bool:
+    return _bool_value(value, default)
 
 
 def _optional_int(payload: dict[str, Any], key: str) -> int | None:

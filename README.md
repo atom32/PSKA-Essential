@@ -424,6 +424,7 @@ Operational loop tools:
 - `pska_memory_health_scan`
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
+- `pska_memory_timeline`
 - `pska_workflow_memory_attribution`
 - `pska_workflow_memory_suggestions`
 - `pska_memory_change_from_conversation`
@@ -506,7 +507,11 @@ P2-4 adds answer-level `memory_attribution`/`used_memory_ids` and governed
 `memory_suggestions` on Ask/workflow artifacts, plus
 `pska_workflow_memory_attribution` and `pska_workflow_memory_suggestions`.
 Attribution records memory context supplied to the work product; suggestions
-remain review candidates and never write durable memory directly. M6 adds
+remain review candidates and never write durable memory directly. P2-5 adds
+`pska_memory_timeline` and `GET /api/memory/{memory_id}/timeline`, a derived
+ledger view that combines the Memory Card snapshot, lifecycle change audit,
+candidate-use traces, and SourceRef anchors. It does not create another memory
+store or claim hidden model causality. M6 adds
 `pska_source_audit_run`, a read-only folder/vault audit that reports root
 summaries, exact duplicate previews, unresolved Markdown/Obsidian links,
 unlinked Markdown notes, source-route candidates, and concrete `next_actions`
@@ -705,6 +710,7 @@ Implemented Alpha routes:
 - `POST /api/memory/update-review`
 - `POST /api/memory/delete-review`
 - `GET /api/memory/{memory_target_id}/lifecycle`
+- `GET /api/memory/{memory_id}/timeline`
 - `GET /api/reviews`
 - `GET /api/reviews?status={status}`
 - `GET /api/reviews/{review_id}`

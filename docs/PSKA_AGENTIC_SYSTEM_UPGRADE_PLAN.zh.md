@@ -256,6 +256,11 @@ attribution：Ask/workflow artifact、export JSON、WebUI Ask/Writing、
 `pska_workflow_memory_attribution` 均暴露 `used_memory_ids`；同时新增
 `memory_suggestions`、`GET /api/workflows/{run_id}/memory-suggestions` 与
 `pska_workflow_memory_suggestions`，只提供 Review 候选，不直接写 Memory。
+P2 的第五块已落地为 Memory Timeline / Ledger view：
+`GET /api/memory/{memory_id}/timeline` 与 `pska_memory_timeline` 将 Memory Card
+snapshot、lifecycle change audit、candidate-use trace 和 SourceRef anchor 合并为
+一条 provider-neutral 时间线。它是派生视图，不创建第二套 memory store，也不冒充
+隐藏模型因果。
 
 新增 Product API / MCP：
 
@@ -266,6 +271,7 @@ GET  /api/memory/health
 GET  /api/memory/use-traces
 GET  /api/memory/{memory_id}/use-trace
 GET  /api/memory/{memory_id}/why-used
+GET  /api/memory/{memory_id}/timeline
 GET  /api/memory/cards/suggestions
 GET  /api/memory/cards/conflicts
 GET  /api/memory/cards/stale
@@ -276,6 +282,7 @@ pska_memory_card_get
 pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
+pska_memory_timeline
 pska_workflow_memory_attribution
 pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
@@ -662,6 +669,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add Jarvis memory conflict/stale next actions.
 - [x] Add final-answer-level `used_memory_ids` / memory citation trace.
 - [x] Add proactive memory suggestions from sourced workflows.
+- [x] Add derived Memory Timeline / Ledger view over Card, lifecycle, trace, and SourceRef.
 
 ### P3 Backlog
 
