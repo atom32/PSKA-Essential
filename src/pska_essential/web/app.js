@@ -1,4 +1,6 @@
 const LOCALE = "zh-CN";
+const MEMORY_CARD_TYPES = ["identity", "preference", "project_state", "working_habit", "source_route", "correction", "exclusion"];
+const MEMORY_CARD_SCOPES = ["global", "workspace", "project", "folder"];
 
 const messages = {
   "view.home": "首页",
@@ -3976,6 +3978,8 @@ function reviewCard(review) {
   const revision = review.revision || {};
   const runId = proposal.run_id || (proposal.metadata && proposal.metadata.run_id) || "";
   const candidate = memoryCandidateForProposal(proposal);
+  const candidateEditor =
+    review.status === "needs_edit" && proposal.kind === "memory_patch" && candidate ? memoryCandidateEditor(candidate) : null;
   const memoryOperation = memoryOperationForProposalKind(proposal.kind);
   const memoryApplySupported = memoryOperation ? memoryOperationSupported(memoryOperation) : true;
   const memoryApplyReason = memoryOperation ? memoryCapabilityReason(memoryOperation) : "";
@@ -4047,7 +4051,14 @@ function reviewCard(review) {
   } else if (review.status === "needs_edit") {
     actions.append(
       reason,
-      el("button", { className: "primary-button", onclick: () => reviseReview(review.review_id, reason.value) }, t("button.revise")),
+      el(
+        "button",
+        {
+          className: "primary-button",
+          onclick: () => reviseReview(review.review_id, reason.value, memoryCandidateEditorPayload(candidateEditor)),
+        },
+        t("button.revise"),
+      ),
     );
   } else if (review.status === "rejected") {
     actions.append(el("span", { className: "tag failed" }, t("label.rejected")));
@@ -4064,7 +4075,7 @@ function reviewCard(review) {
       revision.previous_review_id ? el("span", { className: "tag" }, `from ${shortId(revision.previous_review_id)}`) : null,
       revision.next_review_id ? el("span", { className: "tag" }, `to ${shortId(revision.next_review_id)}`) : null,
     ]),
-    candidate ? memoryCandidatePanel(candidate) : null,
+    candidate ? memoryCandidatePanel(candidate, candidateEditor) : null,
     sourceRefs.length
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
       : el("p", { className: "empty-list" }, "此审核没有关联来源追踪。"),
@@ -4093,7 +4104,7 @@ function memoryCandidateForProposal(proposal) {
   };
 }
 
-function memoryCandidatePanel(candidate) {
+function memoryCandidatePanel(candidate, editor = null) {
   const tags = [
     candidate.memory_type ? el("span", { className: "tag" }, candidate.memory_type) : null,
     candidate.memory_scope ? el("span", { className: "tag" }, candidate.memory_scope) : null,
@@ -4108,11 +4119,55 @@ function memoryCandidatePanel(candidate) {
       el("strong", {}, "记忆候选"),
       tags.length ? el("div", { className: "meta-row" }, tags) : null,
     ]),
-    candidate.text ? el("p", { className: "memory-candidate-text" }, candidate.text) : null,
+    editor || candidate.text ? editor || el("p", { className: "memory-candidate-text" }, candidate.text) : null,
     candidate.previous_text ? memoryCandidateField("原记忆", candidate.previous_text) : null,
-    candidate.behavior_delta ? memoryCandidateField("行为变化", candidate.behavior_delta) : null,
+    !editor && candidate.behavior_delta ? memoryCandidateField("行为变化", candidate.behavior_delta) : null,
     evidence.length ? el("div", { className: "source-list" }, evidence.map(memoryCandidateEvidenceRow)) : null,
   ]);
+}
+
+function memoryCandidateEditor(candidate) {
+  const text = memoryCandidateTextarea(candidate.text, 4, "候选文本");
+  const behaviorDelta = memoryCandidateTextarea(candidate.behavior_delta, 3, "行为变化");
+  const memoryType = memoryCandidateSelect(MEMORY_CARD_TYPES, candidate.memory_type || "project_state");
+  const memoryScope = memoryCandidateSelect(MEMORY_CARD_SCOPES, candidate.memory_scope || "workspace");
+  const editor = el("div", { className: "memory-candidate-editor" }, [
+    el("label", {}, ["候选文本", text]),
+    el("label", {}, ["行为变化", behaviorDelta]),
+    el("div", { className: "form-row" }, [
+      el("label", {}, ["类型", memoryType]),
+      el("label", {}, ["范围", memoryScope]),
+    ]),
+  ]);
+  editor.memoryCandidateInputs = { text, behaviorDelta, memoryType, memoryScope };
+  return editor;
+}
+
+function memoryCandidateEditorPayload(editor) {
+  const inputs = editor && editor.memoryCandidateInputs;
+  if (!inputs) return null;
+  return {
+    text: inputs.text.value.trim(),
+    behavior_delta: inputs.behaviorDelta.value.trim(),
+    memory_type: inputs.memoryType.value,
+    memory_scope: inputs.memoryScope.value,
+  };
+}
+
+function memoryCandidateTextarea(value, rows, ariaLabel) {
+  const node = el("textarea", { rows: String(rows), "aria-label": ariaLabel });
+  node.value = value || "";
+  return node;
+}
+
+function memoryCandidateSelect(options, selected) {
+  const node = el(
+    "select",
+    {},
+    options.map((option) => el("option", { value: option }, option)),
+  );
+  node.value = options.includes(selected) ? selected : options[0];
+  return node;
 }
 
 function memoryCandidateField(label, value) {
@@ -5136,10 +5191,12 @@ async function decideReview(reviewId, decision, reason) {
   renderCurrentResultSurfaces();
 }
 
-async function reviseReview(reviewId, intent) {
+async function reviseReview(reviewId, intent, memoryCandidate = null) {
+  const body = { intent };
+  if (memoryCandidate) body.memory_candidate = memoryCandidate;
   const payload = await api(`/api/reviews/${encodeURIComponent(reviewId)}/revision`, {
     method: "POST",
-    body: { intent },
+    body,
   });
   syncReviewRecord(payload.previous_review);
   syncReviewRecord(payload.review);
@@ -5148,6 +5205,7 @@ async function reviseReview(reviewId, intent) {
   state.reviewView = [payload.review, ...state.reviewView.filter((review) => review.review_id !== payload.review.review_id)];
   await loadReviews();
   await loadPendingReviews();
+  await loadMemoryReviewQueue();
   await loadWorkspaceStatus();
   await loadAuditEvents("review.revise");
   renderCurrentResultSurfaces();

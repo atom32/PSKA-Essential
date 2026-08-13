@@ -1881,6 +1881,58 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(audit["events"][0]["metadata"]["previous_review_id"], review_id)
         self.assertEqual(audit["events"][0]["metadata"]["proposal_kind"], "memory_patch")
 
+    def test_needs_edit_review_can_create_revision_with_memory_candidate_edits(self):
+        created = self._post_json(
+            "/api/memory/conversation-candidates",
+            {
+                "session_id": "sess-api-candidate-revision",
+                "messages": [
+                    {
+                        "message_id": "msg-api-candidate-revision",
+                        "role": "user",
+                        "text": "For PSKA memory, avoid vague summaries and keep behavior changes explicit.",
+                    }
+                ],
+                "candidates": [
+                    {
+                        "text": "The user wants PSKA memory summaries to avoid vagueness.",
+                        "memory_type": "working_habit",
+                        "memory_scope": "project",
+                        "behavior_delta": "When creating PSKA memory summaries, avoid vagueness.",
+                        "message_ids": ["msg-api-candidate-revision"],
+                    }
+                ],
+            },
+        )
+        review_id = created["created"][0]["review_id"]
+        self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "edit", "reason": "too vague"})
+
+        revised = self._post_json(
+            f"/api/reviews/{review_id}/revision",
+            {
+                "intent": "rewrite candidate",
+                "memory_candidate": {
+                    "text": "For PSKA memory work, keep only explicit behavior-changing summaries.",
+                    "memory_type": "preference",
+                    "memory_scope": "workspace",
+                    "behavior_delta": "When reviewing PSKA memory candidates, ask what future behavior changes.",
+                },
+            },
+        )
+
+        patch = revised["proposal"]["memory_patch"]
+        self.assertEqual(revised["previous_review"]["status"], "needs_edit")
+        self.assertEqual(revised["review"]["status"], "pending")
+        self.assertEqual(patch["text"], "For PSKA memory work, keep only explicit behavior-changing summaries.")
+        self.assertEqual(patch["metadata"]["memory_type"], "preference")
+        self.assertEqual(patch["metadata"]["memory_scope"], "workspace")
+        self.assertEqual(
+            patch["metadata"]["behavior_delta"],
+            "When reviewing PSKA memory candidates, ask what future behavior changes.",
+        )
+        self.assertEqual(patch["metadata"]["revision_mode"], "memory_candidate")
+        self.assertEqual(patch["source_refs"][0]["adapter"], "hermes")
+
     def test_review_revision_requires_needs_edit_status(self):
         asked = self._post_json(
             "/api/ask",
@@ -2770,8 +2822,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('reviewSourceRow', script)
         self.assertIn('memoryCandidateForProposal', script)
         self.assertIn('memoryCandidatePanel', script)
+        self.assertIn('memoryCandidateEditor', script)
+        self.assertIn('memoryCandidateEditorPayload', script)
         self.assertIn('memoryCandidateEvidence', script)
+        self.assertIn('MEMORY_CARD_TYPES', script)
+        self.assertIn('MEMORY_CARD_SCOPES', script)
+        self.assertIn('memory_candidate', script)
         self.assertIn('"记忆候选"', script)
+        self.assertIn('"候选文本"', script)
         self.assertIn('"行为变化"', script)
         self.assertIn('"消息摘录"', script)
         self.assertIn('metadata.behavior_delta', script)
@@ -2780,6 +2838,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('.memory-candidate-panel', styles)
         self.assertIn('.memory-candidate-header', styles)
         self.assertIn('.memory-candidate-text', styles)
+        self.assertIn('.memory-candidate-editor', styles)
         self.assertIn('review.source_refs || proposal.source_refs', script)
         self.assertIn('review.revision || {}', script)
         self.assertIn('revision.previous_review_id', script)

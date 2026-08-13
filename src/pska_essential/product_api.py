@@ -1350,6 +1350,7 @@ def _handler_class(state: ProductApiState):
                 revised = state.service.review_revise(
                     review_revision,
                     intent=str(payload.get("intent") or ""),
+                    memory_candidate=_optional_dict(payload, "memory_candidate") or None,
                 )
                 self._send_json({"ok": True, **revised}, HTTPStatus.CREATED)
                 return

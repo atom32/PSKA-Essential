@@ -280,6 +280,59 @@ class WorkflowTests(unittest.TestCase):
         actions = {event.action for event in service.store.list_audit_events(limit=20)}
         self.assertIn("memory.conversation_candidates.create", actions)
 
+    def test_memory_candidate_revision_can_edit_candidate_fields(self):
+        service = build_fake_service()
+        result = service.conversation_memory_candidates_create(
+            session_id="sess-candidates",
+            messages=[
+                {
+                    "message_id": "msg-1",
+                    "role": "user",
+                    "text": "For PSKA memory design, prefer exact behavior deltas.",
+                }
+            ],
+            candidates=[
+                {
+                    "text": "The user prefers exact behavior deltas for PSKA memory design.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When proposing PSKA memories, include exact behavior deltas.",
+                    "message_ids": ["msg-1"],
+                }
+            ],
+        )
+        review_id = result["created"][0]["review_id"]
+        service.review_decide(review_id, "edit", "make it less generic")
+
+        revised = service.review_revise(
+            review_id,
+            "manual candidate rewrite",
+            memory_candidate={
+                "text": "For PSKA, remember only concrete memory rules that change future behavior.",
+                "memory_type": "preference",
+                "memory_scope": "workspace",
+                "behavior_delta": "When reviewing PSKA memory candidates, reject vague summaries and keep concrete behavior rules.",
+                "confidence": 0.91,
+            },
+        )
+
+        proposal = Proposal.from_dict(revised["proposal"])
+        self.assertEqual(revised["previous_review"]["status"], "needs_edit")
+        self.assertEqual(revised["review"]["status"], "pending")
+        self.assertEqual(proposal.memory_patch.text, "For PSKA, remember only concrete memory rules that change future behavior.")
+        self.assertEqual(proposal.memory_patch.confidence, 0.91)
+        self.assertEqual(proposal.memory_patch.metadata["memory_type"], "preference")
+        self.assertEqual(proposal.memory_patch.metadata["memory_scope"], "workspace")
+        self.assertEqual(
+            proposal.memory_patch.metadata["behavior_delta"],
+            "When reviewing PSKA memory candidates, reject vague summaries and keep concrete behavior rules.",
+        )
+        self.assertEqual(proposal.memory_patch.metadata["revision_mode"], "memory_candidate")
+        self.assertEqual(proposal.memory_patch.metadata["revision_of_proposal_id"], result["created"][0]["proposal_id"])
+        self.assertEqual(proposal.memory_patch.source_refs[0].adapter, "hermes")
+        audit = next(event for event in service.store.list_audit_events() if event.action == "review.revise")
+        self.assertEqual(audit.metadata["revision_mode"], "memory_candidate")
+
     def test_conversation_memory_candidates_dedupe_existing_review(self):
         service = build_fake_service()
         payload = {

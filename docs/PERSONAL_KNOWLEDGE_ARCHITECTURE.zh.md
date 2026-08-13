@@ -610,9 +610,12 @@ Hermes 的默认行为：
   创建 governed Memory Card candidate。
 - Done: `pska_conversation_memory_candidates_create` 可从 Hermes 提炼的对话候选创建 pending
   Review，并在 Memory Review Queue / Jarvis briefing 中单独暴露 conversation candidates。
+- Done: conversation candidate review ergonomics 已接入；`needs_edit` 的
+  memory_patch review 可在 WebUI/API/MCP 中提交修订后的候选文本、memory_type、
+  memory_scope 与 behavior_delta，生成新的 pending Review，并保留原证据链与 revision lineage。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
-- Pending: 更高级的跨项目语义聚类、conversation candidate UI/review ergonomics。
+- Pending: 更高级的跨项目语义聚类、批量候选审核 UX。
 
 ### M6: Agentic Routines
 

@@ -768,6 +768,50 @@ class McpContractTests(unittest.TestCase):
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("review.revise", actions)
 
+    def test_review_revise_accepts_memory_candidate_edits(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        result = tools["pska_conversation_memory_candidates_create"](
+            messages=[
+                {
+                    "message_id": "msg-tool-candidate-revise",
+                    "role": "user",
+                    "text": "When PSKA reviews memory, prefer crisp behavior deltas.",
+                }
+            ],
+            candidates=[
+                {
+                    "text": "The user prefers crisp behavior deltas for PSKA memory.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When reviewing PSKA memory, keep behavior deltas crisp.",
+                    "message_ids": ["msg-tool-candidate-revise"],
+                }
+            ],
+            session_id="sess-tool-candidate-revise",
+        )
+        review_id = result["created"][0]["review_id"]
+        tools["pska_review_decide"](review_id, "edit", "revise candidate fields")
+
+        revised = tools["pska_review_revise"](
+            review_id,
+            "manual candidate edit",
+            memory_candidate={
+                "text": "For PSKA memory, prefer crisp behavior-changing candidate text.",
+                "memory_type": "preference",
+                "memory_scope": "workspace",
+                "behavior_delta": "When revising PSKA memory candidates, keep the future behavior change explicit.",
+            },
+        )
+
+        patch = revised["proposal"]["memory_patch"]
+        self.assertEqual(revised["review"]["status"], "pending")
+        self.assertEqual(patch["text"], "For PSKA memory, prefer crisp behavior-changing candidate text.")
+        self.assertEqual(patch["metadata"]["memory_type"], "preference")
+        self.assertEqual(patch["metadata"]["memory_scope"], "workspace")
+        self.assertEqual(patch["metadata"]["revision_mode"], "memory_candidate")
+        self.assertEqual(patch["source_refs"][0]["adapter"], "hermes")
+
     def test_agentic_question_start_prepares_reviewed_workflow(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
             reset_fake_kb_gateway()

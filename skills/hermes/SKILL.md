@@ -193,7 +193,9 @@ candidate memory, review, and durable export.
   flow, start from a `pska_memory_search` or `pska_memory_card_get` result and call
   `pska_memory_delete_review`; do not call backend delete tools directly.
 - If a review is marked `needs_edit`, use `pska_review_revise` to create a new
-  candidate review instead of mutating the old review.
+  candidate review instead of mutating the old review. For memory_patch
+  candidates, pass a `memory_candidate` object when the human has edited the
+  candidate text, memory type, scope, or behavior_delta.
 - Use `pska_memory_lifecycle` to inspect a durable memory's reviewed
   apply/update/delete history; do not query backend memory history directly.
 - Use `pska_memory_health_scan` before planning memory cleanup work, then follow
@@ -258,7 +260,8 @@ For an existing KB:
 5. Ask the human for review. Use `pska_review_list` or `pska_review_get` to
    resume pending review work if needed.
 6. After acceptance, call `pska_review_decide`; after `needs_edit`, call
-   `pska_review_revise`.
+   `pska_review_revise`, passing `memory_candidate` edits for memory_patch
+   reviews when available.
 7. For accepted memory patch, memory update, or memory delete reviews, call
    `pska_memory_apply`.
 8. Call `pska_workflow_artifact` or `pska_workflow_brief` to inspect the

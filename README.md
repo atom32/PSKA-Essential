@@ -927,9 +927,13 @@ made, and can open the originating Writing workflow context. Review cards show
 status-specific actions: pending reviews can be decided,
 accepted durable reviews can be applied, `needs_edit` reviews can be revised,
 and rejected reviews are closed. After a review decision, the frontend keeps the
-decided review visible so the next action is available. Reviews marked `needs_edit` can create a revised candidate review while
-preserving the original review history; Review API records expose revision
-lineage so old and revised candidates can be traced in both directions. Review
+decided review visible so the next action is available. Reviews marked
+`needs_edit` can create a revised candidate review while preserving the original
+review history; for memory_patch candidates the WebUI/API/MCP revision path can
+also submit edited candidate text, memory type, memory scope, and
+`behavior_delta` while retaining the original evidence refs. Review API records
+expose revision lineage so old and revised candidates can be traced in both
+directions. Review
 decisions and memory apply/update/delete actions refresh the current Ask/Writing
 state, and applied memory state is served back through Review API records.
 Writing shows the applied durable knowledge result and links to its lifecycle.

@@ -714,6 +714,15 @@ pre {
   color: var(--text);
 }
 
+.memory-candidate-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.memory-candidate-editor label {
+  margin-bottom: 0;
+}
+
 .review-source-list {
   display: grid;
   gap: 8px;

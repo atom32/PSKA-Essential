@@ -1531,13 +1531,23 @@ class WorkflowService:
         )
         return decided
 
-    def review_revise(self, review_id: str, intent: str = "") -> dict[str, Any]:
+    def review_revise(
+        self,
+        review_id: str,
+        intent: str = "",
+        memory_candidate: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         review = self.store.get_review(review_id)
         if str(review["status"]) != "needs_edit":
             raise WorkflowError("review revision requires needs_edit status")
         original = self.store.get_proposal(str(review["proposal_id"]))
         revision_intent = intent or str(review.get("reason") or "") or original.intent
-        proposal = self.propose(original.run_id, original.kind, revision_intent)
+        if memory_candidate and original.kind == "memory_patch":
+            proposal = self._revise_memory_patch_proposal(original, revision_intent, memory_candidate)
+            revision_mode = "memory_candidate"
+        else:
+            proposal = self.propose(original.run_id, original.kind, revision_intent)
+            revision_mode = "intent"
         revised = self.review_create(proposal.proposal_id)
         self.store.add_audit_event(
             audit_event(
@@ -1550,6 +1560,7 @@ class WorkflowService:
                 run_id=proposal.run_id,
                 proposal_kind=proposal.kind,
                 source_count=len(proposal.source_refs),
+                revision_mode=revision_mode,
             )
         )
         return {
@@ -1558,6 +1569,49 @@ class WorkflowService:
             "review": self.store.get_review_record(revised.review_id),
             "artifact": self.workflow_artifact(proposal.run_id),
         }
+
+    def _revise_memory_patch_proposal(
+        self,
+        original: Proposal,
+        intent: str,
+        memory_candidate: dict[str, Any],
+    ) -> Proposal:
+        if original.memory_patch is None:
+            raise WorkflowError("memory candidate revision requires memory_patch payload")
+        text = str(memory_candidate.get("text") or original.memory_patch.text or "").strip()
+        if not text:
+            raise WorkflowError("memory candidate revision requires text")
+        source_refs = list(original.memory_patch.source_refs or original.source_refs or [])
+        if not source_refs:
+            raise WorkflowError("memory candidate revision requires source refs")
+        metadata = dict(original.memory_patch.metadata or {})
+        metadata["revision_of_proposal_id"] = original.proposal_id
+        metadata["revision_mode"] = "memory_candidate"
+        for key in ("behavior_delta", "reason"):
+            if key in memory_candidate:
+                metadata[key] = str(memory_candidate.get(key) or "").strip()
+        if "memory_type" in memory_candidate:
+            metadata["memory_type"] = _normalize_memory_card_type(str(memory_candidate.get("memory_type") or ""))
+        if "memory_scope" in memory_candidate:
+            metadata["memory_scope"] = _normalize_memory_card_scope(str(memory_candidate.get("memory_scope") or "workspace"))
+        metadata["display_text"] = text
+        confidence = _normalize_memory_candidate_confidence(
+            memory_candidate.get("confidence"),
+            default=original.memory_patch.confidence or 0.8,
+        )
+        patch = MemoryPatch(
+            text=text,
+            source_refs=source_refs,
+            layer=original.memory_patch.layer,
+            confidence=confidence,
+            metadata=metadata,
+        )
+        run = self.store.get_workflow(original.run_id)
+        return self._create_memory_patch_proposal(
+            run,
+            intent=intent or str(metadata.get("reason") or "") or original.intent,
+            memory_patch=patch,
+        )
 
     def memory_search(
         self,
@@ -2239,6 +2293,16 @@ def _normalize_memory_card_scope(memory_scope: str) -> str:
             "memory_scope must be one of: " + ", ".join(sorted(MEMORY_CARD_SCOPES))
         )
     return normalized
+
+
+def _normalize_memory_candidate_confidence(value: Any, *, default: float) -> float:
+    if value is None or value == "":
+        return float(default)
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("memory candidate confidence must be a number") from exc
+    return min(1.0, max(0.0, confidence))
 
 
 def _source_refs_from_input(source_refs: list[SourceRef | dict[str, Any]]) -> list[SourceRef]:

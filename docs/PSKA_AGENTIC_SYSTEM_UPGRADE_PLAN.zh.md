@@ -290,7 +290,11 @@ pending Review items，并按 `memory_type/memory_scope/behavior_delta/text` 去
 conversation candidate review queue surface：Memory Review Queue 新增
 `conversation_candidates` group、`conversation_candidate_count` summary 和
 `review_conversation_memory_candidate` next action；Jarvis briefing 会把这类候选作为明确的
-memory priority，而不是淹没在普通 pending reviews 中。
+memory priority，而不是淹没在普通 pending reviews 中。P2 的第十二块已落地为
+conversation candidate revision ergonomics：`needs_edit` 的 memory_patch Review
+可以通过 WebUI、`POST /api/reviews/{review_id}/revision` 和 `pska_review_revise`
+提交修订后的 `memory_candidate` 字段，重写候选文本、memory_type、memory_scope 与
+behavior_delta，同时保留原始证据 refs 与 revision lineage。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
