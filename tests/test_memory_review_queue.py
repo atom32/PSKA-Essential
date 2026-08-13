@@ -144,6 +144,53 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertEqual(len(item["candidate_items"]), 2)
         self.assertEqual(item["next_actions"][0]["action"], "inspect_related_memory_candidates")
 
+    def test_queue_tracks_merged_replacements_without_needs_edit_work(self):
+        service = build_fake_service()
+        first = service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")],
+            text="When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route PSKA architecture questions to Architecture.md first.",
+            memory_scope="project",
+            reason="route one",
+        )
+        second = service.source_memory_review_create(
+            [SourceRef(adapter="obsidian_vault", source_id="architecture-v2", path="Architecture.md")],
+            text="When the workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route future PSKA architecture questions to Architecture.md first.",
+            memory_scope="project",
+            reason="route two",
+        )
+        review_ids = [first["review"]["review_id"], second["review"]["review_id"]]
+
+        merged = service.review_merge_candidates(
+            review_ids,
+            memory_candidate={
+                "text": "When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+                "memory_type": "source_route",
+                "memory_scope": "project",
+                "behavior_delta": "Route future PSKA architecture questions to Architecture.md first.",
+            },
+            reason="merge duplicate route candidates",
+        )
+
+        queue = build_memory_review_queue(service, audit=False)
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(queue["summary"]["needs_edit_count"], 0)
+        self.assertEqual(queue["summary"]["merged_replacement_count"], 2)
+        self.assertEqual(queue["summary"]["actionable_item_count"], 1)
+        self.assertNotIn("needs_edit", groups)
+        self.assertIn("merged_replacements", groups)
+        replacement = groups["merged_replacements"]["items"][0]
+        self.assertEqual(replacement["item_type"], "merged_candidate_replacement")
+        self.assertIn(replacement["review_id"], review_ids)
+        self.assertEqual(replacement["merged_into_review_id"], merged["review"]["review_id"])
+        self.assertEqual(replacement["next_actions"][0]["action"], "open_merged_review")
+        self.assertEqual(replacement["next_actions"][0]["params"]["review_id"], merged["review"]["review_id"])
+        self.assertEqual(groups["pending_reviews"]["review_ids"], [merged["review"]["review_id"]])
+
     def test_queue_writes_audit(self):
         service = build_fake_service()
 

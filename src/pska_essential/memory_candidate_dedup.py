@@ -133,6 +133,8 @@ def _candidate_from_review(review: dict[str, Any]) -> _Candidate | None:
     status = str(review.get("status") or "")
     if status not in REVIEW_STATUSES:
         return None
+    if _merged_into_review_id(review):
+        return None
     proposal = review.get("proposal") or {}
     if str(proposal.get("kind") or "") not in {"memory_patch", "memory_update"}:
         return None
@@ -454,6 +456,11 @@ def _next_actions(groups: list[dict[str, Any]], related_groups: list[dict[str, A
     if related_groups:
         actions.extend((related_groups[0].get("next_actions") or [])[:1])
     return actions
+
+
+def _merged_into_review_id(review: dict[str, Any]) -> str:
+    revision = review.get("revision") or {}
+    return str(revision.get("merged_into_review_id") or "")
 
 
 def _normalize_text(text: str) -> str:

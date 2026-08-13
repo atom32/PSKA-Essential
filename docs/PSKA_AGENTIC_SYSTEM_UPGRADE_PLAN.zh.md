@@ -307,7 +307,10 @@ lightweight merge editor：WebUI 在 duplicate/related candidate queue group 内
 展示成员候选的文本/behavior_delta/type/scope/status，并允许填写合并后的候选文本和
 behavior_delta 后创建 merged Review。P2 的第十六块已落地为 merge lineage in Review
 records：merged Review 会暴露 `merged_from_review_ids`，被替换旧 Review 会暴露
-`merged_into_review_id`，WebUI Review card 会显示 merge tags。
+`merged_into_review_id`，WebUI Review card 会显示 merge tags。P2 的第十七块已落地为
+merged replacement triage hygiene：Memory Review Queue 将被 merge 替换的旧候选分到
+低优先级 `merged_replacements` 谱系组，并从 active duplicate/related candidate dedup 中排除；
+它们仍可追溯到 merged Review，但不再制造假的 `needs_edit` 待办。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

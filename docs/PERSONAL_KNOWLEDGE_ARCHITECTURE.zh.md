@@ -626,6 +626,9 @@ Hermes 的默认行为：
   type/scope/status/review id，避免盲合并。
 - Done: 合并 lineage 已进入 Review API record：merged Review 暴露 `merged_from_review_ids`，
   被替换的旧 Review 暴露 `merged_into_review_id`，WebUI Review card 会显示对应 tags。
+- Done: Memory Review Queue 会把被 merge 替换的旧候选分入低优先级
+  `merged_replacements` 谱系组，并从 duplicate/related candidate dedup 中排除，避免旧
+  `needs_edit` 候选继续污染主动待办。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

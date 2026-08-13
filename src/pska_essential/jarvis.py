@@ -551,6 +551,7 @@ def _briefing_summary(
         "memory_recent_use_count": memory_summary.get("recent_use_count", 0),
         "memory_review_queue_group_count": queue_summary.get("group_count", 0),
         "memory_review_queue_item_count": queue_summary.get("item_count", 0),
+        "memory_review_queue_actionable_item_count": queue_summary.get("actionable_item_count", 0),
         "conversation_memory_candidate_count": queue_summary.get("conversation_candidate_count", 0),
         "related_memory_candidate_group_count": queue_summary.get("related_candidate_group_count", 0),
         "priority_count": len(priorities),

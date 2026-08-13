@@ -18,6 +18,7 @@ GROUP_DEFINITIONS = (
     ("related_candidates", "Related Memory Candidates", "candidate reviews may need scope or consolidation review"),
     ("pending_reviews", "Pending Durable Knowledge Reviews", "pending review decisions need user attention"),
     ("needs_edit", "Reviews Needing Revision", "reviews were marked needs_edit and require revision"),
+    ("merged_replacements", "Merged Candidate Replacements", "candidate reviews were replaced by a merged review"),
     ("memory_health", "Memory Health Issues", "Memory Cards need quality/stale/conflict inspection"),
     ("memory_focus", "Memory Focus Items", "recent or risky memories should be inspected"),
 )
@@ -79,11 +80,14 @@ def build_memory_review_queue(
                 status=result["status"],
                 group_count=len(groups),
                 item_count=summary["item_count"],
+                actionable_item_count=summary["actionable_item_count"],
                 accepted_unapplied_count=summary["accepted_unapplied_count"],
                 conversation_candidate_count=summary["conversation_candidate_count"],
                 duplicate_candidate_group_count=summary["duplicate_candidate_group_count"],
                 related_candidate_group_count=summary["related_candidate_group_count"],
                 pending_review_count=summary["pending_review_count"],
+                needs_edit_count=summary["needs_edit_count"],
+                merged_replacement_count=summary["merged_replacement_count"],
                 memory_health_count=summary["memory_health_count"],
                 writes_memory_directly=False,
             )
@@ -105,7 +109,9 @@ def _groups(
         and not review.get("memory_apply")
         and _durable_review(review)
     ]
-    needs_edit = [review for review in reviews if review.get("status") == "needs_edit"]
+    needs_edit_reviews = [review for review in reviews if review.get("status") == "needs_edit"]
+    merged_replacements = [review for review in needs_edit_reviews if _merged_into_review_id(review)]
+    needs_edit = [review for review in needs_edit_reviews if not _merged_into_review_id(review)]
     health_issues = ((briefing.get("health") or {}).get("top_issues") or [])[:10]
     focus_items = (briefing.get("focus_items") or [])[:10]
     grouped = [
@@ -115,6 +121,7 @@ def _groups(
         _candidate_related_group(candidate_dedup.get("related_groups") or []),
         _review_group("pending_reviews", pending, "medium"),
         _review_group("needs_edit", needs_edit, "medium"),
+        _merged_replacement_group(merged_replacements),
         _health_group(health_issues),
         _focus_group(focus_items),
     ]
@@ -134,12 +141,36 @@ def _review_group(code: str, reviews: list[dict[str, Any]], severity: str) -> di
                 "title": str((review.get("proposal") or {}).get("title") or review.get("review_id") or ""),
                 "reason": str((review.get("proposal") or {}).get("body") or ""),
                 "source_count": int(review.get("source_count") or len(review.get("source_refs") or [])),
+                "revision": review.get("revision") or {},
+                "merged_into_review_id": _merged_into_review_id(review),
                 "next_actions": _review_actions(review),
             }
             for review in reviews
         ],
     )
     return _with_review_batch_actions(group)
+
+
+def _merged_replacement_group(reviews: list[dict[str, Any]]) -> dict[str, Any]:
+    return _group(
+        "merged_replacements",
+        "low",
+        [
+            {
+                "item_type": "merged_candidate_replacement",
+                "review_id": str(review.get("review_id") or ""),
+                "status": str(review.get("status") or ""),
+                "proposal_kind": str((review.get("proposal") or {}).get("kind") or ""),
+                "title": str((review.get("proposal") or {}).get("title") or review.get("review_id") or ""),
+                "reason": str((review.get("proposal") or {}).get("body") or ""),
+                "source_count": int(review.get("source_count") or len(review.get("source_refs") or [])),
+                "revision": review.get("revision") or {},
+                "merged_into_review_id": _merged_into_review_id(review),
+                "next_actions": _merged_replacement_actions(review),
+            }
+            for review in reviews
+        ],
+    )
 
 
 def _conversation_candidate_group(reviews: list[dict[str, Any]]) -> dict[str, Any]:
@@ -348,15 +379,29 @@ def _definition(code: str) -> tuple[str, str]:
 
 def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
     counts = {group["code"]: group["count"] for group in groups}
+    actionable_item_count = sum(
+        counts.get(code, 0)
+        for code in (
+            "accepted_unapplied",
+            "conversation_candidates",
+            "duplicate_candidates",
+            "related_candidates",
+            "pending_reviews",
+            "needs_edit",
+            "memory_health",
+        )
+    )
     return {
         "group_count": len(groups),
         "item_count": sum(group["count"] for group in groups),
+        "actionable_item_count": actionable_item_count,
         "accepted_unapplied_count": counts.get("accepted_unapplied", 0),
         "conversation_candidate_count": counts.get("conversation_candidates", 0),
         "duplicate_candidate_group_count": counts.get("duplicate_candidates", 0),
         "related_candidate_group_count": counts.get("related_candidates", 0),
         "pending_review_count": counts.get("pending_reviews", 0),
         "needs_edit_count": counts.get("needs_edit", 0),
+        "merged_replacement_count": counts.get("merged_replacements", 0),
         "memory_health_count": counts.get("memory_health", 0),
         "memory_focus_count": counts.get("memory_focus", 0),
     }
@@ -437,6 +482,22 @@ def _next_actions(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return actions
 
 
+def _merged_replacement_actions(review: dict[str, Any]) -> list[dict[str, Any]]:
+    merged_into_review_id = _merged_into_review_id(review)
+    if not merged_into_review_id:
+        return _review_actions(review)
+    return [
+        {
+            "action": "open_merged_review",
+            "label": "Open merged review",
+            "tool": "pska_review_get",
+            "api": f"GET /api/reviews/{merged_into_review_id}",
+            "view": "review",
+            "params": {"review_id": merged_into_review_id},
+        }
+    ]
+
+
 def _review_actions(review: dict[str, Any]) -> list[dict[str, Any]]:
     review_id = str(review.get("review_id") or "")
     is_conversation_candidate = _conversation_candidate_review(review)
@@ -482,6 +543,11 @@ def _review_memory_metadata(review: dict[str, Any]) -> dict[str, Any]:
         if metadata:
             return metadata
     return proposal.get("metadata") or {}
+
+
+def _merged_into_review_id(review: dict[str, Any]) -> str:
+    revision = review.get("revision") or {}
+    return str(revision.get("merged_into_review_id") or "")
 
 
 def _conversation_candidate_title(review: dict[str, Any]) -> str:

@@ -4019,6 +4019,7 @@ function memoryReviewQueueItemRow(item) {
     item.review_id ? el("span", { className: "tag" }, shortId(item.review_id)) : null,
     memoryId ? el("span", { className: "tag" }, shortId(memoryId)) : null,
     item.status ? el("span", { className: "tag" }, item.status) : null,
+    item.merged_into_review_id ? el("span", { className: "tag" }, `merged into ${shortId(item.merged_into_review_id)}`) : null,
     item.issue_type ? el("span", { className: "tag pending" }, item.issue_type) : null,
     actions.length
       ? el("span", { className: "card-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))

@@ -339,6 +339,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(capabilities["memory"]["review_queue_view"]["mcp_tool"], "pska_memory_review_queue")
         self.assertIn("conversation_candidates", capabilities["memory"]["review_queue_view"]["groups"])
         self.assertIn("related_candidates", capabilities["memory"]["review_queue_view"]["groups"])
+        self.assertIn("merged_replacements", capabilities["memory"]["review_queue_view"]["groups"])
         self.assertIn("review_conversation_memory_candidate", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("accept_review_group", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertIn("reject_review_group", capabilities["memory"]["review_queue_view"]["next_actions"])

@@ -115,6 +115,46 @@ class MemoryCandidateDedupTests(unittest.TestCase):
         self.assertEqual(related["memory_scopes"], ["global", "project", "workspace"])
         self.assertEqual({item["review_id"] for item in related["items"]}, set(reviews))
 
+    def test_merged_replacements_do_not_remain_duplicate_candidates(self):
+        service = build_fake_service()
+        ref = SourceRef(adapter="obsidian_vault", source_id="architecture", path="Architecture.md")
+        first = service.source_memory_review_create(
+            [ref],
+            text="When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route one",
+        )
+        second = service.source_memory_review_create(
+            [ref],
+            text="When the workspace asks about PSKA architecture, inspect Architecture.md first.",
+            memory_type="source_route",
+            behavior_delta="Route future PSKA architecture questions to Architecture.md before broad search.",
+            memory_scope="project",
+            reason="route two",
+        )
+        review_ids = [first["review"]["review_id"], second["review"]["review_id"]]
+
+        service.review_merge_candidates(
+            review_ids,
+            memory_candidate={
+                "text": "When this workspace asks about PSKA architecture, inspect Architecture.md first.",
+                "memory_type": "source_route",
+                "memory_scope": "project",
+                "behavior_delta": "Route future PSKA architecture questions to Architecture.md before broad search.",
+            },
+            reason="merge duplicate route candidates",
+        )
+
+        result = build_memory_candidate_dedup(service, audit=False)
+
+        self.assertEqual(result["summary"]["candidate_count"], 1)
+        self.assertEqual(result["summary"]["group_count"], 0)
+        self.assertEqual(result["summary"]["related_group_count"], 0)
+        self.assertEqual(result["groups"], [])
+        self.assertEqual(result["related_groups"], [])
+
     def test_writes_audit_without_memory_writes(self):
         service = build_fake_service()
 

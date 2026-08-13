@@ -1243,6 +1243,7 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
             "related_candidates",
             "pending_reviews",
             "needs_edit",
+            "merged_replacements",
             "memory_health",
             "memory_focus",
         ],

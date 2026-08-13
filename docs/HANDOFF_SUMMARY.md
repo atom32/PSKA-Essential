@@ -24,8 +24,12 @@ Last updated: 2026-07-15
 > candidate queue groups and shows the member candidate texts/behavior deltas
 > before merge. Review records now expose merge lineage (`merged_from_review_ids`
 > on merged Reviews and `merged_into_review_id` on replaced Reviews), with tags
-> in the WebUI Review card. Next useful product step: a richer batch edit/merge
-> workbench and cross-project semantic clustering.
+> in the WebUI Review card. Memory Review Queue now separates replaced
+> candidates into a low-priority `merged_replacements` lineage group and keeps
+> merged-away reviews out of active duplicate/related candidate dedup, so they
+> remain traceable without becoming false `needs_edit` work. Next useful product
+> step: a richer batch edit/merge workbench and cross-project semantic
+> clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 
