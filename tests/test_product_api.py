@@ -1447,6 +1447,12 @@ class ProductApiTests(unittest.TestCase):
         groups_after = {group["code"]: group for group in queue_after["groups"]}
         self.assertNotIn("candidate_quality", groups_after)
         self.assertEqual(groups_after["needs_edit"]["count"], 2)
+        needs_edit_item = groups_after["needs_edit"]["items"][0]
+        self.assertEqual(needs_edit_item["proposal_kind"], "memory_patch")
+        self.assertEqual(needs_edit_item["memory_candidate"]["text"], "remember this")
+        self.assertEqual(needs_edit_item["memory_candidate"]["source_refs"][0]["adapter"], "fake")
+        self.assertTrue(needs_edit_item["inline_revision"]["supported"])
+        self.assertFalse(needs_edit_item["inline_revision"]["writes_memory_directly"])
 
     def test_review_merge_candidates_route_creates_merged_pending_review(self):
         first = self.service.source_memory_review_create(
@@ -2606,6 +2612,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("quality-candidate-card", styles)
         self.assertIn("quality-candidate-editor", styles)
         self.assertIn("reviseMemoryReviewQueueQualityIssue", script)
+        self.assertIn("memoryReviewQueueNeedsEditCandidateCard", script)
+        self.assertIn("reviseMemoryReviewQueueNeedsEditCandidate", script)
+        self.assertIn("item.memory_candidate", script)
         self.assertIn("candidate_quality_issue_count", script)
         self.assertIn("candidate_quality_breakdown", script)
         self.assertIn("top_missing_field", script)

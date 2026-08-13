@@ -647,6 +647,9 @@ Hermes 的默认行为：
 - Done: `candidate_quality` group 新增批量 edit action：通过
   `pska_review_decide_batch` 将整组质量问题标为 `needs_edit`，不写 memory，也不自动创建修订
   Review。
+- Done: active `needs_edit` memory_patch queue item 现在会暴露结构化 `memory_candidate`
+  draft 与 inline revision capability；WebUI 可在批量转入 `needs_edit` 后继续在队列内编辑并提交修订
+  Review，仍不直接写 durable memory。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

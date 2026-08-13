@@ -4024,6 +4024,9 @@ function memoryReviewQueueItemRow(item) {
   if (item.item_type === "memory_candidate_quality_issue") {
     return memoryReviewQueueQualityIssueCard(item);
   }
+  if (memoryReviewQueueNeedsEditCandidate(item)) {
+    return memoryReviewQueueNeedsEditCandidateCard(item);
+  }
   const actions = (item.next_actions || []).slice(0, 3);
   const memoryId = item.memory_id || (item.memory_ids && item.memory_ids[0]) || "";
   const issueTypes = item.issue_types || [];
@@ -4042,6 +4045,66 @@ function memoryReviewQueueItemRow(item) {
       ? el("span", { className: "card-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
       : null,
   ]);
+}
+
+function memoryReviewQueueNeedsEditCandidate(item) {
+  return item.status === "needs_edit" && item.proposal_kind === "memory_patch" && item.memory_candidate;
+}
+
+function memoryReviewQueueNeedsEditCandidateCard(item) {
+  const actions = (item.next_actions || []).slice(0, 3);
+  const candidate = {
+    ...item.memory_candidate,
+    operation: item.memory_candidate.operation || item.proposal_kind || "memory_patch",
+  };
+  const editor = memoryCandidateEditor(candidate);
+  const canReviseInline =
+    Number(item.source_count || 0) > 0 && (!item.inline_revision || item.inline_revision.supported !== false);
+  return el("article", { className: "quality-candidate-card needs-edit-candidate-card" }, [
+    el("div", { className: "memory-candidate-header" }, [
+      el("div", {}, [
+        el("strong", {}, item.title || item.review_id || "memory candidate"),
+        item.reason ? el("p", {}, item.reason) : null,
+      ]),
+      el("span", { className: "tag pending" }, "needs_edit"),
+    ]),
+    el("div", { className: "meta-row" }, [
+      item.review_id ? el("span", { className: "tag" }, shortId(item.review_id)) : null,
+      candidate.memory_type ? el("span", { className: "tag" }, candidate.memory_type) : null,
+      candidate.memory_scope ? el("span", { className: "tag" }, candidate.memory_scope) : null,
+      item.source_count !== undefined ? el("span", { className: "tag" }, `${t("label.sources")} ${item.source_count}`) : null,
+    ]),
+    canReviseInline
+      ? el("div", { className: "quality-candidate-editor" }, [
+          editor,
+          el("div", { className: "review-actions compact-actions" }, [
+            el(
+              "button",
+              {
+                className: "primary-button",
+                type: "button",
+                onclick: () => reviseMemoryReviewQueueNeedsEditCandidate(item, editor),
+              },
+              t("button.revise"),
+            ),
+          ]),
+        ])
+      : memoryCandidateField("修复方式", "需要重新创建带来源证据的候选记忆。"),
+    actions.length
+      ? el("div", { className: "review-actions compact-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
+      : null,
+  ]);
+}
+
+async function reviseMemoryReviewQueueNeedsEditCandidate(item, editor) {
+  const reviewId = item.review_id || "";
+  if (!reviewId) return;
+  const memoryCandidate = memoryCandidateEditorPayload(editor);
+  if (!memoryCandidate || !memoryCandidate.text || !memoryCandidate.behavior_delta) {
+    showToast("请补全候选文本和行为变化。");
+    return;
+  }
+  await reviseReview(reviewId, "Revise Memory Card candidate from review queue.", memoryCandidate);
 }
 
 function memoryReviewQueueQualityIssueCard(item) {

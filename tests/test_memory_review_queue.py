@@ -184,6 +184,15 @@ class MemoryReviewQueueTests(unittest.TestCase):
         after_groups = {group["code"]: group for group in after["groups"]}
         self.assertNotIn("candidate_quality", after_groups)
         self.assertEqual(after["summary"]["needs_edit_count"], 2)
+        needs_edit_items = after_groups["needs_edit"]["items"]
+        self.assertEqual({item["review_id"] for item in needs_edit_items}, set(review_ids))
+        first_item = needs_edit_items[0]
+        self.assertEqual(first_item["proposal_kind"], "memory_patch")
+        self.assertEqual(first_item["memory_candidate"]["operation"], "memory_patch")
+        self.assertEqual(first_item["memory_candidate"]["text"], "remember this")
+        self.assertEqual(first_item["memory_candidate"]["source_refs"][0]["adapter"], "fake")
+        self.assertTrue(first_item["inline_revision"]["supported"])
+        self.assertFalse(first_item["inline_revision"]["writes_memory_directly"])
 
     def test_queue_surfaces_conversation_memory_candidates(self):
         service = build_fake_service()

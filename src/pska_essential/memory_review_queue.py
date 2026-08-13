@@ -154,24 +154,39 @@ def _review_group(code: str, reviews: list[dict[str, Any]], severity: str) -> di
     group = _group(
         code,
         severity,
-        [
-            {
-                "item_type": "review",
-                "review_id": str(review.get("review_id") or ""),
-                "status": str(review.get("status") or ""),
-                "proposal_kind": str((review.get("proposal") or {}).get("kind") or ""),
-                "title": str((review.get("proposal") or {}).get("title") or review.get("review_id") or ""),
-                "reason": str((review.get("proposal") or {}).get("body") or ""),
-                "source_count": int(review.get("source_count") or len(review.get("source_refs") or [])),
-                "revision": review.get("revision") or {},
-                "merged_into_review_id": _merged_into_review_id(review),
-                "next_review_id": _next_review_id(review),
-                "next_actions": _review_actions(review),
-            }
-            for review in reviews
-        ],
+        [_review_group_item(code, review) for review in reviews],
     )
     return _with_review_batch_actions(group)
+
+
+def _review_group_item(code: str, review: dict[str, Any]) -> dict[str, Any]:
+    review_id = str(review.get("review_id") or "")
+    source_count = int(review.get("source_count") or len(review.get("source_refs") or []))
+    proposal = review.get("proposal") or {}
+    item: dict[str, Any] = {
+        "item_type": "review",
+        "review_id": review_id,
+        "status": str(review.get("status") or ""),
+        "proposal_kind": str(proposal.get("kind") or ""),
+        "title": str(proposal.get("title") or review_id or ""),
+        "reason": str(proposal.get("body") or ""),
+        "source_count": source_count,
+        "revision": review.get("revision") or {},
+        "merged_into_review_id": _merged_into_review_id(review),
+        "next_review_id": _next_review_id(review),
+        "next_actions": _review_actions(review),
+    }
+    if code == "needs_edit":
+        candidate = _review_memory_candidate(review)
+        if candidate:
+            item["memory_candidate"] = candidate
+            item["inline_revision"] = {
+                "supported": item["proposal_kind"] == "memory_patch" and source_count > 0,
+                "requires_status": "needs_edit",
+                "api": f"POST /api/reviews/{review_id}/revision",
+                "writes_memory_directly": False,
+            }
+    return item
 
 
 def _merged_replacement_group(reviews: list[dict[str, Any]]) -> dict[str, Any]:
@@ -726,6 +741,47 @@ def _review_memory_metadata(review: dict[str, Any]) -> dict[str, Any]:
         if metadata:
             return metadata
     return proposal.get("metadata") or {}
+
+
+def _review_memory_candidate(review: dict[str, Any]) -> dict[str, Any]:
+    proposal = review.get("proposal") or {}
+    kind = str(proposal.get("kind") or "")
+    if kind not in {"memory_patch", "memory_update", "memory_delete"}:
+        return {}
+    payload = proposal.get(kind) or {}
+    if not isinstance(payload, dict):
+        return {}
+    metadata = payload.get("metadata") or proposal.get("metadata") or {}
+    source_refs = payload.get("source_refs") or proposal.get("source_refs") or review.get("source_refs") or []
+    confidence = payload["confidence"] if "confidence" in payload else metadata.get("confidence")
+    return {
+        "operation": kind or str(metadata.get("operation") or ""),
+        "text": str(payload.get("text") or metadata.get("display_text") or proposal.get("body") or ""),
+        "previous_text": str(payload.get("previous_text") or metadata.get("previous_text") or ""),
+        "behavior_delta": str(metadata.get("behavior_delta") or payload.get("reason") or metadata.get("reason") or ""),
+        "memory_type": str(metadata.get("memory_type") or ""),
+        "memory_scope": str(metadata.get("memory_scope") or ""),
+        "origin": str(metadata.get("candidate_origin") or metadata.get("origin") or ""),
+        "confidence": confidence,
+        "target_id": str(
+            payload.get("target_id")
+            or metadata.get("target_fact_id")
+            or metadata.get("memory_target_id")
+            or ""
+        ),
+        "message_ids": _string_list(metadata.get("message_ids")),
+        "evidence_quotes": _string_list(metadata.get("evidence_quotes")),
+        "source_refs": to_jsonable(source_refs),
+    }
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item) for item in value if str(item)]
+    text = str(value)
+    return [text] if text else []
 
 
 def _merged_into_review_id(review: dict[str, Any]) -> str:

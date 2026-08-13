@@ -47,8 +47,11 @@ Last updated: 2026-07-15
 > severity; Jarvis/WebUI use it to show the likely batch-first repair focus.
 > `candidate_quality` groups also expose `mark_quality_group_needs_edit`, a
 > batch edit action through `pska_review_decide_batch` that moves the group into
-> revision state without writing memory. Next useful product step: a richer batch
-> edit/merge workbench and cross-project semantic clustering.
+> revision state without writing memory. Active `needs_edit` memory_patch queue
+> items now expose the structured `memory_candidate` draft and an inline revision
+> capability, so the WebUI can continue the batch-routed repair workflow directly
+> in the queue. Next useful product step: a richer batch edit/merge workbench and
+> cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

@@ -333,7 +333,10 @@ issue type、missing field、status、severity 聚合质量问题，并提供 to
 Jarvis 和 WebUI summary 会用这个信号提示优先修复方向。P2 的第二十四块已落地为
 candidate quality batch edit action：`candidate_quality` group 暴露
 `mark_quality_group_needs_edit`，通过 `pska_review_decide_batch` 将整组问题候选转入
-`needs_edit`，但不写 memory、不自动创建 revised Review。
+`needs_edit`，但不写 memory、不自动创建 revised Review。P2 的第二十五块已落地为
+needs-edit inline revision workbench：active `needs_edit` memory_patch queue item 暴露结构化
+`memory_candidate` draft 与 inline revision capability，WebUI 可在队列内继续编辑并提交 revised
+Review，把批量质量返修流程补成闭环。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

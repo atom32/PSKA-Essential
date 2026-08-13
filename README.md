@@ -571,7 +571,10 @@ include `candidate_quality_breakdown` by issue type, missing field, status, and
 severity so Hermes/WebUI can choose the most useful batch-first repair path.
 The `candidate_quality` group exposes a batch edit action that marks all quality
 issues as `needs_edit` through `pska_review_decide_batch`; it still does not
-write memory or create revised Reviews by itself. The WebUI also exposes a
+write memory or create revised Reviews by itself. Active `needs_edit`
+memory_patch queue items now also carry a `memory_candidate` draft plus an
+inline revision capability, so the WebUI can submit the edited Memory Card
+candidate directly from the queue after batch routing. The WebUI also exposes a
 lightweight inline merge editor on duplicate/related candidate queue groups; it
 shows member candidate texts and behavior deltas before the merged Review is
 created. M6 adds
