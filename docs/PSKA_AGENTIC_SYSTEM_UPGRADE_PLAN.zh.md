@@ -310,7 +310,11 @@ records：merged Review 会暴露 `merged_from_review_ids`，被替换旧 Review
 `merged_into_review_id`，WebUI Review card 会显示 merge tags。P2 的第十七块已落地为
 merged replacement triage hygiene：Memory Review Queue 将被 merge 替换的旧候选分到
 低优先级 `merged_replacements` 谱系组，并从 active duplicate/related candidate dedup 中排除；
-它们仍可追溯到 merged Review，但不再制造假的 `needs_edit` 待办。
+它们仍可追溯到 merged Review，但不再制造假的 `needs_edit` 待办。P2 的第十八块已落地为
+candidate quality gate：Memory Review Queue 对 pending/accepted 但未 apply 的 memory_patch
+Review 检查 Memory Card envelope、source evidence 和 behavior impact；缺 `memory_type`、
+`memory_scope`、`behavior_delta` 或文本/行为变化过泛时，会进入 `candidate_quality` group，
+提示先 review/edit，而不是把空泛候选推进 durable memory。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

@@ -4012,6 +4012,7 @@ function memoryReviewQueueMergeCandidateRow(candidate) {
 function memoryReviewQueueItemRow(item) {
   const actions = (item.next_actions || []).slice(0, 3);
   const memoryId = item.memory_id || (item.memory_ids && item.memory_ids[0]) || "";
+  const issueTypes = item.issue_types || [];
   return el("p", {}, [
     el("strong", {}, item.title || item.review_id || item.issue_id || memoryId || item.item_type || "item"),
     item.reason ? ` · ${item.reason}` : "",
@@ -4021,6 +4022,7 @@ function memoryReviewQueueItemRow(item) {
     item.status ? el("span", { className: "tag" }, item.status) : null,
     item.merged_into_review_id ? el("span", { className: "tag" }, `merged into ${shortId(item.merged_into_review_id)}`) : null,
     item.issue_type ? el("span", { className: "tag pending" }, item.issue_type) : null,
+    issueTypes.length ? el("span", { className: "tag pending" }, issueTypes.slice(0, 3).join(", ")) : null,
     actions.length
       ? el("span", { className: "card-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
       : null,

@@ -14,6 +14,7 @@ MEMORY_REVIEW_QUEUE_GROUP_SCHEMA = "pska.memory_review_queue_group.v1"
 GROUP_DEFINITIONS = (
     ("accepted_unapplied", "Accepted Memory Waiting To Apply", "accepted memory reviews can be applied"),
     ("conversation_candidates", "Conversation Memory Candidates", "conversation-derived memory candidates need review"),
+    ("candidate_quality", "Memory Candidate Quality Gate", "candidate reviews may be too vague or missing Memory Card fields"),
     ("duplicate_candidates", "Possible Duplicate Memory Candidates", "candidate reviews may describe the same durable memory"),
     ("related_candidates", "Related Memory Candidates", "candidate reviews may need scope or consolidation review"),
     ("pending_reviews", "Pending Durable Knowledge Reviews", "pending review decisions need user attention"),
@@ -83,6 +84,7 @@ def build_memory_review_queue(
                 actionable_item_count=summary["actionable_item_count"],
                 accepted_unapplied_count=summary["accepted_unapplied_count"],
                 conversation_candidate_count=summary["conversation_candidate_count"],
+                candidate_quality_issue_count=summary["candidate_quality_issue_count"],
                 duplicate_candidate_group_count=summary["duplicate_candidate_group_count"],
                 related_candidate_group_count=summary["related_candidate_group_count"],
                 pending_review_count=summary["pending_review_count"],
@@ -102,12 +104,14 @@ def _groups(
 ) -> list[dict[str, Any]]:
     pending = [review for review in reviews if review.get("status") == "pending"]
     conversation_candidates = [review for review in pending if _conversation_candidate_review(review)]
+    candidate_quality_issues = _candidate_quality_issues(reviews)
     accepted_unapplied = [
         review
         for review in reviews
         if review.get("status") == "accepted"
         and not review.get("memory_apply")
         and _durable_review(review)
+        and not _candidate_quality_issue(review)
     ]
     needs_edit_reviews = [review for review in reviews if review.get("status") == "needs_edit"]
     merged_replacements = [review for review in needs_edit_reviews if _merged_into_review_id(review)]
@@ -117,6 +121,7 @@ def _groups(
     grouped = [
         _review_group("accepted_unapplied", accepted_unapplied, "high"),
         _conversation_candidate_group(conversation_candidates),
+        _candidate_quality_group(candidate_quality_issues),
         _candidate_duplicate_group(candidate_dedup.get("groups") or []),
         _candidate_related_group(candidate_dedup.get("related_groups") or []),
         _review_group("pending_reviews", pending, "medium"),
@@ -199,6 +204,32 @@ def _conversation_candidate_group(reviews: list[dict[str, Any]]) -> dict[str, An
         ],
     )
     return _with_review_batch_actions(group)
+
+
+def _candidate_quality_group(issues: list[dict[str, Any]]) -> dict[str, Any]:
+    return _group(
+        "candidate_quality",
+        "high",
+        [
+            {
+                "item_type": "memory_candidate_quality_issue",
+                "review_id": str(issue.get("review_id") or ""),
+                "status": str(issue.get("status") or ""),
+                "proposal_kind": str(issue.get("proposal_kind") or ""),
+                "title": str(issue.get("title") or ""),
+                "reason": str(issue.get("reason") or ""),
+                "issue_types": issue.get("issue_types") or [],
+                "severity": str(issue.get("severity") or ""),
+                "memory_type": str(issue.get("memory_type") or ""),
+                "memory_scope": str(issue.get("memory_scope") or ""),
+                "behavior_delta": str(issue.get("behavior_delta") or ""),
+                "source_count": int(issue.get("source_count") or 0),
+                "evidence": issue.get("evidence") or {},
+                "next_actions": issue.get("next_actions") or [],
+            }
+            for issue in issues
+        ],
+    )
 
 
 def _health_group(issues: list[dict[str, Any]]) -> dict[str, Any]:
@@ -324,6 +355,176 @@ def _related_group_actions(group: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _candidate_quality_issues(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    issues = [
+        issue
+        for review in reviews
+        if _candidate_quality_review(review)
+        for issue in [_candidate_quality_issue(review)]
+        if issue is not None
+    ]
+    return sorted(
+        issues,
+        key=lambda issue: (
+            -_severity_rank(str(issue.get("severity") or "")),
+            str(issue.get("status") or ""),
+            str(issue.get("review_id") or ""),
+        ),
+    )
+
+
+def _candidate_quality_review(review: dict[str, Any]) -> bool:
+    if str(review.get("status") or "") not in {"pending", "accepted"}:
+        return False
+    if review.get("memory_apply"):
+        return False
+    proposal = review.get("proposal") or {}
+    return str(proposal.get("kind") or "") == "memory_patch"
+
+
+def _candidate_quality_issue(review: dict[str, Any]) -> dict[str, Any] | None:
+    if not _candidate_quality_review(review):
+        return None
+    proposal = review.get("proposal") or {}
+    payload = proposal.get("memory_patch") or {}
+    metadata = payload.get("metadata") or proposal.get("metadata") or {}
+    text = str(payload.get("text") or proposal.get("body") or "").strip()
+    behavior_delta = str(metadata.get("behavior_delta") or "").strip()
+    memory_type = str(metadata.get("memory_type") or "").strip()
+    memory_scope = str(metadata.get("memory_scope") or "").strip()
+    source_refs = payload.get("source_refs") or proposal.get("source_refs") or review.get("source_refs") or []
+    source_count = int(review.get("source_count") or len(source_refs or []))
+    issue_types: list[str] = []
+    missing_fields = []
+    for field_name, field_value in (
+        ("memory_type", memory_type),
+        ("memory_scope", memory_scope),
+        ("behavior_delta", behavior_delta),
+    ):
+        if not field_value:
+            missing_fields.append(field_name)
+    if missing_fields:
+        issue_types.append("missing_memory_card_fields")
+    if source_count <= 0:
+        issue_types.append("weak_evidence")
+    if _text_too_vague(text):
+        issue_types.append("vague_candidate_text")
+    if behavior_delta and _behavior_delta_too_vague(behavior_delta, text):
+        issue_types.append("vague_behavior_delta")
+    if not issue_types:
+        return None
+    review_id = str(review.get("review_id") or "")
+    severity = "high" if "missing_memory_card_fields" in issue_types else "medium"
+    reason = _candidate_quality_reason(issue_types, missing_fields)
+    return {
+        "review_id": review_id,
+        "status": str(review.get("status") or ""),
+        "proposal_kind": str(proposal.get("kind") or ""),
+        "title": str(proposal.get("title") or review_id or ""),
+        "reason": reason,
+        "issue_types": issue_types,
+        "severity": severity,
+        "memory_type": memory_type,
+        "memory_scope": memory_scope,
+        "behavior_delta": behavior_delta,
+        "source_count": source_count,
+        "evidence": {
+            "missing_fields": missing_fields,
+            "text_length": len(text),
+            "behavior_delta_length": len(behavior_delta),
+            "source_count": source_count,
+            "origin": str(metadata.get("origin") or ""),
+            "candidate_origin": str(metadata.get("candidate_origin") or ""),
+        },
+        "next_actions": _candidate_quality_actions(review),
+    }
+
+
+def _candidate_quality_reason(issue_types: list[str], missing_fields: list[str]) -> str:
+    reasons = []
+    if missing_fields:
+        reasons.append(f"missing Memory Card fields: {', '.join(missing_fields)}")
+    if "weak_evidence" in issue_types:
+        reasons.append("no source evidence is attached")
+    if "vague_candidate_text" in issue_types:
+        reasons.append("candidate text looks like a generic summary")
+    if "vague_behavior_delta" in issue_types:
+        reasons.append("behavior_delta does not clearly change future agent behavior")
+    return "; ".join(reasons) or "candidate needs quality review"
+
+
+def _candidate_quality_actions(review: dict[str, Any]) -> list[dict[str, Any]]:
+    review_id = str(review.get("review_id") or "")
+    actions = [
+        {
+            "action": "review_memory_candidate_quality",
+            "label": "Review candidate quality",
+            "tool": "pska_review_get",
+            "api": f"GET /api/reviews/{review_id}",
+            "view": "review",
+            "params": {"review_id": review_id},
+        }
+    ]
+    if str(review.get("status") or "") == "pending":
+        actions.append(
+            {
+                "action": "mark_memory_candidate_needs_edit",
+                "label": "Mark candidate needs edit",
+                "tool": "pska_review_decide",
+                "api": f"POST /api/reviews/{review_id}/decision",
+                "view": "review",
+                "params": {
+                    "review_id": review_id,
+                    "decision": "edit",
+                    "reason": "Memory Card candidate needs clearer behavior_delta, scope, type, or evidence.",
+                },
+            }
+        )
+    return actions
+
+
+def _text_too_vague(text: str) -> bool:
+    normalized = " ".join(text.lower().split())
+    if len(normalized) < 18:
+        return True
+    generic_markers = (
+        "remember this",
+        "remember that",
+        "important memory",
+        "useful information",
+        "general note",
+        "summary",
+        "摘要",
+        "总结",
+        "记住这个",
+        "有用信息",
+        "重要信息",
+    )
+    return any(marker in normalized for marker in generic_markers)
+
+
+def _behavior_delta_too_vague(behavior_delta: str, text: str) -> bool:
+    normalized = " ".join(behavior_delta.lower().split())
+    if len(normalized) < 24:
+        return True
+    generic_markers = (
+        "remember",
+        "keep in mind",
+        "note this",
+        "be aware",
+        "记住",
+        "注意",
+        "以后知道",
+    )
+    if normalized in {"remember this", "keep in mind", "记住这个"}:
+        return True
+    return normalized == " ".join(text.lower().split()) or any(marker == normalized for marker in generic_markers)
+
+
+def _severity_rank(severity: str) -> int:
+    return {"high": 3, "medium": 2, "low": 1}.get(severity, 0)
+
+
 def _group(code: str, severity: str, items: list[dict[str, Any]]) -> dict[str, Any]:
     title, reason = _definition(code)
     review_ids = [
@@ -384,6 +585,7 @@ def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
         for code in (
             "accepted_unapplied",
             "conversation_candidates",
+            "candidate_quality",
             "duplicate_candidates",
             "related_candidates",
             "pending_reviews",
@@ -397,6 +599,7 @@ def _summary(groups: list[dict[str, Any]]) -> dict[str, Any]:
         "actionable_item_count": actionable_item_count,
         "accepted_unapplied_count": counts.get("accepted_unapplied", 0),
         "conversation_candidate_count": counts.get("conversation_candidates", 0),
+        "candidate_quality_issue_count": counts.get("candidate_quality", 0),
         "duplicate_candidate_group_count": counts.get("duplicate_candidates", 0),
         "related_candidate_group_count": counts.get("related_candidates", 0),
         "pending_review_count": counts.get("pending_reviews", 0),
@@ -412,6 +615,7 @@ def _status(summary: dict[str, Any]) -> str:
         return "apply_ready"
     if (
         summary["conversation_candidate_count"]
+        or summary["candidate_quality_issue_count"]
         or summary["duplicate_candidate_group_count"]
         or summary["related_candidate_group_count"]
         or summary["pending_review_count"]
@@ -454,6 +658,8 @@ def _next_actions(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "params": {"review_id": first["review_id"]},
                 }
             )
+        elif group["code"] == "candidate_quality" and first.get("review_id"):
+            actions.extend((first.get("next_actions") or [])[:1])
         elif group["code"] == "duplicate_candidates":
             actions.extend(first.get("next_actions") or [])
         elif group["code"] == "related_candidates":

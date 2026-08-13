@@ -629,6 +629,9 @@ Hermes 的默认行为：
 - Done: Memory Review Queue 会把被 merge 替换的旧候选分入低优先级
   `merged_replacements` 谱系组，并从 duplicate/related candidate dedup 中排除，避免旧
   `needs_edit` 候选继续污染主动待办。
+- Done: Memory Review Queue 新增 `candidate_quality` 质量门；pending 或 accepted 但未 apply
+  的 memory_patch review 如果缺 `memory_type`、`memory_scope`、`behavior_delta`、source
+  evidence，或文本/行为变化过泛，会被提示先 review/edit，而不是直接进入可 apply 待办。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

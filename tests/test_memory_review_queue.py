@@ -10,11 +10,15 @@ from pska_essential.workflow import build_fake_service
 class MemoryReviewQueueTests(unittest.TestCase):
     def test_queue_groups_reviews_health_and_focus_items(self):
         service = build_fake_service()
-        run = service.start("Remember reviewed memory", {"dataset_ids": ["demo"]})
-        service.context_retrieve(run.run_id, "review queue memory", 1)
-        proposal = service.propose(run.run_id, "memory_patch", "review queue memory")
-        review = service.review_create(proposal.proposal_id)
-        service.review_decide(review.review_id, "accept", "ready")
+        review = service.source_memory_review_create(
+            [SourceRef(adapter="fake", source_id="review-queue-memory")],
+            text="PSKA review queue memory should be applied only after Memory Card quality is explicit.",
+            memory_type="working_habit",
+            behavior_delta="When applying review queue memory, require explicit Memory Card fields first.",
+            memory_scope="project",
+            reason="qualified candidate",
+        )["review"]
+        service.review_decide(review["review_id"], "accept", "ready")
         service.memory.facts.append(
             MemoryFact(
                 fact_id="mem-raw",
@@ -59,7 +63,7 @@ class MemoryReviewQueueTests(unittest.TestCase):
 
         self.assertEqual(queue["schema"], "pska.memory_review_queue.v1")
         self.assertEqual(queue["status"], "apply_ready")
-        self.assertEqual(groups["accepted_unapplied"]["items"][0]["review_id"], review.review_id)
+        self.assertEqual(groups["accepted_unapplied"]["items"][0]["review_id"], review["review_id"])
         self.assertIn("duplicate_candidates", groups)
         self.assertIn(first_duplicate["review"]["review_id"], groups["duplicate_candidates"]["items"][0]["review_ids"])
         duplicate_item = groups["duplicate_candidates"]["items"][0]
@@ -70,6 +74,28 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertIn("memory_focus", groups)
         self.assertFalse(queue["data_flow"]["writes_memory_directly"])
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_memory_apply")
+
+    def test_queue_surfaces_memory_candidate_quality_issues_before_apply(self):
+        service = build_fake_service()
+        run = service.start("Remember vague memory", {"dataset_ids": ["demo"]})
+        service.context_retrieve(run.run_id, "review queue memory", 1)
+        proposal = service.propose(run.run_id, "memory_patch", "remember this")
+        review = service.review_create(proposal.proposal_id)
+        service.review_decide(review.review_id, "accept", "ready")
+
+        queue = build_memory_review_queue(service, audit=False)
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(queue["status"], "action_required")
+        self.assertEqual(queue["summary"]["accepted_unapplied_count"], 0)
+        self.assertEqual(queue["summary"]["candidate_quality_issue_count"], 1)
+        self.assertIn("candidate_quality", groups)
+        item = groups["candidate_quality"]["items"][0]
+        self.assertEqual(item["review_id"], review.review_id)
+        self.assertEqual(item["status"], "accepted")
+        self.assertIn("missing_memory_card_fields", item["issue_types"])
+        self.assertIn("vague_candidate_text", item["issue_types"])
+        self.assertEqual(item["next_actions"][0]["action"], "review_memory_candidate_quality")
 
     def test_queue_surfaces_conversation_memory_candidates(self):
         service = build_fake_service()

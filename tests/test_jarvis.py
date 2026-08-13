@@ -71,6 +71,7 @@ class JarvisBriefingTests(unittest.TestCase):
         self.assertEqual(briefing["memory_layer"]["review_queue"]["schema"], "pska.memory_review_queue.v1")
         self.assertIn("memory_review_queue_item_count", briefing["summary"])
         self.assertIn("memory_review_queue_actionable_item_count", briefing["summary"])
+        self.assertIn("memory_candidate_quality_issue_count", briefing["summary"])
         self.assertEqual(briefing["source_layer"]["root_count"], 1)
         self.assertEqual(briefing["source_layer"]["audit"]["duplicate_preview"]["group_count"], 1)
         self.assertEqual(briefing["source_layer"]["audit"]["unresolved_links"]["count"], 1)

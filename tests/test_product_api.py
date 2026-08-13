@@ -381,9 +381,12 @@ class ProductApiTests(unittest.TestCase):
         review_queue_view = capabilities["capabilities"]["memory"]["review_queue_view"]
         self.assertEqual(review_queue_view["schema"], "pska.memory_review_queue_view.v1")
         self.assertIn("conversation_candidates", review_queue_view["groups"])
+        self.assertIn("candidate_quality", review_queue_view["groups"])
         self.assertIn("related_candidates", review_queue_view["groups"])
         self.assertIn("merged_replacements", review_queue_view["groups"])
         self.assertIn("review_conversation_memory_candidate", review_queue_view["next_actions"])
+        self.assertIn("review_memory_candidate_quality", review_queue_view["next_actions"])
+        self.assertIn("mark_memory_candidate_needs_edit", review_queue_view["next_actions"])
         self.assertIn("accept_review_group", review_queue_view["next_actions"])
         self.assertIn("reject_review_group", review_queue_view["next_actions"])
         self.assertIn("inspect_related_memory_candidates", review_queue_view["next_actions"])
@@ -1318,17 +1321,18 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(audit["events"][0]["metadata"]["focus_count"], len(briefing["focus_items"]))
 
     def test_memory_review_queue_route_groups_review_and_health_work(self):
-        asked = self._post_json(
-            "/api/ask",
+        created = self._post_json(
+            "/api/sources/memory-reviews",
             {
-                "question": "Create a sourced brief",
-                "dataset_ids": ["demo"],
-                "limit": 1,
-                "proposal_kind": "memory_patch",
-                "create_review": True,
+                "source_refs": [{"adapter": "fake", "source_id": "review-queue-memory"}],
+                "text": "PSKA review queue memory should be applied only after Memory Card quality is explicit.",
+                "memory_type": "working_habit",
+                "behavior_delta": "When applying review queue memory, require explicit Memory Card fields first.",
+                "memory_scope": "project",
+                "reason": "qualified candidate",
             },
         )
-        review_id = asked["review"]["review_id"]
+        review_id = created["review"]["review_id"]
         self._post_json(f"/api/reviews/{review_id}/decision", {"decision": "accept", "reason": "ready"})
         self.service.memory.facts.append(
             MemoryFact(
@@ -2965,6 +2969,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('revision.merged_from_review_ids', script)
         self.assertIn('revision.merged_into_review_id', script)
         self.assertIn('item.merged_into_review_id', script)
+        self.assertIn('item.issue_types || []', script)
         self.assertIn('const runId = proposal.run_id || (proposal.metadata && proposal.metadata.run_id) || "";', script)
         self.assertIn('onclick: () => openWritingRun(runId)', script)
         self.assertIn('className: "review-source-row"', script)

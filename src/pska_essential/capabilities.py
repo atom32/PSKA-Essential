@@ -1239,6 +1239,7 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "groups": [
             "accepted_unapplied",
             "conversation_candidates",
+            "candidate_quality",
             "duplicate_candidates",
             "related_candidates",
             "pending_reviews",
@@ -1252,6 +1253,8 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "next_actions": [
             "open_review",
             "review_conversation_memory_candidate",
+            "review_memory_candidate_quality",
+            "mark_memory_candidate_needs_edit",
             "accept_review_group",
             "reject_review_group",
             "apply_accepted_memory",

@@ -27,9 +27,12 @@ Last updated: 2026-07-15
 > in the WebUI Review card. Memory Review Queue now separates replaced
 > candidates into a low-priority `merged_replacements` lineage group and keeps
 > merged-away reviews out of active duplicate/related candidate dedup, so they
-> remain traceable without becoming false `needs_edit` work. Next useful product
-> step: a richer batch edit/merge workbench and cross-project semantic
-> clustering.
+> remain traceable without becoming false `needs_edit` work. Memory Review Queue
+> also has a `candidate_quality` gate for pending/accepted memory_patch reviews
+> that are missing Memory Card envelope fields, source evidence, or clear
+> behavior impact; it surfaces review/edit next actions before apply so vague
+> summaries do not quietly become durable Memory Cards. Next useful product step:
+> a richer batch edit/merge workbench and cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

@@ -326,6 +326,26 @@ def _briefing_priorities(
                     ),
                 )
             )
+        elif queue_summary.get("candidate_quality_issue_count"):
+            priorities.append(
+                _priority(
+                    "warning",
+                    "memory",
+                    "review_memory_candidate_quality",
+                    "Memory candidates need quality review.",
+                    f"{queue_summary.get('candidate_quality_issue_count')} candidate(s) are missing Memory Card fields or behavior impact.",
+                    next_action=_queue_next_action(
+                        memory_review_queue,
+                        "review_memory_candidate_quality",
+                        fallback={
+                            "action": "inspect_memory_review_queue",
+                            "tool": "pska_memory_review_queue",
+                            "api": "GET /api/memory/review-queue",
+                            "view": "review",
+                        },
+                    ),
+                )
+            )
         elif queue_summary.get("related_candidate_group_count"):
             priorities.append(
                 _priority(
@@ -553,6 +573,7 @@ def _briefing_summary(
         "memory_review_queue_item_count": queue_summary.get("item_count", 0),
         "memory_review_queue_actionable_item_count": queue_summary.get("actionable_item_count", 0),
         "conversation_memory_candidate_count": queue_summary.get("conversation_candidate_count", 0),
+        "memory_candidate_quality_issue_count": queue_summary.get("candidate_quality_issue_count", 0),
         "related_memory_candidate_group_count": queue_summary.get("related_candidate_group_count", 0),
         "priority_count": len(priorities),
         "next_action_count": len(next_actions),
