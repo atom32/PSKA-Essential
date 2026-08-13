@@ -4944,6 +4944,11 @@ async function runMemoryReviewQueueAction(action, item = {}) {
     await openReview(reviewId);
     return;
   }
+  if (action.tool === "pska_review_decide" && reviewId && params.decision) {
+    await decideReview(reviewId, params.decision, params.reason || action.label || "");
+    await loadMemoryReviewQueue();
+    return;
+  }
   if (action.tool === "pska_memory_candidate_dedup" || action.action === "inspect_duplicate_memory_candidates") {
     await api("/api/memory/candidate-dedup?review_limit=100&similarity_threshold=0.82");
     await loadMemoryReviewQueue({ toast: true });

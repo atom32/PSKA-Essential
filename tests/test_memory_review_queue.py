@@ -96,6 +96,21 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertIn("missing_memory_card_fields", item["issue_types"])
         self.assertIn("vague_candidate_text", item["issue_types"])
         self.assertEqual(item["next_actions"][0]["action"], "review_memory_candidate_quality")
+        self.assertEqual(queue["next_actions"][0]["action"], "review_memory_candidate_quality")
+
+    def test_queue_quality_issue_can_mark_pending_candidate_needs_edit(self):
+        service = build_fake_service()
+        run = service.start("Remember vague pending memory", {"dataset_ids": ["demo"]})
+        service.context_retrieve(run.run_id, "review queue memory", 1)
+        proposal = service.propose(run.run_id, "memory_patch", "remember this")
+        review = service.review_create(proposal.proposal_id)
+
+        queue = build_memory_review_queue(service, audit=False)
+
+        self.assertEqual(queue["summary"]["candidate_quality_issue_count"], 1)
+        self.assertEqual(queue["next_actions"][0]["action"], "review_memory_candidate_quality")
+        self.assertEqual(queue["next_actions"][1]["action"], "mark_memory_candidate_needs_edit")
+        self.assertEqual(queue["next_actions"][1]["params"]["review_id"], review.review_id)
 
     def test_queue_surfaces_conversation_memory_candidates(self):
         service = build_fake_service()

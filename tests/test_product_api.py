@@ -2575,6 +2575,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("async function loadMemoryReviewQueue", script)
         self.assertIn("function memoryReviewQueueGroupCard", script)
         self.assertIn("async function runMemoryReviewQueueAction", script)
+        self.assertIn('action.tool === "pska_review_decide"', script)
+        self.assertIn('params.decision', script)
         self.assertIn("async function openMemoryTimeline", script)
         self.assertIn("function memoryTimelineCard", script)
         self.assertIn("pska.memory_timeline.v1", script)

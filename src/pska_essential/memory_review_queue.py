@@ -659,7 +659,7 @@ def _next_actions(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 }
             )
         elif group["code"] == "candidate_quality" and first.get("review_id"):
-            actions.extend((first.get("next_actions") or [])[:1])
+            actions.extend((first.get("next_actions") or [])[:2])
         elif group["code"] == "duplicate_candidates":
             actions.extend(first.get("next_actions") or [])
         elif group["code"] == "related_candidates":
