@@ -393,7 +393,7 @@ embedding 仍作为 cache/enhancement，不进入本地 source 第一版前提�
 | 阶段 | 方案 |
 | --- | --- |
 | Now | SQLite job ledger + explicit tick |
-| Near | `watchdog` 监听授权 root，生成 scan/extract/audit jobs |
+| Now | `watchdog` bounded watch-once 监听授权 root，生成 extract/audit jobs |
 | Mid | launchd/cron 调用 tick，不常驻也可用 |
 | Later | Temporal 承载长时 digest、large extraction、multi-provider sync |
 
@@ -476,6 +476,19 @@ make live-markitdown-smoke PYTHON=.venv/bin/python
 该 smoke 同时检查 `adapter_slots.summary.extraction.available` 中出现
 `markitdown`，并用 `extract_source_file(..., extractor="markitdown")` 对临时
 HTML 文件做真实转换；不修改 source files，不写 Memory。
+
+2026-08-13 P3-2 更新：已在项目 `.venv` 中安装 `watch` optional extra
+（watchdog 6.0.0），并新增 `src/pska_essential/source_watch.py`、
+`pska_source_watch_once`、`POST /api/sources/watch-once`、CLI
+`pska-essential-source-watch` 和 Make target `live-watchdog-smoke`。验收命令：
+
+```bash
+make live-watchdog-smoke PYTHON=.venv/bin/python
+```
+
+该 smoke 使用真实 watchdog 监听临时注册 source root，写入一个文件后确认
+PSKA 只排队 source extraction/audit jobs；它不是隐藏 daemon，不扫描全盘，不改
+source files，不直写 Memory，也不要求 embedding。
 
 ### Phase 2: Memory Productization
 
@@ -580,6 +593,7 @@ HTML 文件做真实转换；不修改 source files，不写 Memory。
 - [x] Add MarkItDown adapter behind optional import.
 - [x] Add `DedupPort` and fclones CLI adapter behind command discovery.
 - [x] Extend `pska_duplicate_report` mode beyond `exact_hash`.
+- [x] Add bounded watchdog bridge for authorized source-root events.
 
 ### P2 Backlog
 

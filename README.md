@@ -410,6 +410,7 @@ Operational loop tools:
 - `pska_source_extract_job_enqueue`
 - `pska_source_extract_job_list`
 - `pska_source_extract_job_run`
+- `pska_source_watch_once`
 - `pska_saved_search_create`
 - `pska_source_tag_propose`
 - `pska_source_tag_apply`
@@ -529,6 +530,12 @@ promoting MarkItDown to a core dependency. Use
 `make live-markitdown-smoke PYTHON=.venv/bin/python`. The smoke verifies both
 `adapter_slots.summary.extraction.available` and an actual MarkItDown-backed
 conversion through `extract_source_file`.
+P3-2 installs and validates the watchdog optional extra and adds
+`pska_source_watch_once`, a bounded authorized-root event bridge. It listens for
+a short explicit interval, then queues source extraction and/or audit jobs; it
+does not run as a hidden daemon, scan full disk, edit source files, write memory,
+or require embeddings. Use `make live-watchdog-smoke PYTHON=.venv/bin/python`
+to verify a real filesystem event queues both job types.
 M10 adds `pska_obsidian_moc_propose` and `pska_obsidian_moc_apply` for governed
 Obsidian MOC writeback. Proposal builds a preview from explicit source refs and
 writes only PSKA registry metadata; apply requires an `obsidian_vault` root with
@@ -669,6 +676,11 @@ Implemented Alpha routes:
 - `POST /api/sources/audit-jobs/tick`
 - `POST /api/sources/audit-jobs/run-next`
 - `POST /api/sources/audit-jobs/{run_id}/run`
+- `POST /api/sources/extraction-jobs`
+- `GET /api/sources/extraction-jobs`
+- `POST /api/sources/extraction-jobs/run-next`
+- `POST /api/sources/extraction-jobs/{run_id}/run`
+- `POST /api/sources/watch-once`
 - `POST /api/sources/saved-searches`
 - `POST /api/sources/tags/proposals`
 - `POST /api/sources/tags/{proposal_id}/apply`

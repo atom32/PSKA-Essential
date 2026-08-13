@@ -254,7 +254,7 @@ run(job_id) -> JobResult
 Provider slots:
 
 - `sqlite_jobs`: implemented job ledger and explicit tick.
-- `watchdog_tick`: planned authorized-root filesystem event trigger.
+- `watchdog_tick`: implemented bounded authorized-root filesystem event trigger.
 - `system_cron_launchd`: planned external scheduler trigger.
 - `temporal`: future durable execution backend for long-running jobs.
 
@@ -262,6 +262,8 @@ Rules:
 
 - Background triggers must only operate on authorized source roots.
 - Tick may enqueue work; it must not silently scan full disk or write memory.
+- The current watchdog implementation is `watch_once`: it listens for a short
+  explicit interval and then queues source extraction and/or audit jobs.
 - Temporal is a backend for job durability, not the PSKA workflow contract.
 
 ### CloudSourcePort
@@ -375,6 +377,7 @@ The current public tool surface is:
 - `pska_source_extract_job_enqueue`
 - `pska_source_extract_job_list`
 - `pska_source_extract_job_run`
+- `pska_source_watch_once`
 - `pska_saved_search_create`
 - `pska_source_tag_propose`
 - `pska_source_tag_apply`
@@ -507,6 +510,7 @@ The personal source layer has an M1-M10 source-management MCP surface:
 - `pska_source_extract_job_enqueue`
 - `pska_source_extract_job_list`
 - `pska_source_extract_job_run`
+- `pska_source_watch_once`
 - `pska_saved_search_create`
 - `pska_source_tag_propose`
 - `pska_source_tag_apply`
@@ -533,6 +537,11 @@ jobs; scanning still requires running the explicit audit job.
 Jobs run a selected extractor through `pska_source_scan`, update rebuildable
 source index metadata and FTS sections, and keep the no source-file write, no
 direct memory write, and no embedding requirement guarantees.
+`pska_source_watch_once` provides the optional watchdog bridge. It only listens
+to a registered source root for a bounded interval, summarizes filesystem
+events, and queues extraction and/or audit jobs. It is not a hidden daemon,
+does not scan full disk, does not write source files, and does not write durable
+memory.
 `pska_obsidian_moc_propose` and `pska_obsidian_moc_apply` provide the current
 native Obsidian writeback path. They collect explicit source refs into a MOC
 preview, then apply only the PSKA-managed Markdown block after native/managed

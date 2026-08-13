@@ -271,6 +271,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("GET", "/api/sources/extraction-jobs"), contract_routes)
         self.assertIn(("POST", "/api/sources/extraction-jobs/run-next"), contract_routes)
         self.assertIn(("POST", "/api/sources/extraction-jobs/{run_id}/run"), contract_routes)
+        self.assertIn(("POST", "/api/sources/watch-once"), contract_routes)
         self.assertIn(("GET", "/api/sources/roots"), contract_routes)
         self.assertIn(("POST", "/api/sources/roots"), contract_routes)
         self.assertIn(("POST", "/api/sources/roots/{root_id}/scan"), contract_routes)
@@ -316,6 +317,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_extract_job_enqueue", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_extract_job_list", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_extract_job_run", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_watch_once", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_saved_search_create", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_tag_propose", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_tag_apply", source_layer["mcp_tools"]["implemented"])
@@ -338,6 +340,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_audit_job_tick", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_run", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_extract_job_run", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_watch_once", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_obsidian_moc_propose", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_workflow_memory_attribution", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_workflow_memory_suggestions", assistant_layer["mcp_tools"]["implemented"])
@@ -858,6 +861,48 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source.extraction_job.run", actions)
         self.assertIn("source.obsidian_moc.propose", actions)
         self.assertIn("source.obsidian_moc.apply", actions)
+
+    def test_source_watch_once_route_delegates_to_bounded_watcher(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Vault"
+            root_path.mkdir()
+            registered = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_path), "kind": "local_folder", "permission_mode": "read_only"},
+            )
+            fake_result = {
+                "schema": "pska.source_watch_once.v1",
+                "status": "no_changes",
+                "root_id": registered["root"]["root_id"],
+                "event_count": 0,
+                "events": [],
+                "created_jobs": {},
+                "next_actions": [],
+                "data_flow": {
+                    "watches_authorized_root_only": True,
+                    "writes_source_files": False,
+                    "writes_memory_directly": False,
+                    "queues_jobs_only": True,
+                },
+            }
+            with patch("pska_essential.product_api.watch_source_once", return_value=fake_result) as watcher:
+                payload = self._post_json(
+                    "/api/sources/watch-once",
+                    {
+                        "root_id": registered["root"]["root_id"],
+                        "duration_seconds": 0,
+                        "enqueue_extraction": True,
+                        "enqueue_audit": True,
+                    },
+                )
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["schema"], "pska.source_watch_once.v1")
+        watcher.assert_called_once()
+        self.assertEqual(watcher.call_args.kwargs["root_id"], registered["root"]["root_id"])
+        self.assertEqual(watcher.call_args.kwargs["duration_seconds"], 0.0)
+        self.assertTrue(watcher.call_args.kwargs["enqueue_extraction"])
+        self.assertTrue(watcher.call_args.kwargs["enqueue_audit"])
 
     def test_turn_context_route_assembles_evidence_and_memory_without_ask(self):
         self.service.memory.facts.append(

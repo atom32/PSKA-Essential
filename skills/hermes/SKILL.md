@@ -124,6 +124,11 @@ candidate memory, review, and durable export.
   write only PSKA source index metadata/FTS sections. They must not be treated
   as permission to edit source files, write durable memory, or require
   embeddings.
+- For short explicit local folder monitoring, call `pska_source_watch_once`
+  only on a registered source root. It uses the optional watchdog adapter for a
+  bounded interval, then queues extraction and/or audit jobs. It is not a hidden
+  daemon, does not scan full disk, does not edit source files, and does not
+  write durable memory.
 - For Obsidian organization, use `pska_obsidian_moc_propose` to create a
   governed MOC writeback preview from explicit source refs. Only call
   `pska_obsidian_moc_apply` when the selected root is an Obsidian vault with

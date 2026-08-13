@@ -39,6 +39,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_source_extract_job_enqueue", text)
         self.assertIn("pska_source_extract_job_list", text)
         self.assertIn("pska_source_extract_job_run", text)
+        self.assertIn("pska_source_watch_once", text)
         self.assertIn("pska_memory_card_list", text)
         self.assertIn("pska_memory_card_get", text)
         self.assertIn("pska_memory_health_scan", text)
@@ -291,6 +292,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_source_extract_job_enqueue",
             "pska_source_extract_job_list",
             "pska_source_extract_job_run",
+            "pska_source_watch_once",
             "pska_saved_search_create",
             "pska_source_tag_propose",
             "pska_source_tag_apply",

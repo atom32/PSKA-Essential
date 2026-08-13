@@ -483,6 +483,7 @@ pska_source_audit_job_run
 pska_source_extract_job_enqueue
 pska_source_extract_job_list
 pska_source_extract_job_run
+pska_source_watch_once
 pska_jarvis_briefing
 pska_source_memory_review_create
 pska_memory_card_list

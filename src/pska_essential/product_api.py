@@ -66,6 +66,7 @@ from pska_essential.source_extraction_jobs import (
     list_source_extraction_jobs,
     run_source_extraction_job,
 )
+from pska_essential.source_watch import watch_source_once
 from pska_essential.workflow import WorkflowError, WorkflowService
 from pska_essential.workspace_status import build_workspace_status
 
@@ -97,6 +98,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/sources/extraction-jobs"},
     {"method": "POST", "path": "/api/sources/extraction-jobs/run-next"},
     {"method": "POST", "path": "/api/sources/extraction-jobs/{run_id}/run"},
+    {"method": "POST", "path": "/api/sources/watch-once"},
     {"method": "GET", "path": "/api/sources/roots"},
     {"method": "POST", "path": "/api/sources/roots"},
     {"method": "POST", "path": "/api/sources/roots/{root_id}/scan"},
@@ -720,6 +722,27 @@ def _handler_class(state: ProductApiState):
 
             if method == "POST" and path == "/api/sources/extraction-jobs/run-next":
                 result = run_source_extraction_job(state.service)
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "POST" and path == "/api/sources/watch-once":
+                payload = self._read_json()
+                result = watch_source_once(
+                    state.service,
+                    root_id=_required_str(payload, "root_id"),
+                    duration_seconds=_optional_float(payload, "duration_seconds", 5.0),
+                    quiet_seconds=_optional_float(payload, "quiet_seconds", 0.25),
+                    max_events=int(payload.get("max_events") or 100),
+                    recursive=_bool_value(payload.get("recursive"), True),
+                    enqueue_extraction=_bool_value(payload.get("enqueue_extraction"), True),
+                    enqueue_audit=_bool_value(payload.get("enqueue_audit"), False),
+                    label=str(payload.get("label") or ""),
+                    priority=int(payload.get("priority") or 0),
+                    extractor=str(payload.get("extractor") or "auto"),
+                    max_files=int(payload.get("max_files") or 1000),
+                    max_bytes=int(payload.get("max_bytes") or 1_000_000),
+                    audit_limit=int(payload.get("audit_limit") or 20),
+                )
                 self._send_json({"ok": True, **result})
                 return
 
@@ -1681,6 +1704,15 @@ def _optional_int(payload: dict[str, Any], key: str) -> int | None:
     if value is None or value == "":
         return None
     return int(value)
+
+
+def _optional_float(payload: dict[str, Any], key: str, default: float) -> float:
+    if key not in payload:
+        return default
+    value = payload.get(key)
+    if value is None or value == "":
+        return default
+    return float(value)
 
 
 def _bool_value(value: Any, default: bool) -> bool:

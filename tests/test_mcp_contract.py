@@ -39,6 +39,7 @@ EXPECTED_TOOLS = {
     "pska_source_extract_job_enqueue",
     "pska_source_extract_job_list",
     "pska_source_extract_job_run",
+    "pska_source_watch_once",
     "pska_saved_search_create",
     "pska_source_tag_propose",
     "pska_source_tag_apply",
@@ -349,6 +350,10 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_source_extract_job_run"]["writes_memory_directly"])
         self.assertFalse(policy["pska_source_extract_job_run"]["embedding_required"])
         self.assertTrue(policy["pska_source_extract_job_run"]["writes_source_registry"])
+        self.assertTrue(policy["pska_source_watch_once"]["watches_authorized_root_only"])
+        self.assertTrue(policy["pska_source_watch_once"]["queues_jobs_only"])
+        self.assertFalse(policy["pska_source_watch_once"]["writes_source_files"])
+        self.assertFalse(policy["pska_source_watch_once"]["writes_memory_directly"])
         self.assertTrue(policy["pska_source_audit_schedule_create"]["wall_clock_schedule"])
         self.assertTrue(policy["pska_source_audit_job_tick"]["wall_clock_tick"])
         self.assertTrue(policy["pska_obsidian_moc_apply"]["writes_source_files"])

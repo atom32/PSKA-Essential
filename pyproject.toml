@@ -29,6 +29,7 @@ pska-essential-eval = "pska_essential.eval:main"
 pska-essential-ingest-loop = "pska_essential.ingest_loop:main"
 pska-essential-ingest-loop-resume = "pska_essential.ingest_loop:resume_main"
 pska-essential-review-memory-smoke = "pska_essential.review_memory_smoke:main"
+pska-essential-source-watch = "pska_essential.source_watch:main"
 
 [build-system]
 requires = ["hatchling"]

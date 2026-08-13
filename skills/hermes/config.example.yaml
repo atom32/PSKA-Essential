@@ -40,6 +40,7 @@ mcp_servers:
         - pska_source_extract_job_enqueue
         - pska_source_extract_job_list
         - pska_source_extract_job_run
+        - pska_source_watch_once
         - pska_saved_search_create
         - pska_source_tag_propose
         - pska_source_tag_apply

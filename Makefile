@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-watchdog-smoke live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -28,6 +28,9 @@ live-closed-loop:
 
 live-markitdown-smoke:
 	PYTHONPATH=src $(PYTHON) scripts/markitdown_smoke.py
+
+live-watchdog-smoke:
+	PYTHONPATH=src $(PYTHON) scripts/watchdog_smoke.py
 
 live-ingest-loop:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.ingest_loop $(ENV_FILE_ARG)
