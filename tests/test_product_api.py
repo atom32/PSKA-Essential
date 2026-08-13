@@ -375,6 +375,10 @@ class ProductApiTests(unittest.TestCase):
         health_view = capabilities["capabilities"]["memory"]["health_view"]
         self.assertEqual(health_view["schema"], "pska.memory_health_view.v1")
         self.assertEqual(health_view["mcp_tool"], "pska_memory_health_scan")
+        review_queue_view = capabilities["capabilities"]["memory"]["review_queue_view"]
+        self.assertEqual(review_queue_view["schema"], "pska.memory_review_queue_view.v1")
+        self.assertIn("conversation_candidates", review_queue_view["groups"])
+        self.assertIn("review_conversation_memory_candidate", review_queue_view["next_actions"])
         dedup_view = capabilities["capabilities"]["memory"]["candidate_dedup_view"]
         self.assertEqual(dedup_view["schema"], "pska.memory_candidate_dedup_view.v1")
         self.assertEqual(dedup_view["mcp_tool"], "pska_memory_candidate_dedup")
@@ -1092,6 +1096,15 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(created["data_flow"]["writes_memory_directly"])
         pending = self._get_json("/api/reviews?status=pending")
         self.assertEqual(pending["reviews"][0]["review_id"], created["created"][0]["review_id"])
+        queue = self._get_json("/api/memory/review-queue?review_limit=20&health_limit=10&focus_limit=10")
+        queue_groups = {group["code"]: group for group in queue["groups"]}
+        self.assertEqual(queue["summary"]["conversation_candidate_count"], 1)
+        self.assertIn("conversation_candidates", queue_groups)
+        self.assertEqual(
+            queue_groups["conversation_candidates"]["items"][0]["review_id"],
+            created["created"][0]["review_id"],
+        )
+        self.assertEqual(queue["next_actions"][0]["action"], "review_conversation_memory_candidate")
         facts = self.service.memory_search("behavior_delta", {}, 10)
         self.assertEqual(facts, [])
         audit = self._get_json("/api/audit?limit=10&action=memory.conversation_candidates.create")
@@ -2356,6 +2369,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/sources/memory-reviews', script)
         self.assertIn('/api/memory/briefing?card_limit=30&health_limit=20&trace_limit=30', script)
         self.assertIn('/api/memory/review-queue?review_limit=50&health_limit=20&focus_limit=20', script)
+        self.assertIn("对话候选", script)
         self.assertIn('/api/memory/${encodeURIComponent(selected)}/timeline?limit=50', script)
         self.assertIn("function loadSourceRoots", script)
         self.assertIn("function renderSources", script)

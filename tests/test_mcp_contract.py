@@ -333,6 +333,8 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(capabilities["memory"]["briefing_view"]["mcp_tool"], "pska_memory_briefing")
         self.assertEqual(capabilities["memory"]["review_queue_view"]["schema"], "pska.memory_review_queue_view.v1")
         self.assertEqual(capabilities["memory"]["review_queue_view"]["mcp_tool"], "pska_memory_review_queue")
+        self.assertIn("conversation_candidates", capabilities["memory"]["review_queue_view"]["groups"])
+        self.assertIn("review_conversation_memory_candidate", capabilities["memory"]["review_queue_view"]["next_actions"])
         self.assertEqual(capabilities["memory"]["health_view"]["schema"], "pska.memory_health_view.v1")
         self.assertEqual(capabilities["memory"]["health_view"]["mcp_tool"], "pska_memory_health_scan")
         self.assertEqual(capabilities["memory"]["use_trace_view"]["schema"], "pska.memory_use_trace_view.v1")

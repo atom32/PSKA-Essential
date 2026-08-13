@@ -622,6 +622,9 @@ that Hermes notices in a conversation when the user did not explicitly say
 "remember". It accepts structured candidates with `text`, `memory_type`,
 `memory_scope`, `behavior_delta`, and message evidence, creates pending Review
 items, dedupes obvious repeats, and never writes durable memory directly.
+Memory Review Queue surfaces these as a dedicated `conversation_candidates`
+group with a stable `review_conversation_memory_candidate` next action, so
+daily memory capture does not disappear into generic pending reviews.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.

@@ -284,7 +284,11 @@ overlap、SourceRef fingerprint、behavior_delta fingerprint 聚类，并将
 `pska_conversation_memory_candidates_create` 接收 Hermes 从对话中提炼出的结构化候选，
 要求 `text`、`memory_type`、`memory_scope`、`behavior_delta` 和消息证据，创建
 pending Review items，并按 `memory_type/memory_scope/behavior_delta/text` 去重；它不直接
-写 memory provider，也不把普通聊天摘要当作记忆。
+写 memory provider，也不把普通聊天摘要当作记忆。P2 的第十一块已落地为
+conversation candidate review queue surface：Memory Review Queue 新增
+`conversation_candidates` group、`conversation_candidate_count` summary 和
+`review_conversation_memory_candidate` next action；Jarvis briefing 会把这类候选作为明确的
+memory priority，而不是淹没在普通 pending reviews 中。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -722,6 +726,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add proactive memory suggestions from sourced workflows.
 - [x] Add derived Memory Timeline / Ledger view over Card, lifecycle, trace, and SourceRef.
 - [x] Add conversation-derived Memory Card candidate creation without direct memory writes.
+- [x] Surface conversation-derived Memory Card candidates in Memory Review Queue and Jarvis briefing.
 
 ### P3 Backlog
 

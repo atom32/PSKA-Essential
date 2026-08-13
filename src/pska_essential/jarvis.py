@@ -306,6 +306,26 @@ def _briefing_priorities(
                     next_action=(memory_review_queue.get("next_actions") or [None])[0],
                 )
             )
+        elif queue_summary.get("conversation_candidate_count"):
+            priorities.append(
+                _priority(
+                    "warning",
+                    "memory",
+                    "review_conversation_memory_candidates",
+                    "Conversation memory candidates are waiting for review.",
+                    f"{queue_summary.get('conversation_candidate_count')} conversation-derived candidate(s) need accept/edit/reject.",
+                    next_action=_queue_next_action(
+                        memory_review_queue,
+                        "review_conversation_memory_candidate",
+                        fallback={
+                            "action": "inspect_memory_review_queue",
+                            "tool": "pska_memory_review_queue",
+                            "api": "GET /api/memory/review-queue",
+                            "view": "review",
+                        },
+                    ),
+                )
+            )
         elif queue_summary.get("item_count"):
             priorities.append(
                 _priority(
@@ -398,6 +418,13 @@ def _briefing_priorities(
             )
         )
     return priorities
+
+
+def _queue_next_action(queue: dict[str, Any], action_name: str, *, fallback: dict[str, Any]) -> dict[str, Any]:
+    for action in queue.get("next_actions") or []:
+        if str(action.get("action") or "") == action_name:
+            return dict(action)
+    return fallback
 
 
 def _priority(
@@ -504,6 +531,7 @@ def _briefing_summary(
         "memory_recent_use_count": memory_summary.get("recent_use_count", 0),
         "memory_review_queue_group_count": queue_summary.get("group_count", 0),
         "memory_review_queue_item_count": queue_summary.get("item_count", 0),
+        "conversation_memory_candidate_count": queue_summary.get("conversation_candidate_count", 0),
         "priority_count": len(priorities),
         "next_action_count": len(next_actions),
     }

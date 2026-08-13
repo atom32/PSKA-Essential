@@ -1219,6 +1219,7 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "group_schema": "pska.memory_review_queue_group.v1",
         "groups": [
             "accepted_unapplied",
+            "conversation_candidates",
             "duplicate_candidates",
             "pending_reviews",
             "needs_edit",
@@ -1229,6 +1230,7 @@ def memory_review_queue_view_contract() -> dict[str, Any]:
         "writes_memory_directly": False,
         "next_actions": [
             "open_review",
+            "review_conversation_memory_candidate",
             "apply_accepted_memory",
             "inspect_duplicate_memory_candidates",
             "inspect_memory_health",

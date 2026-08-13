@@ -67,6 +67,44 @@ class MemoryReviewQueueTests(unittest.TestCase):
         self.assertFalse(queue["data_flow"]["writes_memory_directly"])
         self.assertEqual(queue["next_actions"][0]["tool"], "pska_memory_apply")
 
+    def test_queue_surfaces_conversation_memory_candidates(self):
+        service = build_fake_service()
+        created = service.conversation_memory_candidates_create(
+            session_id="sess-review-queue",
+            messages=[
+                {
+                    "message_id": "msg-review-queue",
+                    "role": "user",
+                    "text": "For PSKA memory, conversation candidates need behavior deltas and evidence.",
+                }
+            ],
+            candidates=[
+                {
+                    "text": "PSKA conversation memory candidates need behavior deltas and evidence.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When creating conversation memory candidates, include behavior deltas and evidence.",
+                    "message_ids": ["msg-review-queue"],
+                }
+            ],
+        )
+
+        queue = build_memory_review_queue(service, audit=False)
+        groups = {group["code"]: group for group in queue["groups"]}
+
+        self.assertEqual(queue["status"], "action_required")
+        self.assertEqual(queue["summary"]["conversation_candidate_count"], 1)
+        self.assertIn("conversation_candidates", groups)
+        item = groups["conversation_candidates"]["items"][0]
+        self.assertEqual(item["item_type"], "conversation_memory_candidate")
+        self.assertEqual(item["review_id"], created["created"][0]["review_id"])
+        self.assertEqual(item["memory_type"], "working_habit")
+        self.assertEqual(item["memory_scope"], "project")
+        self.assertEqual(item["message_ids"], ["msg-review-queue"])
+        self.assertEqual(item["next_actions"][0]["action"], "review_conversation_memory_candidate")
+        self.assertEqual(queue["next_actions"][0]["action"], "review_conversation_memory_candidate")
+        self.assertEqual(queue["next_actions"][0]["tool"], "pska_review_get")
+
     def test_queue_writes_audit(self):
         service = build_fake_service()
 

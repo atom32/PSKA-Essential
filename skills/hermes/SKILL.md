@@ -148,7 +148,10 @@ candidate memory, review, and durable export.
   `pska_conversation_memory_candidates_create` with compact candidates. Each
   candidate must include concrete `text`, `memory_type`, `memory_scope`,
   `behavior_delta`, and conversation evidence. Treat the output as pending
-  Review work; do not claim memory was saved.
+  Review work; do not claim memory was saved. Use `pska_memory_review_queue`
+  to inspect the `conversation_candidates` group and follow
+  `review_conversation_memory_candidate` when the user is ready to accept,
+  edit, or reject candidates.
 - If `pska_memory_change_from_conversation` returns `status="needs_target"`,
   call `pska_memory_search` with the returned `next_actions` query, ask the user
   to disambiguate when needed, then retry with the selected `memory_fact`.

@@ -91,6 +91,44 @@ class JarvisBriefingTests(unittest.TestCase):
         self.assertIn("source.audit.run", audit_actions)
         self.assertIn("jarvis.briefing.build", audit_actions)
 
+    def test_briefing_prioritizes_conversation_memory_candidates(self):
+        service = build_fake_service()
+        created = service.conversation_memory_candidates_create(
+            session_id="sess-jarvis-memory",
+            messages=[
+                {
+                    "message_id": "msg-jarvis-memory",
+                    "role": "user",
+                    "text": "For PSKA memory, Hermes should review stable conversation candidates.",
+                }
+            ],
+            candidates=[
+                {
+                    "text": "Hermes should review stable PSKA conversation memory candidates.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When stable PSKA memory candidates appear in conversation, send them through review.",
+                    "message_ids": ["msg-jarvis-memory"],
+                }
+            ],
+        )
+
+        briefing = build_jarvis_briefing(service=service, gateway=_Gateway())
+        priority_codes = {item["code"] for item in briefing["priorities"]}
+        actions = {item["action"]: item for item in briefing["next_actions"]}
+
+        self.assertEqual(briefing["status"], "action_required")
+        self.assertIn("review_conversation_memory_candidates", priority_codes)
+        self.assertEqual(briefing["summary"]["conversation_memory_candidate_count"], 1)
+        self.assertEqual(
+            briefing["memory_layer"]["review_queue"]["summary"]["conversation_candidate_count"],
+            1,
+        )
+        self.assertEqual(
+            actions["review_conversation_memory_candidate"]["params"]["review_id"],
+            created["created"][0]["review_id"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
