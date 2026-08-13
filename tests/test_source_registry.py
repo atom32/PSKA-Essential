@@ -272,6 +272,49 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertFalse(report["data_flow"]["writes_source_files"])
         self.assertFalse(report["data_flow"]["embedding_required"])
 
+    def test_media_metadata_duplicate_report_finds_image_candidates_without_embeddings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            original = root_path / "Screenshot.png"
+            copy = root_path / "Screenshot copy.jpg"
+            unrelated = root_path / "Other.png"
+            original.write_bytes(b"\x89PNG\r\n\x1a\n" + b"a" * 50000)
+            copy.write_bytes(b"\xff\xd8" + b"b" * 50100)
+            unrelated.write_bytes(b"\x89PNG\r\n\x1a\n" + b"c" * 62000)
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+
+            report = registry.duplicate_report(
+                {"root_ids": [root["root_id"]]},
+                mode="media_metadata",
+                limit=10,
+            )
+
+            self.assertEqual(original.read_bytes(), b"\x89PNG\r\n\x1a\n" + b"a" * 50000)
+            self.assertEqual(copy.read_bytes(), b"\xff\xd8" + b"b" * 50100)
+
+        self.assertEqual(report["mode"], "media_metadata")
+        self.assertEqual(report["provider"], "core_heuristic")
+        self.assertEqual(report["group_count"], 1)
+        self.assertEqual(report["duplicate_file_count"], 1)
+        group = report["groups"][0]
+        self.assertEqual(group["method"], "media_metadata")
+        self.assertEqual(group["media_family"], "image")
+        self.assertEqual(group["name_key"], "screenshot")
+        self.assertIn("cross_extension", group["reason"])
+        self.assertIn("version_or_copy_name", group["reason"])
+        self.assertCountEqual(group["extensions"], [".jpg", ".png"])
+        self.assertCountEqual(
+            [member["path"] for member in group["members"]],
+            ["Screenshot copy.jpg", "Screenshot.png"],
+        )
+        self.assertFalse(report["metadata"]["embedding_required"])
+        self.assertFalse(report["metadata"]["perceptual_hash_required"])
+        self.assertFalse(report["data_flow"]["writes_source_files"])
+        self.assertFalse(report["data_flow"]["embedding_required"])
+
     def test_duplicate_review_list_and_mark_store_human_state_without_source_writes(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir) / "Project"

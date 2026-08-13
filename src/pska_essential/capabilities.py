@@ -80,7 +80,14 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "writes_source_registry": True,
         "writes_source_files": False,
         "delete_move_merge_supported": False,
-        "supports_modes": ["exact_hash", "size_name_version", "text_similarity", "fclones_hash", "czkawka_hash"],
+        "supports_modes": [
+            "exact_hash",
+            "size_name_version",
+            "text_similarity",
+            "media_metadata",
+            "fclones_hash",
+            "czkawka_hash",
+        ],
     },
     "pska_duplicate_review_list": {
         "category": "source",
@@ -704,7 +711,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m19_duplicate_cleanup_proposals",
+        "status": "m20_media_metadata_duplicates",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -765,6 +772,7 @@ def source_layer_contract() -> dict[str, Any]:
                 "exact_hash",
                 "size_name_version",
                 "text_similarity",
+                "media_metadata",
                 "fclones",
                 "czkawka",
                 "dupeguru",
@@ -790,7 +798,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m19_duplicate_cleanup_proposals",
+        "status": "m20_media_metadata_duplicates",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -964,6 +972,14 @@ def adapter_slots_contract() -> dict[str, Any]:
                     maturity="implemented",
                     integration="core",
                     supports=["indexed_text_tokens", "jaccard_similarity", "no_embedding_candidates"],
+                    safety={"delete_move_merge_supported": False},
+                ),
+                _provider(
+                    "media_metadata",
+                    status="available",
+                    maturity="implemented",
+                    integration="core",
+                    supports=["media_family", "normalized_filename", "similar_size_candidates", "no_embedding_candidates"],
                     safety={"delete_move_merge_supported": False},
                 ),
                 _cli_provider(

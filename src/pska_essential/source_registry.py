@@ -46,6 +46,9 @@ SKIP_DIRS = {
     "__pycache__",
     "node_modules",
 }
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".tif", ".tiff", ".bmp"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}
+AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg"}
 
 class SourceRegistryError(ValueError):
     """Raised when the personal source registry refuses an unsafe operation."""
@@ -385,9 +388,11 @@ class SQLiteSourceRegistry:
             return self._size_name_version_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode == "text_similarity":
             return self._text_similarity_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
+        if mode == "media_metadata":
+            return self._media_metadata_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode != "exact_hash":
             raise SourceRegistryError(
-                "duplicate report mode must be exact_hash, size_name_version, text_similarity, fclones_hash, or czkawka_hash"
+                "duplicate report mode must be exact_hash, size_name_version, text_similarity, media_metadata, fclones_hash, or czkawka_hash"
             )
         where = ["o.status = 'active'", "o.content_hash != ''"]
         params: list[Any] = []
@@ -2498,6 +2503,110 @@ class SQLiteSourceRegistry:
             },
         }
 
+    def _media_metadata_duplicate_report(
+        self,
+        scope: dict[str, Any],
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        limit: int,
+    ) -> dict[str, Any]:
+        rows = self._duplicate_media_rows(root_ids=root_ids, kinds=kinds)
+        report_id = _stable_id("dup_report", f"{utc_now_iso()}:media_metadata:{json.dumps(scope, sort_keys=True)}")
+        now = utc_now_iso()
+        candidate_groups = _media_metadata_groups(rows, limit=limit)
+        with self.lock:
+            self.conn.execute(
+                """
+                INSERT INTO duplicate_reports(report_id, mode, scope_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (report_id, "media_metadata", json.dumps(scope, sort_keys=True), now),
+            )
+            payload_groups = []
+            for index, group in enumerate(candidate_groups, start=1):
+                group_id = _stable_id("dup", f"{report_id}:{index}:{group['key']}")
+                members = [member["payload"] | {"reason": group["reason"]} for member in group["members"]]
+                self.conn.execute(
+                    """
+                    INSERT INTO duplicate_groups(
+                        group_id, report_id, method, confidence, content_hash, size,
+                        member_count, action_status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'reported')
+                    """,
+                    (
+                        group_id,
+                        report_id,
+                        "media_metadata",
+                        float(group["confidence"]),
+                        "",
+                        int(group["representative_size"]),
+                        len(members),
+                    ),
+                )
+                for member in members:
+                    self.conn.execute(
+                        """
+                        INSERT INTO duplicate_members(
+                            group_id, object_id, root_id, path, reason, content_hash, size
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            group_id,
+                            member["object_id"],
+                            member["root_id"],
+                            member["path"],
+                            member["reason"],
+                            member.get("content_hash") or "",
+                            int(member.get("size") or 0),
+                        ),
+                    )
+                payload_groups.append(
+                    {
+                        "group_id": group_id,
+                        "index": index,
+                        "method": "media_metadata",
+                        "confidence": float(group["confidence"]),
+                        "reason": group["reason"],
+                        "media_family": group["media_family"],
+                        "name_key": group["name_key"],
+                        "extensions": group["extensions"],
+                        "size": int(group["representative_size"]),
+                        "size_spread": int(group["size_spread"]),
+                        "member_count": len(members),
+                        "action_status": "reported",
+                        "review_note": "",
+                        "reviewed_at": "",
+                        "members": members,
+                    }
+                )
+            self.conn.commit()
+        return {
+            "report_id": report_id,
+            "mode": "media_metadata",
+            "provider": "core_heuristic",
+            "status": "ok",
+            "message": f"media metadata heuristic returned {len(payload_groups)} candidate group(s).",
+            "scope": scope,
+            "group_count": len(payload_groups),
+            "duplicate_file_count": sum(max(group["member_count"] - 1, 0) for group in payload_groups),
+            "groups": payload_groups,
+            "metadata": {
+                "heuristic": "media_family_name_size_bucket",
+                "embedding_required": False,
+                "perceptual_hash_required": False,
+                "confidence_is_review_signal": True,
+            },
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_index": True,
+                "delete_move_merge_supported": False,
+                "embedding_required": False,
+            },
+        }
+
     def _external_duplicate_report(
         self,
         scope: dict[str, Any],
@@ -2697,6 +2806,46 @@ class SQLiteSourceRegistry:
                 )
                 WHERE {' AND '.join(where)}
                 GROUP BY o.object_id
+                ORDER BY r.label COLLATE NOCASE, o.path COLLATE NOCASE
+                """,
+                params,
+            ).fetchall()
+
+    def _duplicate_media_rows(self, *, root_ids: list[str], kinds: list[str]) -> list[sqlite3.Row]:
+        media_suffixes = sorted(IMAGE_EXTENSIONS | VIDEO_EXTENSIONS | AUDIO_EXTENSIONS)
+        suffix_filters = " OR ".join("lower(o.path) LIKE ?" for _ in media_suffixes)
+        where = [
+            "o.status = 'active'",
+            "o.size > 0",
+            "("
+            "o.mime LIKE 'image/%' OR o.mime LIKE 'video/%' OR o.mime LIKE 'audio/%' "
+            f"OR {suffix_filters}"
+            ")",
+        ]
+        params: list[Any] = [f"%{suffix}" for suffix in media_suffixes]
+        if root_ids:
+            where.append(f"o.root_id IN ({','.join('?' for _ in root_ids)})")
+            params.extend(root_ids)
+        if kinds:
+            where.append(f"r.kind IN ({','.join('?' for _ in kinds)})")
+            params.extend(kinds)
+        with self.lock:
+            return self.conn.execute(
+                f"""
+                SELECT o.object_id, o.root_id, o.path, o.title, o.kind AS object_kind,
+                       o.mime, o.content_hash, o.size, o.extraction_status,
+                       r.kind AS root_kind, r.label AS root_label, r.permission_mode,
+                       s.section_id, s.title AS section_title, s.section_type,
+                       s.heading_path, s.line_start, s.line_end
+                FROM source_objects o
+                JOIN source_roots r ON r.root_id = o.root_id
+                LEFT JOIN source_sections s ON s.section_id = (
+                    SELECT section_id FROM source_sections
+                    WHERE object_id = o.object_id
+                    ORDER BY line_start ASC, section_id ASC
+                    LIMIT 1
+                )
+                WHERE {' AND '.join(where)}
                 ORDER BY r.label COLLATE NOCASE, o.path COLLATE NOCASE
                 """,
                 params,
@@ -3565,6 +3714,104 @@ def _size_name_version_confidence(items: list[dict[str, Any]], *, size_spread: i
     if spread_ratio <= 0.05:
         return 0.74 if has_version_signal else 0.68
     return 0.62 if has_version_signal else 0.55
+
+
+def _media_metadata_groups(rows: list[sqlite3.Row], *, limit: int) -> list[dict[str, Any]]:
+    buckets: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        path = str(row["path"] or "")
+        media_family = _media_family(row)
+        if not media_family:
+            continue
+        name_key, signals = _duplicate_name_key(path)
+        name_key = _media_name_key(name_key)
+        if not name_key:
+            continue
+        buckets.setdefault((media_family, name_key), []).append(
+            {
+                "row": row,
+                "payload": _duplicate_member_payload(row),
+                "signals": signals,
+                "media_family": media_family,
+                "extension": Path(path).suffix.lower(),
+                "size": int(row["size"] or 0),
+            }
+        )
+    groups: list[dict[str, Any]] = []
+    for (media_family, name_key), items in buckets.items():
+        if len(items) < 2:
+            continue
+        filtered = _size_compatible_duplicate_items(items)
+        if len(filtered) < 2:
+            continue
+        sizes = [int(item["size"]) for item in filtered]
+        extensions = sorted({str(item["extension"]) for item in filtered if item["extension"]})
+        size_spread = max(sizes) - min(sizes)
+        reason_bits = ["same_media_family", "same_normalized_name"]
+        if any(item["signals"] for item in filtered):
+            reason_bits.append("version_or_copy_name")
+        if len(extensions) > 1:
+            reason_bits.append("cross_extension")
+        if size_spread:
+            reason_bits.append("similar_size")
+        reason = "+".join(reason_bits)
+        groups.append(
+            {
+                "key": f"{media_family}:{name_key}",
+                "media_family": media_family,
+                "name_key": name_key,
+                "extensions": extensions,
+                "confidence": _media_metadata_confidence(filtered, size_spread=size_spread, extensions=extensions),
+                "reason": reason,
+                "representative_size": max(sizes),
+                "size_spread": size_spread,
+                "members": [
+                    item | {"reason": reason}
+                    for item in sorted(filtered, key=lambda item: str(item["payload"]["path"]).lower())
+                ],
+            }
+        )
+    groups.sort(key=lambda group: (-len(group["members"]), -group["confidence"], group["name_key"]))
+    return groups[:limit]
+
+
+def _media_family(row: sqlite3.Row) -> str:
+    mime = str(_row_value(row, "mime") or "").lower()
+    if mime.startswith("image/"):
+        return "image"
+    if mime.startswith("video/"):
+        return "video"
+    if mime.startswith("audio/"):
+        return "audio"
+    extension = Path(str(row["path"] or "")).suffix.lower()
+    if extension in IMAGE_EXTENSIONS:
+        return "image"
+    if extension in VIDEO_EXTENSIONS:
+        return "video"
+    if extension in AUDIO_EXTENSIONS:
+        return "audio"
+    return ""
+
+
+def _media_name_key(name_key: str) -> str:
+    value = name_key.strip()
+    value = re.sub(r"\s+(?:edited|export|exported|resized|small|large|scaled|compressed)\s*$", "", value).strip()
+    return re.sub(r"\s+", " ", value)
+
+
+def _media_metadata_confidence(items: list[dict[str, Any]], *, size_spread: int, extensions: list[str]) -> float:
+    sizes = [max(int(item["size"]), 1) for item in items]
+    max_size = max(sizes)
+    spread_ratio = size_spread / max_size if max_size else 1.0
+    has_version_signal = any(item["signals"] for item in items)
+    cross_extension = len(extensions) > 1
+    if size_spread == 0:
+        return 0.88 if has_version_signal else 0.82
+    if spread_ratio <= 0.01:
+        return 0.8 if has_version_signal else 0.74
+    if spread_ratio <= 0.05:
+        return 0.7 if has_version_signal or cross_extension else 0.64
+    return 0.58 if has_version_signal or cross_extension else 0.52
 
 
 def _text_similarity_groups(rows: list[sqlite3.Row], *, limit: int, threshold: float) -> list[dict[str, Any]]:

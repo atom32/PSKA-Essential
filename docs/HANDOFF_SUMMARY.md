@@ -110,9 +110,15 @@ Last updated: 2026-07-15
 > `pska_duplicate_cleanup_propose` records keep strategies and would-archive
 > candidates for a duplicate group as a source action proposal. It is intentionally
 > non-executable: apply/delete/move/merge remain unsupported.
+>
+> Update, 2026-08-13: Media metadata duplicate candidates are implemented as M20.
+> `pska_duplicate_report(mode="media_metadata")` groups image/video/audio files
+> by media family, normalized filename, and similar size. It requires no
+> embeddings or perceptual hash, writes only PSKA registry metadata, and remains
+> a review-only signal.
 > Next useful source-governance steps are richer frontmatter fields, stronger
-> ranking adapters, media duplicate heuristics, and executable strong-confirmation
-> cleanup proposals.
+> ranking adapters, perceptual hash/EXIF media checks, and executable
+> strong-confirmation cleanup proposals.
 
 This document is the handoff point for a fresh Codex conversation.
 

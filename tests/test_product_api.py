@@ -320,7 +320,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m19_duplicate_cleanup_proposals")
+        self.assertEqual(source_layer["status"], "m20_media_metadata_duplicates")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -360,6 +360,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("fclones", source_layer["adapter_slots"]["dedup"])
         self.assertIn("size_name_version", source_layer["adapter_slots"]["dedup"])
         self.assertIn("text_similarity", source_layer["adapter_slots"]["dedup"])
+        self.assertIn("media_metadata", source_layer["adapter_slots"]["dedup"])
         sqlite_search = next(
             provider
             for provider in capabilities["capabilities"]["adapter_slots"]["slots"]["search_index"]["providers"]
@@ -369,7 +370,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m19_duplicate_cleanup_proposals")
+        self.assertEqual(assistant_layer["status"], "m20_media_metadata_duplicates")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", assistant_layer["mcp_tools"]["implemented"])
@@ -515,6 +516,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("exact_hash", adapter_slots["summary"]["dedup"]["available"])
         self.assertIn("size_name_version", adapter_slots["summary"]["dedup"]["available"])
         self.assertIn("text_similarity", adapter_slots["summary"]["dedup"]["available"])
+        self.assertIn("media_metadata", adapter_slots["summary"]["dedup"]["available"])
         markitdown = _adapter_provider(adapter_slots, "extraction", "markitdown")
         self.assertIn(markitdown["status"], {"available", "unavailable"})
         self.assertNotEqual(markitdown["status"], "planned")
@@ -523,6 +525,11 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(docling["status"], {"available", "unavailable"})
         self.assertNotEqual(docling["status"], "planned")
         self.assertEqual(docling["integration"], "python_optional_extra")
+        media_metadata = _adapter_provider(adapter_slots, "dedup", "media_metadata")
+        self.assertEqual(media_metadata["status"], "available")
+        self.assertEqual(media_metadata["integration"], "core")
+        self.assertIn("no_embedding_candidates", media_metadata["supports"])
+        self.assertFalse(media_metadata["safety"]["delete_move_merge_supported"])
         fclones = _adapter_provider(adapter_slots, "dedup", "fclones")
         self.assertIn(fclones["status"], {"available", "unavailable"})
         self.assertEqual(fclones["integration"], "external_cli")
@@ -764,6 +771,9 @@ class ProductApiTests(unittest.TestCase):
                 route_text.replace("architecture", "design").replace("indexed local files", "local indexed files"),
                 encoding="utf-8",
             )
+            (root_path / "Screenshot.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"a" * 50000)
+            (root_path / "Screenshot copy.jpg").write_bytes(b"\xff\xd8" + b"b" * 50100)
+            (root_path / "Other.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"c" * 62000)
 
             registered = self._post_json(
                 "/api/sources/roots",
@@ -797,6 +807,10 @@ class ProductApiTests(unittest.TestCase):
                     "scope": {"root_ids": [registered["root"]["root_id"]], "similarity_threshold": 0.7},
                     "mode": "text_similarity",
                 },
+            )
+            media_duplicate = self._post_json(
+                "/api/sources/duplicates",
+                {"scope": {"root_ids": [registered["root"]["root_id"]]}, "mode": "media_metadata"},
             )
             duplicate_review = self._post_json(
                 "/api/sources/duplicate-review",
@@ -976,8 +990,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(text_duplicate["duplicate_report"]["mode"], "text_similarity")
         self.assertEqual(text_duplicate["duplicate_report"]["group_count"], 1)
         self.assertFalse(text_duplicate["duplicate_report"]["metadata"]["embedding_required"])
+        self.assertEqual(media_duplicate["duplicate_report"]["mode"], "media_metadata")
+        self.assertEqual(media_duplicate["duplicate_report"]["group_count"], 1)
+        self.assertEqual(media_duplicate["duplicate_report"]["groups"][0]["media_family"], "image")
+        self.assertFalse(media_duplicate["duplicate_report"]["metadata"]["embedding_required"])
+        self.assertFalse(media_duplicate["duplicate_report"]["metadata"]["perceptual_hash_required"])
+        self.assertFalse(media_duplicate["duplicate_report"]["data_flow"]["writes_source_files"])
         self.assertEqual(duplicate_review["duplicate_review"]["schema"], "pska.source_duplicate_review.v1")
-        self.assertGreaterEqual(duplicate_review["duplicate_review"]["count"], 2)
+        self.assertGreaterEqual(duplicate_review["duplicate_review"]["count"], 3)
         self.assertEqual(duplicate_mark["duplicate_group_review"]["status"], "ignored")
         self.assertFalse(duplicate_mark["duplicate_group_review"]["data_flow"]["writes_source_files"])
         self.assertTrue(duplicate_mark["duplicate_group_review"]["data_flow"]["writes_source_registry"])

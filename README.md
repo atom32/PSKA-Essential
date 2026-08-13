@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M19 baseline into
+  engineering plan for upgrading the current PSKA-Essential M20 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -481,7 +481,7 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
-The personal source tools provide the M1-M19 no-embedding local source loop:
+The personal source tools provide the M1-M20 no-embedding local source loop:
 register a user-authorized local folder or Obsidian vault, scan rebuildable
 metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
 `.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
@@ -492,7 +492,10 @@ groups and `pska_saved_search_create` for reusable local source views; M16 adds
 the core `size_name_version` duplicate mode for same normalized filename,
 copy/version suffix, and similar-size candidates. M17 adds the core
 `text_similarity` duplicate mode over already indexed text using token Jaccard,
-without embeddings. These reports write only PSKA registry metadata and never
+without embeddings. M20 adds the core `media_metadata` mode for image, video,
+and audio candidate groups using media family, normalized filenames, and
+similar file sizes, again without embeddings or perceptual hashes. These
+reports write only PSKA registry metadata and never
 delete, move, merge, or edit source files. External
 fclones reports use `PSKA_FCLONES_BIN` when it points to
 an executable binary, then fall back to `PATH`; external Czkawka reports use
@@ -690,6 +693,10 @@ for reviewed duplicate groups. It chooses a keep candidate through explicit
 strategies such as `keep_first`, `keep_largest`, `keep_newest`, or
 `keep_selected`, records would-archive candidates, and still cannot apply,
 delete, move, merge, or edit files.
+M20 adds built-in `media_metadata` duplicate reports for image, video, and audio
+files. It groups same-media-family files by normalized filename and similar
+size, requires no embeddings or perceptual hash, and remains a dry-run review
+signal.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through

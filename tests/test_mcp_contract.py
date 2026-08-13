@@ -379,6 +379,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("builtin_text", capabilities["adapter_slots"]["summary"]["extraction"]["available"])
         self.assertIn("sqlite_fts5", capabilities["adapter_slots"]["summary"]["search_index"]["available"])
         self.assertIn("exact_hash", capabilities["adapter_slots"]["summary"]["dedup"]["available"])
+        self.assertIn("media_metadata", capabilities["adapter_slots"]["summary"]["dedup"]["available"])
         self.assertEqual(capabilities["adapter_slots"]["slots"]["extraction"]["contract"], "ExtractionPort")
         self.assertEqual(capabilities["adapter_slots"]["slots"]["dedup"]["contract"], "DedupPort")
         self.assertEqual(capabilities["adapter_slots"]["slots"]["thought_artifact"]["contract"], "ThoughtArtifactPort")
@@ -410,7 +411,7 @@ class McpContractTests(unittest.TestCase):
         self.assertTrue(policy["pska_source_audit_job_tick"]["wall_clock_tick"])
         self.assertEqual(
             policy["pska_duplicate_report"]["supports_modes"],
-            ["exact_hash", "size_name_version", "text_similarity", "fclones_hash", "czkawka_hash"],
+            ["exact_hash", "size_name_version", "text_similarity", "media_metadata", "fclones_hash", "czkawka_hash"],
         )
         self.assertFalse(policy["pska_duplicate_review_list"]["writes_source_files"])
         self.assertFalse(policy["pska_duplicate_review_list"]["writes_source_registry"])

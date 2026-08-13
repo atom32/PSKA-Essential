@@ -492,7 +492,8 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 - 近似查重 adapter；内置 `size_name_version` 已覆盖同名/副本/版本/近似大小候选，内置
   `text_similarity` 已覆盖 indexed text token similarity，基础 duplicate review list/mark 已覆盖
   human-in-loop 状态记录，dry-run cleanup proposal 已覆盖 keep/would-archive 计划，
-  后续补 media similarity 和可执行强确认清理。
+  内置 `media_metadata` 已覆盖 image/video/audio 的同媒体类型、规范化文件名、近似大小候选；
+  后续补 perceptual hash/EXIF 级媒体相似和可执行强确认清理。
 - Richer Obsidian frontmatter fields；MOC grouping 已有 first-pass `folder/tag/topic/project`。
 - 更强 source route learning。
 - MarkItDown/Docling/Tika adapter。

@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M19 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M20 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -225,6 +225,9 @@ Provider slots:
 - `text_similarity`: implemented core heuristic over already indexed source text
   using token Jaccard and optional `scope.similarity_threshold`. It does not use
   embeddings and remains a dry-run report signal only.
+- `media_metadata`: implemented core heuristic for image, video, and audio
+  candidates using media family, normalized filename, and similar size. It does
+  not use embeddings or perceptual hashes and remains a review signal only.
 - `fclones`: implemented CLI adapter for hash duplicate groups and JSON
   reports. It uses `PSKA_FCLONES_BIN` when it points to an executable binary,
   otherwise `PATH`, and returns `status=unavailable` when no command can be
@@ -532,7 +535,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M19 source-management MCP surface:
+The personal source layer has an M1-M20 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
