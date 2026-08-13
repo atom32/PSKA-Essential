@@ -571,6 +571,7 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
     "pska_policy_get": {"category": "policy", "access": "read", "durable": False},
     "pska_capabilities_get": {"category": "policy", "access": "read", "durable": False},
     "pska_workspace_status": {"category": "status", "access": "read", "durable": False},
+    "pska_alpha_readiness": {"category": "status", "access": "read", "durable": False},
     "pska_runtime_diagnostics": {"category": "diagnostics", "access": "read", "durable": False},
     "pska_retrieval_probe": {"category": "diagnostics", "access": "read", "durable": False},
     "pska_memory_probe": {"category": "diagnostics", "access": "read", "durable": False},
@@ -816,13 +817,14 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m24_refresh_review_workbench",
+        "status": "m25_alpha_readiness_gate",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
             "implemented": [
                 "pska_workspace_status",
                 "pska_jarvis_briefing",
+                "pska_alpha_readiness",
                 "pska_source_audit_run",
                 "pska_duplicate_review_list",
                 "pska_duplicate_group_mark",

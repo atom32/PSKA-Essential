@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M24 baseline into
+  engineering plan for upgrading the current PSKA-Essential M25 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -380,6 +380,7 @@ Operational loop tools:
 - `pska_kb_graph_read`
 - `pska_component_check`
 - `pska_workspace_status`
+- `pska_alpha_readiness`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
 - `pska_live_closed_loop_probe`
@@ -720,6 +721,10 @@ Queue now has a `refresh_reviews` group, `refresh_review_count` summary, and
 M24 adds a WebUI refresh-review workbench card that shows source memory id,
 previous text, proposed text, no-text-change refresh checks, and the exact
 Review action inline inside Memory Review Queue.
+M25 adds `pska_alpha_readiness` and `GET /api/alpha/readiness`, a read-only
+trial gate that aggregates runtime diagnostics, workspace status, source safety,
+memory governance, KB readiness, memory health, and UX gaps into
+`alpha_ready` / `technical_alpha` / `not_ready` guidance.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
@@ -755,6 +760,9 @@ configuration errors are returned as structured JSON with a nonzero exit. A
 processing KB scope also returns `incomplete`, so long-running parsing,
 embedding, or indexing is reported as a readiness wait rather than a provider
 fallback or backend failure.
+`pska_alpha_readiness` is the product trial gate: it does not run writes or a
+closed-loop probe, but tells operators whether the current instance is ready for
+owner dogfooding, guided technical alpha, or only demo/development use.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live
@@ -814,6 +822,7 @@ Implemented Alpha routes:
 
 - `GET /api/health`
 - `GET /api/capabilities`
+- `GET /api/alpha/readiness`
 - `GET /api/migration/manifest`
 - `GET /api/policy`
 - `GET /api/runtime/diagnostics`

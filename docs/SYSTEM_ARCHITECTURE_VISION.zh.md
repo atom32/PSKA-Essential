@@ -377,16 +377,16 @@ flowchart TD
 
 ## Current Baseline
 
-截至 2026-08-13，当前可验证的系统状态是 M21 source governance baseline 加
-M24 Memory Card refresh-review workbench。
+截至 2026-08-14，当前可验证的系统状态是 M21 source governance baseline 加
+M25 alpha readiness gate。
 
 | 能力 | 当前状态 |
 | --- | --- |
 | Hermes-WebUI 日常入口 | 已作为主入口，PSKA panel/Jarvis Bar/Sources panel 正在接入 |
 | Hermes Agent | 已作为主要生成/推理/agentic loop 执行层 |
 | Eidolia | 已通过 Hermes CLI 执行 direct/agentic thought generation |
-| PSKA Product API | 已提供 health、capabilities、workspace status、ask、review、memory、sources、jobs |
-| PSKA MCP | 已暴露 KB、Ask、Review、Memory、Source、Jarvis、jobs 等工具 |
+| PSKA Product API | 已提供 health、capabilities、alpha readiness、workspace status、ask、review、memory、sources、jobs |
+| PSKA MCP | 已暴露 KB、Ask、Review、Memory、Source、Jarvis、jobs、alpha readiness 等工具 |
 | RAGFlow | 作为 KB/retrieval backend 保留 |
 | SQLite Memory + Review | 当前轻量闭环可用 |
 | Memory Card Maintenance | 已支持 card/health/briefing/review queue，可从 card 创建 refresh-review，将其作为 `refresh_reviews` 单独排队，并在 WebUI 对照旧/新文本 |

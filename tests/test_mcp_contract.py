@@ -24,6 +24,7 @@ EXPECTED_TOOLS = {
     "pska_workflow_brief",
     "pska_workspace_status",
     "pska_jarvis_briefing",
+    "pska_alpha_readiness",
     "pska_context_retrieve",
     "pska_source_read",
     "pska_source_root_list",
@@ -125,6 +126,8 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m25_alpha_readiness_gate")
+        self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -651,6 +654,28 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
         self.assertIn(dataset_id, status["next_actions"][0]["params"]["dataset_ids"])
+
+    def test_alpha_readiness_tool_reports_product_trial_gate(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
+            reset_fake_kb_gateway()
+            tools = tool_registry(build_service_from_env())
+            _ingest_text(
+                tools,
+                temp_dir,
+                name="alpha-readiness.txt",
+                text="Alpha readiness should report whether PSKA is safe for technical trial.",
+            )
+            result = tools["pska_alpha_readiness"]()
+
+        checks = {check["code"]: check for check in result["checks"]}
+        self.assertEqual(result["schema"], "pska.alpha_readiness.v1")
+        self.assertEqual(result["status"], "technical_alpha")
+        self.assertEqual(result["summary"]["required_failure_count"], 0)
+        self.assertEqual(checks["provider_configuration"]["status"], "warn")
+        self.assertEqual(checks["source_safety"]["status"], "pass")
+        self.assertEqual(checks["memory_governance"]["status"], "pass")
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertIn("configure_live_providers", [action["action"] for action in result["next_actions"]])
 
     def test_memory_review_from_workflow_turns_transient_run_into_review(self):
         service = build_fake_service()

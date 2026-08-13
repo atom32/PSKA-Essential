@@ -670,6 +670,9 @@ Hermes 的默认行为：
 - Done: WebUI 记忆维护队列已为 `memory_refresh_review` item 增加专门卡片，直接显示
   source memory id、原记忆、刷新提案和 no-text-change 复核类型，方便人工比较后再打开
   Review 决策。
+- Done: Alpha readiness gate 已接入；`pska_alpha_readiness` 与
+  `GET /api/alpha/readiness` 会只读判断当前实例适合 owner dogfooding、guided technical alpha
+  还是仅 demo/dev，并给出 required failures 与 next actions。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

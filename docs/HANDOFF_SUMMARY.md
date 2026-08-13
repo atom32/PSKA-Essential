@@ -144,6 +144,14 @@ Last updated: 2026-07-15
 > cards with source memory id, previous text, proposed text, no-text-change
 > refresh checks, and the exact Review action inline. This improves manual
 > memory maintenance without adding a new durable write path.
+>
+> Update, 2026-08-14: Alpha readiness gate is implemented as M25.
+> `GET /api/alpha/readiness` and `pska_alpha_readiness` aggregate runtime
+> diagnostics, workspace status, source safety, memory governance, KB readiness,
+> memory health, review load, provider configuration, and UX gaps into a
+> read-only trial report. It classifies the instance as `alpha_ready`,
+> `technical_alpha`, `technical_alpha_only`, or `not_ready`, includes required
+> failures and next actions, and never runs writes or a closed-loop probe.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.
@@ -696,6 +704,7 @@ pska_agentic_question_resume
 pska_policy_get
 pska_capabilities_get
 pska_workspace_status
+pska_alpha_readiness
 pska_runtime_diagnostics
 pska_workflow_list
 pska_workflow_artifact
