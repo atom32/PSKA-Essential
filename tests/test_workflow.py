@@ -242,6 +242,67 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(len(service.store.list_reviews(status="pending")), 1)
         self.assertEqual(service.memory_search("uncertain", {}, 10), [])
 
+    def test_conversation_memory_candidates_create_review_items_without_memory_writes(self):
+        service = build_fake_service()
+        result = service.conversation_memory_candidates_create(
+            session_id="sess-candidates",
+            messages=[
+                {
+                    "message_id": "msg-1",
+                    "role": "user",
+                    "text": "For PSKA memory design, keep behavior_delta explicit and avoid vague personality summaries.",
+                }
+            ],
+            candidates=[
+                {
+                    "text": "For PSKA memory design, memory candidates should include explicit behavior_delta rather than vague personality summaries.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When proposing PSKA memory changes, include concrete behavior_delta and avoid vague personality summaries.",
+                    "reason": "stable memory design preference",
+                    "message_ids": ["msg-1"],
+                }
+            ],
+        )
+
+        self.assertEqual(result["schema"], "pska.conversation_memory_candidates.v1")
+        self.assertEqual(result["status"], "created")
+        self.assertEqual(result["created_count"], 1)
+        self.assertEqual(result["skipped_count"], 0)
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertTrue(result["data_flow"]["creates_review"])
+        self.assertEqual(service.memory_search("behavior_delta", {}, 10), [])
+        review = service.store.get_review_record(result["created"][0]["review_id"])
+        self.assertEqual(review["status"], "pending")
+        self.assertEqual(review["proposal"]["memory_patch"]["metadata"]["candidate_origin"], "conversation_candidate")
+        self.assertEqual(review["proposal"]["memory_patch"]["metadata"]["memory_type"], "working_habit")
+        self.assertEqual(review["proposal"]["source_refs"][0]["adapter"], "hermes")
+        actions = {event.action for event in service.store.list_audit_events(limit=20)}
+        self.assertIn("memory.conversation_candidates.create", actions)
+
+    def test_conversation_memory_candidates_dedupe_existing_review(self):
+        service = build_fake_service()
+        payload = {
+            "session_id": "sess-candidates",
+            "messages": [{"message_id": "msg-1", "text": "Prefer concise PSKA review summaries."}],
+            "candidates": [
+                {
+                    "text": "The user prefers concise PSKA review summaries.",
+                    "memory_type": "preference",
+                    "memory_scope": "project",
+                    "behavior_delta": "Keep PSKA review summaries concise.",
+                    "message_ids": ["msg-1"],
+                }
+            ],
+        }
+
+        first = service.conversation_memory_candidates_create(**payload)
+        second = service.conversation_memory_candidates_create(**payload)
+
+        self.assertEqual(first["created_count"], 1)
+        self.assertEqual(second["created_count"], 0)
+        self.assertEqual(second["skipped"][0]["reason"], "existing_review")
+
     def test_sourced_memory_candidate_includes_review_triage_metadata(self):
         corpus = [
             {

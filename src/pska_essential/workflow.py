@@ -1363,6 +1363,150 @@ class WorkflowService:
             "artifact": self.workflow_artifact(run.run_id),
         }
 
+    def conversation_memory_candidates_create(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        candidates: list[dict[str, Any]],
+        session_id: str = "",
+        scope: dict[str, Any] | None = None,
+        dedupe_existing: bool = True,
+        candidate_limit: int = 5,
+    ) -> dict[str, Any]:
+        """Create governed Memory Card candidates extracted from conversation."""
+
+        self._ensure_memory_operation_supported("apply")
+        normalized_messages = _conversation_candidate_messages(messages)
+        normalized_scope = dict(scope or {})
+        limit = max(1, min(int(candidate_limit or 5), 25))
+        existing_keys = (
+            _existing_conversation_memory_candidate_keys(self.store.list_reviews(limit=300))
+            if dedupe_existing
+            else set()
+        )
+        created = []
+        skipped = []
+        seen: set[str] = set()
+        for index, candidate in enumerate(candidates or [], start=1):
+            if len(created) >= limit:
+                break
+            try:
+                normalized = _normalize_conversation_memory_candidate(
+                    candidate,
+                    index=index,
+                    messages=normalized_messages,
+                    session_id=session_id,
+                    scope=normalized_scope,
+                )
+            except WorkflowError as exc:
+                skipped.append({"index": index, "reason": str(exc), "candidate": to_jsonable(candidate)})
+                continue
+            key = _conversation_memory_candidate_key(
+                text=normalized["text"],
+                memory_type=normalized["memory_type"],
+                memory_scope=normalized["memory_scope"],
+                behavior_delta=normalized["behavior_delta"],
+            )
+            if key in seen:
+                skipped.append(_skipped_conversation_memory_candidate(normalized, "duplicate_in_request"))
+                continue
+            if key in existing_keys:
+                skipped.append(_skipped_conversation_memory_candidate(normalized, "existing_review"))
+                continue
+            seen.add(key)
+            run = self.start(
+                f"conversation memory candidate: {normalized['memory_type']}",
+                {
+                    **normalized_scope,
+                    "operation": "memory_patch",
+                    "origin": CONVERSATION_ORIGIN,
+                    "candidate_origin": "conversation_candidate",
+                    "session_id": session_id,
+                },
+            )
+            memory_patch = MemoryPatch(
+                text=normalized["text"],
+                source_refs=normalized["source_refs"],
+                confidence=normalized["confidence"],
+                metadata={
+                    "origin": CONVERSATION_ORIGIN,
+                    "candidate_origin": "conversation_candidate",
+                    "memory_type": normalized["memory_type"],
+                    "memory_scope": normalized["memory_scope"],
+                    "behavior_delta": normalized["behavior_delta"],
+                    "display_text": normalized["text"],
+                    "reason": normalized["reason"],
+                    "session_id": session_id,
+                    "message_ids": normalized["message_ids"],
+                    "evidence_quotes": normalized["evidence_quotes"],
+                    **_memory_runtime_scope(normalized_scope),
+                },
+            )
+            proposal = self._create_memory_patch_proposal(
+                run,
+                intent=normalized["reason"] or f"Candidate from conversation: {normalized['memory_type']}",
+                memory_patch=memory_patch,
+            )
+            review = self.review_create(proposal.proposal_id)
+            created.append(
+                {
+                    "schema": "pska.conversation_memory_candidate.v1",
+                    "index": index,
+                    "memory_type": normalized["memory_type"],
+                    "memory_scope": normalized["memory_scope"],
+                    "text": normalized["text"],
+                    "behavior_delta": normalized["behavior_delta"],
+                    "reason": normalized["reason"],
+                    "message_ids": normalized["message_ids"],
+                    "evidence_quotes": normalized["evidence_quotes"],
+                    "source_refs": to_jsonable(normalized["source_refs"]),
+                    "review_id": review.review_id,
+                    "proposal_id": proposal.proposal_id,
+                    "status": review.status,
+                }
+            )
+            existing_keys.add(key)
+        result = {
+            "schema": "pska.conversation_memory_candidates.v1",
+            "status": "created" if created else "empty",
+            "session_id": session_id,
+            "scope": normalized_scope,
+            "message_count": len(normalized_messages),
+            "candidate_count": len(candidates or []),
+            "created_count": len(created),
+            "skipped_count": len(skipped),
+            "created": created,
+            "skipped": skipped,
+            "data_flow": {
+                "writes_memory_directly": False,
+                "writes_source_files": False,
+                "creates_review": bool(created),
+                "embedding_required": False,
+            },
+        }
+        self.store.add_audit_event(
+            audit_event(
+                "memory.conversation_candidates.create",
+                "conversation",
+                session_id or "conversation",
+                message_count=result["message_count"],
+                candidate_count=result["candidate_count"],
+                created_count=result["created_count"],
+                skipped_count=result["skipped_count"],
+                dedupe_existing=dedupe_existing,
+                source_refs=[
+                    ref
+                    for item in created
+                    for ref in item.get("source_refs") or []
+                ],
+                writes_memory_directly=False,
+                writes_source_files=False,
+                creates_review=bool(created),
+                embedding_required=False,
+            )
+        )
+        return result
+
     def review_decide(self, review_id: str, decision: str, reason: str) -> ReviewDecision:
         if self.store.get_memory_apply(review_id):
             raise WorkflowError("cannot change review decision after durable memory has been applied")
@@ -3116,6 +3260,206 @@ def _conversation_source_refs(
         )
     )
     return _unique_source_refs(refs)
+
+
+def _conversation_candidate_messages(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+    normalized = []
+    for index, message in enumerate(messages or [], start=1):
+        if not isinstance(message, dict):
+            continue
+        text = str(message.get("text") or message.get("content") or "").strip()
+        if not text:
+            continue
+        normalized.append(
+            {
+                "message_id": str(message.get("message_id") or message.get("id") or f"message-{index}").strip(),
+                "role": str(message.get("role") or "").strip(),
+                "text": text,
+                "created_at": str(message.get("created_at") or message.get("createdAt") or "").strip(),
+            }
+        )
+    return normalized
+
+
+def _normalize_conversation_memory_candidate(
+    candidate: dict[str, Any],
+    *,
+    index: int,
+    messages: list[dict[str, str]],
+    session_id: str,
+    scope: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(candidate, dict):
+        raise WorkflowError("conversation memory candidate must be an object")
+    text = str(candidate.get("text") or "").strip()
+    behavior_delta = str(candidate.get("behavior_delta") or "").strip()
+    if not text:
+        raise WorkflowError("conversation memory candidate requires text")
+    if not behavior_delta:
+        raise WorkflowError("conversation memory candidate requires behavior_delta")
+    memory_type = _normalize_memory_card_type(str(candidate.get("memory_type") or "project_state"))
+    memory_scope = _normalize_memory_card_scope(str(candidate.get("memory_scope") or "workspace"))
+    message_ids = _candidate_message_ids(candidate, messages)
+    source_refs = _source_refs_from_input(candidate.get("source_refs") or [])
+    source_refs = _unique_source_refs(
+        [
+            *source_refs,
+            *_conversation_candidate_source_refs(
+                messages,
+                message_ids=message_ids,
+                session_id=session_id,
+                scope=scope,
+            ),
+        ]
+    )
+    if not source_refs:
+        raise WorkflowError("conversation memory candidate requires conversation evidence")
+    evidence_quotes = _candidate_evidence_quotes(candidate, messages, message_ids)
+    return {
+        "index": index,
+        "text": text,
+        "behavior_delta": behavior_delta,
+        "memory_type": memory_type,
+        "memory_scope": memory_scope,
+        "reason": str(candidate.get("reason") or "").strip(),
+        "confidence": float(candidate.get("confidence") or 0.82),
+        "message_ids": message_ids,
+        "evidence_quotes": evidence_quotes,
+        "source_refs": source_refs,
+    }
+
+
+def _candidate_message_ids(candidate: dict[str, Any], messages: list[dict[str, str]]) -> list[str]:
+    raw = candidate.get("message_ids") or candidate.get("evidence_message_ids") or []
+    if isinstance(raw, str):
+        values = [item.strip() for item in raw.replace("\n", ",").split(",")]
+    elif isinstance(raw, list):
+        values = [str(item).strip() for item in raw]
+    else:
+        values = []
+    values = [value for value in values if value]
+    if values:
+        return _unique_text_values(values)
+    if messages:
+        return [messages[-1]["message_id"]]
+    return []
+
+
+def _candidate_evidence_quotes(
+    candidate: dict[str, Any],
+    messages: list[dict[str, str]],
+    message_ids: list[str],
+) -> list[str]:
+    raw = candidate.get("evidence_quotes") or candidate.get("quotes") or []
+    values = [str(item).strip() for item in raw if str(item).strip()] if isinstance(raw, list) else []
+    if values:
+        return [_compact_text(value, 500) for value in values[:5]]
+    by_id = {message["message_id"]: message for message in messages}
+    return [
+        _compact_text(by_id[message_id]["text"], 500)
+        for message_id in message_ids
+        if message_id in by_id
+    ][:5]
+
+
+def _conversation_candidate_source_refs(
+    messages: list[dict[str, str]],
+    *,
+    message_ids: list[str],
+    session_id: str,
+    scope: dict[str, Any],
+) -> list[SourceRef]:
+    by_id = {message["message_id"]: message for message in messages}
+    refs = []
+    for message_id in message_ids:
+        message = by_id.get(message_id)
+        refs.append(
+            SourceRef(
+                adapter="hermes" if session_id else "conversation",
+                source_id=message_id,
+                external_id=session_id or message_id,
+                title="Conversation memory candidate evidence",
+                metadata={
+                    "origin": CONVERSATION_ORIGIN,
+                    "candidate_origin": "conversation_candidate",
+                    "session_id": session_id,
+                    "message_id": message_id,
+                    "role": (message or {}).get("role", ""),
+                    "created_at": (message or {}).get("created_at", ""),
+                    "message_excerpt": _compact_text((message or {}).get("text", ""), 1000),
+                    "scope": to_jsonable(scope),
+                },
+            )
+        )
+    return refs
+
+
+def _existing_conversation_memory_candidate_keys(reviews: list[dict[str, Any]]) -> set[str]:
+    keys: set[str] = set()
+    for review in reviews:
+        if str(review.get("status") or "") not in {"pending", "accepted", "needs_edit"}:
+            continue
+        proposal = review.get("proposal") or {}
+        memory_patch = proposal.get("memory_patch") or {}
+        metadata = memory_patch.get("metadata") or proposal.get("metadata") or {}
+        if str(metadata.get("candidate_origin") or "") not in {"conversation_candidate", "conversation"}:
+            continue
+        memory_type = str(metadata.get("memory_type") or "")
+        memory_scope = str(metadata.get("memory_scope") or "workspace")
+        behavior_delta = str(metadata.get("behavior_delta") or "")
+        text = str(memory_patch.get("text") or proposal.get("body") or "")
+        if memory_type and memory_scope and behavior_delta and text:
+            keys.add(
+                _conversation_memory_candidate_key(
+                    text=text,
+                    memory_type=memory_type,
+                    memory_scope=memory_scope,
+                    behavior_delta=behavior_delta,
+                )
+            )
+    return keys
+
+
+def _conversation_memory_candidate_key(
+    *,
+    text: str,
+    memory_type: str,
+    memory_scope: str,
+    behavior_delta: str,
+) -> str:
+    return json.dumps(
+        {
+            "memory_type": _normalize_memory_card_type(memory_type),
+            "memory_scope": _normalize_memory_card_scope(memory_scope),
+            "behavior_delta": " ".join(behavior_delta.strip().lower().split()),
+            "text": " ".join(text.strip().lower().split()),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
+def _skipped_conversation_memory_candidate(candidate: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        "index": candidate.get("index"),
+        "reason": reason,
+        "memory_type": candidate.get("memory_type", ""),
+        "memory_scope": candidate.get("memory_scope", ""),
+        "text": candidate.get("text", ""),
+        "behavior_delta": candidate.get("behavior_delta", ""),
+        "message_ids": candidate.get("message_ids", []),
+    }
+
+
+def _unique_text_values(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result = []
+    for value in values:
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 def _is_accept_decision(decision: str) -> bool:

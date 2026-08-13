@@ -685,6 +685,23 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             confidence=confidence,
         )
 
+    def pska_conversation_memory_candidates_create(
+        messages: list[dict[str, Any]],
+        candidates: list[dict[str, Any]],
+        session_id: str = "",
+        scope: dict[str, Any] | None = None,
+        dedupe_existing: bool = True,
+        candidate_limit: int = 5,
+    ):
+        return service.conversation_memory_candidates_create(
+            messages=messages,
+            candidates=candidates,
+            session_id=session_id,
+            scope=scope or {},
+            dedupe_existing=dedupe_existing,
+            candidate_limit=candidate_limit,
+        )
+
     def pska_memory_delete_review(memory_fact: dict[str, Any], reason: str = ""):
         return service.memory_delete_review(memory_fact, reason)
 
@@ -1237,6 +1254,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_trace_query": pska_trace_query,
         "pska_eidolia_project_trace_import": pska_eidolia_project_trace_import,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
+        "pska_conversation_memory_candidates_create": pska_conversation_memory_candidates_create,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_workflow_memory_attribution": pska_workflow_memory_attribution,
         "pska_workflow_memory_suggestions": pska_workflow_memory_suggestions,

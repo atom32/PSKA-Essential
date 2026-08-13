@@ -254,6 +254,7 @@ class ProductApiTests(unittest.TestCase):
         }
         self.assertIn(("POST", "/api/memory/search"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
+        self.assertIn(("POST", "/api/memory/conversation-candidates"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
         self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
         self.assertIn(("POST", "/api/digest"), contract_routes)
@@ -415,6 +416,12 @@ class ProductApiTests(unittest.TestCase):
         inflow = capabilities["capabilities"]["memory"]["inflow"]
         self.assertEqual(inflow["schema"], "pska.memory_inflow.v1")
         self.assertFalse(inflow["upload_behavior"]["writes_memory_provider"])
+        inflow_paths = {path["name"]: path for path in inflow["paths"]}
+        self.assertEqual(
+            inflow_paths["conversation_memory_candidates"]["mcp"],
+            "pska_conversation_memory_candidates_create",
+        )
+        self.assertFalse(inflow_paths["conversation_memory_candidates"]["writes_memory_provider_directly"])
         self.assertFalse(inflow["upload_behavior"]["creates_graph_projection"])
         self.assertIn("digest_job", [path["name"] for path in inflow["paths"]])
         lineage = capabilities["capabilities"]["memory"]["lineage"]
@@ -1054,6 +1061,41 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(pending["reviews"], [])
         audit = self._get_json("/api/audit?limit=10&action=memory.conversation_change")
         self.assertEqual(audit["events"][0]["metadata"]["status"], "applied")
+
+    def test_conversation_memory_candidates_route_creates_pending_reviews(self):
+        created = self._post_json(
+            "/api/memory/conversation-candidates",
+            {
+                "session_id": "sess-api-candidates",
+                "messages": [
+                    {
+                        "message_id": "msg-api-candidate",
+                        "role": "user",
+                        "text": "For PSKA memory, candidate cards must have behavior_delta and source evidence.",
+                    }
+                ],
+                "candidates": [
+                    {
+                        "text": "PSKA memory candidate cards must include behavior_delta and source evidence.",
+                        "memory_type": "working_habit",
+                        "memory_scope": "project",
+                        "behavior_delta": "When creating PSKA memory candidates, include behavior_delta and source evidence.",
+                        "message_ids": ["msg-api-candidate"],
+                    }
+                ],
+            },
+        )
+
+        self.assertTrue(created["ok"])
+        self.assertEqual(created["schema"], "pska.conversation_memory_candidates.v1")
+        self.assertEqual(created["created_count"], 1)
+        self.assertFalse(created["data_flow"]["writes_memory_directly"])
+        pending = self._get_json("/api/reviews?status=pending")
+        self.assertEqual(pending["reviews"][0]["review_id"], created["created"][0]["review_id"])
+        facts = self.service.memory_search("behavior_delta", {}, 10)
+        self.assertEqual(facts, [])
+        audit = self._get_json("/api/audit?limit=10&action=memory.conversation_candidates.create")
+        self.assertEqual(audit["events"][0]["metadata"]["created_count"], 1)
 
     def test_conversation_memory_change_route_returns_needs_target(self):
         with patch.dict(os.environ, {"PSKA_GOVERNANCE_CONVERSATION_MEMORY": "auto_apply"}, clear=False):

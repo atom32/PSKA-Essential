@@ -86,6 +86,7 @@ EXPECTED_TOOLS = {
     "pska_workflow_memory_suggestions",
     "pska_memory_apply",
     "pska_memory_change_from_conversation",
+    "pska_conversation_memory_candidates_create",
     "pska_memory_delete_review",
     "pska_memory_lifecycle",
     "pska_memory_probe",
@@ -688,6 +689,36 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(result["governance"]["origin"], "conversation")
         self.assertEqual(result["conversation"]["source_refs"][0]["adapter"], "hermes")
         self.assertEqual(len(service.memory_search("Vim", {}, 10)), 1)
+
+    def test_conversation_memory_candidates_tool_creates_pending_reviews(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        result = tools["pska_conversation_memory_candidates_create"](
+            messages=[
+                {
+                    "message_id": "msg-tool-candidate",
+                    "role": "user",
+                    "text": "When designing PSKA, prefer small object models and explicit trace.",
+                }
+            ],
+            candidates=[
+                {
+                    "text": "The user prefers small object models and explicit trace when designing PSKA.",
+                    "memory_type": "working_habit",
+                    "memory_scope": "project",
+                    "behavior_delta": "When discussing PSKA design, prefer small object models and explicit trace.",
+                    "message_ids": ["msg-tool-candidate"],
+                }
+            ],
+            session_id="sess-tool-candidates",
+        )
+
+        self.assertEqual(result["schema"], "pska.conversation_memory_candidates.v1")
+        self.assertEqual(result["created_count"], 1)
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertEqual(service.store.list_reviews(status="pending")[0]["review_id"], result["created"][0]["review_id"])
+        self.assertEqual(len(service.memory_search("small object models", {}, 10)), 0)
 
     def test_memory_change_from_conversation_tool_returns_needs_target(self):
         service = build_fake_service()

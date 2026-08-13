@@ -142,6 +142,13 @@ candidate memory, review, and durable export.
 - If the user says to remember, correct, clarify, or forget something in chat,
   call `pska_memory_change_from_conversation`; do not send them to Review for
   ordinary corrections.
+- If a conversation contains stable preferences, project decisions, working
+  habits, source routes, or corrections that may affect future behavior but the
+  user did not explicitly ask to remember them, call
+  `pska_conversation_memory_candidates_create` with compact candidates. Each
+  candidate must include concrete `text`, `memory_type`, `memory_scope`,
+  `behavior_delta`, and conversation evidence. Treat the output as pending
+  Review work; do not claim memory was saved.
 - If `pska_memory_change_from_conversation` returns `status="needs_target"`,
   call `pska_memory_search` with the returned `next_actions` query, ask the user
   to disambiguate when needed, then retry with the selected `memory_fact`.

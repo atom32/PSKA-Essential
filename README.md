@@ -436,6 +436,7 @@ Operational loop tools:
 - `pska_workflow_memory_attribution`
 - `pska_workflow_memory_suggestions`
 - `pska_memory_change_from_conversation`
+- `pska_conversation_memory_candidates_create`
 - `pska_memory_review_from_workflow`
 - `pska_memory_update_review`
 - `pska_memory_delete_review`
@@ -615,6 +616,12 @@ review decision, memory apply, and audit records, but conversation policy
 defaults to auto-apply so ordinary corrections do not leave a pending Review
 queue item. Use `force_review=true` for uncertain, risky, destructive, or
 ambiguous memory changes.
+`pska_conversation_memory_candidates_create` is the safer extraction path for
+stable preferences, decisions, working habits, source routes, and corrections
+that Hermes notices in a conversation when the user did not explicitly say
+"remember". It accepts structured candidates with `text`, `memory_type`,
+`memory_scope`, `behavior_delta`, and message evidence, creates pending Review
+items, dedupes obvious repeats, and never writes durable memory directly.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.
@@ -754,6 +761,7 @@ Implemented Alpha routes:
 - `POST /api/eidolia/project-traces/import`
 - `POST /api/memory/search`
 - `POST /api/memory/conversation-change`
+- `POST /api/memory/conversation-candidates`
 - `POST /api/memory/update-review`
 - `POST /api/memory/delete-review`
 - `GET /api/memory/{memory_target_id}/lifecycle`

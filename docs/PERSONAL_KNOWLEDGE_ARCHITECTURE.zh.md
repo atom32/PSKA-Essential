@@ -304,6 +304,8 @@ To C 用户给 PSKA 的通常不是一个整理好的知识库，而是几个现
 - 给 Obsidian vault 添加结构化索引或 MOC；
 - 问一个问题时能先找证据，再让 Hermes 综合；
 - 把真正稳定的偏好、项目状态、资料路线升格成记忆。
+- 当对话里反复出现稳定偏好、决策、工作习惯或纠错时，先生成带
+  `behavior_delta` 和消息证据的 Memory Card 候选，而不是自动写入空泛摘要。
 
 因此无 embedding RAG 第一版应是 local-first lexical retrieval：
 

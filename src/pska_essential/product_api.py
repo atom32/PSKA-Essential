@@ -138,6 +138,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/trace/query"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
+    {"method": "POST", "path": "/api/memory/conversation-candidates"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-attribution"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-suggestions"},
     {"method": "POST", "path": "/api/kb/ingest"},
@@ -1269,6 +1270,25 @@ def _handler_class(state: ProductApiState):
                     scope=dict(payload.get("scope") or {}),
                     force_review=_bool_value(payload.get("force_review"), False),
                     confidence=float(payload.get("confidence") or 0.95),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/memory/conversation-candidates":
+                payload = self._read_json()
+                messages = payload.get("messages") or []
+                candidates = payload.get("candidates") or []
+                if not isinstance(messages, list):
+                    raise ApiError("messages must be a list", HTTPStatus.BAD_REQUEST)
+                if not isinstance(candidates, list):
+                    raise ApiError("candidates must be a list", HTTPStatus.BAD_REQUEST)
+                result = state.service.conversation_memory_candidates_create(
+                    messages=messages,
+                    candidates=candidates,
+                    session_id=str(payload.get("session_id") or ""),
+                    scope=_optional_dict(payload, "scope"),
+                    dedupe_existing=_bool_value(payload.get("dedupe_existing"), True),
+                    candidate_limit=int(payload.get("candidate_limit") or 5),
                 )
                 self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
                 return

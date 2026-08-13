@@ -279,7 +279,12 @@ embedding。P2 的第九块已落地为 embedding-free candidate dedup：
 里的 durable memory candidates 做重复候选提示。它使用 normalized text、token
 overlap、SourceRef fingerprint、behavior_delta fingerprint 聚类，并将
 `duplicate_candidates` 接入 Memory Review Queue；它不合并、不拒绝、不审批、不 apply、
-不写 durable memory。
+不写 durable memory。P2 的第十块已落地为 conversation -> Memory Card candidate：
+`POST /api/memory/conversation-candidates` 与
+`pska_conversation_memory_candidates_create` 接收 Hermes 从对话中提炼出的结构化候选，
+要求 `text`、`memory_type`、`memory_scope`、`behavior_delta` 和消息证据，创建
+pending Review items，并按 `memory_type/memory_scope/behavior_delta/text` 去重；它不直接
+写 memory provider，也不把普通聊天摘要当作记忆。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -292,6 +297,7 @@ events；不新建第二套 trace store，不写源文件，不写 durable memor
 
 ```text
 POST /api/sources/memory-candidates/from-audit
+POST /api/memory/conversation-candidates
 GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
 GET  /api/memory/briefing
@@ -321,6 +327,7 @@ pska_trace_query
 pska_workflow_memory_attribution
 pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
+pska_conversation_memory_candidates_create
 pska_memory_review_from_workflow
 pska_source_memory_candidates_from_audit
 ```
@@ -714,6 +721,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add final-answer-level `used_memory_ids` / memory citation trace.
 - [x] Add proactive memory suggestions from sourced workflows.
 - [x] Add derived Memory Timeline / Ledger view over Card, lifecycle, trace, and SourceRef.
+- [x] Add conversation-derived Memory Card candidate creation without direct memory writes.
 
 ### P3 Backlog
 
