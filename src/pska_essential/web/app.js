@@ -45,6 +45,7 @@ const messages = {
   "toast.memoryUseTraceLoaded": "记忆使用痕迹已加载。",
   "toast.memoryTimelineLoaded": "记忆时间线已加载。",
   "toast.closedLoopProbeRecorded": "实时闭环探针已记录。",
+  "toast.alphaTrialGuideLoaded": "Alpha 试用向导已加载。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
   "toast.loadDatasetBeforeParse": "请先加载知识库，再解析文档。",
@@ -106,6 +107,7 @@ const messages = {
   "empty.noMemoryTimeline": "没有匹配的记忆时间线。",
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
+  "empty.noAlphaTrialGuide": "Alpha 试用向导尚未加载。",
   "empty.sourcesUnavailable": "资料源不可用。",
   "empty.sources": "尚未加载资料源。",
   "empty.noSourceAudit": "尚未运行资料源审计。",
@@ -138,6 +140,7 @@ const messages = {
   "button.openStatus": "打开状态",
   "button.reloadStatus": "刷新状态",
   "button.refreshJarvis": "刷新 Jarvis",
+  "button.refreshGuide": "刷新向导",
   "button.checkReadiness": "检查就绪",
   "button.upload": "上传",
   "button.open": "打开",
@@ -225,6 +228,7 @@ const messages = {
   "heading.memoryProbe": "记忆探针",
   "heading.liveClosedLoop": "实时闭环",
   "heading.jarvisBar": "Jarvis Bar",
+  "heading.alphaTrialGuide": "Alpha 试用向导",
 };
 
 function t(key, fallback = "") {
@@ -252,6 +256,9 @@ const state = {
   jarvisBriefing: null,
   jarvisError: "",
   jarvisLoading: false,
+  alphaTrialGuide: null,
+  alphaTrialGuideError: "",
+  alphaTrialGuideLoading: false,
   sourceRoots: [],
   sourceRootError: "",
   sourceAudit: null,
@@ -562,6 +569,7 @@ async function refreshAll() {
     loadCapabilities(),
     loadDiagnostics(),
     loadWorkspaceStatus(),
+    loadAlphaTrialGuide({ silent: true }),
     loadSourceRoots(),
     loadSourceCollections({ silent: true }),
     loadSourceDuplicateReview(),
@@ -678,6 +686,24 @@ async function loadJarvisBriefing(options = {}) {
   } finally {
     state.jarvisLoading = false;
     renderJarvisBar();
+  }
+}
+
+async function loadAlphaTrialGuide(options = {}) {
+  state.alphaTrialGuideLoading = true;
+  renderAlphaTrialGuide();
+  try {
+    const payload = await api("/api/alpha/trial-guide");
+    state.alphaTrialGuide = payload.alpha_trial_guide || null;
+    state.alphaTrialGuideError = "";
+    if (!options.silent) showToast(t("toast.alphaTrialGuideLoaded"));
+  } catch (error) {
+    state.alphaTrialGuide = null;
+    state.alphaTrialGuideError = error.message;
+    if (!options.silent) showToast(error.message);
+  } finally {
+    state.alphaTrialGuideLoading = false;
+    renderAlphaTrialGuide();
   }
 }
 
@@ -1472,6 +1498,7 @@ function renderHome() {
     resumableAskCard,
   );
   renderJarvisBar();
+  renderAlphaTrialGuide();
 }
 
 function renderJarvisBar() {
@@ -1530,6 +1557,121 @@ function renderJarvisBar() {
   if (actions.length) {
     container.append(el("div", { className: "jarvis-actions" }, actions.map(jarvisActionRow)));
   }
+}
+
+function renderAlphaTrialGuide() {
+  const container = document.getElementById("alpha-trial-guide");
+  if (!container) return;
+  const guide = state.alphaTrialGuide;
+  container.classList.toggle("empty-list", !guide && !state.alphaTrialGuideLoading && !state.alphaTrialGuideError);
+  container.replaceChildren();
+  if (state.alphaTrialGuideLoading && !guide) {
+    container.textContent = "Alpha 试用向导正在加载。";
+    return;
+  }
+  if (state.alphaTrialGuideError) {
+    container.append(
+      el("div", { className: "alpha-guide-header" }, [
+        el("div", {}, [
+          el("h2", {}, t("heading.alphaTrialGuide")),
+          el("p", {}, state.alphaTrialGuideError),
+        ]),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAlphaTrialGuide() }, t("button.refreshGuide")),
+      ]),
+    );
+    return;
+  }
+  if (!guide) {
+    container.textContent = t("empty.noAlphaTrialGuide");
+    return;
+  }
+  const summary = guide.summary || {};
+  const phases = (guide.phases || []).slice(0, 6);
+  const guardrails = (guide.guardrails || []).slice(0, 4);
+  const actions = (guide.next_actions || []).slice(0, 4);
+  container.append(
+    el("div", { className: "alpha-guide-header" }, [
+      el("div", {}, [
+        el("p", { className: "eyebrow" }, "Readiness to first run"),
+        el("h2", {}, t("heading.alphaTrialGuide")),
+        el("p", {}, alphaGuideLead(guide)),
+      ]),
+      el("div", { className: "meta-row" }, [
+        el("span", { className: `tag ${statusClass(guide.readiness_status)}` }, readableName(guide.readiness_status || "unknown")),
+        el("span", { className: "tag" }, readableName(guide.trial_mode || "development_only")),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAlphaTrialGuide() }, t("button.refreshGuide")),
+      ]),
+    ]),
+  );
+  container.append(
+    el("div", { className: "alpha-guide-stats" }, [
+      alphaGuideStat("checks", summary.check_count || 0),
+      alphaGuideStat("warnings", summary.warn_count || 0),
+      alphaGuideStat("failures", summary.fail_count || 0),
+      alphaGuideStat("guided", guide.can_start_guided_trial ? "yes" : "no"),
+    ]),
+  );
+  container.append(
+    el("div", { className: "alpha-guide-sections" }, [
+      el("div", {}, [
+        el("h3", {}, "试用阶段"),
+        el("div", { className: "alpha-phase-list" }, phases.map(alphaPhaseCard)),
+      ]),
+      el("div", {}, [
+        el("h3", {}, "守护栏"),
+        el("div", { className: "alpha-guardrail-list" }, guardrails.map(alphaGuardrailRow)),
+      ]),
+    ]),
+  );
+  if (actions.length) {
+    container.append(
+      el("div", { className: "alpha-actions" }, [
+        el("h3", {}, "建议动作"),
+        el("div", { className: "jarvis-actions" }, actions.map(jarvisActionRow)),
+      ]),
+    );
+  }
+}
+
+function alphaGuideLead(guide) {
+  if (guide.can_start_guided_trial) return "当前实例可进入有引导的技术 alpha；先从只读小范围开始。";
+  if (guide.can_start_owner_dogfooding) return "当前实例适合 owner dogfooding；先修复阻塞项再邀请他人。";
+  return "当前实例仍适合 demo/development；先处理 required failures。";
+}
+
+function alphaGuideStat(label, value) {
+  return el("div", { className: "jarvis-stat" }, [
+    el("span", {}, label),
+    el("strong", {}, String(value)),
+  ]);
+}
+
+function alphaPhaseCard(phase) {
+  const blockers = phase.blockers || [];
+  const warnings = phase.warnings || [];
+  const firstStep = (phase.steps || [])[0] || {};
+  return el("article", { className: `alpha-phase-card ${statusClass(phase.status)}` }, [
+    el("header", {}, [
+      el("strong", {}, phase.title || readableName(phase.phase_id || "phase")),
+      el("span", { className: `tag ${statusClass(phase.status)}` }, readableName(phase.status || "unknown")),
+    ]),
+    el("p", {}, phase.goal || ""),
+    el("div", { className: "meta-row" }, [
+      blockers.length ? el("span", { className: "tag failed" }, `blockers ${blockers.length}`) : null,
+      warnings.length ? el("span", { className: "tag pending" }, `warnings ${warnings.length}`) : null,
+      firstStep.tool ? el("span", { className: "tag" }, firstStep.tool) : null,
+    ]),
+  ]);
+}
+
+function alphaGuardrailRow(guardrail) {
+  return el("div", { className: "alpha-guardrail-row" }, [
+    el("span", { className: `tag ${guardrail.required ? "ready" : ""}` }, guardrail.required ? "required" : "optional"),
+    el("div", {}, [
+      el("strong", {}, readableName(guardrail.guardrail || "guardrail")),
+      el("p", {}, guardrail.message || ""),
+    ]),
+  ]);
 }
 
 function jarvisStat(label, value) {
@@ -1634,6 +1776,36 @@ function workspaceActionButtonClass(action) {
 
 async function openWorkspaceAction(action) {
   const params = action.params || {};
+  if (
+    [
+      "configure_live_providers",
+      "configure_workspace_identity",
+      "inspect_runtime_diagnostics",
+      "inspect_trial_environment",
+      "run_guided_alpha_checklist",
+      "keep_writeback_locked",
+      "close_alpha_warnings",
+    ].includes(action.action)
+  ) {
+    openView("settings");
+    await loadAlphaTrialGuide({ silent: true });
+    return;
+  }
+  if (["prepare_first_scope", "prepare_knowledge_scope"].includes(action.action)) {
+    openView("sources");
+    showToast(action.reason || "请选择一个小范围只读资料源开始。");
+    return;
+  }
+  if (action.action === "run_first_read_only_ask") {
+    openView("ask");
+    await checkAskReadiness({ silent: true });
+    return;
+  }
+  if (["review_memory_before_apply", "inspect_memory_review_queue"].includes(action.action)) {
+    openView("review");
+    await loadMemoryReviewQueue();
+    return;
+  }
   if (action.action === "run_file_to_work_product_loop") {
     prepareIngestLoopForm(params);
     openView("kb");
@@ -6305,7 +6477,7 @@ function summarizeDocuments(documents) {
 
 function statusClass(status) {
   const value = String(status || "").toLowerCase();
-  if (["ready", "complete", "accepted", "ok"].includes(value)) return "ready";
+  if (["ready", "complete", "accepted", "ok", "alpha_ready", "guided_alpha"].includes(value)) return "ready";
   if (
     [
       "failed",
@@ -6316,6 +6488,7 @@ function statusClass(status) {
       "empty",
       "error",
       "invalid_configuration",
+      "not_ready",
       "cancel",
       "canceled",
       "cancelled",

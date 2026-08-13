@@ -158,6 +158,13 @@ Last updated: 2026-07-15
 > verdict into read-only first-run phases, guardrails, recommended scope,
 > next actions, and broader-alpha exit criteria. It does not register roots,
 > scan files, apply memory, write source files, or run trial steps by itself.
+>
+> Update, 2026-08-14: WebUI alpha trial guide surface is implemented as M27.
+> Home loads `/api/alpha/trial-guide` and renders trial mode, readiness counts,
+> phase cards, guardrails, and next-action buttons. Those buttons only navigate
+> to Settings, Sources, Ask, or Review and reuse the existing action dispatcher;
+> they do not execute source scans, source writeback, or durable memory apply
+> from the guide surface.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.

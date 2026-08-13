@@ -365,6 +365,10 @@ P2 的第三十块已落地为 alpha trial guide：
 sourced Ask、Memory Review、写回前备份检查，以及 broader-alpha exit criteria。
 它返回 phases、guardrails、first-run scope、next actions 和 exit criteria，但不会自动注册 root、
 扫描文件、apply durable memory 或写 source files。
+P2 的第三十一块已落地为 WebUI alpha trial guide surface：
+Home 会加载 `/api/alpha/trial-guide`，展示 trial mode、check/warn/fail 计数、phase cards、
+guardrails 与 next-action buttons。按钮只导航到 Settings、Sources、Ask 或 Review，并复用
+PSKA action dispatch；不会从 Home 自动执行 source scan、source writeback 或 memory apply。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -826,6 +830,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add WebUI refresh-review workbench card with previous/proposed text comparison.
 - [x] Add read-only alpha readiness gate for guided trial decisions.
 - [x] Add read-only alpha trial guide for safe first-run owner/guided-alpha trials.
+- [x] Surface alpha trial guide on WebUI Home as guarded phase/action cards.
 
 ### P3 Backlog
 

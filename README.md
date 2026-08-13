@@ -730,8 +730,8 @@ M26 adds `pska_alpha_trial_guide` and `GET /api/alpha/trial-guide`, a read-only
 first-run guide that turns the readiness result into guarded phases for
 environment setup, one-scope knowledge trial, sourced Ask, memory review,
 writeback backup checks, and broader-alpha exit criteria.
-The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
-panel: users can register local folders or Obsidian vaults, scan them, run
+The bundled WebUI exposes this through Home's Jarvis Bar, a Home Alpha Trial
+Guide card, and a dedicated Sources panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
 SQLite FTS5 with ranking/snippet cues, save reusable searches and source collections, select exact source
 sections for tag/comment proposals, apply sidecar annotations when permitted, explicitly
@@ -772,7 +772,9 @@ owner dogfooding, guided technical alpha, or only demo/development use.
 non-executing first-run plan: it recommends read-only scope selection, lists
 actions/tools/views for each phase, keeps native writeback locked behind backup
 verification, and never registers roots, scans files, applies memory, or writes
-source files by itself.
+source files by itself. Home renders the same guide as phase cards, guardrails,
+and next-action buttons so operators can see the trial path before moving into
+Sources, Ask, Review, or Settings.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live

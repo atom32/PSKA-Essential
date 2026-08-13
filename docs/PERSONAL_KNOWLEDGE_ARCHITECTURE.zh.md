@@ -676,6 +676,8 @@ Hermes 的默认行为：
 - Done: Alpha trial guide 已接入；`pska_alpha_trial_guide` 与
   `GET /api/alpha/trial-guide` 会把 readiness verdict 转成首次试用路线、guardrails、
   phases 与 exit criteria，但不自动扫描、写源文件或 apply durable memory。
+- Done: WebUI Home 已展示 Alpha Trial Guide，包含 trial mode、阶段卡、guardrails 和
+  next actions；按钮只导航到 Settings/Sources/Ask/Review，不从向导直接执行危险写入。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。
