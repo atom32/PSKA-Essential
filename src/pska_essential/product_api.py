@@ -113,6 +113,9 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/duplicates"},
     {"method": "POST", "path": "/api/sources/audits/run"},
     {"method": "POST", "path": "/api/sources/saved-searches"},
+    {"method": "GET", "path": "/api/sources/collections"},
+    {"method": "POST", "path": "/api/sources/collections"},
+    {"method": "POST", "path": "/api/sources/collections/{collection_id}/resolve"},
     {"method": "POST", "path": "/api/sources/tags/proposals"},
     {"method": "POST", "path": "/api/sources/tags/{proposal_id}/apply"},
     {"method": "POST", "path": "/api/sources/comments/proposals"},
@@ -980,6 +983,35 @@ def _handler_class(state: ProductApiState):
                     sort=str(payload.get("sort") or "relevance"),
                 )
                 self._send_json({"ok": True, "saved_search": saved}, HTTPStatus.CREATED)
+                return
+
+            if method == "GET" and path == "/api/sources/collections":
+                collections = state.service.source_collection_list()
+                self._send_json({"ok": True, "collections": to_jsonable(collections), "count": len(collections)})
+                return
+
+            if method == "POST" and path == "/api/sources/collections":
+                payload = self._read_json()
+                source_refs = payload.get("source_refs") or []
+                if not isinstance(source_refs, list):
+                    raise ApiError("source_refs must be a list", HTTPStatus.BAD_REQUEST)
+                collection = state.service.source_collection_create(
+                    _required_str(payload, "label"),
+                    description=str(payload.get("description") or ""),
+                    selector=_optional_dict(payload, "selector"),
+                    source_refs=source_refs,
+                )
+                self._send_json({"ok": True, "collection": to_jsonable(collection)}, HTTPStatus.CREATED)
+                return
+
+            collection_resolve_id = _match(path, "/api/sources/collections/", "/resolve")
+            if method == "POST" and collection_resolve_id:
+                payload = self._read_json()
+                resolved = state.service.source_collection_resolve(
+                    collection_resolve_id,
+                    limit=int(payload.get("limit") or 10),
+                )
+                self._send_json({"ok": True, "resolved": to_jsonable(resolved)})
                 return
 
             if method == "POST" and path == "/api/sources/tags/proposals":

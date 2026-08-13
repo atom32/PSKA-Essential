@@ -327,6 +327,58 @@ class WorkflowService:
         )
         return saved
 
+    def source_collection_create(
+        self,
+        label: str,
+        *,
+        description: str = "",
+        selector: dict[str, Any] | None = None,
+        source_refs: list[SourceRef | dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        refs = [
+            ref if isinstance(ref, SourceRef) else SourceRef.from_dict(ref)
+            for ref in (source_refs or [])
+        ]
+        collection = self._source_registry().source_collection_create(
+            label,
+            description=description,
+            selector=selector or {},
+            source_refs=refs,
+        )
+        self.store.add_audit_event(
+            audit_event(
+                "source.collection.create",
+                "source_collection",
+                collection["collection_id"],
+                label=collection["label"],
+                selector=collection["selector"],
+                source_ref_count=collection["source_ref_count"],
+                writes_source_files=False,
+                embedding_required=False,
+            )
+        )
+        return collection
+
+    def source_collection_list(self) -> list[dict[str, Any]]:
+        return self._source_registry().source_collection_list()
+
+    def source_collection_resolve(self, collection_id: str, *, limit: int = 10) -> dict[str, Any]:
+        result = self._source_registry().source_collection_resolve(collection_id, limit=limit)
+        collection = result.get("collection") or {}
+        self.store.add_audit_event(
+            audit_event(
+                "source.collection.resolve",
+                "source_collection",
+                collection_id,
+                label=collection.get("label") or "",
+                count=result.get("count") or 0,
+                materialized_from=result.get("materialized_from") or "",
+                writes_source_files=False,
+                embedding_required=False,
+            )
+        )
+        return result
+
     def source_tag_propose(
         self,
         target_ref: SourceRef | dict[str, Any],

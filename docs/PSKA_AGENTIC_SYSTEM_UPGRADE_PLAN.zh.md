@@ -20,13 +20,13 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M12 级别的 source-safe baseline：
+当前仓库已经具备 M13 级别的 source-safe baseline：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
 | Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
-| File governance | 已有 exact hash duplicate report、source audit、saved search、tag/comment proposal/apply | `tests/test_source_registry.py` |
+| File governance | 已有 exact hash duplicate report、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
 | Obsidian | 已有 MOC propose/apply，只写 PSKA marker block；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
 | Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view | `workflow.py`、`capabilities.py` |
@@ -680,8 +680,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 - Done: Obsidian frontmatter tag native write proposal/apply through `pska_source_tag_propose/apply`.
 - Done: Obsidian markdown comment native write proposal/apply through `pska_source_comment_propose/apply`.
+- Done: Source collections for named reusable bundles over explicit SourceRefs or no-embedding search selectors.
 - MOC grouping：folder/tag/topic/project。
-- Source collections：saved search 之外的可命名资料集合。
 - Better search ranking：FTS5 snippet、filters、path/title weights。
 - 评估 Tantivy/Meilisearch adapter，但不替换默认。
 
@@ -689,7 +689,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 - `read_only` root native write 被拒绝。
 - native write 只修改 preview 指定区域或 frontmatter fields。
-- collection 可作为 retrieval scope。
+- collection 可展开为 retrieval context packets。
 
 ### Phase 4: Thought/Artifact And Specialist Workers
 
@@ -782,7 +782,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 - [x] Obsidian frontmatter/tag native write proposal/apply.
 - [x] Obsidian markdown comment native write proposal/apply.
-- [ ] Source collections.
+- [x] Source collections.
 - [ ] FTS ranking improvements.
 - [ ] Evaluate Tantivy adapter.
 

@@ -149,6 +149,54 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertEqual(saved["scope"]["root_ids"], [root["root_id"]])
         self.assertFalse(saved["data_flow"]["writes_source_files"])
 
+    def test_source_collections_create_list_and_resolve_manual_or_search(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            alpha = root_path / "alpha.md"
+            alpha.write_text("# Alpha\n\nHermes source collection alpha note.\n", encoding="utf-8")
+            beta = root_path / "beta.md"
+            beta.write_text("# Beta\n\nPSKA source collection beta note.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+            alpha_ref = registry.search("alpha note", {"root_ids": [root["root_id"]]})[0].source_ref
+
+            manual = registry.source_collection_create(
+                "Manual bundle",
+                description="Hand picked source refs",
+                source_refs=[alpha_ref],
+            )
+            search_collection = registry.source_collection_create(
+                "Search bundle",
+                selector={
+                    "kind": "search",
+                    "query": "source collection",
+                    "scope": {"root_ids": [root["root_id"]]},
+                    "limit": 5,
+                },
+            )
+            collections = registry.source_collection_list()
+            manual_resolved = registry.source_collection_resolve(manual["collection_id"])
+            search_resolved = registry.source_collection_resolve(search_collection["collection_id"], limit=5)
+
+        self.assertEqual(manual["selector"]["kind"], "manual")
+        self.assertEqual(manual["source_ref_count"], 1)
+        self.assertFalse(manual["data_flow"]["writes_source_files"])
+        self.assertEqual(collections[0]["status"], "active")
+        self.assertEqual(manual_resolved["materialized_from"], "manual_refs")
+        self.assertEqual(manual_resolved["context_packets"][0].source_ref.path, "alpha.md")
+        self.assertIn("Hermes source collection alpha note", manual_resolved["context_packets"][0].text)
+        self.assertEqual(search_resolved["materialized_from"], "search_selector")
+        self.assertEqual(search_resolved["count"], 2)
+        self.assertFalse(search_resolved["data_flow"]["embedding_required"])
+
+    def test_source_collection_rejects_empty_manual_refs(self):
+        registry = SQLiteSourceRegistry(":memory:")
+
+        with self.assertRaisesRegex(SourceRegistryError, "source_refs"):
+            registry.source_collection_create("Empty manual")
+
     def test_fclones_duplicate_report_mode_is_safe_when_cli_missing(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir) / "Project"
@@ -227,6 +275,36 @@ class SourceRegistryTests(unittest.TestCase):
         actions = {event.action for event in service.store.list_audit_events(limit=20)}
         self.assertIn("source.duplicate_report", actions)
         self.assertIn("source.saved_search.create", actions)
+
+    def test_mcp_source_collection_tools_create_resolve_and_audit(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "alpha.md").write_text(
+                "# Alpha\n\nHermes source collection context.\n",
+                encoding="utf-8",
+            )
+            service = build_fake_service()
+            tools = tool_registry(service)
+            root = tools["pska_source_root_register"](str(root_path))
+            tools["pska_source_scan"](root["root_id"])
+            packet = tools["pska_source_search"]("collection context", {"root_ids": [root["root_id"]]})[0]
+
+            collection = tools["pska_source_collection_create"](
+                "Hermes bundle",
+                description="Reusable PSKA source bundle",
+                source_refs=[packet["source_ref"]],
+            )
+            collections = tools["pska_source_collection_list"]()
+            resolved = tools["pska_source_collection_resolve"](collection["collection_id"])
+
+        self.assertEqual(collection["label"], "Hermes bundle")
+        self.assertEqual(collections[0]["collection_id"], collection["collection_id"])
+        self.assertEqual(resolved["count"], 1)
+        self.assertEqual(resolved["context_packets"][0]["source_ref"]["path"], "alpha.md")
+        actions = {event.action for event in service.store.list_audit_events(limit=30)}
+        self.assertIn("source.collection.create", actions)
+        self.assertIn("source.collection.resolve", actions)
 
     def test_sidecar_tag_and_comment_apply_do_not_touch_source_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -61,6 +61,9 @@ const messages = {
   "toast.sourceMemoryReviewCreated": "资料源记忆审核已创建。",
   "toast.sourceMemoryCandidatesCreated": "资料源记忆候选已创建。",
   "toast.sourceSavedSearchCreated": "资料源查询已保存。",
+  "toast.sourceCollectionCreated": "资料集合已创建。",
+  "toast.sourceCollectionResolved": "资料集合已展开。",
+  "toast.sourceCollectionQueryRequired": "请先搜索或输入查询。",
   "toast.sourceSelected": "资料源已选中。",
   "toast.sourceSelectRequired": "请先选择一个资料源。",
   "toast.sourceTagProposalCreated": "标签提议已创建。",
@@ -256,6 +259,9 @@ const state = {
   selectedSourceRef: null,
   selectedSourceTitle: "",
   sourceSavedSearch: null,
+  sourceCollections: [],
+  sourceCollection: null,
+  sourceCollectionResolved: null,
   sourceTagProposal: null,
   sourceTagApply: null,
   sourceCommentProposal: null,
@@ -427,6 +433,7 @@ function bindForms() {
   document.getElementById("source-root-form").addEventListener("submit", registerSourceRoot);
   document.getElementById("source-search-form").addEventListener("submit", searchSources);
   document.getElementById("source-saved-search-form").addEventListener("submit", saveSourceSearch);
+  document.getElementById("source-collection-form").addEventListener("submit", handleSourceCollection);
   document.getElementById("source-annotation-form").addEventListener("submit", handleSourceAnnotation);
   document.getElementById("memory-card-search-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -538,6 +545,7 @@ async function refreshAll() {
     loadDiagnostics(),
     loadWorkspaceStatus(),
     loadSourceRoots(),
+    loadSourceCollections({ silent: true }),
     loadDatasets(),
     loadReviews(),
     loadMemoryReviewQueue(),
@@ -839,6 +847,89 @@ async function saveSourceSearch(event) {
   showToast(t("toast.sourceSavedSearchCreated"));
 }
 
+async function handleSourceCollection(event) {
+  event.preventDefault();
+  const submitter = event.submitter;
+  const action = submitter ? submitter.value : "";
+  if (action === "collection_create") {
+    await createSourceCollection(event.currentTarget);
+  } else if (action === "collection_resolve") {
+    await resolveSourceCollection(event.currentTarget);
+  }
+}
+
+async function createSourceCollection(formElement) {
+  const form = new FormData(formElement);
+  const kind = String(form.get("kind") || "search");
+  const label = String(form.get("label") || "").trim();
+  const description = String(form.get("description") || "");
+  const limit = Number(form.get("limit") || 10);
+  const body = { label, description };
+  if (kind === "manual") {
+    if (!state.selectedSourceRef) {
+      showToast(t("toast.sourceSelectRequired"));
+      return;
+    }
+    body.selector = { kind: "manual" };
+    body.source_refs = [state.selectedSourceRef];
+  } else {
+    const query = currentSourceQuery();
+    if (!query) {
+      showToast(t("toast.sourceCollectionQueryRequired"));
+      return;
+    }
+    body.selector = {
+      kind: "search",
+      query,
+      scope: sourceScopeFromRootId(currentSourceRootId()),
+      limit,
+      sort: "relevance",
+    };
+  }
+  const payload = await api("/api/sources/collections", {
+    method: "POST",
+    body,
+  });
+  state.sourceCollection = payload.collection || null;
+  state.sourceCollectionResolved = null;
+  await loadSourceCollections({ silent: true });
+  renderSourceTools();
+  await loadAuditEvents("source.collection.create");
+  showToast(t("toast.sourceCollectionCreated"));
+}
+
+async function resolveSourceCollection(formElement) {
+  const form = new FormData(formElement);
+  const collectionId = state.sourceCollection && state.sourceCollection.collection_id;
+  if (!collectionId) {
+    await createSourceCollection(formElement);
+  }
+  const activeCollectionId = state.sourceCollection && state.sourceCollection.collection_id;
+  if (!activeCollectionId) return;
+  const payload = await api(`/api/sources/collections/${encodeURIComponent(activeCollectionId)}/resolve`, {
+    method: "POST",
+    body: { limit: Number(form.get("limit") || 10) },
+  });
+  state.sourceCollectionResolved = payload.resolved || null;
+  state.sourceSearchResults = (state.sourceCollectionResolved && state.sourceCollectionResolved.context_packets) || [];
+  state.sourceSearchCount = state.sourceSearchResults.length;
+  state.sourceSearchError = "";
+  renderSources();
+  await loadAuditEvents("source.collection.resolve");
+  showToast(t("toast.sourceCollectionResolved"));
+}
+
+async function loadSourceCollections(options = {}) {
+  const { silent = false } = options;
+  try {
+    const payload = await api("/api/sources/collections");
+    state.sourceCollections = payload.collections || [];
+  } catch (error) {
+    state.sourceCollections = [];
+    if (!silent) showToast(error.message);
+  }
+}
+
 async function handleSourceAnnotation(event) {
   event.preventDefault();
   const submitter = event.submitter;
@@ -955,6 +1046,25 @@ function selectSourceForAnnotation(sourceRef, title = "", options = {}) {
 function sourceScopeFromRootId(rootId) {
   const normalized = String(rootId || "").trim();
   return normalized ? { root_ids: [normalized] } : {};
+}
+
+function currentSourceQuery() {
+  const saveQuery = document.getElementById("source-save-query");
+  if (saveQuery && String(saveQuery.value || "").trim()) {
+    return String(saveQuery.value || "").trim();
+  }
+  const searchForm = document.getElementById("source-search-form");
+  if (!searchForm) return "";
+  return String(new FormData(searchForm).get("query") || "").trim();
+}
+
+function currentSourceRootId() {
+  const saveRoot = document.getElementById("source-save-root");
+  if (saveRoot && String(saveRoot.value || "").trim()) {
+    return String(saveRoot.value || "").trim();
+  }
+  const searchRoot = document.getElementById("source-search-root");
+  return searchRoot ? String(searchRoot.value || "").trim() : "";
 }
 
 async function loadDatasets() {
@@ -2124,9 +2234,10 @@ function renderSourceTools() {
   const selection = document.getElementById("source-selection-card");
   const selectionStatus = document.getElementById("source-selection-status");
   const savedStatus = document.getElementById("source-saved-search-status");
+  const collectionStatus = document.getElementById("source-collection-status");
   const tagStatus = document.getElementById("source-tag-status");
   const commentStatus = document.getElementById("source-comment-status");
-  if (!selection || !selectionStatus || !savedStatus || !tagStatus || !commentStatus) return;
+  if (!selection || !selectionStatus || !savedStatus || !collectionStatus || !tagStatus || !commentStatus) return;
 
   selection.replaceChildren();
   if (!state.selectedSourceRef) {
@@ -2149,6 +2260,12 @@ function renderSourceTools() {
   }
 
   renderSourceToolStatus(savedStatus, state.sourceSavedSearch, savedSearchSummary, "尚未保存查询。");
+  renderSourceToolStatus(
+    collectionStatus,
+    state.sourceCollectionResolved || state.sourceCollection || state.sourceCollections[0],
+    sourceCollectionSummary,
+    "尚未创建集合。",
+  );
   renderSourceToolStatus(tagStatus, state.sourceTagApply || state.sourceTagProposal, sourceActionSummary, "没有标签提议。");
   renderSourceToolStatus(
     commentStatus,
@@ -2176,6 +2293,20 @@ function savedSearchSummary(saved) {
     el("div", { className: "meta-row" }, [
       el("span", { className: "tag ready" }, shortId(saved.search_id || "")),
       el("span", { className: "tag" }, saved.sort || "relevance"),
+    ]),
+  ]);
+}
+
+function sourceCollectionSummary(value) {
+  const collection = value.collection || value;
+  const resolvedCount = Number.isFinite(Number(value.count)) ? Number(value.count) : null;
+  return el("div", {}, [
+    el("strong", {}, collection.label || "source collection"),
+    collection.description ? el("p", {}, collection.description) : null,
+    el("div", { className: "meta-row" }, [
+      el("span", { className: "tag ready" }, shortId(collection.collection_id || "")),
+      el("span", { className: "tag" }, (collection.selector && collection.selector.kind) || "manual"),
+      resolvedCount === null ? null : el("span", { className: "tag" }, `${resolvedCount} source`),
     ]),
   ]);
 }
@@ -4839,6 +4970,12 @@ function auditSummary(event) {
   }
   if (event.action === "source.saved_search.create") {
     return `Saved source search ${metadata.label || event.target_id || ""}.`;
+  }
+  if (event.action === "source.collection.create") {
+    return `Created source collection ${metadata.label || event.target_id || ""}.`;
+  }
+  if (event.action === "source.collection.resolve") {
+    return `Resolved source collection ${metadata.label || event.target_id || ""} with ${metadata.count || 0} source(s).`;
   }
   if (event.action === "source.tag.propose") {
     return `Proposed source tag ${metadata.tag || ""}.`;

@@ -338,6 +338,36 @@
               <div id="source-saved-search-status" class="source-tool-status empty-list">尚未保存查询。</div>
             </form>
 
+            <form id="source-collection-form" class="panel">
+              <h2>资料集合</h2>
+              <label>
+                名称
+                <input name="label" autocomplete="off" placeholder="PSKA 工作资料" required />
+              </label>
+              <label>
+                描述
+                <input name="description" autocomplete="off" placeholder="可选" />
+              </label>
+              <div class="form-row">
+                <label>
+                  类型
+                  <select name="kind">
+                    <option value="search">当前查询</option>
+                    <option value="manual">当前选择</option>
+                  </select>
+                </label>
+                <label>
+                  数量
+                  <input name="limit" type="number" min="1" max="50" value="10" />
+                </label>
+              </div>
+              <div class="button-row">
+                <button name="source_action" value="collection_create" type="submit" class="secondary-button">创建集合</button>
+                <button name="source_action" value="collection_resolve" type="submit" class="primary-button">展开集合</button>
+              </div>
+              <div id="source-collection-status" class="source-tool-status empty-list">尚未创建集合。</div>
+            </form>
+
             <form id="source-annotation-form" class="panel">
               <div class="panel-header">
                 <h2>标签和 Comment</h2>

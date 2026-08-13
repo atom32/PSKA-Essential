@@ -268,6 +268,25 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
     ):
         return service.saved_search_create(label, query, scope or {}, filters or {}, sort=sort)
 
+    def pska_source_collection_create(
+        label: str,
+        description: str = "",
+        selector: dict[str, Any] | None = None,
+        source_refs: list[dict[str, Any]] | None = None,
+    ):
+        return service.source_collection_create(
+            label,
+            description=description,
+            selector=selector or {},
+            source_refs=source_refs or [],
+        )
+
+    def pska_source_collection_list():
+        return service.source_collection_list()
+
+    def pska_source_collection_resolve(collection_id: str, limit: int = 10):
+        return to_jsonable(service.source_collection_resolve(collection_id, limit=limit))
+
     def pska_source_tag_propose(
         target_ref: dict[str, Any],
         tag: str,
@@ -1239,6 +1258,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_extract_job_run": pska_source_extract_job_run,
         "pska_source_watch_once": pska_source_watch_once,
         "pska_saved_search_create": pska_saved_search_create,
+        "pska_source_collection_create": pska_source_collection_create,
+        "pska_source_collection_list": pska_source_collection_list,
+        "pska_source_collection_resolve": pska_source_collection_resolve,
         "pska_source_tag_propose": pska_source_tag_propose,
         "pska_source_tag_apply": pska_source_tag_apply,
         "pska_source_comment_propose": pska_source_comment_propose,

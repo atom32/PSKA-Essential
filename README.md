@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M12 baseline into
+  engineering plan for upgrading the current PSKA-Essential M13 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -481,7 +481,7 @@ readiness snapshot, result run, and `data_flow.writes_memory_directly=false` so
 operators can see that document digestion is not a hidden memory write.
 Hermes WebUI exposes the same path through the PSKA Knowledge panel: the Digest
 card queues the job, and the Jobs card can run queued or waiting digest jobs.
-The personal source tools provide the M1-M12 no-embedding local source loop:
+The personal source tools provide the M1-M13 no-embedding local source loop:
 register a user-authorized local folder or Obsidian vault, scan rebuildable
 metadata and SQLite FTS5 text into `PSKA_SOURCE_DB` (default
 `.pska-essential/sources.sqlite3`), search it with `pska_source_search`, and
@@ -655,11 +655,16 @@ explicit `write_target="obsidian_markdown_comment"` for Obsidian Markdown notes.
 Proposal is metadata-only; apply requires `native_write` or `managed` permission
 and appends a visible PSKA Comment marker block to the note without changing
 existing body text.
+M13 adds `pska_source_collection_create`, `pska_source_collection_list`, and
+`pska_source_collection_resolve`: a named collection can hold explicit
+SourceRefs or a reusable no-embedding search selector, then resolve back into
+normal `ContextPacket` payloads for Hermes/RAG use. Collections write only PSKA
+registry metadata, never copy, move, delete, or edit user source files.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through
-SQLite FTS5, save reusable searches, select exact source sections for
-tag/comment proposals, apply sidecar annotations when permitted, explicitly
+SQLite FTS5, save reusable searches and source collections, select exact source
+sections for tag/comment proposals, apply sidecar annotations when permitted, explicitly
 apply Obsidian frontmatter tags and PSKA Comment blocks when native write is
 authorized, and promote source-route candidates into Review without hidden memory
 writes. Obsidian MOC actions from source audits create a governed MOC proposal

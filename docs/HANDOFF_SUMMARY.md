@@ -68,9 +68,16 @@ Last updated: 2026-07-15
 > `obsidian_vault`; `pska_source_comment_apply` requires `native_write` or
 > `managed` permission and appends a visible PSKA Comment marker block without
 > rewriting existing note body text. Comment apply now has write-target-specific
-> Product API/MCP/WebUI capability, `data_flow`, and audit metadata. Next useful
-> source-governance steps are source collections, FTS ranking/snippets, richer
-> frontmatter fields, and MOC grouping.
+> Product API/MCP/WebUI capability, `data_flow`, and audit metadata.
+>
+> Update, 2026-08-13: Source collections are now implemented as M13.
+> `pska_source_collection_create/list/resolve` can save a named manual SourceRef
+> bundle or no-embedding search selector, then materialize it back into normal
+> `ContextPacket` payloads for Hermes/RAG workflows. Product API and WebUI expose
+> collection create/resolve. Collections write only PSKA registry metadata and do
+> not copy, move, delete, or edit source files. Next useful source-governance
+> steps are FTS ranking/snippets, richer frontmatter fields, MOC grouping, and
+> richer duplicate heuristics.
 
 This document is the handoff point for a fresh Codex conversation.
 

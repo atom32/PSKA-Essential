@@ -284,6 +284,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/duplicates"), contract_routes)
         self.assertIn(("POST", "/api/sources/audits/run"), contract_routes)
         self.assertIn(("POST", "/api/sources/saved-searches"), contract_routes)
+        self.assertIn(("GET", "/api/sources/collections"), contract_routes)
+        self.assertIn(("POST", "/api/sources/collections"), contract_routes)
+        self.assertIn(("POST", "/api/sources/collections/{collection_id}/resolve"), contract_routes)
         self.assertIn(("POST", "/api/sources/tags/proposals"), contract_routes)
         self.assertIn(("POST", "/api/sources/tags/{proposal_id}/apply"), contract_routes)
         self.assertIn(("POST", "/api/sources/comments/proposals"), contract_routes)
@@ -314,7 +317,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m12_obsidian_markdown_comment_writeback")
+        self.assertEqual(source_layer["status"], "m13_source_collections")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -329,6 +332,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_extract_job_run", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_watch_once", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_saved_search_create", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_collection_create", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_collection_list", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_collection_resolve", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_tag_propose", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_tag_apply", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_comment_propose", source_layer["mcp_tools"]["implemented"])
@@ -1111,6 +1117,56 @@ class ProductApiTests(unittest.TestCase):
         apply_event = next(event for event in audit["events"] if event["action"] == "source.comment.apply")
         self.assertEqual(apply_event["metadata"]["write_target"], "obsidian_markdown_comment")
         self.assertFalse(apply_event["metadata"]["writes_sidecar"])
+
+    def test_product_api_source_collections_create_list_and_resolve(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "Alpha.md").write_text(
+                "# Alpha\n\nHermes reusable source collection context.\n",
+                encoding="utf-8",
+            )
+            registered = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_path), "kind": "local_folder", "permission_mode": "read_only"},
+            )
+            self._post_json(
+                f"/api/sources/roots/{registered['root']['root_id']}/scan",
+                {"max_files": 10},
+            )
+            searched = self._post_json(
+                "/api/sources/search",
+                {"query": "reusable source collection", "scope": {"root_ids": [registered["root"]["root_id"]]}},
+            )
+            packet = searched["context_packets"][0]
+
+            created = self._post_json(
+                "/api/sources/collections",
+                {
+                    "label": "Hermes collection",
+                    "description": "Reusable source scope",
+                    "source_refs": [packet["source_ref"]],
+                },
+            )
+            listed = self._get_json("/api/sources/collections")
+            resolved = self._post_json(
+                f"/api/sources/collections/{created['collection']['collection_id']}/resolve",
+                {"limit": 5},
+            )
+            audit = self._get_json("/api/audit?limit=20&action=source.collection.resolve")
+
+        self.assertEqual(created["collection"]["label"], "Hermes collection")
+        self.assertEqual(created["collection"]["selector"]["kind"], "manual")
+        self.assertFalse(created["collection"]["data_flow"]["writes_source_files"])
+        self.assertEqual(listed["count"], 1)
+        self.assertEqual(listed["collections"][0]["collection_id"], created["collection"]["collection_id"])
+        self.assertEqual(resolved["resolved"]["count"], 1)
+        self.assertEqual(resolved["resolved"]["materialized_from"], "manual_refs")
+        self.assertEqual(resolved["resolved"]["context_packets"][0]["source_ref"]["path"], "Alpha.md")
+        self.assertIn("Hermes reusable source collection context", resolved["resolved"]["context_packets"][0]["text"])
+        resolve_event = next(event for event in audit["events"] if event["action"] == "source.collection.resolve")
+        self.assertFalse(resolve_event["metadata"]["writes_source_files"])
+        self.assertFalse(resolve_event["metadata"]["embedding_required"])
 
     def test_source_watch_once_route_delegates_to_bounded_watcher(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2803,6 +2859,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source-search-root", html)
         self.assertIn("source-saved-search-form", html)
         self.assertIn("source-save-root", html)
+        self.assertIn("source-collection-form", html)
+        self.assertIn("source-collection-status", html)
         self.assertIn("source-annotation-form", html)
         self.assertIn("source-selection-card", html)
         self.assertIn("source-tag-status", html)
@@ -2832,6 +2890,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('/api/sources/audit-jobs/run-next', script)
         self.assertIn('/api/sources/audit-jobs/${encodeURIComponent(runId)}/run', script)
         self.assertIn('/api/sources/saved-searches', script)
+        self.assertIn('/api/sources/collections', script)
+        self.assertIn('/api/sources/collections/${encodeURIComponent(activeCollectionId)}/resolve', script)
         self.assertIn('/api/sources/tags/proposals', script)
         self.assertIn('/api/sources/tags/${encodeURIComponent(proposalId)}/apply', script)
         self.assertIn('/api/sources/comments/proposals', script)
@@ -2862,6 +2922,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("async function tickSourceAuditJobs", script)
         self.assertIn("async function searchSources", script)
         self.assertIn("async function saveSourceSearch", script)
+        self.assertIn("async function handleSourceCollection", script)
+        self.assertIn("async function createSourceCollection", script)
+        self.assertIn("async function resolveSourceCollection", script)
         self.assertIn("async function handleSourceAnnotation", script)
         self.assertIn("async function proposeSourceTag", script)
         self.assertIn("async function applySourceTag", script)

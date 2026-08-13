@@ -507,6 +507,123 @@ class SQLiteSourceRegistry:
             },
         }
 
+    def source_collection_create(
+        self,
+        label: str,
+        *,
+        description: str = "",
+        selector: dict[str, Any] | None = None,
+        source_refs: list[SourceRef | dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        normalized_label = label.strip()
+        if not normalized_label:
+            raise SourceRegistryError("source collection label is required")
+        selector_payload = _normalize_collection_selector(selector or {})
+        refs = [ref if isinstance(ref, SourceRef) else SourceRef.from_dict(ref) for ref in (source_refs or [])]
+        ref_payloads = [to_jsonable(_source_ref_from_target(self._target_for_ref(ref))) for ref in refs]
+        if selector_payload["kind"] == "manual" and not ref_payloads:
+            raise SourceRegistryError("manual source collection requires source_refs")
+        collection_id = _stable_id(
+            "collection",
+            f"{normalized_label}:{json.dumps(selector_payload, sort_keys=True)}:{json.dumps(ref_payloads, sort_keys=True)}",
+        )
+        now = utc_now_iso()
+        with self.lock:
+            self.conn.execute(
+                """
+                INSERT INTO source_collections(
+                    collection_id, label, description, selector_json, source_refs_json,
+                    status, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
+                ON CONFLICT(collection_id) DO UPDATE SET
+                    label = excluded.label,
+                    description = excluded.description,
+                    selector_json = excluded.selector_json,
+                    source_refs_json = excluded.source_refs_json,
+                    status = 'active',
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    collection_id,
+                    normalized_label,
+                    description.strip(),
+                    json.dumps(selector_payload, sort_keys=True),
+                    json.dumps(ref_payloads, sort_keys=True),
+                    now,
+                    now,
+                ),
+            )
+            self.conn.commit()
+        return {
+            "collection_id": collection_id,
+            "label": normalized_label,
+            "description": description.strip(),
+            "selector": selector_payload,
+            "source_refs": ref_payloads,
+            "source_ref_count": len(ref_payloads),
+            "status": "active",
+            "created_at": now,
+            "updated_at": now,
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_index": True,
+                "embedding_required": False,
+            },
+        }
+
+    def source_collection_list(self) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = self.conn.execute(
+                """
+                SELECT * FROM source_collections
+                WHERE status = 'active'
+                ORDER BY updated_at DESC, label COLLATE NOCASE
+                """
+            ).fetchall()
+        return [_source_collection_payload(row) for row in rows]
+
+    def source_collection_get(self, collection_id: str) -> dict[str, Any]:
+        with self.lock:
+            row = self.conn.execute(
+                "SELECT * FROM source_collections WHERE collection_id = ? AND status = 'active'",
+                (collection_id,),
+            ).fetchone()
+        if row is None:
+            raise SourceRegistryError(f"source collection not found: {collection_id}")
+        return _source_collection_payload(row)
+
+    def source_collection_resolve(self, collection_id: str, *, limit: int = 10) -> dict[str, Any]:
+        collection = self.source_collection_get(collection_id)
+        selector = dict(collection.get("selector") or {})
+        kind = selector.get("kind") or "manual"
+        if kind == "search":
+            query = str(selector.get("query") or "").strip()
+            packets = self.search(
+                query,
+                selector.get("scope") or {},
+                limit=limit or int(selector.get("limit") or 10),
+                filters=selector.get("filters") or {},
+            )
+            materialized_from = "search_selector"
+        elif kind == "manual":
+            refs = [SourceRef.from_dict(item) for item in collection.get("source_refs") or []]
+            packets = self._packets_from_refs(refs, limit=limit)
+            materialized_from = "manual_refs"
+        else:
+            raise SourceRegistryError("source collection selector kind must be manual or search")
+        return {
+            "collection": collection,
+            "context_packets": packets,
+            "count": len(packets),
+            "materialized_from": materialized_from,
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_index": False,
+                "embedding_required": False,
+            },
+        }
+
     def propose_tag(
         self,
         target_ref: SourceRef,
@@ -1314,6 +1431,7 @@ class SQLiteSourceRegistry:
                 row = self.conn.execute(
                     """
                     SELECT o.object_id, o.root_id, o.path, o.title,
+                           o.content_hash, o.extraction_status,
                            r.kind AS root_kind, r.label AS root_label,
                            r.absolute_path, r.permission_mode,
                            s.section_id, s.title AS section_title, s.section_type,
@@ -1329,6 +1447,7 @@ class SQLiteSourceRegistry:
                 row = self.conn.execute(
                     """
                     SELECT o.object_id, o.root_id, o.path, o.title,
+                           o.content_hash, o.extraction_status,
                            r.kind AS root_kind, r.label AS root_label,
                            r.absolute_path, r.permission_mode,
                            s.section_id, s.title AS section_title, s.section_type,
@@ -1693,6 +1812,30 @@ class SQLiteSourceRegistry:
                 (proposal_id,),
             ).fetchone()
         return dict(row) if row else None
+
+    def _packets_from_refs(self, refs: list[SourceRef], *, limit: int = 10) -> list[ContextPacket]:
+        packets: list[ContextPacket] = []
+        if limit <= 0:
+            return packets
+        for ref in refs:
+            try:
+                target = self._target_for_ref(ref)
+                source = self.read_source(_source_ref_from_target(target))
+            except SourceRegistryError:
+                continue
+            packets.append(
+                ContextPacket(
+                    context_id=f"ctx_collection_{len(packets) + 1}_{target['section_id'] or target['object_id']}",
+                    text=source.text[:500],
+                    source_ref=source.source_ref,
+                    score=1.0,
+                    title=target["title"],
+                    metadata=dict(source.metadata or {}) | {"collection_materialized_from": "manual_refs"},
+                )
+            )
+            if len(packets) >= limit:
+                break
+        return packets
 
     def _index_file(
         self,
@@ -2280,6 +2423,17 @@ class SQLiteSourceRegistry:
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS source_collections (
+                collection_id TEXT PRIMARY KEY,
+                label TEXT NOT NULL,
+                description TEXT NOT NULL,
+                selector_json TEXT NOT NULL,
+                source_refs_json TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS source_action_proposals (
                 proposal_id TEXT PRIMARY KEY,
                 action TEXT NOT NULL,
@@ -2352,6 +2506,26 @@ def _root_payload(row: sqlite3.Row) -> dict[str, Any]:
     return payload
 
 
+def _source_collection_payload(row: sqlite3.Row) -> dict[str, Any]:
+    source_refs = _json_list(row["source_refs_json"])
+    return {
+        "collection_id": row["collection_id"],
+        "label": row["label"],
+        "description": row["description"],
+        "selector": _json_dict(row["selector_json"]),
+        "source_refs": source_refs,
+        "source_ref_count": len(source_refs),
+        "status": row["status"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "data_flow": {
+            "writes_source_files": False,
+            "writes_index": False,
+            "embedding_required": False,
+        },
+    }
+
+
 def _packet_from_search_row(row: sqlite3.Row, index: int) -> ContextPacket:
     ref = _source_ref_from_row(row)
     text = str(row["snippet"] or "")
@@ -2387,6 +2561,35 @@ def _source_ref_from_row(row: sqlite3.Row) -> SourceRef:
         title=title,
         path=str(row["path"]),
         metadata=_source_metadata(row),
+    )
+
+
+def _source_ref_from_target(target: dict[str, Any]) -> SourceRef:
+    metadata = {
+        "source_layer": "personal",
+        "root_id": target["root_id"],
+        "root_kind": target["root_kind"],
+        "root_label": target["root_label"],
+        "permission_mode": target["permission_mode"],
+        "object_id": target["object_id"],
+        "section_id": target["section_id"],
+        "path": target["path"],
+        "content_hash": target.get("content_hash", ""),
+        "section_type": target["section_type"],
+        "heading_path": target["heading_path"],
+        "line_start": target["line_start"],
+        "line_end": target["line_end"],
+        "extraction_status": target.get("extraction_status", ""),
+        "writes_source_files": False,
+    }
+    return SourceRef(
+        adapter=str(target["root_kind"]),
+        document_id=str(target["object_id"]),
+        chunk_id=str(target["section_id"] or ""),
+        source_id=str(target["section_id"] or target["object_id"]),
+        title=str(target["title"] or target["path"]),
+        path=str(target["path"]),
+        metadata=metadata,
     )
 
 
@@ -2488,6 +2691,8 @@ def _target_payload(row: sqlite3.Row) -> dict[str, Any]:
         "section_id": row["section_id"] or "",
         "path": row["path"],
         "title": row["section_title"] or row["title"] or row["path"],
+        "content_hash": row["content_hash"],
+        "extraction_status": row["extraction_status"],
         "section_type": row["section_type"] or "file",
         "heading_path": row["heading_path"] or "",
         "line_start": row["line_start"] or 1,
@@ -2808,6 +3013,31 @@ def _normalize_comment_write_target(write_target: str) -> str:
     if value in {OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET, "markdown_comment", "obsidian_comment"}:
         return OBSIDIAN_MARKDOWN_COMMENT_WRITE_TARGET
     raise SourceRegistryError("comment write_target must be sidecar or obsidian_markdown_comment")
+
+
+def _normalize_collection_selector(selector: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(selector or {})
+    kind = str(payload.get("kind") or "manual").strip().lower()
+    if kind in {"", "refs", "source_refs"}:
+        kind = "manual"
+    if kind == "saved_search":
+        kind = "search"
+    if kind not in {"manual", "search"}:
+        raise SourceRegistryError("source collection selector kind must be manual or search")
+    if kind == "manual":
+        return {"kind": "manual"}
+    query = str(payload.get("query") or "").strip()
+    if not query:
+        raise SourceRegistryError("search source collection requires selector.query")
+    limit = max(int(payload.get("limit") or 10), 1)
+    return {
+        "kind": "search",
+        "query": query,
+        "scope": _normalize_mapping(payload.get("scope")),
+        "filters": _normalize_mapping(payload.get("filters")),
+        "limit": min(limit, 100),
+        "sort": str(payload.get("sort") or "relevance"),
+    }
 
 
 def _render_moc_block(title: str, targets: list[dict[str, Any]]) -> str:
@@ -3428,3 +3658,23 @@ def _scope_strings(data: dict[str, Any], plural_key: str, singular_key: str) -> 
     if isinstance(values, list):
         return [str(value) for value in values if str(value)]
     return []
+
+
+def _normalize_mapping(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _json_dict(value: str) -> dict[str, Any]:
+    try:
+        decoded = json.loads(value or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
+
+def _json_list(value: str) -> list[Any]:
+    try:
+        decoded = json.loads(value or "[]")
+    except json.JSONDecodeError:
+        return []
+    return decoded if isinstance(decoded, list) else []

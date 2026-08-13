@@ -161,6 +161,29 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "writes_source_registry": True,
         "writes_source_files": False,
     },
+    "pska_source_collection_create": {
+        "category": "source",
+        "access": "write",
+        "durable": False,
+        "writes_source_registry": True,
+        "writes_source_files": False,
+        "embedding_required": False,
+    },
+    "pska_source_collection_list": {
+        "category": "source",
+        "access": "read",
+        "durable": False,
+        "writes_source_files": False,
+        "embedding_required": False,
+    },
+    "pska_source_collection_resolve": {
+        "category": "source",
+        "access": "read",
+        "durable": False,
+        "writes_source_files": False,
+        "embedding_required": False,
+        "returns_context_packets": True,
+    },
     "pska_source_tag_propose": {
         "category": "source",
         "access": "write",
@@ -649,7 +672,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m12_obsidian_markdown_comment_writeback",
+        "status": "m13_source_collections",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -676,6 +699,9 @@ def source_layer_contract() -> dict[str, Any]:
                 "pska_source_extract_job_run",
                 "pska_source_watch_once",
                 "pska_saved_search_create",
+                "pska_source_collection_create",
+                "pska_source_collection_list",
+                "pska_source_collection_resolve",
                 "pska_source_tag_propose",
                 "pska_source_tag_apply",
                 "pska_source_comment_propose",

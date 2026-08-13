@@ -43,6 +43,9 @@ EXPECTED_TOOLS = {
     "pska_source_extract_job_run",
     "pska_source_watch_once",
     "pska_saved_search_create",
+    "pska_source_collection_create",
+    "pska_source_collection_list",
+    "pska_source_collection_resolve",
     "pska_source_tag_propose",
     "pska_source_tag_apply",
     "pska_source_comment_propose",
@@ -402,6 +405,10 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_source_watch_once"]["writes_memory_directly"])
         self.assertTrue(policy["pska_source_audit_schedule_create"]["wall_clock_schedule"])
         self.assertTrue(policy["pska_source_audit_job_tick"]["wall_clock_tick"])
+        self.assertFalse(policy["pska_source_collection_create"]["writes_source_files"])
+        self.assertTrue(policy["pska_source_collection_create"]["writes_source_registry"])
+        self.assertFalse(policy["pska_source_collection_resolve"]["embedding_required"])
+        self.assertTrue(policy["pska_source_collection_resolve"]["returns_context_packets"])
         self.assertEqual(policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
         self.assertEqual(policy["pska_source_tag_apply"]["writes_sidecar"], "write_target_dependent")
         self.assertEqual(

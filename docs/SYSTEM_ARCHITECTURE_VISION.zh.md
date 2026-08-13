@@ -377,7 +377,7 @@ flowchart TD
 
 ## Current Baseline
 
-截至 2026-08-13，当前可验证的系统状态是 M12 source governance baseline。
+截至 2026-08-13，当前可验证的系统状态是 M13 source governance baseline。
 
 | 能力 | 当前状态 |
 | --- | --- |
@@ -394,6 +394,7 @@ flowchart TD
 | Obsidian MOC | 已支持 proposal/apply，只写 PSKA-managed marker block |
 | Obsidian Frontmatter Tags | 已支持显式 `obsidian_frontmatter` tag proposal/apply，只追加去重 `tags` |
 | Obsidian Markdown Comments | 已支持显式 `obsidian_markdown_comment` comment proposal/apply，只追加 PSKA Comment block |
+| Source Collections | 已支持命名集合，保存显式 SourceRef 或无 embedding search selector，并展开为 ContextPacket |
 | Jarvis Briefing | 已聚合 workspace、source audit、memory/review cues、next actions |
 | Governance | memory 和 source write 都走 proposal/apply/review/audit 边界 |
 
@@ -544,6 +545,7 @@ source audit
 - Obsidian tag apply 可在 `native_write/managed` vault 中显式写 YAML frontmatter `tags`；
 - Obsidian comment apply 可在 `native_write/managed` vault 中显式追加 PSKA Comment block；
 - Obsidian MOC apply 写目标 note 的 PSKA marker block；
+- Source collections 可保存手动 SourceRef 或搜索 selector，并按需展开成 retrieval context；
 - duplicate report 不删除、不移动、不合并。
 
 ### 6. Proactive Jarvis Loop

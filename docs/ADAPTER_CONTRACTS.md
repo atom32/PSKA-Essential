@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M12 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M13 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -54,6 +54,9 @@ neighbors(source_ref, strategy, limit) -> list[SourceNeighbor]
 duplicate_report(scope, mode, limit) -> DuplicateReport
 source_audit_run(scope, limit) -> SourceAuditReport
 saved_search_create(label, query, filters, scope) -> SavedSearch
+source_collection_create(label, description, selector, source_refs) -> SourceCollection
+source_collection_list() -> list[SourceCollection]
+source_collection_resolve(collection_id, limit) -> list[ContextPacket]
 propose_tag(target_ref, tag, reason, write_target="sidecar") -> SourceActionProposal
 apply_tag(proposal_id) -> SourceActionResult
 propose_comment(target_ref, body, reason, write_target="sidecar") -> SourceActionProposal
@@ -75,6 +78,9 @@ Rules:
   canonical documents.
 - Every search hit must return a normal PSKA `ContextPacket` with a `SourceRef`
   that can be passed to `read_source`.
+- Source collections are PSKA-owned selectors, not copied files. A collection
+  may hold explicit personal `SourceRef`s or a reusable search selector, and
+  resolve back into normal `ContextPacket` payloads without embeddings.
 - Source refs for local files must include provider role
   `local_folder` or `obsidian_vault`, `root_id`, path relative to the root,
   absolute-path debug metadata only when policy allows it, content hash, and
@@ -512,7 +518,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M12 source-management MCP surface:
+The personal source layer has an M1-M13 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
@@ -532,6 +538,9 @@ The personal source layer has an M1-M12 source-management MCP surface:
 - `pska_source_extract_job_run`
 - `pska_source_watch_once`
 - `pska_saved_search_create`
+- `pska_source_collection_create`
+- `pska_source_collection_list`
+- `pska_source_collection_resolve`
 - `pska_source_tag_propose`
 - `pska_source_tag_apply`
 - `pska_source_comment_propose`
@@ -574,12 +583,16 @@ remains the default tag path.
 `write_target="obsidian_markdown_comment"` for Obsidian Markdown notes. Sidecar
 remains the default comment path, and native comment apply appends only a PSKA
 Comment marker block.
+`pska_source_collection_create`, `pska_source_collection_list`, and
+`pska_source_collection_resolve` provide the first source-collection surface:
+named reusable bundles over explicit SourceRefs or search selectors. They write
+only source-registry metadata and resolve into normal context packets for
+Hermes/RAG workflows.
 
 The remaining personal source-management capabilities are planned vNext surface
 and are not part of the current Alpha MCP registry until implemented: native
 Obsidian richer frontmatter fields, move/delete proposals, background wakeup
-integration, source collections, ranking improvements, and richer duplicate
-heuristics.
+integration, ranking improvements, MOC grouping, and richer duplicate heuristics.
 
 `pska_source_read` is the common read tool for both RAGFlow source refs and
 personal source refs.

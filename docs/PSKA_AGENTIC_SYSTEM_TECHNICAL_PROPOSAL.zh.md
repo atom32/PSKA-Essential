@@ -429,6 +429,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 | 重文档 RAG | RAGFlow、Qdrant、Vespa | provider adapter、readiness、citation contract |
 | 查重 | fclones、Czkawka、dupeGuru、rmlint | dry-run report、proposal、destructive review |
 | Obsidian 集成 | Local REST API、Omnisearch、Smart Connections 作为参考 | vault source adapter、MOC marker block、frontmatter tag writeback、PSKA Comment block、SourceRef |
+| Source collections | SQLite registry、saved search 参考 | 命名集合、manual SourceRef/search selector、ContextPacket resolve |
 | 记忆 provider | SQLite、Graphiti、Zep、Mem0、Letta | Memory Card envelope、policy、lifecycle、search view |
 | 任务和调度 | watchdog、Temporal、系统 cron/launchd | job metadata、wakeup policy、audit |
 | 同步与云端 | rclone、Syncthing、Drive/Box/SharePoint plugins | cloud source roots、permission、source route |
@@ -470,6 +471,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 - Obsidian MOC proposal/apply。
 - Obsidian frontmatter tag proposal/apply through source tag write target.
 - Obsidian markdown comment proposal/apply through source comment write target.
+- Source collections over explicit SourceRefs or no-embedding search selectors.
 - Jarvis briefing。
 
 ### Phase 1: Memory Productization
@@ -490,7 +492,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 - Richer Obsidian frontmatter fields and MOC grouping.
 - 更强 source route learning。
 - MarkItDown/Docling/Tika adapter。
-- Saved search 和 source collections。
+- Saved search 已有；source collections 已有第一版，后续增强 grouping/ranking。
 
 ### Phase 3: Agentic Workspace
 
