@@ -523,6 +523,12 @@ P1 adapter work adds `pska_source_extract_job_enqueue`,
 Jarvis-friendly source extraction queue. Jobs run `pska_source_scan` with the
 selected extractor, update rebuildable source index metadata/FTS sections, never
 write source files or memory directly, and do not require embeddings.
+P3-1 installs and validates the MarkItDown optional extra inside the project
+virtual environment, so broad local file extraction can be tested without
+promoting MarkItDown to a core dependency. Use
+`make live-markitdown-smoke PYTHON=.venv/bin/python`. The smoke verifies both
+`adapter_slots.summary.extraction.available` and an actual MarkItDown-backed
+conversion through `extract_source_file`.
 M10 adds `pska_obsidian_moc_propose` and `pska_obsidian_moc_apply` for governed
 Obsidian MOC writeback. Proposal builds a preview from explicit source refs and
 writes only PSKA registry metadata; apply requires an `obsidian_vault` root with

@@ -178,6 +178,18 @@ class SkillDocsTests(unittest.TestCase):
 
         self.assertIn("PSKA_AGENTIC_SYSTEM_TECHNICAL_PROPOSAL.zh.md", readme)
 
+    def test_markitdown_smoke_target_is_documented(self):
+        makefile = Path("Makefile").read_text(encoding="utf-8")
+        script = Path("scripts/markitdown_smoke.py").read_text(encoding="utf-8")
+        readme = Path("README.md").read_text(encoding="utf-8")
+        upgrade_plan = Path("docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md").read_text(encoding="utf-8")
+
+        self.assertIn("live-markitdown-smoke", makefile)
+        self.assertIn("adapter_slots_contract", script)
+        self.assertIn("extract_source_file", script)
+        self.assertIn("live-markitdown-smoke", readme)
+        self.assertIn("P3-1", upgrade_plan)
+
     def test_agentic_system_upgrade_plan_maps_current_project_to_component_reuse(self):
         text = Path("docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md").read_text(encoding="utf-8")
         readme = Path("README.md").read_text(encoding="utf-8")

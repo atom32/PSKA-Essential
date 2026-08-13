@@ -465,6 +465,18 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 - 安装后，PDF/DOCX 能生成 text sections；fclones JSON 能归一化成 duplicate report。
 - 任何 dedup action 都不删除文件。
 
+2026-08-13 P3-1 更新：已在项目 `.venv` 中安装 `extract-markitdown` optional
+extra，并新增 `scripts/markitdown_smoke.py` 与 Make target
+`live-markitdown-smoke`。验收命令：
+
+```bash
+make live-markitdown-smoke PYTHON=.venv/bin/python
+```
+
+该 smoke 同时检查 `adapter_slots.summary.extraction.available` 中出现
+`markitdown`，并用 `extract_source_file(..., extractor="markitdown")` 对临时
+HTML 文件做真实转换；不修改 source files，不写 Memory。
+
 ### Phase 2: Memory Productization
 
 目标：让记忆从“review/apply 功能”变成可管理资产。
