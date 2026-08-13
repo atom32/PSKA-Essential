@@ -281,6 +281,13 @@ overlap、SourceRef fingerprint、behavior_delta fingerprint 聚类，并将
 `duplicate_candidates` 接入 Memory Review Queue；它不合并、不拒绝、不审批、不 apply、
 不写 durable memory。
 
+P4 的第一块 trace query 也已落地为跨对象派生视图：
+`GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
+memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。
+它覆盖 Eidolia `SourceRef(adapter="eidolia")`、Memory Review records 和普通 audit
+events；不新建第二套 trace store，不写源文件，不写 durable memory，不需要 embedding，
+也不声称能还原隐藏模型因果。
+
 新增 Product API / MCP：
 
 ```text
@@ -295,6 +302,7 @@ GET  /api/memory/use-traces
 GET  /api/memory/{memory_id}/use-trace
 GET  /api/memory/{memory_id}/why-used
 GET  /api/memory/{memory_id}/timeline
+GET  /api/trace/query
 GET  /api/memory/cards/suggestions
 GET  /api/memory/cards/conflicts
 GET  /api/memory/cards/stale
@@ -309,6 +317,7 @@ pska_memory_health_scan
 pska_memory_use_trace
 pska_memory_why_used
 pska_memory_timeline
+pska_trace_query
 pska_workflow_memory_attribution
 pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
@@ -346,13 +355,14 @@ Trace event: generated_from / cited_source / promoted_to_memory / superseded
 ```text
 pska_eidolia_context_read              # Done: payload -> SourceRef(adapter="eidolia")
 pska_eidolia_memory_review_create      # Done: thought/artifact -> governed Memory Card review
-pska_trace_query
+pska_trace_query                       # Done: audit/review/source/memory/Eidolia derived trace
 ```
 
 当前 v1 先提供 payload bridge：调用方传入 project/node/text/role/kind，PSKA 生成
 Eidolia SourceRef、audit 和 Review candidate，不读取、不复制、不修改 Eidolia project files。
-后续再接 Eidolia existing project files / sidecar JSON 读取，不把 Eidolia 数据复制成 PSKA
-canonical store。
+`pska_trace_query` 已可把 Eidolia context read、memory review create 和 Review record
+串成只读轨迹；后续再接 Eidolia existing project files / sidecar JSON 读取，不把 Eidolia
+数据复制成 PSKA canonical store。
 
 ### 7.6 Source Extraction Jobs
 
@@ -592,6 +602,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - `memory_search` 和 Hermes source route 使用时记录 `memory.use`。
 - WebUI 新增 Memory 管理面板，不只放 diagnostics probe。
 - Jarvis briefing 纳入 stale/conflict memory next actions。
+- Done: trace query 可按 Memory/Review/SourceRef 恢复 audit-backed 轨迹。
 
 验收：
 
@@ -624,7 +635,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 改动：
 
 - Done: Eidolia node refs 转成 `SourceRef(adapter="eidolia")`。
-- `pska_trace_query` 支持按 artifact/memory/source 找时间线。
+- Done: `pska_trace_query` 支持按 artifact/memory/source/review 找时间线。
 - Done: `pska_eidolia_memory_review_create` 从 thought/artifact 创建 Memory Card candidate。
 - Hermes skill 增加 specialist consultation 规则。
 - Specialist 先作为 tools/profile，不作为独立常驻 agent。
@@ -710,6 +721,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 ### P4 Backlog
 
 - [x] Eidolia `SourceRef` adapter.
+- [x] `pska_trace_query` over audit/review/source/memory/Eidolia refs.
 - [ ] Thought/artifact trace import.
 - [x] Memory review creation from Eidolia thought.
 - [ ] Specialist tool profiles.

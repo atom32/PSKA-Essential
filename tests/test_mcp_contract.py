@@ -51,6 +51,7 @@ EXPECTED_TOOLS = {
     "pska_source_memory_candidates_from_audit",
     "pska_eidolia_context_read",
     "pska_eidolia_memory_review_create",
+    "pska_trace_query",
     "pska_policy_get",
     "pska_capabilities_get",
     "pska_migration_manifest",
@@ -425,6 +426,10 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(why_used["confidence"], "candidate_retrieval")
         self.assertEqual(timeline["schema"], "pska.memory_timeline.v1")
         self.assertEqual(timeline["memory_id"], applied["target_id"])
+        trace = tools["pska_trace_query"](memory_id=applied["target_id"], limit=10)
+        self.assertEqual(trace["schema"], "pska.trace_query.v1")
+        self.assertEqual(trace["status"], "found")
+        self.assertFalse(trace["data_flow"]["embedding_required"])
         probe = tools["pska_memory_probe"]("mcp memory", {}, 1, require_live=False)
         self.assertEqual(probe["status"], "ok")
         self.assertEqual(probe["memory_count"], 1)
@@ -606,6 +611,11 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(created["eidolia"]["project_id"], "novel-x")
         self.assertEqual(created["eidolia"]["node_id"], "thought-1")
         self.assertEqual(created["artifact"]["traceability"]["source_count"], 1)
+        trace = tools["pska_trace_query"](source_ref=context["source_ref"], limit=20)
+        self.assertEqual(trace["schema"], "pska.trace_query.v1")
+        self.assertEqual(trace["status"], "found")
+        self.assertGreaterEqual(trace["summary"]["review_count"], 1)
+        self.assertFalse(trace["data_flow"]["writes_source_files"])
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("eidolia.context.read", actions)
         self.assertIn("eidolia.memory_review.create", actions)

@@ -71,6 +71,7 @@ from pska_essential.source_extraction_jobs import (
     run_source_extraction_job,
 )
 from pska_essential.source_watch import watch_source_once
+from pska_essential.trace_query import build_trace_query
 from pska_essential.workflow import WorkflowError, WorkflowService
 from pska_essential.workspace_status import build_workspace_status
 
@@ -132,6 +133,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/memory/{memory_id}/use-trace"},
     {"method": "GET", "path": "/api/memory/{memory_id}/why-used"},
     {"method": "GET", "path": "/api/memory/{memory_id}/timeline"},
+    {"method": "GET", "path": "/api/trace/query"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-attribution"},
@@ -1331,6 +1333,21 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, "events": to_jsonable(events)})
                 return
 
+            if method == "GET" and path == "/api/trace/query":
+                result = build_trace_query(
+                    state.service,
+                    target_type=query.get("target_type") or "",
+                    target_id=query.get("target_id") or "",
+                    review_id=query.get("review_id") or "",
+                    proposal_id=query.get("proposal_id") or "",
+                    memory_id=query.get("memory_id") or "",
+                    source_ref=_query_json_object(query, "source_ref") or None,
+                    action=query.get("action") or "",
+                    limit=_int_param(query.get("limit"), 50),
+                )
+                self._send_json({"ok": True, **result})
+                return
+
             raise ApiError(f"route not found: {method} {path}", HTTPStatus.NOT_FOUND)
 
         def _handle_ingest(self) -> None:
@@ -1795,6 +1812,19 @@ def _query_scope(query: dict[str, str]) -> dict[str, Any]:
         else:
             scope[key] = value
     return scope
+
+
+def _query_json_object(query: dict[str, str], key: str) -> dict[str, Any]:
+    value = query.get(key)
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ApiError(f"{key} must be a JSON object", HTTPStatus.BAD_REQUEST) from exc
+    if not isinstance(parsed, dict):
+        raise ApiError(f"{key} must be a JSON object", HTTPStatus.BAD_REQUEST)
+    return parsed
 
 
 def _int_param(value: str | None, default: int) -> int:

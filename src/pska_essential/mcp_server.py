@@ -61,6 +61,7 @@ from pska_essential.source_extraction_jobs import (
     run_source_extraction_job,
 )
 from pska_essential.source_watch import watch_source_once
+from pska_essential.trace_query import build_trace_query
 from pska_essential.workspace_status import build_workspace_status
 
 
@@ -616,6 +617,28 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             confidence=confidence,
             scope=scope or {},
             metadata=metadata or {},
+        )
+
+    def pska_trace_query(
+        target_type: str = "",
+        target_id: str = "",
+        review_id: str = "",
+        proposal_id: str = "",
+        memory_id: str = "",
+        source_ref: dict[str, Any] | None = None,
+        action: str = "",
+        limit: int = 50,
+    ):
+        return build_trace_query(
+            service,
+            target_type=target_type,
+            target_id=target_id,
+            review_id=review_id,
+            proposal_id=proposal_id,
+            memory_id=memory_id,
+            source_ref=source_ref or None,
+            action=action,
+            limit=limit,
         )
 
     def pska_memory_change_from_conversation(
@@ -1194,6 +1217,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_memory_candidates_from_audit": pska_source_memory_candidates_from_audit,
         "pska_eidolia_context_read": pska_eidolia_context_read,
         "pska_eidolia_memory_review_create": pska_eidolia_memory_review_create,
+        "pska_trace_query": pska_trace_query,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_workflow_memory_attribution": pska_workflow_memory_attribution,

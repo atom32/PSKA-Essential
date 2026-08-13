@@ -174,7 +174,9 @@ PSKA/Hermes 在背后给 thought/artifact 加 metadata 和 trace。适合：
 当前 v1 已落地 payload bridge：`pska_eidolia_context_read` 将调用方提供的
 project/node/text/role/kind 规范为 `SourceRef(adapter="eidolia")`，
 `pska_eidolia_memory_review_create` 可把 thought/artifact 提升为 governed Memory Card
-candidate。它不新增画布节点类型，不读取/复制 Eidolia project files，不直接写 memory。
+candidate；`pska_trace_query` 可按 Eidolia SourceRef、review、proposal 或 memory 查询
+audit-backed 轨迹。它不新增画布节点类型，不读取/复制 Eidolia project files，不直接写
+memory。
 
 ### 4.6 Decision And Belief Reconstruction
 

@@ -419,6 +419,7 @@ Operational loop tools:
 - `pska_obsidian_moc_propose`
 - `pska_obsidian_moc_apply`
 - `pska_source_memory_review_create`
+- `pska_source_memory_candidates_from_audit`
 - `pska_eidolia_context_read`
 - `pska_eidolia_memory_review_create`
 - `pska_memory_candidate_dedup`
@@ -430,6 +431,7 @@ Operational loop tools:
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
 - `pska_memory_timeline`
+- `pska_trace_query`
 - `pska_workflow_memory_attribution`
 - `pska_workflow_memory_suggestions`
 - `pska_memory_change_from_conversation`
@@ -559,7 +561,11 @@ P4 begins the Eidolia bridge with `pska_eidolia_context_read` and
 `pska_eidolia_memory_review_create`: Eidolia `thought`/`artifact` payloads are
 normalized into `SourceRef(adapter="eidolia")`, can become governed Memory Card
 review candidates, and never mutate the canvas, copy project files, or write
-durable memory directly.
+durable memory directly. P4-1 adds `pska_trace_query` and
+`GET /api/trace/query`, a read-only derived trace view over audit and Review
+records. It can query by review, proposal, memory, target, action, or SourceRef,
+including Eidolia SourceRefs, without embeddings, source-file writes, durable
+memory writes, or hidden-causality claims.
 P1 adapter work adds `pska_source_extract_job_enqueue`,
 `pska_source_extract_job_list`, and `pska_source_extract_job_run` as the
 Jarvis-friendly source extraction queue. Jobs run `pska_source_scan` with the
@@ -742,6 +748,7 @@ Implemented Alpha routes:
 - `POST /api/memory/delete-review`
 - `GET /api/memory/{memory_target_id}/lifecycle`
 - `GET /api/memory/{memory_id}/timeline`
+- `GET /api/trace/query`
 - `GET /api/reviews`
 - `GET /api/reviews?status={status}`
 - `GET /api/reviews/{review_id}`

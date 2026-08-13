@@ -164,6 +164,10 @@ candidate memory, review, and durable export.
   behavior, call `pska_eidolia_memory_review_create` to create a governed
   Memory Card candidate. Keep Eidolia's user-facing ontology to `thought` and
   `artifact`; do not invent new canvas node types.
+- If the user asks why a memory/review/source/Eidolia node exists, where it
+  came from, when it entered review, or how it connects to another PSKA object,
+  call `pska_trace_query`. Treat it as a read-only ledger view over audit and
+  review records; do not infer hidden model causality from missing trace data.
 - If an existing durable memory must be changed outside the normal conversation
   flow, start from a `pska_memory_search` or `pska_memory_card_list` result and call
   `pska_memory_update_review`; do not call backend update tools directly.

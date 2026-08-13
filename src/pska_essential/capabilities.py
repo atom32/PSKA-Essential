@@ -345,6 +345,16 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "durable": False,
         "audit_backed": True,
     },
+    "pska_trace_query": {
+        "category": "trace",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "embedding_required": False,
+        "generates_answer_text": False,
+    },
     "pska_memory_change_from_conversation": {
         "category": "memory",
         "access": "write",
@@ -474,6 +484,7 @@ def memory_capabilities(adapter: Any) -> dict[str, Any]:
         "suggestion_view": memory_suggestion_view_contract(),
         "use_trace_view": memory_use_trace_view_contract(),
         "timeline_view": memory_timeline_view_contract(),
+        "trace_view": trace_query_view_contract(),
         "interaction_model": memory_interaction_model_contract(),
     }
 
@@ -696,10 +707,10 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_source_memory_candidates_from_audit",
                 "pska_eidolia_context_read",
                 "pska_eidolia_memory_review_create",
+                "pska_trace_query",
             ],
             "planned": [
                 "approximate_duplicate_report",
-                "pska_trace_query",
             ],
         },
         "adapter_slots": {
@@ -1102,6 +1113,26 @@ def memory_timeline_view_contract() -> dict[str, Any]:
         "evidence_sources": ["Memory Card envelope", "PSKA audit lifecycle", "memory use trace", "SourceRef"],
         "principle": "timeline is a derived ledger view and does not create a second memory store",
         "limitation": "provider-neutral timeline; hidden model causality and provider-native graph state are out of scope",
+    }
+
+
+def trace_query_view_contract() -> dict[str, Any]:
+    return {
+        "schema": "pska.trace_query_view.v1",
+        "api": "GET /api/trace/query",
+        "mcp_tool": "pska_trace_query",
+        "output_schema": "pska.trace_query.v1",
+        "selectors": ["target_type", "target_id", "review_id", "proposal_id", "memory_id", "source_ref", "action"],
+        "entry_types": ["audit_event", "review_record"],
+        "evidence_sources": ["PSKA audit events", "review records", "Memory Card source refs", "Eidolia SourceRefs"],
+        "principle": "trace query is a derived view over existing ledgers and does not create a second trace store",
+        "data_flow": {
+            "writes_memory_directly": False,
+            "writes_source_files": False,
+            "embedding_required": False,
+            "generates_answer_text": False,
+        },
+        "limitation": "does not reconstruct hidden model causality or provider-native conversation history",
     }
 
 

@@ -298,6 +298,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("GET", "/api/memory/candidate-dedup"), contract_routes)
         self.assertIn(("GET", "/api/memory/{memory_id}/use-trace"), contract_routes)
         self.assertIn(("GET", "/api/memory/{memory_id}/why-used"), contract_routes)
+        self.assertIn(("GET", "/api/trace/query"), contract_routes)
         self.assertIn(("GET", "/api/workflows/{run_id}/memory-attribution"), contract_routes)
         self.assertIn(("GET", "/api/workflows/{run_id}/memory-suggestions"), contract_routes)
         self.assertIn(("POST", "/api/turn-context"), contract_routes)
@@ -354,6 +355,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_memory_candidates_from_audit", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_context_read", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_memory_review_create", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_trace_query", assistant_layer["mcp_tools"]["implemented"])
         thought_artifact = capabilities["capabilities"]["adapter_slots"]["slots"]["thought_artifact"]
         self.assertEqual(thought_artifact["providers"][0]["name"], "eidolia_source_ref_bridge")
         self.assertEqual(thought_artifact["providers"][0]["status"], "implemented")
@@ -383,6 +385,10 @@ class ProductApiTests(unittest.TestCase):
         timeline_view = capabilities["capabilities"]["memory"]["timeline_view"]
         self.assertEqual(timeline_view["schema"], "pska.memory_timeline_view.v1")
         self.assertEqual(timeline_view["api"], "GET /api/memory/{memory_id}/timeline")
+        trace_view = capabilities["capabilities"]["memory"]["trace_view"]
+        self.assertEqual(trace_view["schema"], "pska.trace_query_view.v1")
+        self.assertEqual(trace_view["mcp_tool"], "pska_trace_query")
+        self.assertFalse(trace_view["data_flow"]["embedding_required"])
         interaction_model = capabilities["capabilities"]["memory"]["interaction_model"]
         self.assertEqual(interaction_model["schema"], "pska.memory_interaction_model.v1")
         self.assertEqual(interaction_model["primary_user_path"], "conversation")
@@ -1350,6 +1356,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(created["memory_card"]["source_origin"], "eidolia")
         self.assertEqual(created["memory_card"]["source_refs"][0]["metadata"]["node_type"], "thought")
         self.assertFalse(created["governance"]["writes_memory_directly"])
+        trace = self._get_json(f"/api/trace/query?review_id={created['review']['review_id']}&limit=20")
+        self.assertTrue(trace["ok"])
+        self.assertEqual(trace["schema"], "pska.trace_query.v1")
+        self.assertEqual(trace["status"], "found")
+        self.assertGreaterEqual(trace["summary"]["review_count"], 1)
+        self.assertFalse(trace["data_flow"]["writes_memory_directly"])
         actions = {event.action for event in self.service.store.list_audit_events(limit=40)}
         self.assertIn("eidolia.context.read", actions)
         self.assertIn("eidolia.memory_review.create", actions)
