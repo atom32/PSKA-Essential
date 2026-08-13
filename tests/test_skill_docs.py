@@ -192,6 +192,8 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("extract_source_file", script)
         self.assertIn("docling", docling_script)
         self.assertIn("extract_source_file", docling_script)
+        self.assertIn("note.pdf", docling_script)
+        self.assertIn("pdf_section_count", docling_script)
         self.assertIn("live-markitdown-smoke", readme)
         self.assertIn("live-docling-smoke", readme)
         self.assertIn("P3-1", upgrade_plan)

@@ -536,8 +536,8 @@ conversion through `extract_source_file`.
 P3-4 adds a Docling optional extraction adapter for PDF/layout/table-sensitive
 sources and installs Docling 2.119.0 in the project `.venv`. Use
 `make live-docling-smoke PYTHON=.venv/bin/python`; the target now verifies a
-real Docling-backed HTML conversion and reports `docling` in the available
-extraction adapters.
+real Docling-backed HTML and PDF conversion and reports `docling` in the
+available extraction adapters.
 P3-2 installs and validates the watchdog optional extra and adds
 `pska_source_watch_once`, a bounded authorized-root event bridge. It listens for
 a short explicit interval, then queues source extraction and/or audit jobs; it

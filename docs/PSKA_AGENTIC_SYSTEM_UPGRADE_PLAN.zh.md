@@ -522,7 +522,11 @@ make live-docling-smoke PYTHON=.venv/bin/python
 2026-08-13 P3-4 live 更新：已在项目 `.venv` 中安装 `extract-docling`，当前
 Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 已通过，输出 `available_extractors=["builtin_text", "markitdown", "docling"]`，
-并用真实 Docling 转换临时 HTML。
+并用真实 Docling 转换临时 HTML/PDF。
+
+2026-08-13 P3-4 PDF 更新：`live-docling-smoke` 已扩展为同时生成临时 HTML 和
+最小 PDF，分别通过 `extract_source_file(..., extractor="docling")` 进行真实转换。
+当前 smoke 输出 `html_section_count=1`、`pdf_section_count=1`。
 
 ### Phase 2: Memory Productization
 
