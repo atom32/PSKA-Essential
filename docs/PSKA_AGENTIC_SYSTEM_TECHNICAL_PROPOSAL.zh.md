@@ -489,7 +489,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 
 ### Phase 2: Source Governance Expansion
 
-- 近似查重 adapter。
+- 近似查重 adapter；内置 `size_name_version` 已覆盖同名/副本/版本/近似大小候选，后续补 text/media similarity。
 - Richer Obsidian frontmatter fields；MOC grouping 已有 first-pass `folder/tag/topic/project`。
 - 更强 source route learning。
 - MarkItDown/Docling/Tika adapter。

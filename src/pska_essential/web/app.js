@@ -2427,11 +2427,16 @@ function sourceAuditSection(title, items, renderer) {
 
 function duplicateGroupCard(group) {
   const members = group.members || [];
+  const method = group.method || "duplicate";
+  const title = group.name_key ? `${method} ${group.name_key}` : `${method} ${shortId(group.content_hash || "")}`;
+  const detail = group.reason
+    ? `${members.length} 个文件，${formatBytes(group.size || 0)}，${group.reason}`
+    : `${members.length} 个文件，${formatBytes(group.size || 0)}`;
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
-        el("h3", {}, `exact hash ${shortId(group.content_hash || "")}`),
-        el("p", {}, `${members.length} 个文件，${formatBytes(group.size || 0)}`),
+        el("h3", {}, title),
+        el("p", {}, detail),
       ]),
       el("span", { className: "tag pending" }, "duplicate"),
     ]),

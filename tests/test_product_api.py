@@ -317,7 +317,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m15_obsidian_moc_grouping")
+        self.assertEqual(source_layer["status"], "m16_duplicate_heuristics")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
@@ -352,6 +352,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("markitdown", source_layer["adapter_slots"]["extraction"])
         self.assertIn("dedup", source_layer["adapter_slots"])
         self.assertIn("fclones", source_layer["adapter_slots"]["dedup"])
+        self.assertIn("size_name_version", source_layer["adapter_slots"]["dedup"])
         sqlite_search = next(
             provider
             for provider in capabilities["capabilities"]["adapter_slots"]["slots"]["search_index"]["providers"]
@@ -361,7 +362,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m15_obsidian_moc_grouping")
+        self.assertEqual(assistant_layer["status"], "m16_duplicate_heuristics")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_jarvis_briefing", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", assistant_layer["mcp_tools"]["implemented"])
@@ -502,6 +503,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("builtin_text", adapter_slots["summary"]["extraction"]["available"])
         self.assertIn("sqlite_fts5", adapter_slots["summary"]["search_index"]["available"])
         self.assertIn("exact_hash", adapter_slots["summary"]["dedup"]["available"])
+        self.assertIn("size_name_version", adapter_slots["summary"]["dedup"]["available"])
         markitdown = _adapter_provider(adapter_slots, "extraction", "markitdown")
         self.assertIn(markitdown["status"], {"available", "unavailable"})
         self.assertNotEqual(markitdown["status"], "planned")
@@ -739,6 +741,8 @@ class ProductApiTests(unittest.TestCase):
                 "# Evidence\n\nSource evidence for Hermes product answers.\n",
                 encoding="utf-8",
             )
+            (root_path / "Report.md").write_text("# Report\n\nSource report draft.\n", encoding="utf-8")
+            (root_path / "Report copy.md").write_text("# Report\n\nSource report draft copy.\n", encoding="utf-8")
 
             registered = self._post_json(
                 "/api/sources/roots",
@@ -761,6 +765,10 @@ class ProductApiTests(unittest.TestCase):
             duplicate = self._post_json(
                 "/api/sources/duplicates",
                 {"scope": {"root_ids": [registered["root"]["root_id"]]}},
+            )
+            heuristic_duplicate = self._post_json(
+                "/api/sources/duplicates",
+                {"scope": {"root_ids": [registered["root"]["root_id"]]}, "mode": "size_name_version"},
             )
             source_audit = self._post_json(
                 "/api/sources/audits/run",
@@ -909,7 +917,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(registered["root"]["kind"], "obsidian_vault")
         self.assertEqual(registered["root"]["permission_mode"], "native_write")
         self.assertEqual(len(roots["roots"]), 1)
-        self.assertEqual(scanned["scan"]["counts"]["indexed"], 2)
+        self.assertEqual(scanned["scan"]["counts"]["indexed"], 4)
         self.assertEqual(scanned["scan"]["extraction"]["extractor"], "auto")
         self.assertGreaterEqual(searched["count"], 1)
         self.assertIn("match_reason", architecture_packet["metadata"])
@@ -918,6 +926,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("snippet_highlighted", architecture_packet["metadata"])
         self.assertFalse(architecture_packet["metadata"]["embedding_required"])
         self.assertEqual(duplicate["duplicate_report"]["group_count"], 0)
+        self.assertEqual(heuristic_duplicate["duplicate_report"]["mode"], "size_name_version")
+        self.assertEqual(heuristic_duplicate["duplicate_report"]["group_count"], 1)
+        self.assertFalse(heuristic_duplicate["duplicate_report"]["data_flow"]["writes_source_files"])
         self.assertEqual(source_audit["audit"]["schema"], "pska.source_audit.v1")
         self.assertEqual(source_audit["audit"]["root_count"], 1)
         self.assertEqual(source_audit["audit"]["duplicate_preview"]["group_count"], 0)
@@ -953,8 +964,8 @@ class ProductApiTests(unittest.TestCase):
             queued_extraction_job["job"]["run_id"],
         )
         self.assertEqual(extraction_job_result["status"], "completed")
-        self.assertEqual(extraction_job_result["scan"]["counts"]["indexed"], 2)
-        self.assertEqual(extraction_job_result["source_extraction_job"]["summary"]["indexed"], 2)
+        self.assertEqual(extraction_job_result["scan"]["counts"]["indexed"], 4)
+        self.assertEqual(extraction_job_result["source_extraction_job"]["summary"]["indexed"], 4)
         self.assertEqual(jarvis["briefing"]["schema"], "pska.jarvis_briefing.v1")
         self.assertEqual(jarvis["briefing"]["agent"]["primary"], "Hermes")
         self.assertEqual(jarvis["briefing"]["source_layer"]["root_count"], 1)

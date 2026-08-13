@@ -549,7 +549,8 @@ Hermes 的默认行为：
 
 ### M2: File Discovery And Views
 
-- Done: 支持 duplicate report；当前已实现 exact hash，后续再做同名/近似大小/版本号 heuristic。
+- Done: 支持 duplicate report；当前已实现 exact hash、外部 fclones/Czkawka hash
+  report，以及内置 `size_name_version` 同名/副本/版本/近似大小候选。
 - Done: 支持 saved search。
 
 ### M3: Sidecar Annotations
@@ -691,7 +692,7 @@ Hermes 的默认行为：
 - Done: `pska_provider_jobs` 和 workspace status 暴露 queued source audit job，Jarvis/WebUI 可把它显示为可执行 next action。
 - Done: Product API 暴露 `/api/sources/audit-jobs`、`/api/sources/audit-jobs/run-next` 和指定 job run 路由。
 - Done: job 不写源文件、不直接写 memory、不需要 embedding；source-route 仍必须进入 Review。
-- Pending: 近似查重。
+- Pending: text/media similarity 级别的近似查重。
 
 ### M9: Wall-Clock Source Audit Scheduler
 
@@ -716,7 +717,7 @@ Hermes 的默认行为：
   `/api/sources/obsidian/moc/{proposal_id}/apply`。
 - Done: source audit 对 native/managed Obsidian vault 的 unlinked notes 会给出
   `propose_obsidian_moc` next action。
-- Pending: richer frontmatter fields、系统级 wakeup、近似查重。
+- Pending: richer frontmatter fields、系统级 wakeup、text/media similarity 查重。
 
 ## Non-Goals
 

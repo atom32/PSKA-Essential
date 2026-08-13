@@ -80,6 +80,7 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "writes_source_registry": True,
         "writes_source_files": False,
         "delete_move_merge_supported": False,
+        "supports_modes": ["exact_hash", "size_name_version", "fclones_hash", "czkawka_hash"],
     },
     "pska_source_audit_run": {
         "category": "source",
@@ -675,7 +676,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m15_obsidian_moc_grouping",
+        "status": "m16_duplicate_heuristics",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -731,6 +732,7 @@ def source_layer_contract() -> dict[str, Any]:
             ],
             "dedup": [
                 "exact_hash",
+                "size_name_version",
                 "fclones",
                 "czkawka",
                 "dupeguru",
@@ -756,7 +758,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m15_obsidian_moc_grouping",
+        "status": "m16_duplicate_heuristics",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -911,6 +913,14 @@ def adapter_slots_contract() -> dict[str, Any]:
                     maturity="implemented",
                     integration="core",
                     supports=["exact_content_hash"],
+                    safety={"delete_move_merge_supported": False},
+                ),
+                _provider(
+                    "size_name_version",
+                    status="available",
+                    maturity="implemented",
+                    integration="core",
+                    supports=["normalized_filename", "version_suffix", "copy_suffix", "similar_size_candidates"],
                     safety={"delete_move_merge_supported": False},
                 ),
                 _cli_provider(

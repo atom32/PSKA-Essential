@@ -198,6 +198,38 @@ class SourceRegistryTests(unittest.TestCase):
         self.assertEqual(saved["scope"]["root_ids"], [root["root_id"]])
         self.assertFalse(saved["data_flow"]["writes_source_files"])
 
+    def test_size_name_version_duplicate_report_finds_version_candidates_without_source_writes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir) / "Project"
+            root_path.mkdir()
+            (root_path / "Report.md").write_text("# Report\n\nCanonical report body.\n", encoding="utf-8")
+            (root_path / "Report copy.md").write_text("# Report\n\nCanonical report body with edit.\n", encoding="utf-8")
+            (root_path / "Report v2.md").write_text("# Report\n\nCanonical report body version two.\n", encoding="utf-8")
+            (root_path / "Other.md").write_text("# Other\n\nUnrelated material.\n", encoding="utf-8")
+            registry = SQLiteSourceRegistry(":memory:")
+            root = registry.register_root(root_path)
+            registry.scan(root["root_id"])
+
+            report = registry.duplicate_report(
+                {"root_ids": [root["root_id"]]},
+                mode="size_name_version",
+                limit=10,
+            )
+
+        self.assertEqual(report["mode"], "size_name_version")
+        self.assertEqual(report["provider"], "core_heuristic")
+        self.assertEqual(report["group_count"], 1)
+        self.assertEqual(report["duplicate_file_count"], 2)
+        self.assertEqual(report["groups"][0]["method"], "size_name_version")
+        self.assertEqual(report["groups"][0]["name_key"], "report")
+        self.assertIn("version_or_copy_name", report["groups"][0]["reason"])
+        self.assertCountEqual(
+            [member["path"] for member in report["groups"][0]["members"]],
+            ["Report copy.md", "Report.md", "Report v2.md"],
+        )
+        self.assertFalse(report["data_flow"]["writes_source_files"])
+        self.assertFalse(report["data_flow"]["delete_move_merge_supported"])
+
     def test_source_collections_create_list_and_resolve_manual_or_search(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir) / "Project"

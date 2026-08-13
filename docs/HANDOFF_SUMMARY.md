@@ -88,8 +88,14 @@ Last updated: 2026-07-15
 > `topic`, and `project`; proposals expose grouped link payloads and rendered
 > Markdown previews, while apply still only replaces the PSKA-managed MOC marker
 > block. Product API, MCP, WebUI, capabilities, docs, and tests were updated.
+>
+> Update, 2026-08-13: Built-in duplicate heuristics are now implemented as M16.
+> `pska_duplicate_report(mode="size_name_version")` finds same normalized
+> filename, copy/version suffix, and similar-size candidate groups without
+> embeddings or external CLIs. Reports remain dry-run only: no delete, move,
+> merge, or source-file edit is supported.
 > Next useful source-governance steps are richer frontmatter fields, stronger
-> ranking adapters, and richer duplicate heuristics.
+> ranking adapters, and text/media duplicate heuristics.
 
 This document is the handoff point for a fresh Codex conversation.
 

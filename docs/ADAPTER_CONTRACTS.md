@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M15 source-safe contract uses SQLite metadata plus FTS5:
+The implemented M1-M16 source-safe contract uses SQLite metadata plus FTS5:
 
 ```python
 list_roots(scope) -> list[SourceRoot]
@@ -215,6 +215,10 @@ report(scope, mode, options) -> DuplicateReport
 Provider slots:
 
 - `exact_hash`: implemented default.
+- `size_name_version`: implemented core heuristic for same normalized filename,
+  copy/version/date/numeric suffixes, and similar-size candidate groups. It is a
+  lower-confidence report signal only; it does not delete, move, merge, or edit
+  source files.
 - `fclones`: implemented CLI adapter for hash duplicate groups and JSON
   reports. It uses `PSKA_FCLONES_BIN` when it points to an executable binary,
   otherwise `PATH`, and returns `status=unavailable` when no command can be
@@ -522,7 +526,7 @@ memory adapter. It verifies memory search through the PSKA contract, rejects
 fake memory by default for live component verification, and writes
 `memory.probe` audit records.
 
-The personal source layer has an M1-M15 source-management MCP surface:
+The personal source layer has an M1-M16 source-management MCP surface:
 
 - `pska_source_root_list`
 - `pska_source_root_register`
@@ -601,7 +605,8 @@ Hermes/RAG workflows.
 The remaining personal source-management capabilities are planned vNext surface
 and are not part of the current Alpha MCP registry until implemented: native
 Obsidian richer frontmatter fields, move/delete proposals, background wakeup
-integration, stronger ranking adapters, and richer duplicate heuristics.
+integration, stronger ranking adapters, and richer text/media duplicate
+heuristics.
 
 `pska_source_read` is the common read tool for both RAGFlow source refs and
 personal source refs.

@@ -378,8 +378,12 @@ class SQLiteSourceRegistry:
             return self._fclones_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode == "czkawka_hash":
             return self._czkawka_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
+        if mode == "size_name_version":
+            return self._size_name_version_duplicate_report(scope, root_ids=root_ids, kinds=kinds, limit=limit)
         if mode != "exact_hash":
-            raise SourceRegistryError("duplicate report mode must be exact_hash, fclones_hash, or czkawka_hash")
+            raise SourceRegistryError(
+                "duplicate report mode must be exact_hash, size_name_version, fclones_hash, or czkawka_hash"
+            )
         where = ["o.status = 'active'", "o.content_hash != ''"]
         params: list[Any] = []
         if root_ids:
@@ -2051,6 +2055,103 @@ class SQLiteSourceRegistry:
             adapter=czkawka_duplicate_report,
         )
 
+    def _size_name_version_duplicate_report(
+        self,
+        scope: dict[str, Any],
+        *,
+        root_ids: list[str],
+        kinds: list[str],
+        limit: int,
+    ) -> dict[str, Any]:
+        rows = self._duplicate_candidate_rows(root_ids=root_ids, kinds=kinds)
+        report_id = _stable_id("dup_report", f"{utc_now_iso()}:size_name_version:{json.dumps(scope, sort_keys=True)}")
+        now = utc_now_iso()
+        candidate_groups = _size_name_version_groups(rows, limit=limit)
+        with self.lock:
+            self.conn.execute(
+                """
+                INSERT INTO duplicate_reports(report_id, mode, scope_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (report_id, "size_name_version", json.dumps(scope, sort_keys=True), now),
+            )
+            payload_groups = []
+            for index, group in enumerate(candidate_groups, start=1):
+                group_id = _stable_id("dup", f"{report_id}:{index}:{group['key']}")
+                members = [member["payload"] | {"reason": member["reason"]} for member in group["members"]]
+                self.conn.execute(
+                    """
+                    INSERT INTO duplicate_groups(
+                        group_id, report_id, method, confidence, content_hash, size,
+                        member_count, action_status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'reported')
+                    """,
+                    (
+                        group_id,
+                        report_id,
+                        "size_name_version",
+                        float(group["confidence"]),
+                        "",
+                        int(group["representative_size"]),
+                        len(members),
+                    ),
+                )
+                for member in members:
+                    self.conn.execute(
+                        """
+                        INSERT INTO duplicate_members(
+                            group_id, object_id, root_id, path, reason, content_hash, size
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            group_id,
+                            member["object_id"],
+                            member["root_id"],
+                            member["path"],
+                            member["reason"],
+                            member.get("content_hash") or "",
+                            int(member.get("size") or 0),
+                        ),
+                    )
+                payload_groups.append(
+                    {
+                        "group_id": group_id,
+                        "index": index,
+                        "method": "size_name_version",
+                        "confidence": float(group["confidence"]),
+                        "reason": group["reason"],
+                        "name_key": group["name_key"],
+                        "extension": group["extension"],
+                        "size": int(group["representative_size"]),
+                        "size_spread": int(group["size_spread"]),
+                        "member_count": len(members),
+                        "members": members,
+                    }
+                )
+            self.conn.commit()
+        return {
+            "report_id": report_id,
+            "mode": "size_name_version",
+            "provider": "core_heuristic",
+            "status": "ok",
+            "message": f"size/name/version heuristic returned {len(payload_groups)} candidate group(s).",
+            "scope": scope,
+            "group_count": len(payload_groups),
+            "duplicate_file_count": sum(max(group["member_count"] - 1, 0) for group in payload_groups),
+            "groups": payload_groups,
+            "metadata": {
+                "heuristic": "normalized_name_plus_size_spread",
+                "confidence_is_review_signal": True,
+            },
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_index": True,
+                "delete_move_merge_supported": False,
+            },
+        }
+
     def _external_duplicate_report(
         self,
         scope: dict[str, Any],
@@ -2186,6 +2287,37 @@ class SQLiteSourceRegistry:
                 params,
             ).fetchall()
         return [_root_payload(row) for row in rows]
+
+    def _duplicate_candidate_rows(self, *, root_ids: list[str], kinds: list[str]) -> list[sqlite3.Row]:
+        where = ["o.status = 'active'", "o.size > 0"]
+        params: list[Any] = []
+        if root_ids:
+            where.append(f"o.root_id IN ({','.join('?' for _ in root_ids)})")
+            params.extend(root_ids)
+        if kinds:
+            where.append(f"r.kind IN ({','.join('?' for _ in kinds)})")
+            params.extend(kinds)
+        with self.lock:
+            return self.conn.execute(
+                f"""
+                SELECT o.object_id, o.root_id, o.path, o.title, o.kind AS object_kind,
+                       o.content_hash, o.size, o.extraction_status,
+                       r.kind AS root_kind, r.label AS root_label, r.permission_mode,
+                       s.section_id, s.title AS section_title, s.section_type,
+                       s.heading_path, s.line_start, s.line_end
+                FROM source_objects o
+                JOIN source_roots r ON r.root_id = o.root_id
+                LEFT JOIN source_sections s ON s.section_id = (
+                    SELECT section_id FROM source_sections
+                    WHERE object_id = o.object_id
+                    ORDER BY line_start ASC, section_id ASC
+                    LIMIT 1
+                )
+                WHERE {' AND '.join(where)}
+                ORDER BY r.label COLLATE NOCASE, o.path COLLATE NOCASE
+                """,
+                params,
+            ).fetchall()
 
     def _external_members_from_group(self, group: dict[str, Any], *, reason: str) -> list[dict[str, Any]]:
         members = []
@@ -2764,6 +2896,119 @@ def _duplicate_member_payload(row: sqlite3.Row) -> dict[str, Any]:
         "reason": "same_content_hash_and_size",
         "source_ref": source_ref,
     }
+
+
+def _size_name_version_groups(rows: list[sqlite3.Row], *, limit: int) -> list[dict[str, Any]]:
+    buckets: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        path = str(row["path"] or "")
+        key, signals = _duplicate_name_key(path)
+        if not key:
+            continue
+        extension = Path(path).suffix.lower()
+        bucket_key = (extension, key)
+        buckets.setdefault(bucket_key, []).append(
+            {
+                "row": row,
+                "payload": _duplicate_member_payload(row),
+                "signals": signals,
+                "size": int(row["size"] or 0),
+            }
+        )
+    groups: list[dict[str, Any]] = []
+    for (extension, name_key), items in buckets.items():
+        if len(items) < 2:
+            continue
+        filtered = _size_compatible_duplicate_items(items)
+        if len(filtered) < 2:
+            continue
+        sizes = [int(item["size"]) for item in filtered]
+        signals = sorted({signal for item in filtered for signal in item["signals"]})
+        size_spread = max(sizes) - min(sizes)
+        representative_size = max(sizes)
+        confidence = _size_name_version_confidence(filtered, size_spread=size_spread)
+        reason_bits = ["same_normalized_name"]
+        if signals:
+            reason_bits.append("version_or_copy_name")
+        if size_spread:
+            reason_bits.append("similar_size")
+        reason = "+".join(reason_bits)
+        groups.append(
+            {
+                "key": f"{extension}:{name_key}",
+                "name_key": name_key,
+                "extension": extension,
+                "confidence": confidence,
+                "reason": reason,
+                "representative_size": representative_size,
+                "size_spread": size_spread,
+                "members": [
+                    item | {"reason": reason}
+                    for item in sorted(filtered, key=lambda item: str(item["payload"]["path"]).lower())
+                ],
+            }
+        )
+    groups.sort(key=lambda group: (-len(group["members"]), -group["confidence"], group["name_key"]))
+    return groups[:limit]
+
+
+def _size_compatible_duplicate_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    ordered = sorted(items, key=lambda item: int(item["size"]))
+    best: list[dict[str, Any]] = []
+    for start, left in enumerate(ordered):
+        cluster = [left]
+        left_size = max(int(left["size"]), 1)
+        for right in ordered[start + 1 :]:
+            spread = abs(int(right["size"]) - left_size)
+            allowed = max(32768, int(max(left_size, int(right["size"])) * 0.05))
+            if spread <= allowed:
+                cluster.append(right)
+        if len(cluster) > len(best):
+            best = cluster
+    if len(best) >= 2:
+        return best
+    signal_items = [item for item in ordered if item["signals"]]
+    return signal_items if len(signal_items) >= 2 else []
+
+
+def _duplicate_name_key(path: str) -> tuple[str, list[str]]:
+    stem = Path(path).stem.lower()
+    value = re.sub(r"[_\-.]+", " ", stem)
+    value = re.sub(r"\s+", " ", value).strip()
+    signals: list[str] = []
+    patterns = [
+        (r"\s*\((?:copy|duplicate|final|draft|\d+)\)\s*$", "parenthesized_version"),
+        (r"\s+(?:copy|duplicate|backup|bak)\s*$", "copy_suffix"),
+        (r"\s+(?:final|draft)\s*$", "version_suffix"),
+        (r"\s+v(?:ersion)?\s*\d+[a-z]?\s*$", "version_suffix"),
+        (r"\s+\d{4}[- ]?\d{2}[- ]?\d{2}\s*$", "date_suffix"),
+        (r"\s+\d+\s*$", "numeric_suffix"),
+    ]
+    changed = True
+    while changed:
+        changed = False
+        for pattern, signal in patterns:
+            updated = re.sub(pattern, "", value).strip()
+            if updated != value:
+                value = updated
+                signals.append(signal)
+                changed = True
+    value = re.sub(r"\s+", " ", value).strip()
+    return value, _unique_sorted(signals)
+
+
+def _size_name_version_confidence(items: list[dict[str, Any]], *, size_spread: int) -> float:
+    sizes = [max(int(item["size"]), 1) for item in items]
+    max_size = max(sizes)
+    spread_ratio = size_spread / max_size if max_size else 1.0
+    has_version_signal = any(item["signals"] for item in items)
+    if size_spread == 0 and has_version_signal:
+        return 0.9
+    if spread_ratio <= 0.01:
+        return 0.84 if has_version_signal else 0.78
+    if spread_ratio <= 0.05:
+        return 0.74 if has_version_signal else 0.68
+    return 0.62 if has_version_signal else 0.55
 
 
 def _neighbor_payload(row: sqlite3.Row, *, relation: str, score: float, reason: str) -> dict[str, Any]:
