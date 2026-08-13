@@ -773,6 +773,16 @@ pre {
   overflow-wrap: anywhere;
 }
 
+.refresh-review-card {
+  border-color: #c8d9d5;
+}
+
+.refresh-review-diff {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .quality-candidate-editor {
   display: grid;
   gap: 10px;
@@ -1029,6 +1039,7 @@ pre {
   .source-audit-grid,
   .reader-layout,
   .writing-layout,
+  .refresh-review-diff,
   .form-row {
     grid-template-columns: 1fr;
   }

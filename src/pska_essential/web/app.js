@@ -4400,6 +4400,9 @@ function memoryReviewQueueMergeCandidateRow(candidate) {
 }
 
 function memoryReviewQueueItemRow(item) {
+  if (item.item_type === "memory_refresh_review") {
+    return memoryReviewQueueRefreshReviewCard(item);
+  }
   if (item.item_type === "memory_candidate_quality_issue") {
     return memoryReviewQueueQualityIssueCard(item);
   }
@@ -4422,6 +4425,36 @@ function memoryReviewQueueItemRow(item) {
     issueTypes.length ? el("span", { className: "tag pending" }, issueTypes.slice(0, 3).join(", ")) : null,
     actions.length
       ? el("span", { className: "card-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
+      : null,
+  ]);
+}
+
+function memoryReviewQueueRefreshReviewCard(item) {
+  const actions = (item.next_actions || []).slice(0, 3);
+  const previousText = item.previous_text || "";
+  const proposedText = item.proposed_text || "";
+  return el("article", { className: "quality-candidate-card refresh-review-card" }, [
+    el("div", { className: "memory-candidate-header" }, [
+      el("div", {}, [
+        el("strong", {}, item.title || item.review_id || "memory refresh"),
+        item.reason ? el("p", {}, item.reason) : null,
+      ]),
+      el("span", { className: "tag pending" }, item.no_text_change ? "refresh check" : "refresh review"),
+    ]),
+    el("div", { className: "meta-row" }, [
+      item.review_id ? el("span", { className: "tag" }, shortId(item.review_id)) : null,
+      item.source_memory_id ? el("span", { className: "tag" }, `memory ${shortId(item.source_memory_id)}`) : null,
+      item.target_id && item.target_id !== item.source_memory_id ? el("span", { className: "tag" }, `target ${shortId(item.target_id)}`) : null,
+      item.status ? el("span", { className: "tag" }, item.status) : null,
+      item.source_count !== undefined ? el("span", { className: "tag" }, `${t("label.sources")} ${item.source_count}`) : null,
+    ]),
+    el("div", { className: "refresh-review-diff" }, [
+      memoryCandidateField("原记忆", previousText || "No previous text recorded."),
+      memoryCandidateField("刷新提案", proposedText || "No text change proposed."),
+    ]),
+    item.no_text_change ? memoryCandidateField("复核类型", "No text change proposed; inspect whether the card should simply be refreshed, kept, or revised.") : null,
+    actions.length
+      ? el("div", { className: "review-actions compact-actions" }, actions.map((action) => memoryReviewQueueActionButton(action, item)))
       : null,
   ]);
 }

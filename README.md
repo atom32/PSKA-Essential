@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M23 baseline into
+  engineering plan for upgrading the current PSKA-Essential M24 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -717,6 +717,9 @@ accepted Review is explicitly applied.
 M23 surfaces those refresh Reviews as first-class queue work: Memory Review
 Queue now has a `refresh_reviews` group, `refresh_review_count` summary, and
 `review_memory_refresh` next action; Jarvis/WebUI prioritize the same signal.
+M24 adds a WebUI refresh-review workbench card that shows source memory id,
+previous text, proposed text, no-text-change refresh checks, and the exact
+Review action inline inside Memory Review Queue.
 The bundled WebUI exposes this through Home's Jarvis Bar and a dedicated Sources
 panel: users can register local folders or Obsidian vaults, scan them, run
 read-only audits, inspect duplicate/link/route candidates, search through

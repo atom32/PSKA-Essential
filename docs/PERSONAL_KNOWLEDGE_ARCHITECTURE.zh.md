@@ -667,6 +667,9 @@ Hermes 的默认行为：
 - Done: Memory Review Queue 已将 existing-card refresh/update Review 单独暴露为
   `refresh_reviews` group，并提供 `refresh_review_count` 与 `review_memory_refresh`；
   Jarvis/WebUI 可优先处理记忆卡刷新复核，但仍不直接写 durable memory。
+- Done: WebUI 记忆维护队列已为 `memory_refresh_review` item 增加专门卡片，直接显示
+  source memory id、原记忆、刷新提案和 no-text-change 复核类型，方便人工比较后再打开
+  Review 决策。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

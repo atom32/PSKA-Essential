@@ -138,6 +138,12 @@ Last updated: 2026-07-15
 > summary use the same signal, so stale/conflict Memory Card maintenance is not
 > buried in generic pending reviews. This is still read-only triage: accept and
 > apply remain explicit Review operations.
+>
+> Update, 2026-08-13: WebUI refresh-review workbench is implemented as M24.
+> Memory Review Queue now renders `memory_refresh_review` items as dedicated
+> cards with source memory id, previous text, proposed text, no-text-change
+> refresh checks, and the exact Review action inline. This improves manual
+> memory maintenance without adding a new durable write path.
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.
