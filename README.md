@@ -533,6 +533,10 @@ promoting MarkItDown to a core dependency. Use
 `make live-markitdown-smoke PYTHON=.venv/bin/python`. The smoke verifies both
 `adapter_slots.summary.extraction.available` and an actual MarkItDown-backed
 conversion through `extract_source_file`.
+P3-4 adds a Docling optional extraction adapter for PDF/layout/table-sensitive
+sources. Use `make live-docling-smoke PYTHON=.venv/bin/python`; the target
+skips cleanly when `extract-docling` is not installed and runs a real
+Docling-backed HTML conversion when it is available.
 P3-2 installs and validates the watchdog optional extra and adds
 `pska_source_watch_once`, a bounded authorized-root event bridge. It listens for
 a short explicit interval, then queues source extraction and/or audit jobs; it

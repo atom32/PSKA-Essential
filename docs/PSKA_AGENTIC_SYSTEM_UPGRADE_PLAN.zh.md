@@ -462,8 +462,8 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 
 验收：
 
-- 未安装 MarkItDown/fclones 时，diagnostics 明确 `unavailable`，核心测试仍过。
-- 安装后，PDF/DOCX 能生成 text sections；fclones JSON 能归一化成 duplicate report。
+- 未安装 MarkItDown/Docling/fclones 时，diagnostics 明确 `unavailable`，核心测试仍过。
+- 安装后，PDF/DOCX/HTML 能生成 text sections；fclones JSON 能归一化成 duplicate report。
 - 任何 dedup action 都不删除文件。
 
 2026-08-13 P3-1 更新：已在项目 `.venv` 中安装 `extract-markitdown` optional
@@ -504,6 +504,20 @@ make live-fclones-smoke
 临时 source root、scan 三个文件、调用 `pska_duplicate_report(mode="fclones_hash")`，
 并要求至少返回一个 duplicate group。2026-08-13 本机 Homebrew 安装尝试因
 `formulae.brew.sh` API 下载超时未完成，当前仍以 unavailable 状态暴露。
+
+2026-08-13 P3-4 更新：新增 `adapters/extraction/docling.py`，`extract_source_file`
+现在支持显式 `extractor="docling"`，用于 PDF/layout/table/OCR-sensitive
+source extraction。capabilities 中 Docling 从 planned 改为 implemented optional
+adapter；未安装时仍为 `unavailable`，不影响 core。新增 `scripts/docling_smoke.py`
+与 Make target `live-docling-smoke`。验收命令：
+
+```bash
+make live-docling-smoke PYTHON=.venv/bin/python
+```
+
+当 `extract-docling` 未安装时，smoke 输出 `status=unavailable` 并结构化跳过；
+安装后会用真实 Docling 转换临时 HTML，并检查 `adapter_slots.summary.extraction.available`
+中出现 `docling`。
 
 ### Phase 2: Memory Productization
 
@@ -606,6 +620,7 @@ make live-fclones-smoke
 - [x] Add source extract job ledger and API/MCP routes.
 - [x] Add builtin extractor wrapper around current Markdown/txt/code behavior.
 - [x] Add MarkItDown adapter behind optional import.
+- [x] Add Docling adapter behind optional import.
 - [x] Add `DedupPort` and fclones CLI adapter behind command discovery.
 - [x] Extend `pska_duplicate_report` mode beyond `exact_hash`.
 - [x] Add bounded watchdog bridge for authorized source-root events.

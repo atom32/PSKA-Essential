@@ -148,7 +148,9 @@ Provider slots:
 - `builtin_text`: implemented default for Markdown, plain text, and code.
 - `markitdown`: implemented optional extra for broad file-to-Markdown
   conversion. The adapter loads only when the Python module is installed.
-- `docling`: planned optional extra for PDF/layout/table/OCR-sensitive parsing.
+- `docling`: implemented optional extra for PDF/layout/table/OCR-sensitive
+  parsing. It is exposed through `extractor="docling"` and remains
+  `unavailable` until the optional extra is installed.
 - `tika`: planned optional extra or service adapter for broad enterprise file
   type extraction.
 

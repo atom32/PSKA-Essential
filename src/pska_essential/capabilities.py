@@ -687,7 +687,7 @@ def adapter_slots_contract() -> dict[str, Any]:
                     "docling",
                     module="docling",
                     extra="extract-docling",
-                    maturity="planned",
+                    maturity="implemented",
                     supports=["pdf_layout", "tables", "ocr_candidates"],
                 ),
                 _python_provider(

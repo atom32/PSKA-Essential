@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-watchdog-smoke live-fclones-smoke live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-ingest-loop live-ingest-loop-resume serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -28,6 +28,14 @@ live-closed-loop:
 
 live-markitdown-smoke:
 	PYTHONPATH=src $(PYTHON) scripts/markitdown_smoke.py
+
+live-docling-smoke:
+	@PYTHONPATH=src $(PYTHON) scripts/docling_smoke.py; code=$$?; \
+	if [ "$$code" = "77" ]; then \
+		echo "docling optional extra unavailable; install with: $(PYTHON) -m pip install '.[extract-docling]'"; \
+		exit 0; \
+	fi; \
+	exit "$$code"
 
 live-watchdog-smoke:
 	PYTHONPATH=src $(PYTHON) scripts/watchdog_smoke.py

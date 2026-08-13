@@ -44,6 +44,14 @@ MARKITDOWN_EXTENSIONS = {
     ".xls",
     ".xlsx",
 }
+DOCLING_EXTENSIONS = {
+    ".docx",
+    ".html",
+    ".md",
+    ".pdf",
+    ".pptx",
+    ".xlsx",
+}
 
 
 class ExtractionError(RuntimeError):
@@ -195,4 +203,10 @@ def extract_source_file(
         from pska_essential.adapters.extraction.markitdown import extract_markitdown
 
         return extract_markitdown(path, max_bytes=max_bytes)
+    if selected == "docling":
+        if suffix not in DOCLING_EXTENSIONS:
+            return None
+        from pska_essential.adapters.extraction.docling import extract_docling
+
+        return extract_docling(path, max_bytes=max_bytes)
     raise ExtractionError(f"unsupported extractor: {extractor}")
