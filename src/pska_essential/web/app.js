@@ -3975,6 +3975,7 @@ function reviewCard(review) {
   const sourceRefs = review.source_refs || proposal.source_refs || [];
   const revision = review.revision || {};
   const runId = proposal.run_id || (proposal.metadata && proposal.metadata.run_id) || "";
+  const candidate = memoryCandidateForProposal(proposal);
   const memoryOperation = memoryOperationForProposalKind(proposal.kind);
   const memoryApplySupported = memoryOperation ? memoryOperationSupported(memoryOperation) : true;
   const memoryApplyReason = memoryOperation ? memoryCapabilityReason(memoryOperation) : "";
@@ -4063,11 +4064,80 @@ function reviewCard(review) {
       revision.previous_review_id ? el("span", { className: "tag" }, `from ${shortId(revision.previous_review_id)}`) : null,
       revision.next_review_id ? el("span", { className: "tag" }, `to ${shortId(revision.next_review_id)}`) : null,
     ]),
+    candidate ? memoryCandidatePanel(candidate) : null,
     sourceRefs.length
       ? el("div", { className: "review-source-list" }, sourceRefs.map((sourceRef, index) => reviewSourceRow(sourceRef, index)))
       : el("p", { className: "empty-list" }, "此审核没有关联来源追踪。"),
     actions,
   ]);
+}
+
+function memoryCandidateForProposal(proposal) {
+  if (!proposal || !["memory_patch", "memory_update", "memory_delete"].includes(proposal.kind)) return null;
+  const payload = proposal.memory_patch || proposal.memory_update || proposal.memory_delete || {};
+  const metadata = payload.metadata || proposal.metadata || {};
+  const sourceRefs = payload.source_refs || proposal.source_refs || [];
+  return {
+    operation: proposal.kind || metadata.semantic_operation || metadata.operation || "",
+    text: payload.text || metadata.display_text || proposal.body || "",
+    previous_text: payload.previous_text || metadata.previous_text || "",
+    behavior_delta: metadata.behavior_delta || payload.reason || metadata.reason || "",
+    memory_type: metadata.memory_type || "",
+    memory_scope: metadata.memory_scope || "",
+    origin: metadata.candidate_origin || metadata.origin || "",
+    confidence: payload.confidence,
+    target_id: payload.target_id || metadata.target_fact_id || metadata.memory_target_id || "",
+    message_ids: metadata.message_ids || [],
+    evidence_quotes: metadata.evidence_quotes || [],
+    source_refs: sourceRefs,
+  };
+}
+
+function memoryCandidatePanel(candidate) {
+  const tags = [
+    candidate.memory_type ? el("span", { className: "tag" }, candidate.memory_type) : null,
+    candidate.memory_scope ? el("span", { className: "tag" }, candidate.memory_scope) : null,
+    candidate.origin ? el("span", { className: "tag" }, candidate.origin) : null,
+    candidate.operation ? el("span", { className: "tag" }, candidate.operation) : null,
+    candidate.confidence !== undefined ? el("span", { className: "tag" }, `confidence ${Number(candidate.confidence || 0).toFixed(2)}`) : null,
+    candidate.target_id ? el("span", { className: "tag" }, `target ${shortId(candidate.target_id)}`) : null,
+  ].filter(Boolean);
+  const evidence = memoryCandidateEvidence(candidate);
+  return el("section", { className: "memory-candidate-panel" }, [
+    el("div", { className: "memory-candidate-header" }, [
+      el("strong", {}, "记忆候选"),
+      tags.length ? el("div", { className: "meta-row" }, tags) : null,
+    ]),
+    candidate.text ? el("p", { className: "memory-candidate-text" }, candidate.text) : null,
+    candidate.previous_text ? memoryCandidateField("原记忆", candidate.previous_text) : null,
+    candidate.behavior_delta ? memoryCandidateField("行为变化", candidate.behavior_delta) : null,
+    evidence.length ? el("div", { className: "source-list" }, evidence.map(memoryCandidateEvidenceRow)) : null,
+  ]);
+}
+
+function memoryCandidateField(label, value) {
+  return el("p", { className: "memory-candidate-field" }, [el("strong", {}, `${label}: `), value]);
+}
+
+function memoryCandidateEvidence(candidate) {
+  const rows = [];
+  (candidate.message_ids || []).forEach((messageId) => rows.push({ label: "消息", value: shortId(messageId) }));
+  (candidate.evidence_quotes || []).forEach((quote) => rows.push({ label: "证据", value: quote }));
+  (candidate.source_refs || []).forEach((sourceRef) => {
+    const metadata = sourceRef.metadata || {};
+    if (metadata.message_excerpt) rows.push({ label: "消息摘录", value: metadata.message_excerpt });
+    else if (sourceRef.title || sourceRef.path || sourceRef.source_id || sourceRef.external_id) {
+      rows.push({
+        label: sourceRef.adapter || "来源",
+        value: sourceRef.title || sourceRef.path || sourceRef.source_id || sourceRef.external_id,
+      });
+    }
+  });
+  return rows.slice(0, 6);
+}
+
+function memoryCandidateEvidenceRow(item) {
+  return el("p", { className: "memory-candidate-evidence" }, [el("span", { className: "tag" }, item.label), item.value || ""]);
 }
 
 function reviewSourceRow(sourceRef, index) {

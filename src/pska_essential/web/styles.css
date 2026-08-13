@@ -685,6 +685,35 @@ pre {
   margin-top: 12px;
 }
 
+.memory-candidate-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.memory-candidate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.memory-candidate-text,
+.memory-candidate-field,
+.memory-candidate-evidence {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memory-candidate-text {
+  color: var(--text);
+}
+
 .review-source-list {
   display: grid;
   gap: 8px;
