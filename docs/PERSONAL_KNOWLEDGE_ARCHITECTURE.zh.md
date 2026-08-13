@@ -632,6 +632,8 @@ Hermes 的默认行为：
 - Done: Memory Review Queue 新增 `candidate_quality` 质量门；pending 或 accepted 但未 apply
   的 memory_patch review 如果缺 `memory_type`、`memory_scope`、`behavior_delta`、source
   evidence，或文本/行为变化过泛，会被提示先 review/edit，而不是直接进入可 apply 待办。
+- Done: `pska_memory_apply` 对 memory_patch 使用同一套质量门；conversation/workflow-derived
+  memory proposal 会先补保守 Memory Card envelope，再进入 Review/apply。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
 - Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。

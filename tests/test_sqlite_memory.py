@@ -74,6 +74,8 @@ class SQLiteMemoryAdapterTests(unittest.TestCase):
             self.assertEqual(service.memory_search("obsoletephrase", {}, 10), [])
             updated_fact = service.memory_search("Current sqlite fact", {}, 10)[0]
             self.assertEqual(updated_fact.text, "Current sqlite fact")
+            self.assertEqual(updated_fact.metadata["display_text"], "Current sqlite fact")
+            self.assertEqual(updated_fact.metadata["current_text"], "Current sqlite fact")
             self.assertEqual(updated_fact.metadata["versions"][0]["text"], proposal.memory_patch.text)
 
             delete_result = service.memory_delete_review(updated_fact, "outdated")
@@ -119,6 +121,8 @@ class SQLiteMemoryAdapterTests(unittest.TestCase):
             self.assertEqual(service.memory_search("obsoletephrase", scope, 10), [])
             updated_fact = service.memory_search("Current scoped sqlite fact", scope, 10)[0]
             self.assertEqual(updated_fact.fact_id, applied.target_id)
+            self.assertEqual(updated_fact.metadata["display_text"], "Current scoped sqlite fact")
+            self.assertEqual(updated_fact.metadata["current_text"], "Current scoped sqlite fact")
             self.assertEqual(updated_fact.metadata["memory_namespace"], "project:eidolia-smoke")
 
             delete_result = service.memory_delete_review(updated_fact, "outdated")

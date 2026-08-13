@@ -314,7 +314,11 @@ merged replacement triage hygiene：Memory Review Queue 将被 merge 替换的�
 candidate quality gate：Memory Review Queue 对 pending/accepted 但未 apply 的 memory_patch
 Review 检查 Memory Card envelope、source evidence 和 behavior impact；缺 `memory_type`、
 `memory_scope`、`behavior_delta` 或文本/行为变化过泛时，会进入 `candidate_quality` group，
-提示先 review/edit，而不是把空泛候选推进 durable memory。
+提示先 review/edit，而不是把空泛候选推进 durable memory。P2 的第十九块已落地为
+apply-time candidate quality enforcement：`pska_memory_apply` 对 memory_patch 写入复用同一
+质量门，conversation/workflow-derived memory proposal 会先补 conservative Memory Card
+envelope；裸的低质量 memory_patch 即使绕过 queue/Review UI 被 accept，也不能写入 durable
+memory provider。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

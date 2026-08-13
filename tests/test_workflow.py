@@ -940,6 +940,27 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkflowError, "memory apply requires source refs"):
             service.memory_apply(bypassed.review_id)
 
+    def test_memory_apply_requires_memory_card_candidate_quality(self):
+        service = build_fake_service()
+        run = service.start("quality gate", {"dataset_ids": ["demo"]})
+        source_ref = SourceRef(adapter="fake", source_id="quality-source")
+        proposal = Proposal(
+            proposal_id="prop_low_quality_memory",
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent="unsafe memory",
+            title="Memory Patch: unsafe memory",
+            body="remember this",
+            source_refs=[source_ref],
+            memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+        )
+        service.store.save_proposal(proposal)
+        review = service.store.create_review(proposal.proposal_id)
+        service.store.decide_review(review.review_id, "accept", "bypassed service gate")
+
+        with self.assertRaisesRegex(WorkflowError, "memory candidate quality gate failed"):
+            service.memory_apply(review.review_id)
+
     def test_export_brief_uses_workflow_context(self):
         service = build_fake_service()
         run = service.start("brief workflow", {"dataset_ids": ["demo"]})

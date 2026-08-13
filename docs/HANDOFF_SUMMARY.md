@@ -31,8 +31,11 @@ Last updated: 2026-07-15
 > also has a `candidate_quality` gate for pending/accepted memory_patch reviews
 > that are missing Memory Card envelope fields, source evidence, or clear
 > behavior impact; it surfaces review/edit next actions before apply so vague
-> summaries do not quietly become durable Memory Cards. Next useful product step:
-> a richer batch edit/merge workbench and cross-project semantic clustering.
+> summaries do not quietly become durable Memory Cards. `pska_memory_apply`
+> enforces the same quality gate for memory_patch writes, and
+> conversation/workflow-derived memory proposals now attach a conservative
+> Memory Card envelope before Review/apply. Next useful product step: a richer
+> batch edit/merge workbench and cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 

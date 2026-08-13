@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from pska_essential.contracts import MemoryFact, SourceRef
+from pska_essential.contracts import MemoryFact, MemoryPatch, Proposal, SourceRef
 from pska_essential.memory_review_queue import build_memory_review_queue
 from pska_essential.workflow import build_fake_service
 
@@ -78,8 +78,18 @@ class MemoryReviewQueueTests(unittest.TestCase):
     def test_queue_surfaces_memory_candidate_quality_issues_before_apply(self):
         service = build_fake_service()
         run = service.start("Remember vague memory", {"dataset_ids": ["demo"]})
-        service.context_retrieve(run.run_id, "review queue memory", 1)
-        proposal = service.propose(run.run_id, "memory_patch", "remember this")
+        source_ref = SourceRef(adapter="fake", source_id="quality-source")
+        proposal = Proposal(
+            proposal_id="prop_queue_low_quality_memory",
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent="unsafe memory",
+            title="Memory Patch: unsafe memory",
+            body="remember this",
+            source_refs=[source_ref],
+            memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+        )
+        service.store.save_proposal(proposal)
         review = service.review_create(proposal.proposal_id)
         service.review_decide(review.review_id, "accept", "ready")
 
@@ -101,8 +111,18 @@ class MemoryReviewQueueTests(unittest.TestCase):
     def test_queue_quality_issue_can_mark_pending_candidate_needs_edit(self):
         service = build_fake_service()
         run = service.start("Remember vague pending memory", {"dataset_ids": ["demo"]})
-        service.context_retrieve(run.run_id, "review queue memory", 1)
-        proposal = service.propose(run.run_id, "memory_patch", "remember this")
+        source_ref = SourceRef(adapter="fake", source_id="quality-source")
+        proposal = Proposal(
+            proposal_id="prop_queue_pending_low_quality_memory",
+            run_id=run.run_id,
+            kind="memory_patch",
+            intent="unsafe memory",
+            title="Memory Patch: unsafe memory",
+            body="remember this",
+            source_refs=[source_ref],
+            memory_patch=MemoryPatch(text="remember this", source_refs=[source_ref]),
+        )
+        service.store.save_proposal(proposal)
         review = service.review_create(proposal.proposal_id)
 
         queue = build_memory_review_queue(service, audit=False)

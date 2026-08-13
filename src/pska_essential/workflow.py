@@ -43,6 +43,11 @@ from pska_essential.governance import (
     build_workspace_policy_from_env,
 )
 from pska_essential.memory_attribution import build_attribution_from_artifact, build_suggestions_from_artifact
+from pska_essential.memory_candidate_quality import (
+    memory_candidate_quality_issue,
+    quality_issue_message,
+    review_record_for_quality,
+)
 from pska_essential.memory_use_trace import memory_search_trace_metadata
 from pska_essential.ports import MemoryPort, RetrievalPort
 from pska_essential.review_store import SQLiteReviewStore
@@ -476,6 +481,11 @@ class WorkflowService:
             raise WorkflowError("cannot propose without source refs")
         body = _compose_body(normalized, run, intent)
         if normalized == "memory_patch":
+            memory_metadata = {
+                "run_id": run.run_id,
+                "intent": intent or run.intent,
+                **_workflow_memory_card_metadata(run=run, intent=intent or run.intent, text=body),
+            }
             return self._create_memory_patch_proposal(
                 run,
                 intent=intent or run.intent,
@@ -483,7 +493,7 @@ class WorkflowService:
                     text=body,
                     source_refs=source_refs,
                     confidence=0.8,
-                    metadata={"run_id": run.run_id, "intent": intent or run.intent},
+                    metadata=memory_metadata,
                 ),
             )
         proposal_id = f"prop_{uuid4().hex}"
@@ -1214,6 +1224,12 @@ class WorkflowService:
                 "user_message": message,
                 "session_id": session_id,
                 "message_id": message_id,
+                **_conversation_memory_card_metadata(
+                    operation=normalized_operation,
+                    text=patch_text,
+                    user_message=message,
+                    scope=scope or {},
+                ),
                 **memory_scope_metadata,
             }
             if memory_update_strategy == APPEND_CORRECTION_EPISODE:
@@ -1235,6 +1251,12 @@ class WorkflowService:
                         "current_text": text.strip(),
                         "display_text": text.strip(),
                         "previous_text": fact.text,
+                        **_conversation_memory_card_metadata(
+                            operation=normalized_operation,
+                            text=text.strip(),
+                            user_message=message,
+                            scope=scope or {},
+                        ),
                     }
                 )
             proposal = self._create_memory_patch_proposal(
@@ -1827,6 +1849,17 @@ class WorkflowService:
                 raise WorkflowError("memory_patch proposal is missing memory patch payload")
             if not proposal.memory_patch.source_refs:
                 raise WorkflowError("memory patch requires source refs before apply")
+            issue = memory_candidate_quality_issue(
+                review_record_for_quality(
+                    review_id=review_id,
+                    status=str(review.get("status") or ""),
+                    proposal=proposal,
+                    memory_apply=existing,
+                ),
+                include_actions=False,
+            )
+            if issue:
+                raise WorkflowError(quality_issue_message(issue))
             _attach_memory_runtime_metadata(proposal.memory_patch.metadata, proposal)
             proposal.memory_patch.metadata.setdefault("review_id", review_id)
             result = self.memory.apply(proposal.memory_patch)
@@ -3461,6 +3494,80 @@ def _conversation_update_intent(user_message: str) -> bool:
 
 def _conversation_memory_text(*, text: str, user_message: str) -> str:
     return text.strip() or user_message.strip()
+
+
+def _workflow_memory_card_metadata(*, run: WorkflowRun, intent: str, text: str) -> dict[str, str]:
+    memory_scope = _normalize_memory_card_scope(str(run.scope.get("memory_scope") or run.scope.get("memory_card_scope") or "workspace"))
+    origin = str(run.scope.get("origin") or run.metadata.get("origin") or DURABLE_ORIGIN).strip().lower()
+    if origin == SOURCE_PROMOTION_ORIGIN:
+        memory_type = "source_route"
+    elif origin == DIGEST_ORIGIN:
+        memory_type = "project_state"
+    else:
+        memory_type = "project_state" if run.scope.get("dataset_ids") or run.scope.get("document_ids") else "working_habit"
+    claim = _compact_text(text or intent or run.intent, 180)
+    return {
+        "memory_type": memory_type,
+        "memory_scope": memory_scope,
+        "behavior_delta": f"When future work matches this sourced workflow, use the reviewed memory candidate as durable context: {claim}",
+        "display_text": text,
+    }
+
+
+def _conversation_memory_card_metadata(
+    *,
+    operation: str,
+    text: str,
+    user_message: str,
+    scope: dict[str, Any],
+) -> dict[str, str]:
+    memory_type = _conversation_memory_type(operation, text, user_message)
+    memory_scope = _normalize_memory_card_scope(str(scope.get("memory_scope") or scope.get("memory_card_scope") or "workspace"))
+    display_text = text.strip() or user_message.strip()
+    behavior_delta = _conversation_behavior_delta(
+        operation=operation,
+        memory_type=memory_type,
+        text=display_text,
+        user_message=user_message,
+    )
+    return {
+        "memory_type": memory_type,
+        "memory_scope": memory_scope,
+        "behavior_delta": behavior_delta,
+        "display_text": display_text,
+    }
+
+
+def _conversation_memory_type(operation: str, text: str, user_message: str) -> str:
+    normalized = f"{text} {user_message}".lower()
+    if operation in {"memory_update", "memory_delete"} or _has_correction_marker(normalized):
+        return "correction"
+    if any(marker in normalized for marker in ("prefer", "preference", "likes", "dislikes", "喜欢", "偏好", "倾向")):
+        return "preference"
+    if any(marker in normalized for marker in ("always", "usually", "workflow", "habit", "习惯", "流程", "通常")):
+        return "working_habit"
+    return "project_state" if any(marker in normalized for marker in ("project", "workspace", "项目", "仓库")) else "identity"
+
+
+def _conversation_behavior_delta(
+    *,
+    operation: str,
+    memory_type: str,
+    text: str,
+    user_message: str,
+) -> str:
+    claim = _compact_text(text or user_message, 160)
+    if operation == "memory_update":
+        return f"When this remembered fact is relevant, use the corrected current claim instead of the superseded one: {claim}"
+    if operation == "memory_delete":
+        return f"When this topic appears again, avoid using the superseded remembered claim: {claim}"
+    if memory_type == "preference":
+        return f"When making recommendations or defaults for the user, take this preference into account: {claim}"
+    if memory_type == "working_habit":
+        return f"When helping the user plan or execute similar work, adapt to this working habit: {claim}"
+    if memory_type == "identity":
+        return f"When personal context is relevant, use this user-provided identity/context claim: {claim}"
+    return f"When future workspace context matches this claim, use it to route or constrain the response: {claim}"
 
 
 def _conversation_correction_episode_text(*, current_text: str, previous_text: str, target_fact_id: str) -> str:

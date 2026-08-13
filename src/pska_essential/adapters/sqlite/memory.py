@@ -205,6 +205,9 @@ class SQLiteMemoryAdapter:
                 "version": version,
                 "versions": versions,
                 "previous_text": reviewed_update.previous_text or previous.text,
+                "display_text": reviewed_update.text,
+                "current_text": reviewed_update.text,
+                "canonical_text": reviewed_update.text,
             }
             now = utc_now_iso()
             self._conn.execute(
