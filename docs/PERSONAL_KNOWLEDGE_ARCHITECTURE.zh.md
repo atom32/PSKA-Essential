@@ -621,9 +621,11 @@ Hermes 的默认行为：
   `pska_review_merge_candidates` 可把 duplicate/related candidate review ids 和人工确认的
   merged `memory_candidate` 文本合并成新的 pending Review，保留合并来源 refs，并把仍 pending
   的旧候选标为 needs_edit；它不自动 approve/apply/write memory。
+- Done: duplicate/related candidate queue group 已有轻量内联合并编辑器，可在 WebUI 内填写
+  合并后的候选文本与 behavior_delta 并创建合并审核。
 - Done: `pska_eidolia_project_trace_import` 可只读导入 Eidolia project files / trace sidecars 为
   PSKA SourceRef/audit trace。
-- Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的完整 WebUI。
+- Pending: 更高级的跨项目语义聚类、批量候选编辑/合并的更完整工作台。
 
 ### M6: Agentic Routines
 

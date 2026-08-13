@@ -3932,6 +3932,7 @@ function syncReviewRecord(review, options = {}) {
 function memoryReviewQueueGroupCard(group) {
   const items = group.items || [];
   const batchActions = group.batch_actions || [];
+  const mergeAction = memoryReviewQueueMergeAction(group);
   return el("article", { className: "item-card" }, [
     el("header", {}, [
       el("div", {}, [
@@ -3947,8 +3948,48 @@ function memoryReviewQueueGroupCard(group) {
     batchActions.length
       ? el("div", { className: "review-actions compact-actions" }, batchActions.map((action) => memoryReviewQueueBatchActionButton(action)))
       : null,
+    mergeAction ? memoryReviewQueueMergeEditor(group, mergeAction) : null,
     items.length ? el("div", { className: "source-list" }, items.slice(0, 5).map(memoryReviewQueueItemRow)) : null,
   ]);
+}
+
+function memoryReviewQueueMergeAction(group) {
+  return (group.items || [])
+    .flatMap((item) => item.next_actions || [])
+    .find((action) => action.action === "merge_candidate_group" || action.tool === "pska_review_merge_candidates");
+}
+
+function memoryReviewQueueMergeEditor(group, action) {
+  const first = (group.items || [])[0] || {};
+  const params = action.params || {};
+  const text = memoryCandidateTextarea(first.title || "", 3, "合并后的候选记忆文本");
+  const behaviorDelta = memoryCandidateTextarea(first.reason || "", 2, "合并后的行为变化");
+  const memoryType = memoryCandidateSelect(MEMORY_CARD_TYPES, params.memory_type || first.memory_type || "project_state");
+  const memoryScope = memoryCandidateSelect(MEMORY_CARD_SCOPES, params.memory_scope || first.memory_scope || "workspace");
+  const editor = el("section", { className: "merge-candidate-editor" }, [
+    el("div", { className: "memory-candidate-header" }, [
+      el("strong", {}, "合并候选"),
+      el("span", { className: "tag" }, `${(params.review_ids || []).length} reviews`),
+    ]),
+    el("label", {}, ["候选文本", text]),
+    el("label", {}, ["行为变化", behaviorDelta]),
+    el("div", { className: "form-row" }, [
+      el("label", {}, ["类型", memoryType]),
+      el("label", {}, ["范围", memoryScope]),
+    ]),
+    el("div", { className: "review-actions compact-actions" }, [
+      el(
+        "button",
+        {
+          className: "primary-button",
+          type: "button",
+          onclick: () => mergeMemoryCandidateGroup(action, { text, behaviorDelta, memoryType, memoryScope }),
+        },
+        "创建合并审核",
+      ),
+    ]),
+  ]);
+  return editor;
 }
 
 function memoryReviewQueueItemRow(item) {
@@ -4912,13 +4953,13 @@ async function runMemoryReviewQueueAction(action, item = {}) {
   showToast(action.label || action.action || "无法执行该操作。");
 }
 
-async function mergeMemoryCandidateGroup(action) {
+async function mergeMemoryCandidateGroup(action, inputs = null) {
   const params = action.params || {};
   const reviewIds = params.review_ids || [];
   if (reviewIds.length < 2) return;
-  const text = window.prompt("合并后的候选记忆文本");
+  const text = inputs ? inputs.text.value : window.prompt("合并后的候选记忆文本");
   if (!text || !text.trim()) return;
-  const behaviorDelta = window.prompt("这条记忆应如何改变未来行为？");
+  const behaviorDelta = inputs ? inputs.behaviorDelta.value : window.prompt("这条记忆应如何改变未来行为？");
   if (!behaviorDelta || !behaviorDelta.trim()) return;
   const payload = await api("/api/reviews/merge-candidates", {
     method: "POST",
@@ -4928,8 +4969,8 @@ async function mergeMemoryCandidateGroup(action) {
       memory_candidate: {
         text: text.trim(),
         behavior_delta: behaviorDelta.trim(),
-        memory_type: params.memory_type || "project_state",
-        memory_scope: params.memory_scope || "workspace",
+        memory_type: inputs ? inputs.memoryType.value : params.memory_type || "project_state",
+        memory_scope: inputs ? inputs.memoryScope.value : params.memory_scope || "workspace",
       },
     },
   });

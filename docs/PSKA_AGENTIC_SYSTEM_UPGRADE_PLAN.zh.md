@@ -302,7 +302,9 @@ durable memory，只把候选推进到 accepted/rejected Review 状态，后续�
 的第十四块已落地为 explicit candidate merge primitive：`POST /api/reviews/merge-candidates`
 与 `pska_review_merge_candidates` 接收 duplicate/related candidate review ids 和人工确认的
 merged `memory_candidate` 字段，创建新的 pending Review，合并 source refs，并将仍 pending 的
-旧候选标为 needs_edit；它不自动 approve/apply/write memory。
+旧候选标为 needs_edit；它不自动 approve/apply/write memory。P2 的第十五块已落地为
+lightweight merge editor：WebUI 在 duplicate/related candidate queue group 内显示合并编辑器，
+允许填写合并后的候选文本和 behavior_delta 后创建 merged Review。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

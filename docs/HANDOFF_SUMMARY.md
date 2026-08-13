@@ -20,8 +20,9 @@ Last updated: 2026-07-15
 > `POST /api/reviews/merge-candidates` and `pska_review_merge_candidates`; it
 > creates a new pending merged Review from caller-supplied candidate text,
 > preserves source refs, and marks replaced pending candidates as `needs_edit`.
-> Next useful product step: full WebUI for batch edit/merge and cross-project
-> semantic clustering.
+> WebUI now exposes a lightweight inline merge editor on duplicate/related
+> candidate queue groups. Next useful product step: a richer batch edit/merge
+> workbench and cross-project semantic clustering.
 
 This document is the handoff point for a fresh Codex conversation.
 
