@@ -1,0 +1,20 @@
+{
+  "schema": "pska.browser_playwright_narrated_cut.v1",
+  "source_recording_manifest": "demo/browser/pska_webui_demo/dist/playwright_recording_manifest.json",
+  "source_recording": "demo/browser/pska_webui_demo/dist/pska_webui_browser_recording.mp4",
+  "mp4": "demo/browser/pska_webui_demo/dist/pska_webui_browser_recording_narrated.mp4",
+  "subtitles": "demo/browser/pska_webui_demo/dist/pska_webui_browser_recording_narrated.zh.srt",
+  "storyboard": "demo/browser/pska_webui_demo/dist/playwright_narrated_storyboard.zh.md",
+  "voiceover": "demo/browser/pska_webui_demo/dist/playwright_narrated_voiceover.zh.md",
+  "scale": 3.531,
+  "source_duration_seconds": 39.32,
+  "duration_seconds": 138.839,
+  "voice": "Tingting",
+  "rate": "176",
+  "seed": {
+    "dataset_id": "fake_ds_6439b27c5236",
+    "document_id": "fake_doc_31195a31c23c",
+    "root_id": "root_8bb8abb9ec69e38b7bbb976d",
+    "memory_id": "mem_d2e08c77c80e4d31a21eb4b5efdcc07a"
+  }
+}

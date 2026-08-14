@@ -6,6 +6,7 @@
 
 - `pska_webui_browser_demo.mp4`：真实浏览器截图 replay，带指针、字幕和较慢节奏，适合讲解。
 - `pska_webui_browser_recording.mp4`：Playwright 录出的真实 Chromium 操作视频，页面点击、输入、滚动和结果渲染都来自浏览器运行过程。
+- `pska_webui_browser_recording_narrated.mp4`：基于真实 Chromium 录屏生成的慢速旁白成片，适合直接展示或导入剪映精剪。
 
 覆盖功能：
 
@@ -75,3 +76,22 @@ demo/browser/pska_webui_demo/dist/playwright_recording_manifest.json
 ```
 
 这个录制脚本会启动 fake Product API、种入演示知识库/资料源/记忆，然后用真实 Chromium 页面完成点击和输入流程。
+
+## 生成真实录屏旁白成片
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+python3 scripts/build_recording_narrated_cut.py
+```
+
+默认输出：
+
+```text
+demo/browser/pska_webui_demo/dist/pska_webui_browser_recording_narrated.mp4
+demo/browser/pska_webui_demo/dist/pska_webui_browser_recording_narrated.zh.srt
+demo/browser/pska_webui_demo/dist/playwright_narrated_storyboard.zh.md
+demo/browser/pska_webui_demo/dist/playwright_narrated_voiceover.zh.md
+demo/browser/pska_webui_demo/dist/playwright_narrated_manifest.json
+```
+
+剪映导入说明见 `JIANYING_IMPORT.zh.md`。
