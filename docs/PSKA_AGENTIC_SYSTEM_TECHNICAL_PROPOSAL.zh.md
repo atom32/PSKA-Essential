@@ -209,6 +209,85 @@ Jarvis briefing 聚合：
 
 ## 5. System Architecture
 
+先看面向展示的 big picture：PSKA 不是单个 RAG 服务，而是把 Hermes 的 agentic
+行动、Eidolia 的创作空间、source recall、memory governance 和 trace/audit 组织成一个
+可治理的外部认知系统。
+
+```mermaid
+flowchart TB
+  U["User<br/>goals, questions, corrections, creative intent"]
+
+  subgraph Workspace["User Workspace"]
+    HW["Hermes WebUI<br/>daily chat, Jarvis briefing, review queue"]
+    EI["Eidolia Canvas<br/>thoughts and artifacts"]
+    SRCUI["Source Workbench<br/>folders, Obsidian, datasets"]
+  end
+
+  subgraph Agentic["Agentic Layer"]
+    H["Hermes<br/>primary reasoner and action loop"]
+    RC["Recall Agent<br/>find relevant sources and routes"]
+    MC["Memory Curator<br/>propose, refresh, dedup, retire"]
+    TE["Trace Explainer<br/>why this answer, memory, or action exists"]
+    AC["Alpha Coach<br/>readiness, checklist, recovery notes"]
+  end
+
+  subgraph PSKA["PSKA Governance Control Plane"]
+    API["Product API"]
+    MCP["MCP Tools"]
+    POL["Policy and Permission"]
+    SR["SourceRef Registry"]
+    MEM["Memory Card System"]
+    REV["Review Gate"]
+    TR["Trace / Audit Ledger"]
+    JOB["Jobs and Schedules"]
+  end
+
+  subgraph Knowledge["Knowledge and Memory Substrate"]
+    LOCAL["Local Folders<br/>metadata, FTS, hash, sidecar"]
+    OBS["Obsidian Vaults<br/>notes, links, tags, MOC"]
+    RAG["RAGFlow / KB Providers<br/>documents, chunks, retrieval"]
+    STORE["SQLite / Graphiti / future memory stores"]
+    CLOUD["Future Cloud Connectors<br/>Drive, Box, Notion, Zotero"]
+  end
+
+  U --> HW
+  U --> EI
+  U --> SRCUI
+  HW --> H
+  EI --> H
+  SRCUI --> H
+  H --> RC
+  H --> MC
+  H --> TE
+  H --> AC
+  H --> MCP
+  HW --> API
+  EI --> API
+  API --> POL
+  MCP --> POL
+  POL --> SR
+  POL --> MEM
+  POL --> REV
+  POL --> TR
+  POL --> JOB
+  SR --> LOCAL
+  SR --> OBS
+  SR --> RAG
+  SR --> CLOUD
+  MEM --> STORE
+  TR --> SR
+  TR --> MEM
+  REV --> MEM
+  JOB --> SR
+  JOB --> MEM
+  RC --> SR
+  MC --> MEM
+  TE --> TR
+  AC --> REV
+```
+
+下面是更偏实现视角的 component map：
+
 ```mermaid
 flowchart TD
   U["User"]
