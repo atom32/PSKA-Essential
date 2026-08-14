@@ -102,3 +102,12 @@ demo/browser/pska_webui_demo/dist/playwright_narrated_manifest.json
 cd /Users/xudawei/PSKA-Essential
 python3 scripts/verify_browser_demo_pack.py
 ```
+
+## 打包分发
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+python3 scripts/package_browser_demo_pack.py
+```
+
+脚本会先运行演示包验证，再生成 `dist/pska_webui_demo_package.zip` 和 `dist/pska_webui_demo_package_manifest.json`。zip 内入口是 `pska_webui_demo/report.html`。

@@ -120,6 +120,11 @@ POSTER_NAMES = [
     "03_source_search.png",
 ]
 
+OPTIONAL_GENERATED_REFERENCES = {
+    "dist/pska_webui_demo_package.zip",
+    "dist/pska_webui_demo_package_manifest.json",
+}
+
 
 def require_files(paths: list[Path], checks: list[str]) -> None:
     missing = [path for path in paths if not path.exists()]
@@ -258,7 +263,11 @@ def verify_markdown_references(path: Path, demo_dir: Path, checks: list[str]) ->
             )
         )
     )
-    missing = [reference for reference in references if not resolve_reference(reference, demo_dir).exists()]
+    missing = [
+        reference
+        for reference in references
+        if reference not in OPTIONAL_GENERATED_REFERENCES and not resolve_reference(reference, demo_dir).exists()
+    ]
     if missing:
         raise SystemExit(f"{path} has missing referenced files: {', '.join(missing)}")
     checks.append(f"{path.name}: {len(references)} local references resolve")

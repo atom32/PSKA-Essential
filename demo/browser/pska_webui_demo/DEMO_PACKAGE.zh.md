@@ -52,6 +52,19 @@ python3 scripts/build_recording_narrated_cut.py
 python3 scripts/verify_browser_demo_pack.py
 ```
 
+生成可分发 zip：
+
+```bash
+python3 scripts/package_browser_demo_pack.py
+```
+
+默认输出：
+
+- `dist/pska_webui_demo_package.zip`
+- `dist/pska_webui_demo_package_manifest.json`
+
+解压后打开 `pska_webui_demo/report.html` 即可播放主视频并查看证据矩阵。
+
 ## 验收标准
 
 - 主视频是 `1280x720` H.264，并包含 AAC 音频轨。
@@ -59,3 +72,4 @@ python3 scripts/verify_browser_demo_pack.py
 - 三份字幕均有 10 个有序镜头块。
 - Playwright manifest 记录 dataset、document、source root 和 memory id。
 - 剪映导入说明中的本地素材路径都能解析到实际文件。
+- 分发 zip 不包含 raw WebM、Playwright build 临时目录、`.DS_Store` 或 `__pycache__`。
