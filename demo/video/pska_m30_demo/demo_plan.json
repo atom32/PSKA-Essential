@@ -1,0 +1,153 @@
+{
+  "schema": "pska.demo_video_plan.v1",
+  "title": "PSKA Agentic Cognitive System 功能演示",
+  "subtitle": "M30 technical alpha demo",
+  "version": "M30",
+  "voice": "Tingting",
+  "resolution": [1280, 720],
+  "scenes": [
+    {
+      "id": "opening",
+      "duration": 22,
+      "title": "PSKA: 外部认知智能体系统",
+      "kicker": "source-first / memory-governed / agent-operated",
+      "bullets": [
+        "不是单一 RAG、聊天机器人或文件管理器",
+        "Hermes 负责推理和行动，PSKA 负责知识治理",
+        "目标是让用户现在更聪明，并保存长期认知连续性"
+      ],
+      "chips": ["Technical Alpha", "M30", "Demo"],
+      "narration": "这段演示介绍 PSKA。它不是一个普通 RAG，也不是一个新的笔记软件。它的定位是个人外部认知系统：Hermes 负责推理和行动，PSKA 负责知识、记忆、权限、出处和审计，Eidolia 承载创作画布。当前版本是 technical alpha，适合展示系统能力和设计方向。"
+    },
+    {
+      "id": "architecture",
+      "duration": 28,
+      "title": "Big Picture: 让 Agent 有边界地行动",
+      "kicker": "Hermes + PSKA + Eidolia + Knowledge Substrate",
+      "bullets": [
+        "用户在 WebUI、Eidolia、Source Workbench 中提出目标",
+        "Hermes 作为主 agent 组织 Recall、Memory、Trace 等能力",
+        "PSKA 控制 source、memory、review、trace 和 jobs 的边界"
+      ],
+      "chips": ["Hermes", "PSKA", "Eidolia", "SourceRef"],
+      "narration": "PSKA 的大图是三层。第一层是用户工作区，包括 Hermes WebUI、Eidolia 画布和资料源工作台。第二层是 agentic layer，Hermes 是唯一主 reasoner，未来可以组织 Recall Agent、Memory Curator 和 Trace Explainer。第三层是 PSKA 控制面，它不替模型回答，而是管理证据、记忆、权限和审计。"
+    },
+    {
+      "id": "home",
+      "duration": 26,
+      "title": "Home: Jarvis Briefing 与 Alpha Guide",
+      "kicker": "从后台工具变成每日入口",
+      "bullets": [
+        "Jarvis briefing 聚合 workspace、source、memory、review 状态",
+        "Alpha readiness 判断当前实例适合 demo、dogfood 还是技术 alpha",
+        "Trial guide 把安全试用路线变成可跟踪步骤"
+      ],
+      "chips": ["Jarvis", "Readiness", "Next Actions"],
+      "narration": "Home 页面是当前产品入口。Jarvis briefing 会汇总工作区、资料源、记忆和 review 的状态，并给出下一步动作。Alpha readiness 和 trial guide 则回答一个现实问题：这个系统现在能不能安全试用？如果可以，要按什么路线试。"
+    },
+    {
+      "id": "first_run",
+      "duration": 30,
+      "title": "M30: First-run Checklist + Notes",
+      "kicker": "安全试用不只是说明，而是可审计流程",
+      "bullets": [
+        "首次试用清单会持久化到 PSKA local ledger",
+        "每一步可以标记完成、撤回、跳过",
+        "每个 item 可以记录人工确认依据、异常和复盘备注"
+      ],
+      "chips": ["Checklist", "Notes", "Audit"],
+      "narration": "M30 把首次试用从一段说明变成了可审计流程。清单状态会持久化，用户可以标记完成、撤回或跳过。每个步骤还可以写人工备注，用来记录确认依据、异常和复盘结论。重要的是，这些操作只写 PSKA 的 checklist 和 audit state，不会扫描文件、写源文件或直接写入长期记忆。"
+    },
+    {
+      "id": "source_recall",
+      "duration": 34,
+      "title": "Source Recall: 文件夹和 Obsidian 不是黑盒",
+      "kicker": "no-embedding-first local recall",
+      "bullets": [
+        "注册本地文件夹或 Obsidian vault，建立 metadata、hash、FTS、links",
+        "支持 search、read、neighbors、duplicate preview、unresolved links",
+        "tag/comment/MOC 先生成 proposal，再按权限 apply"
+      ],
+      "chips": ["FTS5", "Neighbors", "Audit", "MOC"],
+      "narration": "Source recall 是 PSKA 的关键。用户授权本地文件夹或 Obsidian vault 后，PSKA 建立 metadata、hash、全文索引和链接信息。它可以搜索、读取、查看邻居节点、检查重复文件、断链和孤立笔记。整理动作默认先生成 proposal，只有权限和确认都满足时才 apply。"
+    },
+    {
+      "id": "ask",
+      "duration": 32,
+      "title": "Agentic Ask: 有来源的回答",
+      "kicker": "readiness -> retrieval -> source read -> synthesis -> export",
+      "bullets": [
+        "Hermes 不直接凭感觉回答事实问题",
+        "PSKA 先检查 scope readiness，再组织 retrieval 和 source inspection",
+        "结果是 transient work product，可再进入 memory review"
+      ],
+      "chips": ["Ask", "Citations", "Export"],
+      "narration": "在 Ask 流程里，Hermes 不应该直接凭感觉回答事实问题。PSKA 先检查知识范围是否 ready，再检索、读取 source、组织引用，最后由 Hermes 生成回答或 artifact。这个结果默认是 transient work product，只有用户确认后，才可能成为长期记忆候选。"
+    },
+    {
+      "id": "memory",
+      "duration": 34,
+      "title": "Memory Governance: 不是用户画像摘要",
+      "kicker": "Memory Card + Review + Lifecycle",
+      "bullets": [
+        "Memory Card 必须有 behavior_delta、scope、source_refs 和生命周期",
+        "支持 conversation memory、refresh review、dedup、health scan",
+        "记忆修改、删除、刷新都要能解释出处和影响"
+      ],
+      "chips": ["Memory Card", "Review", "Health"],
+      "narration": "PSKA 的记忆不是空泛的用户画像摘要。Memory Card 必须说明它会怎样改变未来行为，适用范围是什么，证据从哪里来，以及以后如何刷新、替换或删除。系统已经有 conversation memory、refresh review、候选去重和 health scan 等基础能力。"
+    },
+    {
+      "id": "trace",
+      "duration": 30,
+      "title": "Trace: 为什么这条记忆或回答存在",
+      "kicker": "SourceRef + audit-backed timeline",
+      "bullets": [
+        "Trace 查询 review、proposal、memory、source 和 Eidolia refs",
+        "回答级 memory attribution 记录 PSKA 提供了哪些记忆",
+        "Trace 是证据视图，不伪造隐藏模型因果"
+      ],
+      "chips": ["Trace", "SourceRef", "Attribution"],
+      "narration": "Trace 层回答为什么这个对象存在。它可以按 review、proposal、memory、source 或 Eidolia SourceRef 查询轨迹。回答级 memory attribution 会记录 PSKA 给工作流提供了哪些记忆。这里要保持诚实：Trace 是 audit-backed evidence view，不声称能还原模型内部隐藏因果。"
+    },
+    {
+      "id": "eidolia",
+      "duration": 28,
+      "title": "Eidolia: Thought / Artifact 进入治理轨道",
+      "kicker": "canvas-native cognitive workspace",
+      "bullets": [
+        "Eidolia 用户可见节点保持 thought 和 artifact 两种",
+        "PSKA 把节点作为 SourceRef 引用、审计和提炼",
+        "有价值的 thought/artifact 可进入 governed memory review"
+      ],
+      "chips": ["Thought", "Artifact", "Canvas"],
+      "narration": "Eidolia 保持简单的画布模型：用户可见节点只有 thought 和 artifact。PSKA 不给画布强加复杂本体，而是在背后记录 SourceRef、trace 和 memory review。如果一个 thought 或 artifact 真的会影响未来行为，它可以被提升为 governed Memory Card candidate。"
+    },
+    {
+      "id": "safety",
+      "duration": 31,
+      "title": "安全边界: 自动化先提议，不偷写",
+      "kicker": "proposal -> review -> permission -> apply",
+      "bullets": [
+        "不默认扫全盘、不默认写源文件、不默认写长期记忆",
+        "source writeback、memory apply、delete/move 都必须经过治理路径",
+        "机械 ledger 是刹车，agentic loop 是方向盘"
+      ],
+      "chips": ["Policy", "Review", "No Hidden Writes"],
+      "narration": "PSKA 的自动化必须有刹车。系统不默认扫全盘，不默认写源文件，也不默认写长期记忆。Tag、comment、MOC、memory apply、删除和移动都要经过 policy、proposal、review 和 permission。机械 ledger 不是最终目标，但它是 agentic 系统安全行动的骨架。"
+    },
+    {
+      "id": "maturity",
+      "duration": 32,
+      "title": "当前成熟度: 可演示，可 dogfood，未到正式产品",
+      "kicker": "technical alpha, not public beta",
+      "bullets": [
+        "适合展示架构、能力闭环和安全边界",
+        "还需要更强 agentic context brief、运行态控制、真实数据 dogfooding",
+        "下一步 M31: Agentic Context Brief / Recall Agent"
+      ],
+      "chips": ["Demo Ready", "Dogfood", "M31"],
+      "narration": "当前系统已经足够做功能演示，也可以进入技术 alpha 和自用 dogfooding。但它还不是普通用户无脑安装的正式产品。下一步最关键的是 M31，也就是 Agentic Context Brief 和 Recall Agent 雏形，让 PSKA 不只是后台工具，而是真正能替 Hermes 组织上下文、证据、记忆和下一步行动。"
+    }
+  ]
+}
