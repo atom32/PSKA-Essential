@@ -2,6 +2,8 @@
 
 这个目录保存 PSKA WebUI 操作演示素材。它和 `demo/video/pska_m31_demo` 的区别是：这里展示真实 Product API fake-mode 功能闭环，而不是只讲系统概念。
 
+演示包入口见 `DEMO_PACKAGE.zh.md`，剪映导入说明见 `JIANYING_IMPORT.zh.md`。
+
 当前有两类视频产物：
 
 - `pska_webui_browser_demo.mp4`：真实浏览器截图 replay，带指针、字幕和较慢节奏，适合讲解。
@@ -94,4 +96,9 @@ demo/browser/pska_webui_demo/dist/playwright_narrated_voiceover.zh.md
 demo/browser/pska_webui_demo/dist/playwright_narrated_manifest.json
 ```
 
-剪映导入说明见 `JIANYING_IMPORT.zh.md`。
+## 验证演示包
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+python3 scripts/verify_browser_demo_pack.py
+```
