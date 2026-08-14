@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the PSKA WebUI browser demo package."""
+"""Verify the PSKA diagnostic page browser demo package."""
 
 from __future__ import annotations
 

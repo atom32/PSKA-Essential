@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a browser-operation replay video from real PSKA WebUI screenshots."""
+"""Build a browser-operation replay video from PSKA diagnostic page screenshots."""
 
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
 {
   "schema": "pska.browser_demo_video_plan.v1",
-  "title": "PSKA WebUI 浏览器操作演示",
-  "subtitle": "真实浏览器页面 replay：Context Brief / Ask / Memory / Trace / Sources",
+  "title": "PSKA Product API 诊断页浏览器操作素材",
+  "subtitle": "本地诊断页面 replay：Context Brief / Ask / Memory / Trace / Sources",
   "version": "M32-browser-demo",
   "output_basename": "pska_webui_browser_demo",
   "voice": "Tingting",
@@ -14,9 +14,9 @@
       "duration": 7,
       "cursor": [1168, 278],
       "click_at": 0.75,
-      "title": "打开 PSKA WebUI",
+      "title": "打开 PSKA 诊断页",
       "caption": "Home 页面显示 API 已连接、1 个知识库，以及 Jarvis briefing 的资料源和记忆信号。",
-      "narration": "先打开真实的 PSKA WebUI。这里不是静态幻灯片：页面已经连接本地 Product API，首页能看到知识库数量、Jarvis briefing、资料源状态和最近记忆提示。"
+      "narration": "先打开 PSKA 本地诊断页。这里不是 Hermes WebUI extension，而是连接本地 Product API 的 smoke path，用来检查知识库数量、Jarvis briefing、资料源状态和最近记忆提示。"
     },
     {
       "id": "context_brief",

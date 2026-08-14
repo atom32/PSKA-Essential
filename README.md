@@ -54,6 +54,9 @@ Read these first when deciding how to use or extend the project:
 - [Hermes WebUI Integration](docs/HERMES_WEBUI_INTEGRATION.md): plan for using
   Hermes WebUI as the only v1 user workspace, with PSKA behind proxy/API/MCP
   boundaries.
+- [Frontend Boundary Audit 2026-08-15](docs/FRONTEND_BOUNDARY_AUDIT_2026-08-15.zh.md):
+  current audit of Hermes WebUI extension vs the legacy local diagnostic UI,
+  including duplicated surfaces and the correct demo path.
 - [Long-Term Stability Design](docs/LONG_TERM_STABILITY_DESIGN.md): temporal
   knowledge, conflict handling, review triage, context budgets, background
   jobs, permissions, and migration.

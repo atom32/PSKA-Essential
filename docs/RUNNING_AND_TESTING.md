@@ -584,7 +584,7 @@ Core tests:
 - adapter replacement with company stub
 - KB gateway glue without live RAGFlow
 - RAGFlow KB pagination lookup and current document parse endpoint mapping
-- Product API and frontend boundary smoke tests
+- Product API, Hermes boundary, and legacy diagnostic UI smoke tests
 - agentic Ask loop diagnostics and durable-governance defaults
 - explicit retrieval probe diagnostics for selected ready scopes
 - explicit memory probe diagnostics that reject fake memory by default

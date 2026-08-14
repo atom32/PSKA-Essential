@@ -1,6 +1,8 @@
-# PSKA WebUI 演示剪映导入包
+# PSKA Product API 诊断页素材剪映导入包
 
-这个包用于把 PSKA WebUI 浏览器演示导入剪映专业版继续精剪。当前不依赖直接控制剪映，所有素材都在本目录下可直接导入。
+这个包用于把 PSKA Product API 本地诊断页浏览器素材导入剪映专业版继续精剪。当前不依赖直接控制剪映，所有素材都在本目录下可直接导入。
+
+注意：这不是 Hermes WebUI extension 的产品演示。对外功能演示应重新录制 Hermes WebUI 内的 `pska-mini` extension、Hermes chat、PSKA MCP/tool card 和 sidecar proxy 路径。
 
 ## 推荐主素材
 
@@ -24,7 +26,7 @@
 
 | 时间 | 镜头 | 展示点 |
 | --- | --- | --- |
-| 00:00:05.777 - 00:00:15.713 | 打开 PSKA WebUI | Product API、Home、Jarvis、资料源、记忆信号 |
+| 00:00:05.777 - 00:00:15.713 | 打开 PSKA 诊断页 | Product API、Home、Jarvis、资料源、记忆信号 |
 | 00:00:15.713 - 00:00:29.166 | 生成 Agentic Context Brief | KB evidence、source recall、Memory Card、trace、next actions |
 | 00:00:29.166 - 00:00:36.034 | 从 Brief 进入 Ask | ready knowledge scope 自动带入 |
 | 00:00:36.034 - 00:00:49.480 | 填写问题并运行 Ask | 真实输入问题并运行提问 |
@@ -40,5 +42,5 @@
 - 主轨导入 `pska_webui_browser_recording_narrated.mp4`。
 - 字幕导入同名 `.zh.srt`，保留外置字幕，便于后续改字。
 - 如需更紧凑，把每个镜头末尾的停顿缩短，但保留 Ask 结果、Loop、Memory、Sources search 四个证据镜头。
-- 如需更正式，开头可加 3 秒标题页：`PSKA WebUI 功能演示：Agentic Context Brief / Memory / Trace / no-embedding Source Recall`。
+- 如需更正式，开头可加 3 秒标题页：`PSKA Product API 诊断素材：Agentic Context Brief / Memory / Trace / no-embedding Source Recall`。
 - 如需替换 AI 旁白，用 `dist/playwright_narrated_voiceover.zh.md` 重新录音，再在剪映中替换音轨。

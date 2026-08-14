@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a narrated cut from the real PSKA WebUI Playwright recording."""
+"""Build a narrated cut from the PSKA diagnostic page Playwright recording."""
 
 from __future__ import annotations
 
@@ -280,7 +280,7 @@ def write_srt(timeline: list[dict[str, Any]], path: Path, *, scale: float) -> No
 
 
 def write_storyboard(timeline: list[dict[str, Any]], path: Path, *, scale: float) -> None:
-    lines = ["# PSKA WebUI Playwright Narrated Cut Storyboard", ""]
+    lines = ["# PSKA Diagnostic Page Playwright Narrated Cut Storyboard", ""]
     for index, scene in enumerate(timeline, start=1):
         lines.extend(
             [
@@ -296,7 +296,7 @@ def write_storyboard(timeline: list[dict[str, Any]], path: Path, *, scale: float
 
 
 def write_voiceover(timeline: list[dict[str, Any]], path: Path) -> None:
-    lines = ["# PSKA WebUI Playwright Narrated Cut Voiceover", "", "旁白来自真实浏览器录屏 timeline。", ""]
+    lines = ["# PSKA Diagnostic Page Playwright Narrated Cut Voiceover", "", "旁白来自真实浏览器录屏 timeline。", ""]
     for index, scene in enumerate(timeline, start=1):
         lines.extend([f"## {index:02d}. {scene['title']}", "", str(scene.get("narration") or scene.get("caption") or ""), ""])
     path.write_text("\n".join(lines), encoding="utf-8")

@@ -1,6 +1,8 @@
-# PSKA WebUI 浏览器操作演示
+# PSKA Product API 诊断页面浏览器操作素材
 
-这个目录保存 PSKA WebUI 操作演示素材。它和 `demo/video/pska_m31_demo` 的区别是：这里展示真实 Product API fake-mode 功能闭环，而不是只讲系统概念。
+这个目录保存 PSKA Product API 本地诊断页的操作素材。它不是 Hermes WebUI 的 PSKA extension 演示，也不是 PSKA 的独立产品前端。
+
+这个素材包只能用于证明 PSKA 后端能力和 legacy diagnostic UI smoke path。面向用户的功能演示必须在 Hermes WebUI 内录制，展示 `pska-mini` extension、Hermes chat、PSKA MCP/tool cards、sidecar proxy、review/task 投影等路径。
 
 演示包入口见 `DEMO_PACKAGE.zh.md`，本地报告页见 `report.html`，剪映导入说明见 `JIANYING_IMPORT.zh.md`。
 
@@ -46,7 +48,7 @@ python3 scripts/build_browser_demo_video.py --voice none
 
 ## 截图 Replay 说明
 
-这版是基于真实浏览器操作截图的 replay demo，不是系统级连续屏幕录制。它的优点是稳定、可复现、能在 CI 或本地快速重建；如果后续要做剪映成片，可以把这版作为底片，再替换成 Playwright video 或 macOS 录屏素材。
+这版是基于本地诊断页真实浏览器操作截图的 replay demo，不是系统级连续屏幕录制。它的优点是稳定、可复现、能在 CI 或本地快速重建；如果后续要做产品级剪映成片，应替换为 Hermes WebUI extension 的 Playwright video 或 macOS 录屏素材。
 
 ## 生成真实浏览器录制
 

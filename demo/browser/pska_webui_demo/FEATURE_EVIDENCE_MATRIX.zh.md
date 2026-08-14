@@ -1,6 +1,8 @@
-# PSKA WebUI 功能证据矩阵
+# PSKA Product API 诊断页功能证据矩阵
 
-这份矩阵用于回答“视频到底展示了哪些真实功能点”。主证据视频是 `dist/pska_webui_browser_recording_narrated.mp4`，对应字幕是 `dist/pska_webui_browser_recording_narrated.zh.srt`。
+这份矩阵用于回答“诊断页素材到底展示了哪些后端能力”。主证据视频是 `dist/pska_webui_browser_recording_narrated.mp4`，对应字幕是 `dist/pska_webui_browser_recording_narrated.zh.srt`。
+
+注意：这里不是 Hermes WebUI extension 的证据矩阵。产品级演示需要另行录制 Hermes WebUI 内的 `pska-mini` extension、chat turn scope 注入、PSKA MCP/tool card、review/task 投影和 sidecar proxy。
 
 | 功能点 | 视频时间 | 可见证据 | 关联产物 |
 | --- | --- | --- | --- |

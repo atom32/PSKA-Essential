@@ -3186,10 +3186,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(filtered["events"])
         self.assertEqual({event["action"] for event in filtered["events"]}, {"workflow.export"})
 
-    def test_bundled_frontend_contains_reader_view(self):
+    def test_bundled_diagnostic_ui_contains_reader_view(self):
         html = Path("src/pska_essential/web/index.html").read_text(encoding="utf-8")
         script = Path("src/pska_essential/web/app.js").read_text(encoding="utf-8")
         styles = Path("src/pska_essential/web/styles.css").read_text(encoding="utf-8")
+        self.assertIn("PSKA Diagnostics", html)
+        self.assertIn("不是 PSKA 的用户主入口", html)
+        self.assertIn("日常产品入口是 Hermes WebUI", html)
         self.assertIn("来源阅读器", html)
         self.assertIn("ingestion-status", html)
         self.assertIn("ingestion-actions", html)

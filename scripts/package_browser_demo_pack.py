@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a distributable PSKA WebUI browser demo package."""
+"""Create a distributable PSKA diagnostic page browser demo package."""
 
 from __future__ import annotations
 

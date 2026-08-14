@@ -93,7 +93,7 @@ async function record({ args, chromium }) {
 
     await scene(
       "home",
-      "打开 PSKA WebUI",
+      "打开 PSKA 诊断页",
       "真实浏览器连接本地 Product API，Home 显示知识库、Jarvis briefing、资料源和记忆信号。",
       async () => {
         await moveCursor(page, 1145, 278);
@@ -599,7 +599,7 @@ function writeSrt(timeline, output) {
 }
 
 function writeStoryboard(timeline, output) {
-  const lines = ["# PSKA WebUI Playwright Recording Storyboard", ""];
+  const lines = ["# PSKA Diagnostic Page Playwright Recording Storyboard", ""];
   for (const [index, item] of timeline.entries()) {
     lines.push(`## ${String(index + 1).padStart(2, "0")}. ${item.title}`);
     lines.push("");

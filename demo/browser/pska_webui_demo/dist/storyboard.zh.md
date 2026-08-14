@@ -1,20 +1,20 @@
-# PSKA WebUI 浏览器操作演示 Storyboard
+# PSKA Product API 诊断页浏览器操作素材 Storyboard
 
 Version: M32-browser-demo
 
-## 01. 打开 PSKA WebUI
+## 01. 打开 PSKA 诊断页
 
-Time: `00:00:00.000` - `00:00:18.881`
+Time: `00:00:00.000` - `00:00:20.019`
 Screenshot: `capture/00_home.png`
 Cursor: `[1168, 278]`
 
 Home 页面显示 API 已连接、1 个知识库，以及 Jarvis briefing 的资料源和记忆信号。
 
-Narration: 先打开真实的 PSKA WebUI。这里不是静态幻灯片：页面已经连接本地 Product API，首页能看到知识库数量、Jarvis briefing、资料源状态和最近记忆提示。
+Narration: 先打开 PSKA 本地诊断页。这里不是 Hermes WebUI extension，而是连接本地 Product API 的 smoke path，用来检查知识库数量、Jarvis briefing、资料源状态和最近记忆提示。
 
 ## 02. 生成 Agentic Context Brief
 
-Time: `00:00:18.881` - `00:00:33.725`
+Time: `00:00:20.019` - `00:00:34.863`
 Screenshot: `capture/01_context_brief.png`
 Cursor: `[1038, 395]`
 
@@ -24,7 +24,7 @@ Narration: 点击生成 Brief 后，PSKA 先组织回答前上下文。它同时
 
 ## 03. 从 Brief 进入 Ask
 
-Time: `00:00:33.725` - `00:00:47.282`
+Time: `00:00:34.863` - `00:00:48.420`
 Screenshot: `capture/02_ask_prefill.png`
 Cursor: `[710, 335]`
 
@@ -34,7 +34,7 @@ Narration: 从 Brief 的 next action 进入 Ask 页面，知识库 ID 已经自�
 
 ## 04. 填写问题并运行
 
-Time: `00:00:47.282` - `00:00:59.994`
+Time: `00:00:48.420` - `00:01:01.132`
 Screenshot: `capture/03_ask_result.png`
 Cursor: `[343, 631]`
 
@@ -44,7 +44,7 @@ Narration: 这里填入一个验证型问题：要求系统证明这是一次真
 
 ## 05. 得到带来源 Brief
 
-Time: `00:00:59.994` - `00:01:13.884`
+Time: `00:01:01.132` - `00:01:15.021`
 Screenshot: `capture/04_ask_result_brief.png`
 Cursor: `[580, 698]`
 
@@ -54,7 +54,7 @@ Narration: 运行后得到带来源 Brief。画面里可以看到 run id、sourc
 
 ## 06. 查看 Agentic Loop Trace
 
-Time: `00:01:13.884` - `00:01:28.170`
+Time: `00:01:15.021` - `00:01:29.308`
 Screenshot: `capture/05_loop_trace.png`
 Cursor: `[1177, 648]`
 
@@ -64,7 +64,7 @@ Narration: 继续下滚可以看到 Agentic Loop。它把 scope check、governan
 
 ## 07. 记忆不是空泛摘要
 
-Time: `00:01:28.170` - `00:01:41.075`
+Time: `00:01:29.308` - `00:01:42.212`
 Screenshot: `capture/06_memory_cards.png`
 Cursor: `[1168, 346]`
 
@@ -74,7 +74,7 @@ Narration: 记忆页面展示最近被使用的 Memory Card。它不是一句空
 
 ## 08. 审计记录支撑可追溯
 
-Time: `00:01:41.075` - `00:01:52.121`
+Time: `00:01:42.212` - `00:01:53.259`
 Screenshot: `capture/07_activity_trace.png`
 Cursor: `[985, 153]`
 
@@ -84,7 +84,7 @@ Narration: Activity 页面保存审计记录。这里能看到 agentic loop comp
 
 ## 09. 接入本地资料源
 
-Time: `00:01:52.121` - `00:02:05.489`
+Time: `00:01:53.259` - `00:02:06.627`
 Screenshot: `capture/08_sources.png`
 Cursor: `[1084, 423]`
 
@@ -94,7 +94,7 @@ Narration: 资料源页面展示已经注册的本地文件夹。当前权限是
 
 ## 10. 无 embedding 搜索命中文件
 
-Time: `00:02:05.489` - `00:02:20.077`
+Time: `00:02:06.627` - `00:02:21.215`
 Screenshot: `capture/09_sources_search.png`
 Cursor: `[329, 305]`
 

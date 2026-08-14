@@ -1,6 +1,8 @@
-# PSKA WebUI Demo Package
+# PSKA Product API Diagnostic Demo Package
 
-这是给演示使用的入口页。优先使用真实录屏旁白成片；需要更改字幕、旁白或镜头节奏时，再进入下方的可替换素材和构建脚本。
+这是给 PSKA 后端能力和本地诊断页 smoke path 使用的素材入口页。它不是 Hermes WebUI extension 的产品演示，也不代表 PSKA 拥有独立用户前端。
+
+优先使用真实录屏旁白成片；需要更改字幕、旁白或镜头节奏时，再进入下方的可替换素材和构建脚本。真正对外的功能演示应改为录制 Hermes WebUI 里的 `pska-mini` extension 和 Hermes chat/tool 调用路径。
 
 ## 直接展示
 
@@ -10,7 +12,7 @@
 - 功能证据矩阵：`FEATURE_EVIDENCE_MATRIX.zh.md`
 - 剪映导入说明：`JIANYING_IMPORT.zh.md`
 
-主视频来自真实 Playwright Chromium 操作录屏，并叠加中文旁白音轨。它展示了 Home/Jarvis、Agentic Context Brief、Ask、Sourced Brief、Loop Trace、Memory Card、Activity audit、Sources 和 no-embedding search。
+主视频来自真实 Playwright Chromium 操作录屏，并叠加中文旁白音轨。它展示的是诊断页里的 Home/Jarvis、Agentic Context Brief、Ask、Sourced Brief、Loop Trace、Memory Card、Activity audit、Sources 和 no-embedding search。
 
 ## 备用素材
 
@@ -63,7 +65,7 @@ python3 scripts/package_browser_demo_pack.py
 - `dist/pska_webui_demo_package.zip`
 - `dist/pska_webui_demo_package_manifest.json`
 
-解压后打开 `pska_webui_demo/report.html` 即可播放主视频并查看证据矩阵。
+解压后打开 `pska_webui_demo/report.html` 即可播放诊断页素材并查看证据矩阵。
 
 ## 验收标准
 

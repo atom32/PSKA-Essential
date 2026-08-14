@@ -200,7 +200,7 @@ def build_server(
 def main(argv: list[str] | None = None) -> int:
     env_parser = preload_env_file(argv)
     parser = argparse.ArgumentParser(
-        description="Run the PSKA-Essential Product API and frontend.",
+        description="Run the PSKA-Essential Product API and legacy local diagnostic UI.",
         parents=[env_parser],
     )
     parser.add_argument("--host", default=os.getenv("PSKA_API_HOST", "127.0.0.1"))

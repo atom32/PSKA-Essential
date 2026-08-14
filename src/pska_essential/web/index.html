@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PSKA Essential</title>
+    <title>PSKA Diagnostics</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -13,7 +13,7 @@
           <span class="brand-mark">P</span>
           <div>
             <strong>PSKA</strong>
-            <span>Essential Alpha</span>
+            <span>Local Diagnostics</span>
           </div>
         </div>
         <nav class="nav">
@@ -33,7 +33,7 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">知识工作台</p>
+            <p class="eyebrow">本地诊断台</p>
             <h1 id="view-title">首页</h1>
           </div>
           <div class="status-strip">
@@ -844,7 +844,9 @@
           <div class="panel">
             <h2>产品边界</h2>
             <ul class="boundary-list">
-              <li>前端只调用 PSKA Product API。</li>
+              <li>这个页面只用于本地诊断和 smoke test，不是 PSKA 的用户主入口。</li>
+              <li>日常产品入口是 Hermes WebUI，PSKA 通过 extension、sidecar、Product API 和 MCP 接入。</li>
+              <li>诊断页只调用 PSKA Product API。</li>
               <li>Provider 原始 payload 留在 adapter 后面。</li>
               <li>长期知识变更必须经过工作区治理。</li>
               <li>后端失败以显式错误呈现。</li>

@@ -1,8 +1,8 @@
-# PSKA WebUI Playwright Narrated Cut Voiceover
+# PSKA Diagnostic Page Playwright Narrated Cut Voiceover
 
 旁白来自真实浏览器录屏 timeline。
 
-## 01. 打开 PSKA WebUI
+## 01. 打开 PSKA 诊断页
 
 真实浏览器连接本地 Product API，Home 显示知识库、Jarvis briefing、资料源和记忆信号。
 

@@ -31,7 +31,8 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 | Obsidian | 已有 MOC propose/apply，只写 PSKA marker block，支持 folder/tag/topic/project 分组；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
 | Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view、Memory Card health/briefing/review queue、refresh-review 入口与专门 queue surface | `workflow.py`、`capabilities.py` |
-| WebUI | 已有 Jarvis Bar、Agentic Context Brief、Sources panel、Memory Card refresh-review、Review Queue 刷新复核计数与前后文本对照卡片、Activity、diagnostics | `src/pska_essential/web/*` |
+| Hermes WebUI extension | 已有 `pska-mini` 薄入口：composer chip、scope 选择、turn context 注入、sidecar health/status、memory/review 小面板、Kanban/Tasks 投影 | `integrations/hermes-webui-extension/pska-mini/*` |
+| 本地诊断页 | 已有 Jarvis Bar、Agentic Context Brief、Sources panel、Memory Card refresh-review、Review Queue 刷新复核计数与前后文本对照卡片、Activity、diagnostics；只用于 Product API smoke/debug，不是 v1 用户前端 | `src/pska_essential/web/*` |
 | Dependency strategy | 主包 `dependencies = []`，外部能力都必须显式配置 | `pyproject.toml` |
 
 本机依赖盘点显示，MarkItDown、Docling、watchdog、OpenTelemetry、Graphiti 等成熟组件当前
@@ -727,14 +728,14 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 - 新增 memory card views：active、suggestions、conflicts、stale、why-used。
 - `memory_search` 和 Hermes source route 使用时记录 `memory.use`。
-- WebUI 新增 Memory 管理面板，不只放 diagnostics probe。
+- Hermes WebUI/extension 新增 Memory 管理面板；本地诊断页可以保留对应观察口，但不是产品主入口。
 - Jarvis briefing 纳入 stale/conflict memory next actions。
 - Done: trace query 可按 Memory/Review/SourceRef 恢复 audit-backed 轨迹。
 
 验收：
 
 - 创建 source_route memory 后，下一次相关 retrieval 产生 memory use trace。
-- WebUI 能展示某条记忆最近影响过哪些回答/动作。
+- Hermes WebUI/extension 能展示某条记忆最近影响过哪些回答/动作。
 - Superseded memory 默认不进入 active view。
 
 ### Phase 3: Source Governance Expansion

@@ -816,7 +816,7 @@ missing. RAGFlow retrieval/KB requires `RAGFLOW_BASE_URL` and
 substitute implicit localhost, empty API keys, fake providers, or alternate
 providers.
 
-Product API and frontend:
+Product API and legacy diagnostic UI:
 
 ```bash
 PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
@@ -825,7 +825,7 @@ PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_KB_PROVIDER=fake PSKA_MEMORY_P
 open http://127.0.0.1:8765
 ```
 
-The frontend includes Home, Knowledge Bases, Ask, Reader, Writing, Review,
+The diagnostic UI includes Home, Knowledge Bases, Ask, Reader, Writing, Review,
 Activity, and Settings. It calls only same-origin `/api/...` routes, shows
 explicit Ask loop steps including KB readiness, lets users pick dataset/document
 scope through Product API, tunes loop max iterations, required context count,

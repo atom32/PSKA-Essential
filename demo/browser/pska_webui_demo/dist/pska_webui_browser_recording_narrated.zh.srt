@@ -1,57 +1,57 @@
 1
-00:00:05,777 --> 00:00:15,713
+00:00:05,619 --> 00:00:15,556
 真实浏览器连接本地 Product API，Home 显示
 知识库、Jarvis briefing、资料源和记忆信号
 。
 
 2
-00:00:15,713 --> 00:00:29,166
+00:00:15,556 --> 00:00:29,050
 PSKA 在回答前组合 KB evidence、本地 source
 recall、Memory Card、trace 信号和 next
 actions。
 
 3
-00:00:29,166 --> 00:00:36,034
+00:00:29,050 --> 00:00:35,899
 点击 Brief 中的提问动作，Ask 页面自动带入
 ready knowledge scope。
 
 4
-00:00:36,034 --> 00:00:49,480
+00:00:35,899 --> 00:00:49,332
 问题要求系统在浏览器中证明 source recall、
 memory、trace 和 next actions 都真的被用上
 。
 
 5
-00:00:49,480 --> 00:01:03,417
+00:00:49,332 --> 00:01:03,249
 结果包含 run id、source count、inspected
 source count、used memory count、Source
 Manifest 和 Memory Attribution。
 
 6
-00:01:03,417 --> 00:01:16,248
+00:01:03,249 --> 00:01:16,108
 Loop 展示 scope.check、governance.policy、
 kb.readiness、retrieval.plan、
 memory.search 和 source.inspect。
 
 7
-00:01:16,248 --> 00:01:32,682
+00:01:16,108 --> 00:01:32,503
 Memory 页面展示最近使用的记忆卡片，并提供
 为什么用到、时间线、查看等治理入口。
 
 8
-00:01:32,682 --> 00:01:46,611
+00:01:32,503 --> 00:01:46,423
 Activity 页面展示刚才 Ask 产生的
 agentic_loop.complete，以及 run、ready、
 context 等审计标签。
 
 9
-00:01:46,611 --> 00:01:59,440
+00:01:46,423 --> 00:01:59,230
 Sources 页面展示 read only、scanned、
 objects 1 的本地文件夹，并保留扫描、抽取和
 审计入口。
 
 10
-00:01:59,440 --> 00:02:15,266
+00:01:59,230 --> 00:02:14,919
 在 Sources 中搜索 browser demo，命中本地
 Markdown 文件 pska-demo-note.md，并显示行
 号和摘要。

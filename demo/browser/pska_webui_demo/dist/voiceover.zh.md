@@ -1,10 +1,10 @@
-# PSKA WebUI 浏览器操作演示 Voiceover
+# PSKA Product API 诊断页浏览器操作素材 Voiceover
 
 旁白稿可直接用于重新录音或导入剪映。
 
-## 01. 打开 PSKA WebUI
+## 01. 打开 PSKA 诊断页
 
-先打开真实的 PSKA WebUI。这里不是静态幻灯片：页面已经连接本地 Product API，首页能看到知识库数量、Jarvis briefing、资料源状态和最近记忆提示。
+先打开 PSKA 本地诊断页。这里不是 Hermes WebUI extension，而是连接本地 Product API 的 smoke path，用来检查知识库数量、Jarvis briefing、资料源状态和最近记忆提示。
 
 ## 02. 生成 Agentic Context Brief
 
