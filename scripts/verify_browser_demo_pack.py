@@ -40,9 +40,12 @@ def main() -> int:
             demo_dir / "README.zh.md",
             demo_dir / "JIANYING_IMPORT.zh.md",
             demo_dir / "DEMO_PACKAGE.zh.md",
+            demo_dir / "FEATURE_EVIDENCE_MATRIX.zh.md",
+            demo_dir / "report.html",
             demo_dir / "demo_plan.json",
             demo_dir / "source" / "pska-demo-note.md",
             *[demo_dir / "capture" / f"{index:02d}_{name}.png" for index, name in enumerate(CAPTURE_NAMES)],
+            *[dist_dir / "posters" / name for name in POSTER_NAMES],
             dist_dir / "pska_webui_browser_demo.mp4",
             dist_dir / "pska_webui_browser_demo.zh.srt",
             dist_dir / "storyboard.zh.md",
@@ -70,6 +73,9 @@ def main() -> int:
         media = verify_video(expectation, checks)
         durations[expectation.path] = media["duration"]
 
+    for poster_name in POSTER_NAMES:
+        verify_image(dist_dir / "posters" / poster_name, checks)
+
     verify_srt(dist_dir / "pska_webui_browser_demo.zh.srt", durations[dist_dir / "pska_webui_browser_demo.mp4"], checks)
     verify_srt(
         dist_dir / "pska_webui_browser_recording.zh.srt",
@@ -83,8 +89,11 @@ def main() -> int:
     )
     verify_playwright_manifest(dist_dir / "playwright_recording_manifest.json", checks, narrated=False)
     verify_playwright_manifest(dist_dir / "playwright_narrated_manifest.json", checks, narrated=True)
+    verify_markdown_references(demo_dir / "README.zh.md", demo_dir, checks)
     verify_markdown_references(demo_dir / "JIANYING_IMPORT.zh.md", demo_dir, checks)
     verify_markdown_references(demo_dir / "DEMO_PACKAGE.zh.md", demo_dir, checks)
+    verify_markdown_references(demo_dir / "FEATURE_EVIDENCE_MATRIX.zh.md", demo_dir, checks)
+    verify_html_references(demo_dir / "report.html", demo_dir, checks)
 
     print("PSKA browser demo package verification passed:")
     for check in checks:
@@ -103,6 +112,12 @@ CAPTURE_NAMES = [
     ("activity_trace"),
     ("sources"),
     ("sources_search"),
+]
+
+POSTER_NAMES = [
+    "01_context_brief.png",
+    "02_sourced_brief.png",
+    "03_source_search.png",
 ]
 
 
@@ -139,6 +154,19 @@ def verify_video(expectation: VideoExpectation, checks: list[str]) -> dict[str, 
         f"audio={'yes' if audio_streams else 'no'}"
     )
     return {"duration": duration, "audio_streams": len(audio_streams), "video_streams": len(video_streams)}
+
+
+def verify_image(path: Path, checks: list[str]) -> None:
+    payload = ffprobe(path)
+    streams = payload.get("streams") or []
+    if not streams:
+        raise SystemExit(f"{path} has no image stream")
+    stream = streams[0]
+    width = int(stream.get("width") or 0)
+    height = int(stream.get("height") or 0)
+    if (width, height) != (1280, 720):
+        raise SystemExit(f"{path} expected 1280x720, got {width}x{height}")
+    checks.append(f"{path.name}: poster is {width}x{height}")
 
 
 def ffprobe(path: Path) -> dict[str, Any]:
@@ -222,7 +250,35 @@ def verify_playwright_manifest(path: Path, checks: list[str], *, narrated: bool)
 
 def verify_markdown_references(path: Path, demo_dir: Path, checks: list[str]) -> None:
     text = path.read_text(encoding="utf-8")
-    references = sorted(set(re.findall(r"`(dist/[^`]+|capture/[^`]+|source/[^`]+)`", text)))
+    references = sorted(
+        set(
+            re.findall(
+                r"`(dist/[^`]+|capture/[^`]+|source/[^`]+|[A-Za-z0-9_.-]+\.md|report\.html)`",
+                text,
+            )
+        )
+    )
+    missing = [reference for reference in references if not resolve_reference(reference, demo_dir).exists()]
+    if missing:
+        raise SystemExit(f"{path} has missing referenced files: {', '.join(missing)}")
+    checks.append(f"{path.name}: {len(references)} local references resolve")
+
+
+def resolve_reference(reference: str, demo_dir: Path) -> Path:
+    if reference.startswith("scripts/"):
+        return ROOT / reference
+    return demo_dir / reference
+
+
+def verify_html_references(path: Path, demo_dir: Path, checks: list[str]) -> None:
+    text = path.read_text(encoding="utf-8")
+    references = sorted(
+        set(
+            match
+            for match in re.findall(r"""(?:src|href)=["']([^"']+)["']""", text)
+            if not re.match(r"^[a-z]+:", match) and not match.startswith("#")
+        )
+    )
     missing = [reference for reference in references if not (demo_dir / reference).exists()]
     if missing:
         raise SystemExit(f"{path} has missing referenced files: {', '.join(missing)}")

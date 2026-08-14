@@ -6,6 +6,8 @@
 
 - 主视频：`dist/pska_webui_browser_recording_narrated.mp4`
 - 外置字幕：`dist/pska_webui_browser_recording_narrated.zh.srt`
+- 本地报告页：`report.html`
+- 功能证据矩阵：`FEATURE_EVIDENCE_MATRIX.zh.md`
 - 剪映导入说明：`JIANYING_IMPORT.zh.md`
 
 主视频来自真实 Playwright Chromium 操作录屏，并叠加中文旁白音轨。它展示了 Home/Jarvis、Agentic Context Brief、Ask、Sourced Brief、Loop Trace、Memory Card、Activity audit、Sources 和 no-embedding search。
@@ -19,6 +21,9 @@
 - 真实录屏分镜：`dist/playwright_storyboard.zh.md`
 - 旁白成片分镜：`dist/playwright_narrated_storyboard.zh.md`
 - 旁白稿：`dist/playwright_narrated_voiceover.zh.md`
+- Brief 证据帧：`dist/posters/01_context_brief.png`
+- Sourced Brief 证据帧：`dist/posters/02_sourced_brief.png`
+- no-embedding search 证据帧：`dist/posters/03_source_search.png`
 
 ## 重新生成
 

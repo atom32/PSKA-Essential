@@ -2,7 +2,7 @@
 
 这个目录保存 PSKA WebUI 操作演示素材。它和 `demo/video/pska_m31_demo` 的区别是：这里展示真实 Product API fake-mode 功能闭环，而不是只讲系统概念。
 
-演示包入口见 `DEMO_PACKAGE.zh.md`，剪映导入说明见 `JIANYING_IMPORT.zh.md`。
+演示包入口见 `DEMO_PACKAGE.zh.md`，本地报告页见 `report.html`，剪映导入说明见 `JIANYING_IMPORT.zh.md`。
 
 当前有两类视频产物：
 
