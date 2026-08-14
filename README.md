@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M31 baseline into
+  engineering plan for upgrading the current PSKA-Essential M32 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -397,6 +397,7 @@ Operational loop tools:
 - `pska_runtime_diagnostics`
 - `pska_jarvis_briefing`
 - `pska_agentic_context_brief`
+- `pska_agentic_context_brief_list`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
@@ -619,6 +620,11 @@ read-only pre-answer context entry for Hermes. It composes KB evidence, local
 source recall, relevant Memory Cards, memory/source trace signals, specialist
 roles, and next actions without creating reviews, writing memory, editing source
 files, requiring embeddings, or generating final answer text.
+M32 persists a bounded snapshot of each Agentic Context Brief into the
+transient workflow ledger and exposes `pska_agentic_context_brief_list` plus
+`GET /api/agentic/context-briefs`. This makes pre-answer context recoverable
+across page refreshes and later Hermes turns without turning PSKA into another
+knowledge store.
 M8 adds `pska_source_audit_job_enqueue`, `pska_source_audit_job_list`, and
 `pska_source_audit_job_run` as the Jarvis-friendly proactive audit surface. Jobs
 live as PSKA workflow metadata, can be listed through `pska_provider_jobs` and
@@ -1020,7 +1026,9 @@ after completion so the Home guidance follows the current workflow state.
 Home also exposes a manual Agentic Context Brief control. It calls
 `/api/agentic/context-brief` only when requested, then shows selected evidence,
 local source recall, relevant memory, trace signals, and next actions without
-running a full Ask or creating Review items.
+running a full Ask or creating Review items. Recent context briefs are loaded
+from `/api/agentic/context-briefs` as workflow snapshots and can be restored
+without re-running retrieval.
 Workspace status reports both aggregate KB readiness and per-dataset readiness,
 so a newly uploaded processing dataset does not hide
 other ready datasets from Ask. Workspace status also translates lower-level

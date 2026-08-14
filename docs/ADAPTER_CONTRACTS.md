@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M31 source-safe and memory-governed contract uses SQLite
+The implemented M1-M32 source-safe and memory-governed contract uses SQLite
 metadata plus FTS5:
 
 ```python
@@ -438,6 +438,7 @@ The current public tool surface is:
 - `pska_workspace_status`
 - `pska_jarvis_briefing`
 - `pska_agentic_context_brief`
+- `pska_agentic_context_brief_list`
 - `pska_alpha_readiness`
 - `pska_alpha_trial_guide`
 - `pska_alpha_recovery_plan`
@@ -640,7 +641,7 @@ personal source refs.
 Hermes is the primary agentic layer. PSKA does not own generation, but it exposes
 the dashboard-grade and pre-answer context Hermes needs through
 `pska_workspace_status`, `pska_jarvis_briefing`, and
-`pska_agentic_context_brief`.
+`pska_agentic_context_brief` / `pska_agentic_context_brief_list`.
 
 `pska_jarvis_briefing(scope, source_scope, audit_limit)` returns:
 
@@ -667,6 +668,18 @@ briefing, not a chat answer and not a direct provider interface.
 This is the M31 pre-answer context contract. It is the agentic counterpart to
 `/api/turn-context`: the latter returns compact turn blocks, while M31 explains
 which PSKA layer should be inspected or invoked next.
+
+`pska_agentic_context_brief_list(limit, scan_limit)` returns:
+
+- recent bounded Agentic Context Brief snapshots from workflow metadata;
+- each snapshot's brief id, run id, status, objective/question, counts, recalled
+  source excerpts, relevant memory notes, trace summaries, and next actions;
+- data-flow flags proving the list operation is read-only and does not write
+  source files, write memory, create reviews, or generate answer text.
+
+This is the M32 recovery contract. It lets Hermes/WebUI restore recent
+pre-answer context after a page refresh or later turn without re-running
+retrieval and without introducing a separate context-brief knowledge store.
 
 ## KB Gateway
 

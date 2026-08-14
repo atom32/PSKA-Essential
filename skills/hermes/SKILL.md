@@ -27,6 +27,10 @@ candidate memory, review, and durable export.
   recall, Memory Cards, trace signals, and next actions, but it does not
   generate final answer text, create reviews, write source files, or write
   durable memory.
+- Use `pska_agentic_context_brief_list` when the user asks to resume, recover,
+  compare, or inspect recent pre-answer context briefs. Treat list results as
+  workflow snapshots for continuity, not as durable memory or final-answer
+  attribution.
 - Use `pska_runtime_diagnostics` when provider configuration, backend health,
   or adapter contract readiness needs troubleshooting. Do not call provider
   health endpoints directly.

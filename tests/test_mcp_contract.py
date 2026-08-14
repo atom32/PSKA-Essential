@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "pska_workspace_status",
     "pska_jarvis_briefing",
     "pska_agentic_context_brief",
+    "pska_agentic_context_brief_list",
     "pska_alpha_readiness",
     "pska_alpha_trial_guide",
     "pska_alpha_recovery_plan",
@@ -131,13 +132,14 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m31_agentic_context_brief")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m32_agentic_context_brief_history")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_first_run_session", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_first_run_item_update", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_agentic_context_brief_list", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -695,6 +697,7 @@ class McpContractTests(unittest.TestCase):
                 memory_limit=2,
                 trace_limit=6,
             )
+            recent = tools["pska_agentic_context_brief_list"](limit=3)
 
         self.assertEqual(brief["schema"], "pska.agentic_context_brief.v1")
         self.assertIn(brief["status"], {"ready", "degraded"})
@@ -707,6 +710,16 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(brief["data_flow"]["writes_source_files"])
         self.assertFalse(brief["data_flow"]["writes_memory_directly"])
         self.assertFalse(brief["data_flow"]["generates_answer_text"])
+        self.assertEqual(recent["schema"], "pska.agentic_context_brief_list.v1")
+        self.assertEqual(recent["count"], 1)
+        self.assertEqual(recent["briefs"][0]["brief_id"], brief["brief_id"])
+        self.assertEqual(recent["briefs"][0]["run_id"], brief["run_id"])
+        self.assertEqual(recent["briefs"][0]["memory"]["relevant_memories"][0]["fact_id"], "mem-agentic-context")
+        self.assertFalse(recent["data_flow"]["writes_memory_directly"])
+        workflow = service.store.get_workflow(brief["run_id"])
+        self.assertEqual(workflow.status, "completed")
+        self.assertEqual(len(workflow.context_packets), 1)
+        self.assertEqual(workflow.metadata["agentic_context_brief"]["brief_id"], brief["brief_id"])
         self.assertEqual(service.store.list_reviews(status="pending"), [])
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("agentic_context.brief.build", actions)

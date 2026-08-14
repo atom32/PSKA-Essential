@@ -11,7 +11,7 @@ from pska_essential.agentic_loop import (
     run_digest_scope,
     run_agentic_question_with_readiness,
 )
-from pska_essential.agentic_context_brief import build_agentic_context_brief
+from pska_essential.agentic_context_brief import build_agentic_context_brief, list_agentic_context_briefs
 from pska_essential.alpha_readiness import (
     build_alpha_readiness,
     build_alpha_recovery_plan,
@@ -458,6 +458,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             memory_limit=memory_limit,
             trace_limit=trace_limit,
         )
+
+    def pska_agentic_context_brief_list(limit: int = 10, scan_limit: int | None = None):
+        return list_agentic_context_briefs(service=service, limit=limit, scan_limit=scan_limit)
 
     def pska_runtime_diagnostics():
         return build_runtime_diagnostics(
@@ -1407,6 +1410,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_workspace_status": pska_workspace_status,
         "pska_jarvis_briefing": pska_jarvis_briefing,
         "pska_agentic_context_brief": pska_agentic_context_brief,
+        "pska_agentic_context_brief_list": pska_agentic_context_brief_list,
         "pska_runtime_diagnostics": pska_runtime_diagnostics,
         "pska_alpha_readiness": pska_alpha_readiness,
         "pska_alpha_trial_guide": pska_alpha_trial_guide,

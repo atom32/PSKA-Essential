@@ -13,6 +13,7 @@ from pska_essential.trace_query import build_trace_query
 
 
 AGENTIC_CONTEXT_BRIEF_SCHEMA = "pska.agentic_context_brief.v1"
+AGENTIC_CONTEXT_BRIEF_LIST_SCHEMA = "pska.agentic_context_brief_list.v1"
 
 
 class AgenticContextBriefError(ValueError):
@@ -170,6 +171,7 @@ def build_agentic_context_brief(
             "Source recall is bounded by registered PSKA source indexes and selected KB scope.",
         ],
     }
+    _persist_brief_snapshot(service, run, result)
     if audit:
         service.store.add_audit_event(
             audit_event(
@@ -193,6 +195,49 @@ def build_agentic_context_brief(
             )
         )
     return to_jsonable(result)
+
+
+def list_agentic_context_briefs(
+    *,
+    service: Any,
+    limit: int = 10,
+    scan_limit: int | None = None,
+) -> dict[str, Any]:
+    """List recent persisted context-brief snapshots from the workflow ledger."""
+
+    requested_limit = _bounded_limit(limit, default=10, maximum=50)
+    requested_scan_limit = _bounded_limit(scan_limit, default=max(50, requested_limit * 4), maximum=250)
+    records: list[dict[str, Any]] = []
+    for run in service.store.list_workflows(limit=requested_scan_limit):
+        snapshot = (run.metadata or {}).get("agentic_context_brief")
+        if not isinstance(snapshot, dict):
+            continue
+        record = dict(snapshot)
+        record.setdefault("run_id", run.run_id)
+        record.setdefault("created_at", run.created_at)
+        record.setdefault("status", run.status)
+        records.append(record)
+        if len(records) >= requested_limit:
+            break
+    return to_jsonable(
+        {
+            "schema": AGENTIC_CONTEXT_BRIEF_LIST_SCHEMA,
+            "count": len(records),
+            "briefs": records,
+            "data_flow": {
+                "writes_source_files": False,
+                "writes_memory_directly": False,
+                "creates_review": False,
+                "generates_answer_text": False,
+                "writes_audit_log": False,
+                "reads_workflow_ledger": True,
+            },
+            "limitations": [
+                "Recent context briefs are persisted workflow snapshots, not a separate knowledge base.",
+                "They preserve pre-answer context and action hints; final answer causality still belongs to the later workflow.",
+            ],
+        }
+    )
 
 
 def _brief_prompt(objective: str, question: str, project_hint: str) -> str:
@@ -490,6 +535,126 @@ def _summary(
             f"{trace.get('signal_count', 0)} trace signal(s)."
         ),
     }
+
+
+def _persist_brief_snapshot(service: Any, run: Any, brief: dict[str, Any]) -> None:
+    if run is None:
+        return
+    try:
+        stored_run = service.store.get_workflow(run.run_id)
+    except Exception:  # noqa: BLE001 - fall back to the caller's transient run object.
+        stored_run = run
+    snapshot = _brief_snapshot(brief)
+    stored_run.metadata["agentic_context_brief"] = snapshot
+    stored_run.status = "completed"
+    stored_run.updated_at = utc_now_iso()
+    service.store.save_workflow(stored_run)
+
+
+def _brief_snapshot(brief: dict[str, Any]) -> dict[str, Any]:
+    recall = dict(brief.get("recall") or {})
+    memory = dict(brief.get("memory") or {})
+    trace = dict(brief.get("trace") or {})
+    return {
+        "schema": brief.get("schema") or AGENTIC_CONTEXT_BRIEF_SCHEMA,
+        "brief_id": brief.get("brief_id") or "",
+        "created_at": brief.get("created_at") or "",
+        "status": brief.get("status") or "",
+        "objective": brief.get("objective") or "",
+        "question": brief.get("question") or "",
+        "project_hint": brief.get("project_hint") or "",
+        "scope": brief.get("scope") or {},
+        "source_scope": brief.get("source_scope") or {},
+        "run_id": brief.get("run_id") or "",
+        "summary": brief.get("summary") or {},
+        "recall": {
+            "query": _excerpt(recall.get("query") or "", 600),
+            "evidence_blocks": [_compact_recall_block(item) for item in (recall.get("evidence_blocks") or [])[:6]],
+            "source_recall": [_compact_recall_block(item) for item in (recall.get("source_recall") or [])[:6]],
+            "counts": recall.get("counts") or {},
+        },
+        "memory": {
+            "relevant_memories": [_compact_memory_note(item) for item in (memory.get("relevant_memories") or [])[:6]],
+            "count": memory.get("count") or 0,
+            "search_supported": bool(memory.get("search_supported")),
+        },
+        "trace": {
+            "status": trace.get("status") or "empty",
+            "signal_count": trace.get("signal_count") or 0,
+            "memory_use_traces": [_compact_memory_trace(item) for item in (trace.get("memory_use_traces") or [])[:6]],
+            "source_traces": [_compact_source_trace(item) for item in (trace.get("source_traces") or [])[:6]],
+        },
+        "warnings": (brief.get("warnings") or [])[:8],
+        "next_actions": (brief.get("next_actions") or [])[:8],
+        "data_flow": brief.get("data_flow") or {},
+        "limitations": brief.get("limitations") or [],
+    }
+
+
+def _compact_recall_block(block: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": block.get("type") or "evidence",
+        "index": block.get("index") or 0,
+        "context_id": block.get("context_id") or "",
+        "title": block.get("title") or "",
+        "text": _excerpt(block.get("text") or "", 900),
+        "score": block.get("score") or 0,
+        "source_ref": block.get("source_ref") or {},
+        "metadata": _compact_metadata(block.get("metadata") or {}),
+    }
+
+
+def _compact_memory_note(note: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "memory",
+        "index": note.get("index") or 0,
+        "fact_id": note.get("fact_id") or "",
+        "text": _excerpt(note.get("text") or "", 900),
+        "confidence": note.get("confidence"),
+        "valid_at": note.get("valid_at") or "",
+        "invalid_at": note.get("invalid_at") or "",
+        "source_refs": (note.get("source_refs") or [])[:6],
+        "metadata": _compact_metadata(note.get("metadata") or {}),
+    }
+
+
+def _compact_memory_trace(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "memory_id": item.get("memory_id") or "",
+        "status": item.get("status") or "",
+        "trace_count": item.get("trace_count") or 0,
+        "traces": (item.get("traces") or [])[:3],
+        "confidence": item.get("confidence") or "",
+    }
+
+
+def _compact_source_trace(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source_ref": item.get("source_ref") or {},
+        "status": item.get("status") or "",
+        "entry_count": item.get("entry_count") or 0,
+        "summary": item.get("summary") or {},
+        "entries": (item.get("entries") or [])[:3],
+    }
+
+
+def _compact_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    compact: dict[str, Any] = {}
+    for key, value in metadata.items():
+        if key in {"content", "raw_text", "full_text"}:
+            continue
+        if isinstance(value, str):
+            compact[key] = _excerpt(value, 500)
+            continue
+        compact[key] = value
+    return compact
+
+
+def _excerpt(value: Any, max_length: int) -> str:
+    text = str(value or "")
+    if len(text) <= max_length:
+        return text
+    return text[: max(0, max_length - 3)].rstrip() + "..."
 
 
 def _brief_status(

@@ -20,7 +20,7 @@ from pska_essential.agentic_loop import (
     run_digest_scope,
     run_agentic_question_with_readiness,
 )
-from pska_essential.agentic_context_brief import build_agentic_context_brief
+from pska_essential.agentic_context_brief import build_agentic_context_brief, list_agentic_context_briefs
 from pska_essential.alpha_readiness import (
     build_alpha_readiness,
     build_alpha_recovery_plan,
@@ -99,6 +99,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/workspace/status"},
     {"method": "POST", "path": "/api/jarvis/briefing"},
     {"method": "POST", "path": "/api/agentic/context-brief"},
+    {"method": "GET", "path": "/api/agentic/context-briefs"},
     {"method": "GET", "path": "/api/provider/jobs"},
     {"method": "POST", "path": "/api/turn-context"},
     {"method": "POST", "path": "/api/ask"},
@@ -877,6 +878,17 @@ def _handler_class(state: ProductApiState):
                     trace_limit=_bounded_int(payload.get("trace_limit"), default=8, minimum=0, maximum=30),
                 )
                 self._send_json({"ok": True, "agentic_context_brief": brief})
+                return
+
+            if method == "GET" and path == "/api/agentic/context-briefs":
+                limit = _int_param(query.get("limit"), 10)
+                scan_limit = _int_param(query.get("scan_limit"), max(50, limit * 4))
+                result = list_agentic_context_briefs(
+                    service=state.service,
+                    limit=limit,
+                    scan_limit=scan_limit,
+                )
+                self._send_json({"ok": True, **result})
                 return
 
             digest_job_run = _match(path, "/api/digest-jobs/", "/run")

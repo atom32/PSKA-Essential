@@ -204,6 +204,15 @@ Last updated: 2026-07-15
 > source files, or write durable memory. WebUI Home exposes it as an explicit
 > manual control so broad project/writing/decision questions can get agentic
 > context without automatically running retrieval on every refresh.
+>
+> Update, 2026-08-14: Agentic Context Brief history is implemented as M32.
+> Each generated brief now stores a bounded snapshot in the transient workflow
+> ledger, and `pska_agentic_context_brief_list` /
+> `GET /api/agentic/context-briefs` can recover recent pre-answer contexts.
+> WebUI Home shows recent brief snapshots and can restore one without re-running
+> retrieval. Listing recent briefs is read-only: it reads workflow metadata and
+> does not write source files, write durable memory, create reviews, generate
+> final answer text, or create a new knowledge store.
 
 This document is the handoff point for a fresh Codex conversation.
 
@@ -441,6 +450,10 @@ Implemented:
   memory-use trace, trace-query signals, and Jarvis next actions. It records
   workflow/audit traceability but does not write source files, create reviews,
   write durable memory, or generate final answer text.
+- Agentic Context Brief snapshots are recoverable from the workflow ledger
+  through Product API, MCP, and WebUI Home, so broad source-recall/memory/trace
+  preparation can survive page refreshes and later Hermes turns without
+  re-running retrieval.
 - Product API and MCP normalize required list inputs for Ask, readiness,
   ingestion, and parse operations. Blank dataset, document, and file path lists
   fail at the PSKA boundary with explicit errors before provider calls.
@@ -625,7 +638,8 @@ Implemented:
   allowlist matches the actual PSKA MCP `tool_registry()`, so stale or
   nonexistent tool names fail during tests. Hermes also treats
   `pska_agentic_context_brief` as the broad source-recall/memory/trace
-  pre-answer entry point before choosing whether to run Ask.
+  pre-answer entry point before choosing whether to run Ask, and can recover
+  recent brief snapshots through `pska_agentic_context_brief_list`.
 - Docs and runbook.
 
 Validated commands:
@@ -716,7 +730,7 @@ Expected result:
 - Governance/adapter tests cover durable memory backend scoping through the
   PSKA `memory_namespace`, including fake memory search and Graphiti group ID
   mapping.
-- `make list-tools`: lists 108 PSKA MCP tools, including
+- `make list-tools`: lists 109 PSKA MCP tools, including
   `pska_agentic_context_brief`, `pska_ingest_loop`
   and `pska_ingest_loop_resume`.
 - `make smoke`: fake adapter workflow succeeds.
@@ -762,6 +776,7 @@ pska_policy_get
 pska_capabilities_get
 pska_workspace_status
 pska_agentic_context_brief
+pska_agentic_context_brief_list
 pska_alpha_readiness
 pska_alpha_trial_guide
 pska_alpha_recovery_plan

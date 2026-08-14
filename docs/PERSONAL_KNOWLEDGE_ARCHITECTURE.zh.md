@@ -489,6 +489,7 @@ pska_source_extract_job_run
 pska_source_watch_once
 pska_jarvis_briefing
 pska_agentic_context_brief
+pska_agentic_context_brief_list
 pska_source_memory_review_create
 pska_eidolia_context_read
 pska_eidolia_memory_review_create
@@ -511,12 +512,14 @@ Hermes 的默认行为：
    或它们的组合。
 2. 对宽泛问题、项目状态、写作/决策前置上下文，先调用
    `pska_agentic_context_brief` 取 evidence、source recall、memory 和 trace，再决定是否进入 Ask。
-3. 对文件问题先 search/read source，不直接凭记忆回答。
-4. 对稳定偏好、项目边界、路由提示，使用 conversation memory。
-5. 对文件整理动作先 propose，写标签、写 comment、删除、移动都需要确认或 workspace
+3. 需要恢复、比较或复用近期前置上下文时，调用 `pska_agentic_context_brief_list`，
+   从 workflow snapshot 读取，不把它当作 durable memory。
+4. 对文件问题先 search/read source，不直接凭记忆回答。
+5. 对稳定偏好、项目边界、路由提示，使用 conversation memory。
+6. 对文件整理动作先 propose，写标签、写 comment、删除、移动都需要确认或 workspace
    policy 明确允许。
-6. 对重复文件只给 duplicate report，删除永远是单独确认动作。
-7. 回答时标明来自 source 还是 memory，不能把二者混在一起。
+7. 对重复文件只给 duplicate report，删除永远是单独确认动作。
+8. 回答时标明来自 source 还是 memory，不能把二者混在一起。
 
 ## Jarvis Bar
 
@@ -528,6 +531,8 @@ Hermes 的默认行为：
   memory/review cues 和可执行 `next_actions`，作为 Hermes 的 Jarvis-style dashboard。
 - 当前前置上下文入口：`pska_agentic_context_brief` 把 KB evidence、本地 source
   recall、相关 Memory Card、trace signal 和 specialist role hints 合成一份只读 brief。
+- 当前上下文恢复入口：`pska_agentic_context_brief_list` 从 workflow ledger 读取近期
+  brief snapshot，让刷新页面或后续 Hermes 回合能复用前置上下文，不重新检索。
 - 用户说“整理这些文件夹”，系统能生成文件地图、重复组、标签建议、待确认动作。
 - 用户说“这个以后别忘”，系统能把它变成带行为影响的 Memory Card。
 - 用户说“这不对”，系统能找目标记忆并更新或标记 superseded。
@@ -729,6 +734,8 @@ Hermes 的默认行为：
   Hermes/WebUI 的 pre-answer context 入口，组合 source recall、memory、trace 和
   next actions，但不生成最终回答、不创建 review、不写源文件、不直接写 memory。
 - Done: WebUI Home 增加手动 Agentic Context Brief 控制，按需生成上下文，避免刷新首页时反复启动检索。
+- Done: `pska_agentic_context_brief_list` 与 `/api/agentic/context-briefs` 读取
+  workflow snapshot，WebUI Home 可恢复近期 brief，不创建新的知识库或 memory。
 
 ### M8: Proactive Source Audit Jobs
 

@@ -378,6 +378,26 @@ h3 {
   margin-bottom: 10px;
 }
 
+.agentic-brief-card.compact {
+  padding: 10px;
+}
+
+.agentic-brief-history {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.agentic-brief-history h3 {
+  margin-bottom: 10px;
+}
+
+.agentic-brief-history-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .alpha-guide-sections {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
@@ -1296,6 +1316,7 @@ pre {
 	  .jarvis-stats,
 	  .agentic-brief-stats,
 	  .agentic-brief-grid,
+	  .agentic-brief-history-list,
 	  .alpha-guide-stats,
 	  .alpha-guide-sections,
   .alpha-checklist-item,

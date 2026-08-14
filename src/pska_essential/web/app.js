@@ -49,6 +49,7 @@ const messages = {
   "toast.alphaRecoveryPlanLoaded": "Alpha 恢复计划已加载。",
   "toast.alphaFirstRunUpdated": "首次试用清单已更新。",
   "toast.agenticContextBriefLoaded": "Agentic context brief 已生成。",
+  "toast.agenticContextBriefRestored": "Agentic context brief 已恢复。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
   "toast.loadDatasetBeforeParse": "请先加载知识库，再解析文档。",
@@ -265,6 +266,7 @@ const state = {
   jarvisError: "",
   jarvisLoading: false,
   agenticContextBrief: null,
+  agenticContextBriefs: [],
   agenticContextBriefError: "",
   agenticContextBriefLoading: false,
   alphaTrialGuide: null,
@@ -589,6 +591,7 @@ async function refreshAll() {
     loadAlphaTrialGuide({ silent: true }),
     loadAlphaRecoveryPlan({ silent: true }),
     loadAlphaFirstRunSession({ silent: true }),
+    loadAgenticContextBriefs({ silent: true }),
     loadSourceRoots(),
     loadSourceCollections({ silent: true }),
     loadSourceDuplicateReview(),
@@ -718,6 +721,7 @@ async function loadAgenticContextBrief(options = {}) {
     });
     state.agenticContextBrief = payload.agentic_context_brief || null;
     state.agenticContextBriefError = "";
+    await loadAgenticContextBriefs({ silent: true });
     await loadAuditEvents("agentic_context.brief.build");
     if (!options.silent) showToast(t("toast.agenticContextBriefLoaded"));
   } catch (error) {
@@ -726,6 +730,18 @@ async function loadAgenticContextBrief(options = {}) {
     if (!options.silent) showToast(error.message);
   } finally {
     state.agenticContextBriefLoading = false;
+    renderAgenticContextBrief();
+  }
+}
+
+async function loadAgenticContextBriefs(options = {}) {
+  try {
+    const payload = await api("/api/agentic/context-briefs?limit=6");
+    state.agenticContextBriefs = payload.briefs || [];
+  } catch (error) {
+    state.agenticContextBriefs = [];
+    if (!options.silent) showToast(error.message);
+  } finally {
     renderAgenticContextBrief();
   }
 }
@@ -1707,6 +1723,8 @@ function renderAgenticContextBrief() {
         el("button", { className: "primary-button", type: "button", onclick: () => loadAgenticContextBrief() }, t("button.generateBrief")),
       ]),
     );
+    const history = agenticContextBriefHistory();
+    if (history) container.append(history);
     return;
   }
   const summary = brief.summary || {};
@@ -1747,6 +1765,40 @@ function renderAgenticContextBrief() {
       agenticBriefSection("Next", actions, "没有下一步动作。", jarvisActionRow),
     ]),
   );
+  const history = agenticContextBriefHistory(brief.brief_id);
+  if (history) container.append(history);
+}
+
+function agenticContextBriefHistory(activeBriefId = "") {
+  const briefs = (state.agenticContextBriefs || []).filter((item) => item.brief_id && item.brief_id !== activeBriefId).slice(0, 4);
+  if (!briefs.length) return null;
+  return el("div", { className: "agentic-brief-history" }, [
+    el("h3", {}, "Recent briefs"),
+    el("div", { className: "agentic-brief-history-list" }, briefs.map(agenticContextBriefHistoryCard)),
+  ]);
+}
+
+function agenticContextBriefHistoryCard(brief) {
+  const summary = brief.summary || {};
+  return el("article", { className: "agentic-brief-card compact" }, [
+    el("header", {}, [
+      el("strong", {}, brief.question || brief.objective || "context brief"),
+      el("span", { className: `tag ${statusClass(brief.status)}` }, readableName(brief.status || "unknown")),
+    ]),
+    el("p", {}, summary.lead || brief.created_at || ""),
+    el("div", { className: "meta-row" }, [
+      brief.created_at ? el("span", { className: "tag" }, brief.created_at.slice(0, 16).replace("T", " ")) : null,
+      brief.run_id ? el("span", { className: "tag" }, shortId(brief.run_id)) : null,
+      el("button", { className: "secondary-button", type: "button", onclick: () => restoreAgenticContextBrief(brief) }, "Restore"),
+    ]),
+  ]);
+}
+
+function restoreAgenticContextBrief(brief) {
+  state.agenticContextBrief = brief;
+  state.agenticContextBriefError = "";
+  renderAgenticContextBrief();
+  showToast(t("toast.agenticContextBriefRestored"));
 }
 
 function agenticBriefSection(title, items, emptyText, renderer) {

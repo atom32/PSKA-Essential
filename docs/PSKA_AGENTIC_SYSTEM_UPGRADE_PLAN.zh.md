@@ -20,11 +20,11 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M31 agentic context brief：
+当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M32 agentic context brief history：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
-| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、agentic context brief、jobs、diagnostics、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
+| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、agentic context brief/history、jobs、diagnostics、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session | `mcp_server.py` 当前可列出 100+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
 | File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity`、`media_metadata` 和 optional `image_phash` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
@@ -438,6 +438,7 @@ pska_memory_why_used
 pska_memory_timeline
 pska_trace_query
 pska_agentic_context_brief
+pska_agentic_context_brief_list
 pska_workflow_memory_attribution
 pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
@@ -771,6 +772,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: `pska_trace_query` 支持按 artifact/memory/source/review 找时间线。
 - Done: `pska_agentic_context_brief` 把 source recall、Memory Card、trace 和
   next actions 组织成 Hermes pre-answer context，而不是 fallback 到纯机械执行。
+- Done: `pska_agentic_context_brief_list` 把近期 pre-answer context 作为 workflow
+  snapshot 恢复，支持刷新页面和后续 Hermes 回合复用，不重新检索、不写 memory。
 - Done: `pska_eidolia_memory_review_create` 从 thought/artifact 创建 Memory Card candidate。
 - Done: `pska_eidolia_project_trace_import` 只读导入 project files / agentic traces 的 SourceRef/audit。
 - Hermes skill 增加 specialist consultation 规则。
@@ -877,6 +880,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Thought/artifact trace import from explicit Eidolia project files.
 - [x] Memory review creation from Eidolia thought.
 - [x] Agentic Context Brief over source recall, memory, trace, and next actions.
+- [x] Recent Agentic Context Brief recovery from workflow snapshots.
 - [ ] Specialist tool profiles.
 
 ## 10. What Not To Do Yet

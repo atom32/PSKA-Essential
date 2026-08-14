@@ -51,6 +51,17 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "embedding_required": False,
         "composes": ["workspace_status", "source_recall", "memory_search", "trace_query"],
     },
+    "pska_agentic_context_brief_list": {
+        "category": "assistant",
+        "access": "read",
+        "durable": False,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "creates_review": False,
+        "generates_answer_text": False,
+        "embedding_required": False,
+        "reads_workflow_ledger": True,
+    },
     "pska_context_retrieve": {"category": "retrieval", "access": "read", "durable": False},
     "pska_source_read": {"category": "retrieval", "access": "read", "durable": False},
     "pska_source_root_list": {"category": "source", "access": "read", "durable": False},
@@ -840,7 +851,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m31_agentic_context_brief",
+        "status": "m32_agentic_context_brief_history",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -848,6 +859,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_workspace_status",
                 "pska_jarvis_briefing",
                 "pska_agentic_context_brief",
+                "pska_agentic_context_brief_list",
                 "pska_alpha_readiness",
                 "pska_alpha_trial_guide",
                 "pska_alpha_recovery_plan",

@@ -291,6 +291,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_workspace_status",
             "pska_jarvis_briefing",
             "pska_agentic_context_brief",
+            "pska_agentic_context_brief_list",
             "pska_policy_get",
             "pska_capabilities_get",
             "pska_kb_list",

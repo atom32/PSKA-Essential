@@ -77,3 +77,4 @@ mcp_servers:
         - pska_component_check
         - pska_jarvis_briefing
         - pska_agentic_context_brief
+        - pska_agentic_context_brief_list
