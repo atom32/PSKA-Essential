@@ -20,6 +20,13 @@ candidate memory, review, and durable export.
   Hermes/Jarvis dashboard contract: it ranks source, memory, review, and
   workspace priorities without generating final answer text or writing source
   files.
+- When the user asks a broad project, writing, decision, source-recall, memory,
+  or trace question whose answer may span source files, durable memory, and
+  audit history, call `pska_agentic_context_brief` before answering or choosing
+  an Ask path. Treat it as read-only pre-answer context: it can compose source
+  recall, Memory Cards, trace signals, and next actions, but it does not
+  generate final answer text, create reviews, write source files, or write
+  durable memory.
 - Use `pska_runtime_diagnostics` when provider configuration, backend health,
   or adapter contract readiness needs troubleshooting. Do not call provider
   health endpoints directly.
@@ -268,6 +275,9 @@ Common next actions:
 - `wait_for_ingestion`: use `pska_kb_ingestion_status` or wait before asking.
 - `run_agentic_question`: ask for the question if needed, then call
   `pska_agentic_question_start` with the provided scope params.
+- `inspect_source`: call `pska_source_read` with the provided source ref.
+- `inspect_memory_card`: call `pska_memory_card_get` with the provided memory id.
+- `explain_memory_use`: call `pska_memory_why_used` with the provided memory id.
 - `resume_blocked_ask`: call `pska_agentic_question_resume` with the provided
   `run_id`, unless the action tool is `pska_ingest_loop_resume`.
 - `wait_for_resumable_ask`: call `pska_agentic_question_resumable` or wait,

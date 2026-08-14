@@ -20,6 +20,7 @@ from pska_essential.agentic_loop import (
     run_digest_scope,
     run_agentic_question_with_readiness,
 )
+from pska_essential.agentic_context_brief import build_agentic_context_brief
 from pska_essential.alpha_readiness import (
     build_alpha_readiness,
     build_alpha_recovery_plan,
@@ -97,6 +98,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/alpha/first-run-session/items/{item_id}"},
     {"method": "GET", "path": "/api/workspace/status"},
     {"method": "POST", "path": "/api/jarvis/briefing"},
+    {"method": "POST", "path": "/api/agentic/context-brief"},
     {"method": "GET", "path": "/api/provider/jobs"},
     {"method": "POST", "path": "/api/turn-context"},
     {"method": "POST", "path": "/api/ask"},
@@ -853,6 +855,28 @@ def _handler_class(state: ProductApiState):
                     workflow_limit=int(payload.get("workflow_limit") or 50),
                 )
                 self._send_json({"ok": True, "briefing": briefing})
+                return
+
+            if method == "POST" and path == "/api/agentic/context-brief":
+                payload = self._read_json()
+                objective = str(payload.get("objective") or "").strip()
+                question = str(payload.get("question") or payload.get("query") or "").strip()
+                if not objective and not question:
+                    raise ApiError("objective or question is required", HTTPStatus.BAD_REQUEST)
+                brief = build_agentic_context_brief(
+                    service=state.service,
+                    gateway=state.kb_gateway_factory(),
+                    objective=objective,
+                    question=question,
+                    project_hint=str(payload.get("project_hint") or ""),
+                    scope=_optional_dict(payload, "scope"),
+                    source_scope=_optional_dict(payload, "source_scope") or None,
+                    evidence_limit=_bounded_int(payload.get("evidence_limit"), default=5, minimum=0, maximum=20),
+                    source_limit=_bounded_int(payload.get("source_limit"), default=5, minimum=0, maximum=20),
+                    memory_limit=_bounded_int(payload.get("memory_limit"), default=5, minimum=0, maximum=20),
+                    trace_limit=_bounded_int(payload.get("trace_limit"), default=8, minimum=0, maximum=30),
+                )
+                self._send_json({"ok": True, "agentic_context_brief": brief})
                 return
 
             digest_job_run = _match(path, "/api/digest-jobs/", "/run")

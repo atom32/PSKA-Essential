@@ -48,6 +48,7 @@ const messages = {
   "toast.alphaTrialGuideLoaded": "Alpha 试用向导已加载。",
   "toast.alphaRecoveryPlanLoaded": "Alpha 恢复计划已加载。",
   "toast.alphaFirstRunUpdated": "首次试用清单已更新。",
+  "toast.agenticContextBriefLoaded": "Agentic context brief 已生成。",
   "toast.askScopeReady": "提问范围已就绪。",
   "toast.askScopeNotReady": "提问范围尚未就绪。",
   "toast.loadDatasetBeforeParse": "请先加载知识库，再解析文档。",
@@ -109,6 +110,7 @@ const messages = {
   "empty.noMemoryTimeline": "没有匹配的记忆时间线。",
   "empty.noClosedLoopProbe": "尚未运行实时闭环探针。",
   "empty.noJarvisBriefing": "Jarvis briefing 尚未加载。",
+  "empty.noAgenticContextBrief": "Agentic context brief 尚未生成。",
   "empty.noAlphaTrialGuide": "Alpha 试用向导尚未加载。",
   "empty.noAlphaRecoveryPlan": "恢复计划尚未加载。",
   "empty.noAlphaFirstRunSession": "首次试用清单尚未加载。",
@@ -144,6 +146,7 @@ const messages = {
   "button.openStatus": "打开状态",
   "button.reloadStatus": "刷新状态",
   "button.refreshJarvis": "刷新 Jarvis",
+  "button.generateBrief": "生成 Brief",
   "button.refreshGuide": "刷新向导",
   "button.checkReadiness": "检查就绪",
   "button.upload": "上传",
@@ -232,6 +235,7 @@ const messages = {
   "heading.memoryProbe": "记忆探针",
   "heading.liveClosedLoop": "实时闭环",
   "heading.jarvisBar": "Jarvis Bar",
+  "heading.agenticContextBrief": "Agentic Context Brief",
   "heading.alphaTrialGuide": "Alpha 试用向导",
 };
 
@@ -260,6 +264,9 @@ const state = {
   jarvisBriefing: null,
   jarvisError: "",
   jarvisLoading: false,
+  agenticContextBrief: null,
+  agenticContextBriefError: "",
+  agenticContextBriefLoading: false,
   alphaTrialGuide: null,
   alphaTrialGuideError: "",
   alphaTrialGuideLoading: false,
@@ -699,6 +706,51 @@ async function loadJarvisBriefing(options = {}) {
     state.jarvisLoading = false;
     renderJarvisBar();
   }
+}
+
+async function loadAgenticContextBrief(options = {}) {
+  state.agenticContextBriefLoading = true;
+  renderAgenticContextBrief();
+  try {
+    const payload = await api("/api/agentic/context-brief", {
+      method: "POST",
+      body: agenticContextBriefPayload(options),
+    });
+    state.agenticContextBrief = payload.agentic_context_brief || null;
+    state.agenticContextBriefError = "";
+    await loadAuditEvents("agentic_context.brief.build");
+    if (!options.silent) showToast(t("toast.agenticContextBriefLoaded"));
+  } catch (error) {
+    state.agenticContextBrief = null;
+    state.agenticContextBriefError = error.message;
+    if (!options.silent) showToast(error.message);
+  } finally {
+    state.agenticContextBriefLoading = false;
+    renderAgenticContextBrief();
+  }
+}
+
+function agenticContextBriefPayload(options = {}) {
+  const status = state.workspaceStatus || {};
+  const askAction = ((status.next_actions || []).find((action) => action.action === "run_agentic_question") || {});
+  const params = askAction.params || {};
+  const datasetIds = params.dataset_ids || state.datasets.slice(0, 1).map((dataset) => dataset.dataset_id).filter(Boolean);
+  const documentIds = params.document_ids || [];
+  const sourceScope = {};
+  if (state.activeSourceRootId) {
+    sourceScope.root_ids = [state.activeSourceRootId];
+  }
+  return {
+    objective: options.objective || "Prepare a pre-answer context brief for the current PSKA workspace.",
+    question: options.question || "What should Hermes recall before answering about this PSKA workspace?",
+    project_hint: options.project_hint || "",
+    scope: options.scope || { dataset_ids: datasetIds, document_ids: documentIds },
+    source_scope: options.source_scope || sourceScope,
+    evidence_limit: options.evidence_limit || 4,
+    source_limit: options.source_limit || 4,
+    memory_limit: options.memory_limit || 4,
+    trace_limit: options.trace_limit || 8,
+  };
 }
 
 async function loadAlphaTrialGuide(options = {}) {
@@ -1558,6 +1610,7 @@ function renderHome() {
     resumableAskCard,
   );
   renderJarvisBar();
+  renderAgenticContextBrief();
   renderAlphaTrialGuide();
 }
 
@@ -1617,6 +1670,145 @@ function renderJarvisBar() {
   if (actions.length) {
     container.append(el("div", { className: "jarvis-actions" }, actions.map(jarvisActionRow)));
   }
+}
+
+function renderAgenticContextBrief() {
+  const container = document.getElementById("agentic-context-brief");
+  if (!container) return;
+  const brief = state.agenticContextBrief;
+  container.classList.toggle(
+    "empty-list",
+    !brief && !state.agenticContextBriefLoading && !state.agenticContextBriefError,
+  );
+  container.replaceChildren();
+  if (state.agenticContextBriefLoading && !brief) {
+    container.textContent = "Agentic context brief 正在生成。";
+    return;
+  }
+  if (state.agenticContextBriefError) {
+    container.append(
+      el("div", { className: "agentic-brief-header" }, [
+        el("div", {}, [
+          el("h2", {}, t("heading.agenticContextBrief")),
+          el("p", {}, state.agenticContextBriefError),
+        ]),
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAgenticContextBrief() }, t("button.generateBrief")),
+      ]),
+    );
+    return;
+  }
+  if (!brief) {
+    container.append(
+      el("div", { className: "agentic-brief-header" }, [
+        el("div", {}, [
+          el("p", { className: "eyebrow" }, "pre-answer context"),
+          el("h2", {}, t("heading.agenticContextBrief")),
+        ]),
+        el("button", { className: "primary-button", type: "button", onclick: () => loadAgenticContextBrief() }, t("button.generateBrief")),
+      ]),
+    );
+    return;
+  }
+  const summary = brief.summary || {};
+  const recall = brief.recall || {};
+  const memory = brief.memory || {};
+  const trace = brief.trace || {};
+  const recallItems = [...(recall.source_recall || []), ...(recall.evidence_blocks || [])].slice(0, 4);
+  const memoryItems = (memory.relevant_memories || []).slice(0, 4);
+  const traceItems = agenticTraceItems(trace).slice(0, 4);
+  const actions = (brief.next_actions || []).slice(0, 4);
+  container.append(
+    el("div", { className: "agentic-brief-header" }, [
+      el("div", {}, [
+        el("p", { className: "eyebrow" }, "pre-answer context"),
+        el("h2", {}, t("heading.agenticContextBrief")),
+        el("p", {}, summary.lead || ""),
+      ]),
+      el("div", { className: "meta-row" }, [
+        el("span", { className: `tag ${statusClass(brief.status)}` }, readableName(brief.status || "unknown")),
+        brief.run_id ? el("span", { className: "tag" }, shortId(brief.run_id)) : null,
+        el("button", { className: "secondary-button", type: "button", onclick: () => loadAgenticContextBrief() }, t("button.generateBrief")),
+      ]),
+    ]),
+  );
+  container.append(
+    el("div", { className: "agentic-brief-stats" }, [
+      jarvisStat("evidence", summary.evidence_count || 0),
+      jarvisStat("sources", summary.source_recall_count || 0),
+      jarvisStat("memory", summary.memory_count || 0),
+      jarvisStat("trace", summary.trace_signal_count || 0),
+    ]),
+  );
+  container.append(
+    el("div", { className: "agentic-brief-grid" }, [
+      agenticBriefSection("Recall", recallItems, "没有召回来源。", agenticRecallCard),
+      agenticBriefSection("Memory", memoryItems, "没有相关记忆。", agenticMemoryCard),
+      agenticBriefSection("Trace", traceItems, "没有 trace 信号。", agenticTraceCard),
+      agenticBriefSection("Next", actions, "没有下一步动作。", jarvisActionRow),
+    ]),
+  );
+}
+
+function agenticBriefSection(title, items, emptyText, renderer) {
+  return el("div", { className: "agentic-brief-section" }, [
+    el("h3", {}, title),
+    items.length ? el("div", { className: "agentic-brief-list" }, items.map(renderer)) : el("div", { className: "empty-list" }, emptyText),
+  ]);
+}
+
+function agenticRecallCard(block) {
+  const sourceRef = block.source_ref || {};
+  return el("article", { className: "agentic-brief-card" }, [
+    el("header", {}, [
+      el("strong", {}, block.title || block.context_id || "source"),
+      el("span", { className: "tag" }, block.type || "evidence"),
+    ]),
+    el("p", {}, excerpt(block.text || "", 180)),
+    el("div", { className: "meta-row" }, [
+      sourceRef.adapter ? el("span", { className: "tag" }, sourceRef.adapter) : null,
+      sourceRef.path ? el("span", { className: "tag" }, shortPath(sourceRef.path)) : null,
+      sourceRef.document_id ? el("span", { className: "tag" }, shortId(sourceRef.document_id)) : null,
+      Object.keys(sourceRef).length ? el("button", { className: "secondary-button", type: "button", onclick: () => readSource(sourceRef) }, t("button.source")) : null,
+    ]),
+  ]);
+}
+
+function agenticMemoryCard(note) {
+  const memoryId = note.fact_id || "";
+  return el("article", { className: "agentic-brief-card" }, [
+    el("header", {}, [
+      el("strong", {}, memoryId || t("label.memoryCard")),
+      note.confidence ? el("span", { className: "tag" }, String(note.confidence)) : null,
+    ]),
+    el("p", {}, note.text || ""),
+    el("div", { className: "meta-row" }, [
+      memoryId ? el("button", { className: "secondary-button", type: "button", onclick: () => inspectMemoryCard(memoryId) }, t("button.inspect")) : null,
+      memoryId ? el("button", { className: "secondary-button", type: "button", onclick: () => openMemoryTimeline(memoryId) }, t("button.timeline")) : null,
+    ]),
+  ]);
+}
+
+function agenticTraceItems(trace) {
+  return [
+    ...((trace.memory_use_traces || []).map((item) => ({ ...item, trace_type: "memory" }))),
+    ...((trace.source_traces || []).map((item) => ({ ...item, trace_type: "source" }))),
+  ];
+}
+
+function agenticTraceCard(item) {
+  const title = item.memory_id || ((item.source_ref || {}).title) || ((item.source_ref || {}).path) || item.trace_type || "trace";
+  const count = item.trace_count || item.entry_count || 0;
+  return el("article", { className: "agentic-brief-card" }, [
+    el("header", {}, [
+      el("strong", {}, title),
+      el("span", { className: `tag ${count ? "ready" : "pending"}` }, `${count} signal`),
+    ]),
+    el("p", {}, item.trace_type === "memory" ? item.confidence || "memory trace" : readableName(item.status || "empty")),
+    el("div", { className: "meta-row" }, [
+      item.memory_id ? el("button", { className: "secondary-button", type: "button", onclick: () => explainMemoryWhyUsed(item.memory_id) }, t("button.whyUsed")) : null,
+      item.source_ref ? el("button", { className: "secondary-button", type: "button", onclick: () => readSource(item.source_ref) }, t("button.source")) : null,
+    ]),
+  ]);
 }
 
 function renderAlphaTrialGuide() {
@@ -1950,6 +2142,9 @@ function workspaceActionButtonLabel(action) {
   const labels = {
     apply_accepted_memory: t("button.apply"),
     inspect_unsupported_memory_operation: t("button.inspect"),
+    inspect_source: t("button.source"),
+    inspect_memory_card: t("button.inspect"),
+    explain_memory_use: t("button.whyUsed"),
     parse_documents: t("button.parse"),
     resume_blocked_ask: t("button.resume"),
     resume_ingest_loop: t("button.resumeLoop"),
@@ -1993,6 +2188,20 @@ function workspaceActionButtonClass(action) {
 
 async function openWorkspaceAction(action) {
   const params = action.params || {};
+  if (action.action === "inspect_source" && params.source_ref) {
+    await readSource(params.source_ref);
+    return;
+  }
+  if (action.action === "inspect_memory_card" && params.memory_id) {
+    await inspectMemoryCard(params.memory_id);
+    openView("memory");
+    return;
+  }
+  if (action.action === "explain_memory_use" && params.memory_id) {
+    await explainMemoryWhyUsed(params.memory_id);
+    openView("memory");
+    return;
+  }
   if (
     [
       "configure_live_providers",
@@ -6649,6 +6858,12 @@ function shortPath(value) {
   const parts = text.split("/");
   if (parts.length <= 3) return text;
   return `.../${parts.slice(-2).join("/")}`;
+}
+
+function excerpt(value, maxLength = 180) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
 }
 
 function readableName(value) {

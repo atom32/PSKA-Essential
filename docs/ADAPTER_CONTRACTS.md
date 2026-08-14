@@ -42,7 +42,7 @@ The personal source layer is for user-authorized local folders and Obsidian
 vaults. It is not a replacement for RAGFlow, a durable memory provider, or a
 general full-disk search daemon.
 
-The implemented M1-M30 source-safe and memory-governed contract uses SQLite
+The implemented M1-M31 source-safe and memory-governed contract uses SQLite
 metadata plus FTS5:
 
 ```python
@@ -437,6 +437,7 @@ The current public tool surface is:
 - `pska_capabilities_get`
 - `pska_workspace_status`
 - `pska_jarvis_briefing`
+- `pska_agentic_context_brief`
 - `pska_alpha_readiness`
 - `pska_alpha_trial_guide`
 - `pska_alpha_recovery_plan`
@@ -637,8 +638,9 @@ personal source refs.
 ## Assistant Layer
 
 Hermes is the primary agentic layer. PSKA does not own generation, but it exposes
-the dashboard-grade facts Hermes needs through `pska_workspace_status` and
-`pska_jarvis_briefing`.
+the dashboard-grade and pre-answer context Hermes needs through
+`pska_workspace_status`, `pska_jarvis_briefing`, and
+`pska_agentic_context_brief`.
 
 `pska_jarvis_briefing(scope, source_scope, audit_limit)` returns:
 
@@ -651,6 +653,20 @@ the dashboard-grade facts Hermes needs through `pska_workspace_status` and
 
 This is the M7 Hermes/Jarvis contract. It is intentionally an orchestration
 briefing, not a chat answer and not a direct provider interface.
+
+`pska_agentic_context_brief(objective, question, scope, source_scope)` returns:
+
+- bounded KB evidence and local source recall as `ContextPacket`-shaped blocks;
+- relevant Memory Card notes from governed memory search;
+- memory-use and source trace summaries from audit/review-derived views;
+- specialist role hints for Recall Agent, Memory Curator, and Trace Explainer;
+- deduplicated next actions for Ask, Reader, Memory, Trace, and Jarvis follow-up;
+- data-flow flags proving it does not write source files, write memory directly,
+  create reviews, require embeddings, or generate final answer text.
+
+This is the M31 pre-answer context contract. It is the agentic counterpart to
+`/api/turn-context`: the latter returns compact turn blocks, while M31 explains
+which PSKA layer should be inspected or invoked next.
 
 ## KB Gateway
 

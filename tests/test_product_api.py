@@ -266,6 +266,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/reviews/merge-candidates"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
         self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
+        self.assertIn(("POST", "/api/agentic/context-brief"), contract_routes)
         self.assertIn(("POST", "/api/digest"), contract_routes)
         self.assertIn(("POST", "/api/digest-jobs"), contract_routes)
         self.assertIn(("GET", "/api/digest-jobs"), contract_routes)
@@ -379,8 +380,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m30_alpha_first_run_notes")
+        self.assertEqual(assistant_layer["status"], "m31_agentic_context_brief")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
+        self.assertIn("pska_agentic_context_brief", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_readiness", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", assistant_layer["mcp_tools"]["implemented"])
@@ -413,6 +415,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(tool_policy["pska_alpha_trial_guide"]["access"], "read")
         self.assertEqual(tool_policy["pska_alpha_recovery_plan"]["category"], "status")
         self.assertEqual(tool_policy["pska_alpha_recovery_plan"]["access"], "read")
+        self.assertEqual(tool_policy["pska_agentic_context_brief"]["category"], "assistant")
+        self.assertFalse(tool_policy["pska_agentic_context_brief"]["writes_source_files"])
+        self.assertFalse(tool_policy["pska_agentic_context_brief"]["writes_memory_directly"])
+        self.assertFalse(tool_policy["pska_agentic_context_brief"]["generates_answer_text"])
         self.assertEqual(tool_policy["pska_alpha_first_run_session"]["access"], "read")
         self.assertEqual(tool_policy["pska_alpha_first_run_item_update"]["access"], "write")
         self.assertFalse(tool_policy["pska_alpha_first_run_item_update"]["writes_source_files"])
@@ -2391,6 +2397,48 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(turn_context["warnings"], [])
         self.assertEqual(self._get_json("/api/reviews?status=pending")["reviews"], [])
 
+    def test_agentic_context_brief_route_composes_recall_memory_trace_without_writes(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-agentic-context",
+                text="PSKA should prepare Agentic Context Brief before Hermes answers about source recall, memory, and trace.",
+                source_refs=[SourceRef(adapter="conversation", source_id="msg-agentic", title="Conversation")],
+                metadata={"confidence": 0.92},
+            )
+        )
+
+        payload = self._post_json(
+            "/api/agentic/context-brief",
+            {
+                "objective": "Prepare Hermes to answer about PSKA source recall and memory.",
+                "question": "How should PSKA recall source, memory, and trace?",
+                "scope": {"dataset_ids": ["demo"]},
+                "evidence_limit": 1,
+                "source_limit": 1,
+                "memory_limit": 2,
+                "trace_limit": 6,
+            },
+        )
+
+        self.assertTrue(payload["ok"])
+        brief = payload["agentic_context_brief"]
+        self.assertEqual(brief["schema"], "pska.agentic_context_brief.v1")
+        self.assertIn(brief["status"], {"ready", "degraded"})
+        self.assertTrue(brief["run_id"].startswith("run_"))
+        self.assertEqual(brief["scope"]["dataset_ids"], ["demo"])
+        self.assertEqual(len(brief["recall"]["evidence_blocks"]), 1)
+        self.assertEqual(brief["memory"]["relevant_memories"][0]["fact_id"], "mem-agentic-context")
+        self.assertIn("trace_explainer", {role["role_id"] for role in brief["agentic_roles"]})
+        self.assertGreaterEqual(brief["trace"]["signal_count"], 1)
+        self.assertIn("run_agentic_question", {action["action"] for action in brief["next_actions"]})
+        self.assertFalse(brief["data_flow"]["writes_source_files"])
+        self.assertFalse(brief["data_flow"]["writes_memory_directly"])
+        self.assertFalse(brief["data_flow"]["generates_answer_text"])
+        self.assertEqual(self._get_json("/api/reviews?status=pending")["reviews"], [])
+        actions = [event.action for event in self.service.store.list_audit_events()]
+        self.assertIn("agentic_context.brief.build", actions)
+        self.assertIn("memory.search", actions)
+
     def test_workflow_open_does_not_export_until_explicit_export(self):
         asked = self._post_json(
             "/api/ask",
@@ -3348,6 +3396,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("home-next-actions", html)
         self.assertIn("下一步", html)
         self.assertIn("home-resumable-asks", html)
+        self.assertIn("agentic-context-brief", html)
+        self.assertIn("loadAgenticContextBrief", script)
+        self.assertIn("/api/agentic/context-brief", script)
+        self.assertIn("agenticTraceItems", script)
         self.assertIn("loadCapabilities", script)
         self.assertIn('/api/capabilities', script)
         self.assertIn("label.capabilityContract", script)

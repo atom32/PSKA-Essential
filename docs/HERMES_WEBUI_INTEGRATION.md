@@ -269,9 +269,9 @@ mcp_servers:
     connect_timeout: 120
 ```
 
-Current baseline, 2026-08-03: `pska_essential --list-tools` returns 51 PSKA MCP
-tools from PSKA's own `tool_registry()`. Older notes that mention 45 PSKA tools
-or 49 runtime tools were from an earlier registry shape and should be treated as
+Current baseline, 2026-08-14: `pska_essential --list-tools` returns 108 PSKA
+MCP tools from PSKA's own `tool_registry()`. Older notes that mention 45, 49,
+or 51 runtime tools were from earlier registry shapes and should be treated as
 historical. Product API route counts are a separate number; they should not be
 used to infer the MCP tool surface.
 

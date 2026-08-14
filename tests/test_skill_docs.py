@@ -290,6 +290,7 @@ class SkillDocsTests(unittest.TestCase):
         for tool_name in [
             "pska_workspace_status",
             "pska_jarvis_briefing",
+            "pska_agentic_context_brief",
             "pska_policy_get",
             "pska_capabilities_get",
             "pska_kb_list",

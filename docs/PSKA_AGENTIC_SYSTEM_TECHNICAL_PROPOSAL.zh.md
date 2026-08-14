@@ -218,8 +218,9 @@ flowchart TB
   U["User<br/>goals, questions, corrections, creative intent"]
 
   subgraph Workspace["User Workspace"]
-    HW["Hermes WebUI<br/>daily chat, Jarvis briefing, review queue"]
-    EI["Eidolia Canvas<br/>thoughts and artifacts"]
+	    HW["Hermes WebUI<br/>daily chat, Jarvis briefing, review queue"]
+	    ACBUI["Agentic Context Brief<br/>manual pre-answer recall"]
+	    EI["Eidolia Canvas<br/>thoughts and artifacts"]
     SRCUI["Source Workbench<br/>folders, Obsidian, datasets"]
   end
 
@@ -233,8 +234,9 @@ flowchart TB
 
   subgraph PSKA["PSKA Governance Control Plane"]
     API["Product API"]
-    MCP["MCP Tools"]
-    POL["Policy and Permission"]
+	    MCP["MCP Tools"]
+	    ACB["Context Brief Composer"]
+	    POL["Policy and Permission"]
     SR["SourceRef Registry"]
     MEM["Memory Card System"]
     REV["Review Gate"]
@@ -250,8 +252,9 @@ flowchart TB
     CLOUD["Future Cloud Connectors<br/>Drive, Box, Notion, Zotero"]
   end
 
-  U --> HW
-  U --> EI
+	  U --> HW
+	  HW --> ACBUI
+	  U --> EI
   U --> SRCUI
   HW --> H
   EI --> H
@@ -260,12 +263,14 @@ flowchart TB
   H --> MC
   H --> TE
   H --> AC
-  H --> MCP
-  HW --> API
-  EI --> API
-  API --> POL
-  MCP --> POL
-  POL --> SR
+	  H --> MCP
+	  HW --> API
+	  ACBUI --> API
+	  EI --> API
+	  API --> POL
+	  MCP --> POL
+	  POL --> ACB
+	  POL --> SR
   POL --> MEM
   POL --> REV
   POL --> TR
@@ -282,9 +287,12 @@ flowchart TB
   JOB --> MEM
   RC --> SR
   MC --> MEM
-  TE --> TR
-  AC --> REV
-```
+	  TE --> TR
+	  AC --> REV
+	  ACB --> SR
+	  ACB --> MEM
+	  ACB --> TR
+	```
 
 下面是更偏实现视角的 component map：
 

@@ -20,18 +20,18 @@ PSKA 自己只继续拥有 SourceRef、Memory Card envelope、Review、Policy、
 
 ## 2. Current-State Evidence
 
-当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M30 alpha first-run notes：
+当前仓库已经具备 M21 级别的 source-safe baseline，并已推进到 M31 agentic context brief：
 
 | 能力 | 当前状态 | 证据 |
 | --- | --- | --- |
-| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、jobs、diagnostics、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
+| Product API / MCP | 已暴露 workflow、ask、review、memory、source、jarvis、agentic context brief、jobs、diagnostics、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session | `mcp_server.py` 当前可列出 60+ `pska_*` tools |
 | Source Registry | 已支持 local folder / Obsidian root、scan、FTS5 search、source read、neighbors | `source_registry.py` |
 | Source Search | 已支持 SQLite FTS5 BM25、title/path/heading boost、highlighted snippet、LIKE fallback | `tests/test_source_registry.py` |
 | File governance | 已有 exact hash、fclones/Czkawka hash、`size_name_version`、`text_similarity`、`media_metadata` 和 optional `image_phash` duplicate report、duplicate review list/mark、dry-run cleanup proposal、source audit、saved search、source collections、tag/comment proposal/apply | `tests/test_source_registry.py` |
 | Obsidian | 已有 MOC propose/apply，只写 PSKA marker block，支持 folder/tag/topic/project 分组；tag apply 可显式写 frontmatter `tags`；comment apply 可显式追加 PSKA Comment block | `pska_obsidian_moc_propose/apply`, `pska_source_tag_propose/apply`, `pska_source_comment_propose/apply` |
 | Jobs | 已有 source audit jobs、due tick、recurring cadence | `source_audit_jobs.py` |
 | Memory | 已有 conversation-native memory change、review/apply/update/delete、superseded search view、Memory Card health/briefing/review queue、refresh-review 入口与专门 queue surface | `workflow.py`、`capabilities.py` |
-| WebUI | 已有 Jarvis Bar、Sources panel、Memory Card refresh-review、Review Queue 刷新复核计数与前后文本对照卡片、Activity、diagnostics | `src/pska_essential/web/*` |
+| WebUI | 已有 Jarvis Bar、Agentic Context Brief、Sources panel、Memory Card refresh-review、Review Queue 刷新复核计数与前后文本对照卡片、Activity、diagnostics | `src/pska_essential/web/*` |
 | Dependency strategy | 主包 `dependencies = []`，外部能力都必须显式配置 | `pyproject.toml` |
 
 本机依赖盘点显示，MarkItDown、Docling、watchdog、OpenTelemetry、Graphiti 等成熟组件当前
@@ -410,6 +410,7 @@ GET  /api/memory/{memory_id}/use-trace
 GET  /api/memory/{memory_id}/why-used
 GET  /api/memory/{memory_id}/timeline
 GET  /api/trace/query
+POST /api/agentic/context-brief
 GET  /api/memory/cards/suggestions
 GET  /api/memory/cards/conflicts
 GET  /api/memory/cards/stale
@@ -436,6 +437,7 @@ pska_memory_use_trace
 pska_memory_why_used
 pska_memory_timeline
 pska_trace_query
+pska_agentic_context_brief
 pska_workflow_memory_attribution
 pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
@@ -767,6 +769,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 - Done: Eidolia node refs 转成 `SourceRef(adapter="eidolia")`。
 - Done: `pska_trace_query` 支持按 artifact/memory/source/review 找时间线。
+- Done: `pska_agentic_context_brief` 把 source recall、Memory Card、trace 和
+  next actions 组织成 Hermes pre-answer context，而不是 fallback 到纯机械执行。
 - Done: `pska_eidolia_memory_review_create` 从 thought/artifact 创建 Memory Card candidate。
 - Done: `pska_eidolia_project_trace_import` 只读导入 project files / agentic traces 的 SourceRef/audit。
 - Hermes skill 增加 specialist consultation 规则。
@@ -872,6 +876,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] `pska_trace_query` over audit/review/source/memory/Eidolia refs.
 - [x] Thought/artifact trace import from explicit Eidolia project files.
 - [x] Memory review creation from Eidolia thought.
+- [x] Agentic Context Brief over source recall, memory, trace, and next actions.
 - [ ] Specialist tool profiles.
 
 ## 10. What Not To Do Yet

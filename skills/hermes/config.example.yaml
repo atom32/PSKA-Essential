@@ -76,3 +76,4 @@ mcp_servers:
         - pska_runtime_diagnostics
         - pska_component_check
         - pska_jarvis_briefing
+        - pska_agentic_context_brief

@@ -194,6 +194,16 @@ Last updated: 2026-07-15
 > Next useful source-governance steps are richer frontmatter fields, stronger
 > ranking adapters, EXIF/video media checks, and executable
 > strong-confirmation cleanup proposals.
+>
+> Update, 2026-08-14: Agentic Context Brief is implemented as M31.
+> `pska_agentic_context_brief` and `POST /api/agentic/context-brief` compose
+> KB evidence, no-embedding source recall, governed Memory Cards, memory-use
+> traces, trace-query signals, Jarvis priorities, and action hints into one
+> read-only pre-answer context. It creates a transient workflow/audit record for
+> traceability but does not generate final answer text, create reviews, write
+> source files, or write durable memory. WebUI Home exposes it as an explicit
+> manual control so broad project/writing/decision questions can get agentic
+> context without automatically running retrieval on every refresh.
 
 This document is the handoff point for a fresh Codex conversation.
 
@@ -426,6 +436,11 @@ Implemented:
   open/track waiting blocked Ask workflows, resume ready blocked Ask workflows,
   open pending reviews, and apply accepted durable memory through Product API
   routes.
+- Product API, MCP, Hermes skill, and frontend Home expose Agentic Context Brief
+  as a read-only pre-answer context composer over source recall, durable memory,
+  memory-use trace, trace-query signals, and Jarvis next actions. It records
+  workflow/audit traceability but does not write source files, create reviews,
+  write durable memory, or generate final answer text.
 - Product API and MCP normalize required list inputs for Ask, readiness,
   ingestion, and parse operations. Blank dataset, document, and file path lists
   fail at the PSKA boundary with explicit errors before provider calls.
@@ -608,7 +623,9 @@ Implemented:
   PSKA-Essential MCP with `--env-file .env.pska` and no longer embeds fake
   provider env directly. A skill-doc test now verifies the Hermes config tool
   allowlist matches the actual PSKA MCP `tool_registry()`, so stale or
-  nonexistent tool names fail during tests.
+  nonexistent tool names fail during tests. Hermes also treats
+  `pska_agentic_context_brief` as the broad source-recall/memory/trace
+  pre-answer entry point before choosing whether to run Ask.
 - Docs and runbook.
 
 Validated commands:
@@ -699,7 +716,8 @@ Expected result:
 - Governance/adapter tests cover durable memory backend scoping through the
   PSKA `memory_namespace`, including fake memory search and Graphiti group ID
   mapping.
-- `make list-tools`: lists 45 PSKA MCP tools, including `pska_ingest_loop`
+- `make list-tools`: lists 108 PSKA MCP tools, including
+  `pska_agentic_context_brief`, `pska_ingest_loop`
   and `pska_ingest_loop_resume`.
 - `make smoke`: fake adapter workflow succeeds.
 - `make eval` with explicit fake dev env runs the 6-step
@@ -743,6 +761,7 @@ pska_agentic_question_resume
 pska_policy_get
 pska_capabilities_get
 pska_workspace_status
+pska_agentic_context_brief
 pska_alpha_readiness
 pska_alpha_trial_guide
 pska_alpha_recovery_plan

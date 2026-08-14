@@ -21,8 +21,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PLAN = ROOT / "demo" / "video" / "pska_m30_demo" / "demo_plan.json"
-DEFAULT_OUT = ROOT / "demo" / "video" / "pska_m30_demo" / "dist"
+DEFAULT_PLAN = ROOT / "demo" / "video" / "pska_m31_demo" / "demo_plan.json"
+DEFAULT_OUT = ROOT / "demo" / "video" / "pska_m31_demo" / "dist"
 FONT_CANDIDATES = [
     Path("/System/Library/Fonts/STHeiti Medium.ttc"),
     Path("/System/Library/Fonts/Supplemental/Songti.ttc"),
@@ -103,10 +103,12 @@ def main() -> int:
         render_segment(image_path, audio_path, segment_path, duration)
         builds.append(SceneBuild(index, scene, duration, image_path, audio_path, segment_path))
 
-    final_mp4 = out_dir / "pska_m30_demo.mp4"
+    base_name = plan.get("output_basename") or f"pska_{str(plan.get('version', 'demo')).lower()}_demo"
+
+    final_mp4 = out_dir / f"{base_name}.mp4"
     concat_video([build.segment_path for build in builds], final_mp4, build_dir / "segments.txt")
 
-    srt_path = out_dir / "pska_m30_demo.zh.srt"
+    srt_path = out_dir / f"{base_name}.zh.srt"
     write_srt(builds, srt_path)
     write_storyboard(plan, builds, out_dir / "storyboard.zh.md")
     write_voiceover(plan, builds, out_dir / "voiceover.zh.md")

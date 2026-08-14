@@ -65,7 +65,7 @@ Read these first when deciding how to use or extend the project:
   including characteristics, target users, scenarios, architecture, memory,
   RAG strategy, governance, open-source component strategy, and roadmap.
 - [PSKA Agentic System Upgrade Plan](docs/PSKA_AGENTIC_SYSTEM_UPGRADE_PLAN.zh.md):
-  engineering plan for upgrading the current PSKA-Essential M30 baseline into
+  engineering plan for upgrading the current PSKA-Essential M31 baseline into
   the proposal through adapter-first changes, mature component reuse,
   build-vs-buy decisions, schema/API/MCP/WebUI deltas, and phased acceptance
   gates.
@@ -396,6 +396,7 @@ Operational loop tools:
 - `pska_capabilities_get`
 - `pska_runtime_diagnostics`
 - `pska_jarvis_briefing`
+- `pska_agentic_context_brief`
 - `pska_workflow_list`
 - `pska_workflow_artifact`
 - `pska_workflow_brief`
@@ -613,6 +614,11 @@ M7 adds `pska_jarvis_briefing`, a Hermes-facing briefing contract that composes
 workspace status, source audit findings, memory/review cues, and prioritized
 `next_actions` into a dashboard-ready payload. It does not generate answer text,
 write source files, write memory directly, or require embeddings.
+M31 adds `pska_agentic_context_brief` and `POST /api/agentic/context-brief`, a
+read-only pre-answer context entry for Hermes. It composes KB evidence, local
+source recall, relevant Memory Cards, memory/source trace signals, specialist
+roles, and next actions without creating reviews, writing memory, editing source
+files, requiring embeddings, or generating final answer text.
 M8 adds `pska_source_audit_job_enqueue`, `pska_source_audit_job_list`, and
 `pska_source_audit_job_run` as the Jarvis-friendly proactive audit surface. Jobs
 live as PSKA workflow metadata, can be listed through `pska_provider_jobs` and
@@ -807,6 +813,11 @@ item now has an operator note field for confirmation evidence, anomalies, and
 retrospective notes. Saving a note uses the same
 `pska_alpha_first_run_item_update` / first-run session route and still writes
 only PSKA checklist/audit state, not user source files or durable memory.
+M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
+Agentic Context Brief before answering or acting. The brief starts a transient
+workflow, retrieves bounded evidence, searches local source indexes, searches
+governed memory with audit-backed use traces, and returns safe action hints for
+Ask, Reader, Memory Card, and Trace surfaces.
 `pska_live_closed_loop_probe` is stricter: it rejects fake KB/retrieval
 providers and then runs readiness, retrieval, agentic Ask, source inspection,
 and explicit export for a transient work product against the configured live
@@ -893,6 +904,7 @@ Implemented Alpha routes:
 - `GET /api/kb/datasets/{dataset_id}/documents/{document_id}/graph`
 - `POST /api/ask`
 - `POST /api/turn-context`
+- `POST /api/agentic/context-brief`
 - `POST /api/digest`
 - `POST /api/digest-jobs`
 - `GET /api/digest-jobs`
@@ -1005,6 +1017,10 @@ file-to-work-product loop (`pska_ingest_loop` / `POST /api/ingest-loop`) rather
 than a provider-native setup step; Home opens the Knowledge Bases Run Loop form
 with the safe loop defaults ready. Mutating frontend actions refresh this status
 after completion so the Home guidance follows the current workflow state.
+Home also exposes a manual Agentic Context Brief control. It calls
+`/api/agentic/context-brief` only when requested, then shows selected evidence,
+local source recall, relevant memory, trace signals, and next actions without
+running a full Ask or creating Review items.
 Workspace status reports both aggregate KB readiness and per-dataset readiness,
 so a newly uploaded processing dataset does not hide
 other ready datasets from Ask. Workspace status also translates lower-level

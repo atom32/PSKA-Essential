@@ -38,6 +38,7 @@ flowchart TD
     MCP["PSKA MCP<br/>agent tool boundary"]
     CORE["PSKA Core<br/>scope, SourceRef, governance, jobs, audit"]
     J["Jarvis Briefing<br/>workspace status + priorities + next actions"]
+    ACB["Agentic Context Brief<br/>source recall + memory + trace"]
     RV["Review<br/>exception inbox"]
     AU["Audit<br/>trace of actions and decisions"]
   end
@@ -74,6 +75,7 @@ flowchart TD
   API --> CORE
   MCP --> CORE
   CORE --> J
+  CORE --> ACB
   CORE --> RV
   CORE --> AU
   CORE --> FS
@@ -378,15 +380,15 @@ flowchart TD
 ## Current Baseline
 
 截至 2026-08-14，当前可验证的系统状态是 M21 source governance baseline 加
-M30 alpha first-run notes。
+M31 agentic context brief。
 
 | 能力 | 当前状态 |
 | --- | --- |
-| Hermes-WebUI 日常入口 | 已作为主入口，PSKA panel/Jarvis Bar、Alpha Trial Guide、First-Run Checklist/Notes、Recovery Plan 与 Sources panel 正在接入 |
+| Hermes-WebUI 日常入口 | 已作为主入口，PSKA panel/Jarvis Bar、Agentic Context Brief、Alpha Trial Guide、First-Run Checklist/Notes、Recovery Plan 与 Sources panel 正在接入 |
 | Hermes Agent | 已作为主要生成/推理/agentic loop 执行层 |
 | Eidolia | 已通过 Hermes CLI 执行 direct/agentic thought generation |
-| PSKA Product API | 已提供 health、capabilities、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session、workspace status、ask、review、memory、sources、jobs |
-| PSKA MCP | 已暴露 KB、Ask、Review、Memory、Source、Jarvis、jobs、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session 等工具 |
+| PSKA Product API | 已提供 health、capabilities、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session、workspace status、agentic context brief、ask、review、memory、sources、jobs |
+| PSKA MCP | 已暴露 KB、Ask、Review、Memory、Source、Jarvis、agentic context brief、jobs、alpha readiness、alpha trial guide、alpha recovery plan、alpha first-run session 等工具 |
 | RAGFlow | 作为 KB/retrieval backend 保留 |
 | SQLite Memory + Review | 当前轻量闭环可用 |
 | Memory Card Maintenance | 已支持 card/health/briefing/review queue，可从 card 创建 refresh-review，将其作为 `refresh_reviews` 单独排队，并在 WebUI 对照旧/新文本 |
@@ -561,6 +563,7 @@ workspace status
   + due jobs
   + memory/review cues
   -> pska_jarvis_briefing
+  -> pska_agentic_context_brief when pre-answer recall is needed
   -> Hermes next actions
   -> user confirmation or safe execution
 ```

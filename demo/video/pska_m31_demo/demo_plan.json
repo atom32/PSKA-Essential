@@ -1,8 +1,9 @@
 {
   "schema": "pska.demo_video_plan.v1",
   "title": "PSKA Agentic Cognitive System 功能演示",
-  "subtitle": "M30 technical alpha demo",
-  "version": "M30",
+  "subtitle": "M31 technical alpha demo",
+  "version": "M31",
+  "output_basename": "pska_m31_demo",
   "voice": "Tingting",
   "resolution": [1280, 720],
   "scenes": [
@@ -16,7 +17,7 @@
         "Hermes 负责推理和行动，PSKA 负责知识治理",
         "目标是让用户现在更聪明，并保存长期认知连续性"
       ],
-      "chips": ["Technical Alpha", "M30", "Demo"],
+      "chips": ["Technical Alpha", "M31", "Demo"],
       "narration": "这段演示介绍 PSKA。它不是一个普通 RAG，也不是一个新的笔记软件。它的定位是个人外部认知系统：Hermes 负责推理和行动，PSKA 负责知识、记忆、权限、出处和审计，Eidolia 承载创作画布。当前版本是 technical alpha，适合展示系统能力和设计方向。"
     },
     {
@@ -44,6 +45,19 @@
       ],
       "chips": ["Jarvis", "Readiness", "Next Actions"],
       "narration": "Home 页面是当前产品入口。Jarvis briefing 会汇总工作区、资料源、记忆和 review 的状态，并给出下一步动作。Alpha readiness 和 trial guide 则回答一个现实问题：这个系统现在能不能安全试用？如果可以，要按什么路线试。"
+    },
+    {
+      "id": "context_brief",
+      "duration": 31,
+      "title": "M31: Agentic Context Brief",
+      "kicker": "source recall + memory + trace before answer",
+      "bullets": [
+        "宽问题先组织上下文，而不是直接回答",
+        "同时拉取 KB evidence、本地 source、Memory Card 和 trace",
+        "只读生成行动建议：不写源文件、不写长期记忆、不创建 review"
+      ],
+      "chips": ["Context Brief", "Source", "Memory", "Trace"],
+      "narration": "M31 补上了一个关键入口：Agentic Context Brief。面对项目状态、写作、决策、source recall、记忆和 trace 这类宽问题，Hermes 可以先让 PSKA 组织上下文。它会合并知识库证据、本地无 embedding source recall、Memory Card、memory-use trace、trace query 和 Jarvis next actions，但它不直接生成最终答案，也不写源文件、不写长期记忆、不创建 review。"
     },
     {
       "id": "first_run",
@@ -143,11 +157,11 @@
       "kicker": "technical alpha, not public beta",
       "bullets": [
         "适合展示架构、能力闭环和安全边界",
-        "还需要更强 agentic context brief、运行态控制、真实数据 dogfooding",
-        "下一步 M31: Agentic Context Brief / Recall Agent"
+        "M31 已具备 pre-answer context brief 和 Recall Agent 雏形",
+        "下一步是更强运行态控制、真实数据 dogfooding 和批量工作台"
       ],
       "chips": ["Demo Ready", "Dogfood", "M31"],
-      "narration": "当前系统已经足够做功能演示，也可以进入技术 alpha 和自用 dogfooding。但它还不是普通用户无脑安装的正式产品。下一步最关键的是 M31，也就是 Agentic Context Brief 和 Recall Agent 雏形，让 PSKA 不只是后台工具，而是真正能替 Hermes 组织上下文、证据、记忆和下一步行动。"
+      "narration": "当前系统已经足够做功能演示，也可以进入技术 alpha 和自用 dogfooding。但它还不是普通用户无脑安装的正式产品。M31 已经让 PSKA 不只是后台工具，而是可以替 Hermes 组织上下文、证据、记忆、trace 和下一步行动。接下来更重要的是真实数据试用、更强运行态控制，以及更好用的批量工作台。"
     }
   ]
 }
