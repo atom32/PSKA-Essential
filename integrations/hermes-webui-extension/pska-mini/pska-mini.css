@@ -583,6 +583,18 @@ main.main.showing-pska-mini > #mainPskaMini {
   margin: 2px 0;
 }
 
+.pska-mini-memory-draft-source {
+  margin-top: 8px;
+  color: var(--muted, #777);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.pska-mini-memory-draft-source strong {
+  color: var(--text, currentColor);
+  font-weight: 600;
+}
+
 .pska-mini-first-run-head {
   display: flex;
   align-items: center;

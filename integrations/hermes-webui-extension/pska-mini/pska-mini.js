@@ -7,6 +7,7 @@
   const REVIEW_BOARD_SLUG = "pska-review";
   const DIGEST_TASK_NAME = "PSKA Digest Runner";
   const DIGEST_TASK_MARKER = "PSKA-Mini Digest Runner";
+  const ANSWER_PROOF_DRAFT_PREFIX = "请先改写这份 Answer Proof 草稿";
   const PANEL_NAME = "pska-mini";
   const MAIN_PANEL_ID = "mainPskaMini";
   const BUILTIN_MAIN_CLASSES = [
@@ -41,6 +42,8 @@
     answerProofDetail: null,
     answerProofTrace: null,
     answerProofLoadingId: "",
+    memoryDraftSourceRefs: [],
+    memoryDraftSourceLabel: "",
     reviewStatus: "pending",
     detail: null,
     firstRunSession: null,
@@ -327,11 +330,13 @@
                 <button class="pska-mini-page-btn" id="pskaMiniMemorySearch" type="button">Search</button>
               </div>
               <div class="pska-mini-memory-results" id="pskaMiniMemoryResults"></div>
-              <details class="pska-mini-memory-create">
+              <details class="pska-mini-memory-create" id="pskaMiniMemoryCreate">
                 <summary>Create review candidate</summary>
                 <textarea id="pskaMiniMemoryDraft" rows="4" placeholder="A durable fact worth reviewing"></textarea>
+                <div class="pska-mini-memory-draft-source" id="pskaMiniMemoryDraftSource"></div>
                 <div class="pska-mini-memory-create-actions">
                   <label><input id="pskaMiniMemoryForceReview" type="checkbox" checked> force review</label>
+                  <button class="pska-mini-page-btn" id="pskaMiniClearMemoryDraftSource" type="button">Clear source</button>
                   <button class="pska-mini-page-btn" id="pskaMiniCreateMemoryReview" type="button">Create</button>
                 </div>
               </details>
@@ -367,7 +372,9 @@
     });
     panel.querySelector("#pskaMiniFirstRun").addEventListener("click", onFirstRunClick);
     panel.querySelector("#pskaMiniAnswerProofs").addEventListener("click", onAnswerProofClick);
+    panel.querySelector("#pskaMiniAnswerProofDetail").addEventListener("click", onAnswerProofDetailClick);
     panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
+    panel.querySelector("#pskaMiniClearMemoryDraftSource").addEventListener("click", clearMemoryDraftSource);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
     renderMemoryPage();
   }
@@ -490,6 +497,13 @@
     renderMemoryPage();
   }
 
+  function onAnswerProofDetailClick(event) {
+    const button = event.target?.closest?.("[data-pska-answer-proof-draft]");
+    if (!button) return;
+    event.preventDefault();
+    draftMemoryCandidateFromAnswerProof();
+  }
+
   async function onFirstRunClick(event) {
     const button = event.target?.closest?.("[data-pska-first-run-status]");
     if (!button) return;
@@ -576,6 +590,19 @@
       renderMemoryPage();
       return;
     }
+    if (isUneditedAnswerProofDraft(draft)) {
+      memoryPage = { ...memoryPage, error: "Edit the proof draft into a durable memory before creating a review candidate.", message: "" };
+      renderMemoryPage();
+      return;
+    }
+    const sourceRefs = memoryPage.memoryDraftSourceRefs.length
+      ? memoryPage.memoryDraftSourceRefs
+      : [{
+        adapter: "hermes-webui",
+        source_id: `pska-mini-memory-page:${Date.now()}`,
+        title: "Hermes WebUI PSKA Memory page",
+        metadata: { origin: "hermes-webui.pska-mini-extension" }
+      }];
     memoryPage = { ...memoryPage, loading: true, message: "Creating memory review candidate...", error: "" };
     renderMemoryPage();
     try {
@@ -586,14 +613,11 @@
           user_message: draft,
           operation: "memory_patch",
           text: draft,
-          reason: "Created from Hermes WebUI PSKA Memory page",
+          reason: memoryPage.memoryDraftSourceLabel
+            ? `Created from Hermes WebUI PSKA Memory page with ${memoryPage.memoryDraftSourceLabel}`
+            : "Created from Hermes WebUI PSKA Memory page",
           force_review: forceReview,
-          source_refs: [{
-            adapter: "hermes-webui",
-            source_id: `pska-mini-memory-page:${Date.now()}`,
-            title: "Hermes WebUI PSKA Memory page",
-            metadata: { origin: "hermes-webui.pska-mini-extension" }
-          }],
+          source_refs: sourceRefs,
           scope: {}
         }),
         timeoutMs: 20000
@@ -605,6 +629,8 @@
       memoryPage = {
         ...memoryPage,
         loading: false,
+        memoryDraftSourceRefs: [],
+        memoryDraftSourceLabel: "",
         message: reviewId ? `Memory candidate ${reviewId} ${status}.` : `Memory candidate ${status}.`,
         error: ""
       };
@@ -616,6 +642,32 @@
       renderMemoryPage();
       toast(`PSKA memory candidate failed: ${errorText(error)}`, "error");
     }
+  }
+
+  function draftMemoryCandidateFromAnswerProof() {
+    const proof = memoryPage.answerProofDetail || null;
+    if (!proof) return;
+    const draftBox = document.getElementById("pskaMiniMemoryDraft");
+    const createBox = document.getElementById("pskaMiniMemoryCreate");
+    if (!draftBox) return;
+    const proofId = String(proof.proof_id || "");
+    const trace = memoryPage.answerProofTrace || {};
+    draftBox.value = buildAnswerProofMemoryDraft(proof, trace);
+    if (createBox) createBox.open = true;
+    memoryPage = {
+      ...memoryPage,
+      memoryDraftSourceRefs: [answerProofSourceRef(proof, trace)],
+      memoryDraftSourceLabel: `answer proof ${shortId(proofId, 12)}`,
+      message: `Drafted memory candidate from answer proof ${shortId(proofId, 12)}. Edit it before creating review.`,
+      error: ""
+    };
+    renderMemoryPage();
+    draftBox.focus();
+  }
+
+  function clearMemoryDraftSource() {
+    memoryPage = { ...memoryPage, memoryDraftSourceRefs: [], memoryDraftSourceLabel: "", message: "Memory draft source cleared.", error: "" };
+    renderMemoryPage();
   }
 
   async function onReviewListClick(event) {
@@ -695,6 +747,7 @@
     renderFirstRunSession();
     renderAnswerProofs();
     renderAnswerProofDetail();
+    renderMemoryDraftSource();
     renderMemoryResults();
     renderReviewList();
     renderReviewDetail();
@@ -915,6 +968,11 @@
         <p>${escapeHtml(tools.map((tool) => lastNameSegment(tool)).join(" · ") || "none")}</p>
       </div>
       <div class="pska-mini-answer-proof-detail-block">
+        <strong>Memory candidate</strong>
+        <p>Draft from this proof, then edit before creating a Review candidate.</p>
+        <button class="pska-mini-page-btn" data-pska-answer-proof-draft="${escapeAttr(proof.proof_id || "")}" type="button">Draft Memory Candidate</button>
+      </div>
+      <div class="pska-mini-answer-proof-detail-block">
         <strong>Checks</strong>
         <ul>${checks.slice(0, 8).map((check) => `<li>${escapeHtml(check.ok ? "OK" : "FAIL")} · ${escapeHtml(check.name || "")}</li>`).join("") || "<li>No checks recorded.</li>"}</ul>
       </div>
@@ -923,6 +981,74 @@
         <ul>${entries.slice(0, 6).map((entry) => `<li>${escapeHtml(entry.title || entry.entry_type || "trace")} · ${escapeHtml(entry.occurred_at || "")}</li>`).join("") || "<li>No trace entries.</li>"}</ul>
       </div>
     `;
+  }
+
+  function renderMemoryDraftSource() {
+    const container = document.getElementById("pskaMiniMemoryDraftSource");
+    if (!container) return;
+    const label = String(memoryPage.memoryDraftSourceLabel || "").trim();
+    container.innerHTML = label
+      ? `Source attached: <strong>${escapeHtml(label)}</strong>`
+      : "Source attached: manual memory page";
+  }
+
+  function buildAnswerProofMemoryDraft(proof, trace) {
+    const summary = proof.tool_summary || {};
+    const checks = proof.check_summary || {};
+    const tools = Array.isArray(summary.completed_pska_tools) ? summary.completed_pska_tools : [];
+    const questionPreview = String(proof.question?.preview || "").trim();
+    const answerPreview = String(proof.answer?.preview || "").trim();
+    const lines = [
+      `${ANSWER_PROOF_DRAFT_PREFIX}，再创建审核候选。`,
+      "",
+      `来源问题：${truncate(questionPreview || "未记录问题预览", 260)}`,
+      `回答依据：${tools.map((tool) => lastNameSegment(tool)).join("、") || "未记录 PSKA 工具"}；trace ${trace.status || "unknown"}；失败检查 ${checks.failed_check_count || 0}。`,
+      "",
+      "建议记忆：",
+      "- ",
+      "",
+      "适用范围：",
+      "- ",
+      "",
+      "未来影响：",
+      "- ",
+      "",
+      `回答预览：${truncate(answerPreview || "未记录回答预览", 360)}`
+    ];
+    return lines.join("\n");
+  }
+
+  function answerProofSourceRef(proof, trace) {
+    const proofId = String(proof.proof_id || "");
+    const summary = proof.tool_summary || {};
+    const checks = proof.check_summary || {};
+    return {
+      adapter: "hermes_answer_proof",
+      source_id: proofId,
+      external_id: String(proof.session_id || proof.response_id || proofId),
+      title: `Hermes answer proof ${shortId(proofId, 12) || "unknown"}`,
+      metadata: {
+        origin: "hermes-webui.pska-mini-answer-proof",
+        proof_id: proofId,
+        audit_event_id: String(proof.audit_event_id || ""),
+        session_id: String(proof.session_id || ""),
+        message_id: String(proof.message_id || ""),
+        response_id: String(proof.response_id || ""),
+        read_only: Boolean(proof.read_only),
+        question_sha256: String(proof.question?.sha256 || ""),
+        answer_sha256: String(proof.answer?.sha256 || ""),
+        answer_length: Number(proof.answer?.length || 0),
+        completed_pska_tools: Array.isArray(summary.completed_pska_tools) ? summary.completed_pska_tools : [],
+        write_like_tools: Array.isArray(summary.write_like_tools) ? summary.write_like_tools : [],
+        failed_check_count: Number(checks.failed_check_count || 0),
+        trace_status: String(trace?.status || ""),
+        trace_entry_count: Number(trace?.entry_count || 0)
+      }
+    };
+  }
+
+  function isUneditedAnswerProofDraft(value) {
+    return String(value || "").trim().startsWith(ANSWER_PROOF_DRAFT_PREFIX);
   }
 
   function renderReviewList() {

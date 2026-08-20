@@ -22,7 +22,8 @@ It provides:
 - a retrieval probe for quick RAGFlow path verification
 - a Recent Answer Proofs block that reads PSKA `hermes.answer_proof`
   audit records, shows observed answer-side tool use, and opens trace-backed
-  proof details through `View Trace`
+  proof details through `View Trace`; a selected proof can seed an editable
+  memory review draft with the proof attached as a PSKA SourceRef
 - a per-turn bridge that loads the Hermes `knowledge-retrieval` skill and
   attaches a `PSKA-Mini Runtime Scope` block to the next chat start request
 - a read-only PSKA Review projection into Hermes Kanban board `pska-review`

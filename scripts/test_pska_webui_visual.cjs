@@ -275,14 +275,36 @@ async function runDesktop(context, checks, artifacts) {
     assertCheck(checks, "Answer proof detail shows trace and tools", (
       /Answer Proof Detail/iu.test(proofDetail)
         && /Completed PSKA tools/iu.test(proofDetail)
+        && /Draft Memory Candidate/iu.test(proofDetail)
         && /Trace entries/iu.test(proofDetail)
         && /hermes\.answer_proof|answer proof|trace/iu.test(proofDetail)
     ), {
       text: proofDetail.slice(0, 1200),
     });
+    await page.click("[data-pska-answer-proof-draft]");
+    await page.waitForFunction(() => {
+      const draft = document.querySelector("#pskaMiniMemoryDraft")?.value || "";
+      const source = document.querySelector("#pskaMiniMemoryDraftSource")?.innerText || "";
+      return /请先改写这份 Answer Proof 草稿/iu.test(draft) && /answer proof/iu.test(source);
+    }, { timeout: 10000 });
+    const proofDraft = await page.evaluate(() => ({
+      draft: document.querySelector("#pskaMiniMemoryDraft")?.value?.slice(0, 1000) || "",
+      source: document.querySelector("#pskaMiniMemoryDraftSource")?.innerText || "",
+    }));
+    assertCheck(checks, "Answer proof can draft a sourced memory candidate", (
+      /请先改写这份 Answer Proof 草稿/iu.test(proofDraft.draft)
+        && /来源问题/iu.test(proofDraft.draft)
+        && /建议记忆/iu.test(proofDraft.draft)
+        && /answer proof/iu.test(proofDraft.source)
+    ), proofDraft);
   } else {
     checks.push({
       name: "Answer proof detail shows trace and tools",
+      ok: true,
+      detail: { skipped: "No answer proof recorded yet" },
+    });
+    checks.push({
+      name: "Answer proof can draft a sourced memory candidate",
       ok: true,
       detail: { skipped: "No answer proof recorded yet" },
     });

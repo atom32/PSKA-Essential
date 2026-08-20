@@ -95,7 +95,7 @@ cd /Users/xudawei/PSKA-Essential
 - Agentic Brief：让 PSKA 在回答前整理证据、来源、记忆和历史轨迹。
 - Source Recall：不用 embedding，按本地文件元数据和全文索引召回资料。
 - Memory 页面：搜索长期记忆，创建记忆候选。
-- Recent Answer Proofs：查看最近 Hermes 回答实际观测到的 PSKA 工具调用、只读状态和资料范围，并可点开 `View Trace` 看 proof 对应的 trace entries。
+- Recent Answer Proofs：查看最近 Hermes 回答实际观测到的 PSKA 工具调用、只读状态和资料范围；点开 `View Trace` 后，可以从该 proof 起草一条可编辑的记忆候选，并把 proof 作为来源带入 Review Queue。
 - Review 页面：查看候选，接受、拒绝，或把已接受候选写入长期记忆。
 - First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注。
 - Kanban 投影：把 PSKA 审核项同步到 Hermes 的 `pska-review` 看板。
@@ -467,7 +467,7 @@ Next actions: 8
 - Agentic Context Brief 汇总证据、来源、记忆和 trace。
 - Memory health 检查。
 - Review Queue 查看候选质量、重复候选和待处理项。
-- Recent Answer Proofs 在 Hermes extension 主页面展示最近回答侧工具调用 proof，并支持点开查看 trace、checks 和完成的 PSKA 工具。
+- Recent Answer Proofs 在 Hermes extension 主页面展示最近回答侧工具调用 proof，并支持点开查看 trace、checks、完成的 PSKA 工具，以及从 proof 起草带来源的 Memory Review 候选。
 - Alpha readiness 与 First-run checklist 可在 Hermes extension 主页面查看和更新。
 - Hermes Kanban `pska-review` 投影。
 - Hermes Tasks `PSKA Digest Runner` 入口。

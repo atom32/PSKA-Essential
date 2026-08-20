@@ -401,6 +401,8 @@ P4 的回答侧 proof 也已落地为最小闭环：
 和 `GET /api/trace/query?action=hermes.answer_proof` 可反查本轮回答实际观测到哪些
 PSKA 工具调用、是否只读、对应 dataset/source root 范围和检查结果。它只保存问题/回答的
 短预览、SHA-256、工具摘要和检查结果，不保存完整回答文本，不写长期记忆，不写用户源文件。
+Hermes WebUI extension 已能从某条 proof 起草可编辑的 Memory Review 候选，并把
+`SourceRef(adapter="hermes_answer_proof")` 附到候选上；未改写的 proof 草稿不会直接提交。
 
 新增 Product API / MCP：
 
