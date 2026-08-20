@@ -445,6 +445,12 @@ main.main.showing-pska-mini > #mainPskaMini {
   line-height: 1.35;
 }
 
+.pska-mini-page-action-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .pska-mini-first-run {
   display: grid;
   gap: 10px;

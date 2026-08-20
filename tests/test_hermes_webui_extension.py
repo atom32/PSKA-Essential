@@ -102,6 +102,12 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("markRuntimeConfirmedDone", script)
         self.assertIn('data-pska-first-run-runtime-done="1"', script)
         self.assertIn('"confirm_runtime"', script)
+        self.assertIn("markRecoveryPlanDone", script)
+        self.assertIn('data-pska-first-run-recovery-done="1"', script)
+        self.assertIn('"confirm_recovery_plan"', script)
+        self.assertIn("markWritebackLockedDone", script)
+        self.assertIn('data-pska-first-run-writeback-locked="1"', script)
+        self.assertIn('"keep_writeback_locked"', script)
         self.assertIn("markSelectedScopeDone", script)
         self.assertIn('data-pska-first-run-scope-done="1"', script)
         self.assertIn('"select_read_only_scope"', script)
@@ -161,6 +167,7 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn(".pska-mini-source-evidence-list", css)
         self.assertIn(".pska-mini-source-evidence-detail pre", css)
         self.assertIn(".pska-mini-page-actions", css)
+        self.assertIn(".pska-mini-page-action-buttons", css)
         self.assertIn(".pska-mini-inline-btn", css)
 
     def test_sync_script_writes_webui_manifest_and_sidecar_consent(self):

@@ -72,6 +72,7 @@
     wakeupPlan: null,
     observabilityMetrics: null,
     sourceRecallEval: null,
+    alphaRecoveryPlan: null,
     scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
@@ -611,6 +612,18 @@
       await markRuntimeConfirmedDone();
       return;
     }
+    const recoveryButton = event.target?.closest?.("[data-pska-first-run-recovery-done]");
+    if (recoveryButton) {
+      event.preventDefault();
+      await markRecoveryPlanDone();
+      return;
+    }
+    const writebackButton = event.target?.closest?.("[data-pska-first-run-writeback-locked]");
+    if (writebackButton) {
+      event.preventDefault();
+      await markWritebackLockedDone();
+      return;
+    }
     const button = event.target?.closest?.("[data-pska-first-run-scope-done]");
     if (!button) return;
     event.preventDefault();
@@ -1107,6 +1120,7 @@
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
       ${runtimeConfirmationActionHtml()}
+      ${recoveryConfirmationActionHtml()}
       ${selectedScopeActionHtml()}
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
       ${jobHealthWarning(jobs)}
@@ -1521,6 +1535,16 @@
     await updateFirstRunItem("select_read_only_scope", "done", note);
   }
 
+  async function markRecoveryPlanDone() {
+    const note = recoveryPlanNote();
+    await updateFirstRunItem("confirm_recovery_plan", "done", note);
+  }
+
+  async function markWritebackLockedDone() {
+    const note = writebackLockedNote();
+    await updateFirstRunItem("keep_writeback_locked", "done", note);
+  }
+
   async function markReviewQueueDone() {
     const note = reviewQueueInspectionNote();
     await updateFirstRunItem("review_memory_queue", "done", note);
@@ -1564,6 +1588,63 @@
       `embedding ${embeddingStatusLabel(embedding)}`,
       `GBrain ${gbrainStatusLabel(gbrain)}`,
       `alpha ${alphaStatusLabel(alpha)}`
+    ].join(" · ");
+  }
+
+  function recoveryConfirmationActionHtml() {
+    const plan = dashboard.alphaRecoveryPlan || {};
+    if (!plan.schema) return "";
+    return `
+      <div class="pska-mini-page-actions">
+        <span>${escapeHtml(recoveryPlanSummary(plan))}</span>
+        <span class="pska-mini-page-action-buttons">
+          <button class="pska-mini-inline-btn" data-pska-first-run-recovery-done="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark recovery reviewed</button>
+          <button class="pska-mini-inline-btn" data-pska-first-run-writeback-locked="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark writeback locked</button>
+        </span>
+      </div>
+    `;
+  }
+
+  function recoveryPlanSummary(plan) {
+    const backupCount = Array.isArray(plan.backup_items) ? plan.backup_items.length : 0;
+    const drillCount = Array.isArray(plan.restore_drills) ? plan.restore_drills.length : 0;
+    const writebackCount = Array.isArray(plan.writeback_preflight) ? plan.writeback_preflight.length : 0;
+    return [
+      `Recovery ${plan.status || "unknown"}`,
+      `${backupCount} backup item${backupCount === 1 ? "" : "s"}`,
+      `${drillCount} drill${drillCount === 1 ? "" : "s"}`,
+      `${writebackCount} writeback preflight`
+    ].join(" · ");
+  }
+
+  function recoveryPlanNote() {
+    const plan = dashboard.alphaRecoveryPlan || {};
+    const backupCount = Array.isArray(plan.backup_items) ? plan.backup_items.length : 0;
+    const drillCount = Array.isArray(plan.restore_drills) ? plan.restore_drills.length : 0;
+    const warningCount = Array.isArray(plan.warnings) ? plan.warnings.length : 0;
+    const flow = plan.data_flow || {};
+    return [
+      "recovery plan reviewed",
+      `status ${plan.status || "unknown"}`,
+      `${backupCount} backup items`,
+      `${drillCount} restore drills`,
+      `${warningCount} warnings`,
+      flow.creates_backup ? "creates backup" : "does not create backup",
+      flow.restores_data ? "restores data" : "does not restore data"
+    ].join(" · ");
+  }
+
+  function writebackLockedNote() {
+    const plan = dashboard.alphaRecoveryPlan || {};
+    const preflight = Array.isArray(plan.writeback_preflight) ? plan.writeback_preflight : [];
+    const locked = preflight.filter((item) => !item.allowed_first_trial);
+    const lockedOps = locked.slice(0, 3).map((item) => String(item.operation || "")).filter(Boolean).join(" / ");
+    const extra = locked.length > 3 ? ` +${locked.length - 3}` : "";
+    return [
+      "native writeback locked",
+      `${preflight.length} preflight ops`,
+      `${locked.length} locked first-trial ops${lockedOps ? ` ${lockedOps}${extra}` : extra}`,
+      "backup required before native source writes"
     ].join(" · ");
   }
 
@@ -1797,6 +1878,7 @@
       observabilityMetrics: pskaMiniFetchJson("/api/observability/metrics?limit=300", { timeoutMs: 10000 }),
       sourceRecallEval: pskaMiniFetchJson("/api/sources/recall-eval?mode=fixture&limit=5", { timeoutMs: 10000 }),
       alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 10000 }),
+      alphaRecoveryPlan: pskaMiniFetchJson("/api/alpha/recovery-plan", { timeoutMs: 10000 }),
       diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 10000 })
     });
     const diagnosticsValue = valueOrNull(results.diagnostics);
@@ -1814,6 +1896,7 @@
       observabilityMetrics: valueOrNull(results.observabilityMetrics)?.observability_metrics || null,
       sourceRecallEval: valueOrNull(results.sourceRecallEval)?.source_recall_eval || null,
       alphaReadiness: valueOrNull(results.alphaReadiness)?.alpha_readiness || null,
+      alphaRecoveryPlan: valueOrNull(results.alphaRecoveryPlan)?.alpha_recovery_plan || null,
       scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
         ? errorText(results.diagnostics.reason)

@@ -909,6 +909,12 @@ PSKA API is ready, Hermes WebUI shows `Mark runtime confirmed` in the Memory
 page status area and records API, memory, KB, embedding, GBrain, and alpha
 status against `confirm_runtime`. This is an operator confirmation only; it
 does not start services, change providers, or run diagnostics again.
+M30g links the read-only recovery contract to first-run safety checks: Hermes
+WebUI fetches `GET /api/alpha/recovery-plan`, shows `Mark recovery reviewed`
+and `Mark writeback locked`, and records backup/drill counts or writeback
+preflight locks against `confirm_recovery_plan` and `keep_writeback_locked`.
+These actions do not create backups, restore data, export providers, or enable
+native source writeback.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

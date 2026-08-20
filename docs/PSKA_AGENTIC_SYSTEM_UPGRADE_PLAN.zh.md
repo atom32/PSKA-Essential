@@ -437,6 +437,13 @@ Hermes WebUI 在 PSKA API ready 时，于 Memory 页状态区显示 `Mark runtim
 点击后把 `confirm_runtime` 标成 done，并把 API、memory、KB、embedding、GBrain 与 alpha 状态写入
 operator note。这个动作只记录人工确认，不启动服务，不更换 provider，也不重新运行 diagnostics。
 
+P2 的第四十三块已落地为 first-run recovery/writeback proof：
+Hermes WebUI 读取 `GET /api/alpha/recovery-plan` 后，在 Memory 页状态区显示
+`Mark recovery reviewed` 与 `Mark writeback locked`。前者把 `confirm_recovery_plan`
+标成 done，并记录 backup items、restore drills、warnings 和 recovery data flow；后者把
+`keep_writeback_locked` 标成 done，并记录 writeback preflight 与首次试用仍被锁定的 native
+writeback 操作。两个动作都不创建备份、不恢复数据、不导出 provider，也不启用 source writeback。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。

@@ -261,6 +261,8 @@ async function runDesktop(context, checks, artifacts) {
     answerProofs: document.querySelector("#pskaMiniAnswerProofs")?.innerText?.slice(0, 1200) || "",
     hasAnswerProofButton: Boolean(document.querySelector("[data-pska-answer-proof-id]")),
     hasRuntimeButton: Boolean(document.querySelector("[data-pska-first-run-runtime-done]")),
+    hasRecoveryButton: Boolean(document.querySelector("[data-pska-first-run-recovery-done]")),
+    hasWritebackButton: Boolean(document.querySelector("[data-pska-first-run-writeback-locked]")),
     hasScopeButton: Boolean(document.querySelector("[data-pska-first-run-scope-done]")),
     hasReviewViewButton: Boolean(document.querySelector('[data-pska-review-action="view"]')),
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
@@ -282,7 +284,10 @@ async function runDesktop(context, checks, artifacts) {
       && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
       && /Rehearse source evidence to memory/iu.test(memoryCheck.firstRun)
       && memoryCheck.hasRuntimeButton
+      && memoryCheck.hasRecoveryButton
+      && memoryCheck.hasWritebackButton
       && memoryCheck.hasScopeButton
+      && /Recovery/iu.test(memoryCheck.scopeAction)
       && /Selected read-only scope/iu.test(memoryCheck.scopeAction)
       && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)
       && /recovery/iu.test(memoryCheck.firstRun)
@@ -321,6 +326,56 @@ async function runDesktop(context, checks, artifacts) {
       && /memory/iu.test(runtimeCheck.note)
       && /embedding/iu.test(runtimeCheck.note)
   ), runtimeCheck);
+
+  await page.click("[data-pska-first-run-recovery-done]");
+  await page.waitForFunction(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Confirm backup and recovery plan/iu.test(node.innerText || ""));
+    const text = item?.innerText || "";
+    const note = item?.querySelector("textarea")?.value || "";
+    return /done\s+·\s+required/iu.test(text)
+      && /recovery plan reviewed/iu.test(note)
+      && /backup items/iu.test(note);
+  }, { timeout: 15000 });
+  const recoveryCheck = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Confirm backup and recovery plan/iu.test(node.innerText || ""));
+    return {
+      text: item?.innerText?.slice(0, 900) || "",
+      note: item?.querySelector("textarea")?.value || "",
+    };
+  });
+  assertCheck(checks, "Recovery plan marks first-run recovery confirmation done with backup note", (
+    /done\s+·\s+required/iu.test(recoveryCheck.text)
+      && /recovery plan reviewed/iu.test(recoveryCheck.note)
+      && /backup items/iu.test(recoveryCheck.note)
+      && /restore drills/iu.test(recoveryCheck.note)
+  ), recoveryCheck);
+
+  await page.click("[data-pska-first-run-writeback-locked]");
+  await page.waitForFunction(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Keep native writeback locked/iu.test(node.innerText || ""));
+    const text = item?.innerText || "";
+    const note = item?.querySelector("textarea")?.value || "";
+    return /done\s+·\s+required/iu.test(text)
+      && /native writeback locked/iu.test(note)
+      && /backup required/iu.test(note);
+  }, { timeout: 15000 });
+  const writebackCheck = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Keep native writeback locked/iu.test(node.innerText || ""));
+    return {
+      text: item?.innerText?.slice(0, 900) || "",
+      note: item?.querySelector("textarea")?.value || "",
+    };
+  });
+  assertCheck(checks, "Recovery plan marks first-run writeback lock done with preflight note", (
+    /done\s+·\s+required/iu.test(writebackCheck.text)
+      && /native writeback locked/iu.test(writebackCheck.note)
+      && /preflight ops/iu.test(writebackCheck.note)
+      && /backup required/iu.test(writebackCheck.note)
+  ), writebackCheck);
 
   await page.click("[data-pska-first-run-scope-done]");
   await page.waitForFunction(() => {
