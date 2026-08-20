@@ -201,6 +201,13 @@ candidate memory, review, and durable export.
   to inspect the `conversation_candidates` group and follow
   `review_conversation_memory_candidate` when the user is ready to accept,
   edit, or reject candidates.
+- If the user pastes or exports ChatGPT personalized-memory summary text, call
+  `pska_chatgpt_memory_summary_import`. It creates governed Memory Card Review
+  candidates only; it does not write durable memory, edit source files, require
+  embeddings, or store the full import text in audit. Keep `include_private`
+  false unless the user explicitly asks otherwise: private life, family,
+  health, and intimate-history chunks should remain source-archive material by
+  default, with only a privacy boundary candidate created for future behavior.
 - If `pska_memory_change_from_conversation` returns `status="needs_target"`,
   call `pska_memory_search` with the returned `next_actions` query, ask the user
   to disambiguate when needed, then retry with the selected `memory_fact`.

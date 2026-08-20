@@ -157,6 +157,23 @@ context should cite the uploaded fake document. For PDFs such as annual
 reports, switch to RAGFlow-backed KB mode so parsing and embedding are handled
 by the external KB.
 
+ChatGPT memory summary import for owner dogfooding:
+
+```bash
+curl -fsS http://127.0.0.1:8765/api/memory/chatgpt-summary/import \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "source_label": "ChatGPT personalized memory summary",
+    "candidate_limit": 12,
+    "text": "用户长期项目 PSKA 的核心目标之一是构建个人外挂智能。"
+  }'
+```
+
+This creates pending Memory Card Review candidates only. It does not write
+durable memory, edit source files, require embeddings, or store the full import
+text in audit. Private life, family, health, and intimate-history chunks are
+skipped by default and represented only by a privacy-boundary candidate.
+
 Live RAGFlow mode uses the same Product API command after setting providers
 explicitly. The current local dogfood path uses GBrain memory over HTTP MCP:
 

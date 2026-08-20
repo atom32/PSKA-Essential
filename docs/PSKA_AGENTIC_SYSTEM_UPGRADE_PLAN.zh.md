@@ -387,6 +387,12 @@ P2 的第三十四块已落地为 alpha first-run notes：
 WebUI 首次试用清单的每个 item 都可以记录人工确认依据、异常或复盘备注；保存备注复用
 同一个 first-run item update 路由，只更新 PSKA checklist/audit state。这个备注是 alpha
 rehearsal evidence，不会写回用户资料源，也不会自动变成 durable memory。
+P2 的第三十五块已落地为 ChatGPT memory summary import：
+`POST /api/memory/chatgpt-summary/import` 与 `pska_chatgpt_memory_summary_import`
+把 ChatGPT 个性化记忆摘要文本或文件转换成 governed Memory Card Review candidates。
+它复用 conversation candidate/review queue 通道，不直接写 GBrain/SQLite memory，
+不写 source files，不需要 embedding，也不会把完整导入文本写入 audit；默认跳过
+私密人生、家庭、健康和亲密经历段落，只创建一条隐私使用边界候选。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -437,6 +443,7 @@ activate due schedule、不会创建 Review、不会写 source/memory，也不�
 ```text
 POST /api/sources/memory-candidates/from-audit
 POST /api/memory/conversation-candidates
+POST /api/memory/chatgpt-summary/import
 GET  /api/memory/cards
 GET  /api/memory/cards/{memory_id}
 GET  /api/memory/briefing
@@ -491,6 +498,7 @@ pska_workflow_memory_attribution
 pska_workflow_memory_suggestions
 pska_memory_change_from_conversation
 pska_conversation_memory_candidates_create
+pska_chatgpt_memory_summary_import
 pska_memory_review_from_workflow
 pska_source_memory_candidates_from_audit
 ```
@@ -972,6 +980,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add read-only alpha recovery plan and surface backup/writeback preflight on Home.
 - [x] Add persisted alpha first-run session/checklist progress without executing trial steps.
 - [x] Add operator notes to alpha first-run checklist items for rehearsal evidence.
+- [x] Add ChatGPT memory summary import into governed Review candidates with private-by-default handling.
 
 ### P3 Backlog
 

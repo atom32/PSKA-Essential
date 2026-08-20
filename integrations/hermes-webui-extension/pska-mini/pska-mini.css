@@ -595,6 +595,10 @@ main.main.showing-pska-mini > #mainPskaMini {
   font-weight: 600;
 }
 
+.pska-mini-memory-import-result {
+  margin-top: 6px;
+}
+
 .pska-mini-first-run-head {
   display: flex;
   align-items: center;

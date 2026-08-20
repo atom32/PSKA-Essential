@@ -251,6 +251,39 @@ PSKA 不应该做：
 - 因为一天状态不好就做长期人格判断。
 - 把“今天脾气差”写成“用户就是脾气差的人”。
 
+### 3.6 ChatGPT 记忆摘要
+
+目的：把现有 ChatGPT 个性化记忆先变成可审核候选，而不是一次性灌入长期记忆。
+
+用法：
+
+```bash
+curl -fsS http://127.0.0.1:8765/api/memory/chatgpt-summary/import \
+  -H 'Content-Type: application/json' \
+  -d @chatgpt-memory-import.json
+```
+
+其中 `chatgpt-memory-import.json` 可以只包含：
+
+```json
+{
+  "source_label": "ChatGPT 个性化记忆摘要",
+  "candidate_limit": 12,
+  "text": "这里粘贴 ChatGPT 个性化-记忆-记忆摘要"
+}
+```
+
+这条路径只会创建 pending Review candidates：
+
+- 不直接写 GBrain。
+- 不修改任何本地资料文件。
+- 不需要 embedding。
+- 默认跳过私密人生、家庭、健康和亲密经历段落。
+- 如果发现私密段落，只创建一条“默认不要在无关任务里暴露”的边界候选。
+
+导入后先打开 Hermes WebUI 的 PSKA Memory 页面，看 Review Queue。只把稳定身份、长期项目、
+工作习惯、明确偏好和保护边界 apply 到长期记忆；长篇人生回忆先留在 private source archive。
+
 ## 4. 每天怎么用
 
 ### 4.1 早上：问今天的上下文

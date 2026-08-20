@@ -72,6 +72,17 @@ class ObservabilityMetricsTests(unittest.TestCase):
                 write_like_tool_count=0,
             )
         )
+        service.store.add_audit_event(
+            audit_event(
+                "chatgpt.memory_summary.import",
+                "memory",
+                "cgmem_demo",
+                status="created",
+                created_count=3,
+                skipped_private_count=1,
+                writes_memory_directly=False,
+            )
+        )
 
         report = build_observability_metrics(service, limit=100)
 
@@ -91,6 +102,7 @@ class ObservabilityMetricsTests(unittest.TestCase):
         self.assertEqual(groups["duplicate_review"]["metrics"]["review_status_counts"]["reviewed"], 1)
         self.assertEqual(groups["eval"]["metrics"]["failed_count"], 1)
         self.assertEqual(groups["answer_proof"]["metrics"]["failed_check_count"], 1)
+        self.assertEqual(groups["memory_governance"]["metrics"]["chatgpt_memory_import_count"], 1)
         self.assertTrue(groups["source_extraction"]["failure_samples"])
         self.assertEqual(groups["source_recall"]["zero_result_samples"][0]["count"], 0)
         self.assertEqual(report["adapter_slots"]["current_provider"], "sqlite_audit")

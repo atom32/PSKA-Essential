@@ -353,6 +353,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_workflow_memory_suggestions",
             "pska_memory_change_from_conversation",
             "pska_conversation_memory_candidates_create",
+            "pska_chatgpt_memory_summary_import",
             "pska_memory_lifecycle",
             "pska_review_list",
             "pska_review_get",

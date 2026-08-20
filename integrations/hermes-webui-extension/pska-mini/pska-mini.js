@@ -44,6 +44,7 @@
     answerProofLoadingId: "",
     memoryDraftSourceRefs: [],
     memoryDraftSourceLabel: "",
+    chatgptImportResult: null,
     reviewStatus: "pending",
     detail: null,
     firstRunSession: null,
@@ -344,6 +345,15 @@
                   <button class="pska-mini-page-btn" id="pskaMiniCreateMemoryReview" type="button">Create</button>
                 </div>
               </details>
+              <details class="pska-mini-memory-create" id="pskaMiniChatgptImport">
+                <summary>Import ChatGPT memory summary</summary>
+                <textarea id="pskaMiniChatgptMemorySummary" rows="5" placeholder="Paste ChatGPT memory summary"></textarea>
+                <div class="pska-mini-memory-create-actions">
+                  <label><input id="pskaMiniChatgptIncludePrivate" type="checkbox"> include private chunks</label>
+                  <button class="pska-mini-page-btn" id="pskaMiniImportChatgptMemory" type="button">Import</button>
+                </div>
+                <div class="pska-mini-memory-import-result" id="pskaMiniChatgptImportResult"></div>
+              </details>
             </section>
             <section class="pska-mini-page-section">
               <div class="pska-mini-page-section-head">
@@ -380,6 +390,7 @@
     panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
     panel.querySelector("#pskaMiniClearMemoryDraftSource").addEventListener("click", clearMemoryDraftSource);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
+    panel.querySelector("#pskaMiniImportChatgptMemory").addEventListener("click", importChatgptMemorySummary);
     renderMemoryPage();
   }
 
@@ -648,6 +659,49 @@
     }
   }
 
+  async function importChatgptMemorySummary() {
+    const textBox = document.getElementById("pskaMiniChatgptMemorySummary");
+    const text = String(textBox?.value || "").trim();
+    const includePrivate = Boolean(document.getElementById("pskaMiniChatgptIncludePrivate")?.checked);
+    if (!text) {
+      memoryPage = { ...memoryPage, error: "ChatGPT memory summary text is required.", message: "" };
+      renderMemoryPage();
+      return;
+    }
+    memoryPage = { ...memoryPage, loading: true, message: "Importing ChatGPT memory summary...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson("/api/memory/chatgpt-summary/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_label: "ChatGPT memory summary",
+          candidate_limit: 12,
+          text,
+          include_private: includePrivate
+        }),
+        timeoutMs: 25000
+      });
+      const result = data.chatgpt_memory_summary_import || null;
+      if (textBox) textBox.value = "";
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        chatgptImportResult: result,
+        message: result
+          ? `ChatGPT memory import created ${result.summary?.created_count || 0} review candidate(s).`
+          : "ChatGPT memory import completed.",
+        error: ""
+      };
+      await loadMemoryPageReviews();
+      toast("PSKA ChatGPT memory import completed.", "success");
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+      renderMemoryPage();
+      toast(`PSKA ChatGPT memory import failed: ${errorText(error)}`, "error");
+    }
+  }
+
   function draftMemoryCandidateFromAnswerProof() {
     const proof = memoryPage.answerProofDetail || null;
     if (!proof) return;
@@ -752,6 +806,7 @@
     renderAnswerProofs();
     renderAnswerProofDetail();
     renderMemoryDraftSource();
+    renderChatgptImportResult();
     renderMemoryResults();
     renderReviewList();
     renderReviewDetail();
@@ -1006,6 +1061,25 @@
     container.innerHTML = label
       ? `Source attached: <strong>${escapeHtml(label)}</strong>`
       : "Source attached: manual memory page";
+  }
+
+  function renderChatgptImportResult() {
+    const container = document.getElementById("pskaMiniChatgptImportResult");
+    if (!container) return;
+    const result = memoryPage.chatgptImportResult;
+    if (!result) {
+      container.innerHTML = "";
+      return;
+    }
+    const summary = result.summary || {};
+    container.innerHTML = `
+      <div class="pska-mini-memory-draft-source">
+        Import <strong>${escapeHtml(shortId(result.import_id || "", 12) || "done")}</strong> ·
+        created ${escapeHtml(String(summary.created_count || 0))} ·
+        private skipped ${escapeHtml(String(summary.skipped_private_count || 0))} ·
+        boundary ${escapeHtml(summary.privacy_boundary_created ? "yes" : "no")}
+      </div>
+    `;
   }
 
   function buildAnswerProofMemoryDraft(proof, trace) {

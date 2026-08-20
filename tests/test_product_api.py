@@ -289,6 +289,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/memory/search"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-change"), contract_routes)
         self.assertIn(("POST", "/api/memory/conversation-candidates"), contract_routes)
+        self.assertIn(("POST", "/api/memory/chatgpt-summary/import"), contract_routes)
         self.assertIn(("POST", "/api/reviews/batch-decision"), contract_routes)
         self.assertIn(("POST", "/api/reviews/merge-candidates"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
@@ -507,6 +508,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_source_recall_eval"]["writes_memory_directly"])
         self.assertFalse(tool_policy["pska_source_recall_eval"]["runs_jobs"])
         self.assertFalse(tool_policy["pska_source_recall_eval"]["embedding_required"])
+        self.assertTrue(tool_policy["pska_chatgpt_memory_summary_import"]["review_required"])
+        self.assertTrue(tool_policy["pska_chatgpt_memory_summary_import"]["creates_review"])
+        self.assertTrue(tool_policy["pska_chatgpt_memory_summary_import"]["skips_private_by_default"])
+        self.assertFalse(tool_policy["pska_chatgpt_memory_summary_import"]["writes_memory_directly"])
+        self.assertFalse(tool_policy["pska_chatgpt_memory_summary_import"]["writes_source_files"])
+        self.assertFalse(tool_policy["pska_chatgpt_memory_summary_import"]["stores_full_import_text"])
+        self.assertFalse(tool_policy["pska_chatgpt_memory_summary_import"]["embedding_required"])
         self.assertEqual(tool_policy["pska_trace_coverage"]["access"], "read")
         self.assertTrue(tool_policy["pska_trace_coverage"]["audit_backed"])
         self.assertFalse(tool_policy["pska_trace_coverage"]["writes_source_files"])
@@ -651,6 +659,16 @@ class ProductApiTests(unittest.TestCase):
             "pska_conversation_memory_candidates_create",
         )
         self.assertFalse(inflow_paths["conversation_memory_candidates"]["writes_memory_provider_directly"])
+        self.assertEqual(
+            inflow_paths["chatgpt_memory_summary_import"]["mcp"],
+            "pska_chatgpt_memory_summary_import",
+        )
+        self.assertEqual(
+            inflow_paths["chatgpt_memory_summary_import"]["private_handling"],
+            "skip_private_entries_by_default_and_create_boundary_candidate",
+        )
+        self.assertFalse(inflow_paths["chatgpt_memory_summary_import"]["writes_memory_provider_directly"])
+        self.assertFalse(inflow_paths["chatgpt_memory_summary_import"]["writes_source_files"])
         self.assertFalse(inflow["upload_behavior"]["creates_graph_projection"])
         self.assertIn("digest_job", [path["name"] for path in inflow["paths"]])
         lineage = capabilities["capabilities"]["memory"]["lineage"]
@@ -1692,6 +1710,35 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(facts, [])
         audit = self._get_json("/api/audit?limit=10&action=memory.conversation_candidates.create")
         self.assertEqual(audit["events"][0]["metadata"]["created_count"], 1)
+
+    def test_chatgpt_memory_summary_import_route_creates_review_candidates(self):
+        imported = self._post_json(
+            "/api/memory/chatgpt-summary/import",
+            {
+                "source_label": "ChatGPT memory summary",
+                "candidate_limit": 6,
+                "text": "\n\n".join(
+                    [
+                        "用户长期项目 PSKA 的核心目标是构建贴合个人记忆和知识存量的外挂智能。",
+                        "用户有一段与高晓茜有关的私密人生回忆，默认应留在个人档案。",
+                        "你叫徐大为，是正高级工程师，长期研究认知智能和自然语言处理。",
+                    ]
+                ),
+            },
+        )
+
+        result = imported["chatgpt_memory_summary_import"]
+        self.assertTrue(imported["ok"])
+        self.assertEqual(result["schema"], "pska.chatgpt_memory_summary_import.v1")
+        self.assertEqual(result["summary"]["skipped_private_count"], 1)
+        self.assertTrue(result["summary"]["privacy_boundary_created"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        created_text = json.dumps(result["candidate_result"]["created"], ensure_ascii=False)
+        self.assertIn("PSKA", created_text)
+        self.assertNotIn("高晓茜", created_text)
+        self.assertNotIn("高晓茜", json.dumps(result, ensure_ascii=False))
+        pending = self._get_json("/api/reviews?status=pending")
+        self.assertGreaterEqual(len(pending["reviews"]), result["summary"]["created_count"])
 
     def test_conversation_memory_change_route_returns_needs_target(self):
         with patch.dict(os.environ, {"PSKA_GOVERNANCE_CONVERSATION_MEMORY": "auto_apply"}, clear=False):

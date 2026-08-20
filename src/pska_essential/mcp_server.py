@@ -21,6 +21,7 @@ from pska_essential.alpha_readiness import (
     update_alpha_first_run_session,
 )
 from pska_essential.capabilities import product_capabilities
+from pska_essential.chatgpt_memory_import import build_chatgpt_memory_summary_import
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import SourceRef, to_jsonable
@@ -969,6 +970,28 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             candidate_limit=candidate_limit,
         )
 
+    def pska_chatgpt_memory_summary_import(
+        text: str = "",
+        source_path: str = "",
+        source_label: str = "",
+        scope: dict[str, Any] | None = None,
+        candidate_limit: int = 12,
+        dedupe_existing: bool = True,
+        include_private: bool = False,
+        create_privacy_boundary: bool = True,
+    ):
+        return build_chatgpt_memory_summary_import(
+            service,
+            text=text,
+            source_path=source_path,
+            source_label=source_label,
+            scope=scope or {},
+            candidate_limit=candidate_limit,
+            dedupe_existing=dedupe_existing,
+            include_private=include_private,
+            create_privacy_boundary=create_privacy_boundary,
+        )
+
     def pska_memory_delete_review(memory_fact: dict[str, Any], reason: str = ""):
         return service.memory_delete_review(memory_fact, reason)
 
@@ -1553,6 +1576,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_eidolia_project_trace_import": pska_eidolia_project_trace_import,
         "pska_memory_change_from_conversation": pska_memory_change_from_conversation,
         "pska_conversation_memory_candidates_create": pska_conversation_memory_candidates_create,
+        "pska_chatgpt_memory_summary_import": pska_chatgpt_memory_summary_import,
         "pska_memory_review_from_workflow": pska_memory_review_from_workflow,
         "pska_workflow_memory_attribution": pska_workflow_memory_attribution,
         "pska_workflow_memory_suggestions": pska_workflow_memory_suggestions,

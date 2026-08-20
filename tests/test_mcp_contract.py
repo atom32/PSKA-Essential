@@ -111,6 +111,7 @@ EXPECTED_TOOLS = {
     "pska_memory_apply",
     "pska_memory_change_from_conversation",
     "pska_conversation_memory_candidates_create",
+    "pska_chatgpt_memory_summary_import",
     "pska_memory_delete_review",
     "pska_memory_lifecycle",
     "pska_memory_probe",
@@ -521,6 +522,13 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_source_recall_eval"]["writes_memory_directly"])
         self.assertFalse(policy["pska_source_recall_eval"]["runs_jobs"])
         self.assertFalse(policy["pska_source_recall_eval"]["embedding_required"])
+        self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["review_required"])
+        self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["creates_review"])
+        self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["skips_private_by_default"])
+        self.assertFalse(policy["pska_chatgpt_memory_summary_import"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_chatgpt_memory_summary_import"]["writes_source_files"])
+        self.assertFalse(policy["pska_chatgpt_memory_summary_import"]["stores_full_import_text"])
+        self.assertFalse(policy["pska_chatgpt_memory_summary_import"]["embedding_required"])
         self.assertEqual(policy["pska_trace_coverage"]["access"], "read")
         self.assertTrue(policy["pska_trace_coverage"]["audit_backed"])
         self.assertFalse(policy["pska_trace_coverage"]["writes_source_files"])
@@ -1126,6 +1134,31 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
         self.assertEqual(service.store.list_reviews(status="pending")[0]["review_id"], result["created"][0]["review_id"])
         self.assertEqual(len(service.memory_search("small object models", {}, 10)), 0)
+
+    def test_chatgpt_memory_summary_import_tool_creates_review_candidates(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+
+        result = tools["pska_chatgpt_memory_summary_import"](
+            text=(
+                "用户长期项目 PSKA 的核心目标是构建贴合个人记忆的外挂智能。\n\n"
+                "用户有一段与高晓茜有关的私密人生回忆，默认应留在个人档案。\n\n"
+                "用户公司名称为天大智图，主营知识图谱和 RAG 产品及服务。"
+            ),
+            source_label="ChatGPT memory summary",
+            candidate_limit=6,
+        )
+
+        self.assertEqual(result["schema"], "pska.chatgpt_memory_summary_import.v1")
+        self.assertEqual(result["summary"]["skipped_private_count"], 1)
+        self.assertTrue(result["summary"]["privacy_boundary_created"])
+        self.assertGreaterEqual(result["summary"]["created_count"], 2)
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertFalse(result["data_flow"]["writes_source_files"])
+        created_text = json.dumps(result["candidate_result"]["created"], ensure_ascii=False)
+        self.assertNotIn("高晓茜", created_text)
+        self.assertNotIn("高晓茜", json.dumps(result, ensure_ascii=False))
+        self.assertEqual(len(service.memory_search("外挂智能", {}, 10)), 0)
 
     def test_memory_change_from_conversation_tool_returns_needs_target(self):
         service = build_fake_service()

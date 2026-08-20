@@ -482,6 +482,7 @@ Operational loop tools:
 - `pska_workflow_memory_suggestions`
 - `pska_memory_change_from_conversation`
 - `pska_conversation_memory_candidates_create`
+- `pska_chatgpt_memory_summary_import`
 - `pska_memory_review_from_workflow`
 - `pska_memory_refresh_review`
 - `pska_memory_update_review`
@@ -823,6 +824,11 @@ items, dedupes obvious repeats, and never writes durable memory directly.
 Memory Review Queue surfaces these as a dedicated `conversation_candidates`
 group with a stable `review_conversation_memory_candidate` next action, so
 daily memory capture does not disappear into generic pending reviews.
+`pska_chatgpt_memory_summary_import` is the owner-dogfood bridge for pasted or
+exported ChatGPT personalized memory summaries. It creates the same governed
+Review candidates, skips private life/family/health/intimate chunks by default,
+adds only a privacy-boundary candidate for those skipped chunks, and never
+writes durable memory, source files, embeddings, or full import text directly.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.
@@ -1001,6 +1007,7 @@ Implemented Alpha routes:
 - `POST /api/memory/search`
 - `POST /api/memory/conversation-change`
 - `POST /api/memory/conversation-candidates`
+- `POST /api/memory/chatgpt-summary/import`
 - `POST /api/memory/cards/{memory_id}/refresh-review`
 - `POST /api/memory/update-review`
 - `POST /api/memory/delete-review`

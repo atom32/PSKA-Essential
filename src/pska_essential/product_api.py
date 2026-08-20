@@ -30,6 +30,7 @@ from pska_essential.alpha_readiness import (
     update_alpha_first_run_session,
 )
 from pska_essential.capabilities import product_capabilities
+from pska_essential.chatgpt_memory_import import build_chatgpt_memory_summary_import
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
 from pska_essential.contracts import ContextPacket, MemoryFact, SourceRef, to_jsonable
@@ -183,6 +184,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
     {"method": "POST", "path": "/api/memory/conversation-candidates"},
+    {"method": "POST", "path": "/api/memory/chatgpt-summary/import"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-attribution"},
     {"method": "GET", "path": "/api/workflows/{run_id}/memory-suggestions"},
     {"method": "POST", "path": "/api/reviews/batch-decision"},
@@ -1623,6 +1625,22 @@ def _handler_class(state: ProductApiState):
                     candidate_limit=int(payload.get("candidate_limit") or 5),
                 )
                 self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/memory/chatgpt-summary/import":
+                payload = self._read_json()
+                result = build_chatgpt_memory_summary_import(
+                    state.service,
+                    text=str(payload.get("text") or ""),
+                    source_path=str(payload.get("source_path") or ""),
+                    source_label=str(payload.get("source_label") or ""),
+                    scope=_optional_dict(payload, "scope"),
+                    candidate_limit=int(payload.get("candidate_limit") or 12),
+                    dedupe_existing=_bool_value(payload.get("dedupe_existing"), True),
+                    include_private=_bool_value(payload.get("include_private"), False),
+                    create_privacy_boundary=_bool_value(payload.get("create_privacy_boundary"), True),
+                )
+                self._send_json({"ok": True, "chatgpt_memory_summary_import": result}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/memory/delete-review":
