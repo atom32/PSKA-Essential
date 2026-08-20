@@ -124,6 +124,36 @@ class ComponentCheckTests(unittest.TestCase):
         self.assertEqual(result["steps"][-1]["status"], "incomplete")
         self.assertEqual(service.store.list_audit_events(), [])
 
+    def test_connectivity_only_component_check_does_not_require_dataset_scope(self):
+        adapter = CompanyGraphRagStubAdapter()
+        service = WorkflowService(adapter, adapter, SQLiteReviewStore(":memory:"))
+
+        result = run_component_check(
+            service,
+            _ReadyGateway(),
+            dataset_ids=[],
+            require_memory=True,
+            run_closed_loop=True,
+            connectivity_only=True,
+        )
+
+        self.assertEqual(result["mode"], "connectivity_only")
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["memory_probe"]["status"], "ok")
+        self.assertIsNone(result["retrieval_probe"])
+        self.assertIsNone(result["closed_loop_probe"])
+        self.assertEqual(
+            [step["name"] for step in result["steps"]],
+            ["runtime.diagnostics", "memory.probe", "scope.check"],
+        )
+        self.assertEqual(result["steps"][-1]["status"], "skipped")
+        self.assertFalse(result["steps"][-1]["required"])
+        actions = {event.action for event in service.store.list_audit_events(limit=20)}
+        self.assertIn("memory.search", actions)
+        self.assertIn("memory.probe", actions)
+        self.assertNotIn("retrieval.probe", actions)
+        self.assertNotIn("closed_loop.probe", actions)
+
     def test_component_check_resolves_dataset_names_before_probes(self):
         adapter = CompanyGraphRagStubAdapter()
         service = WorkflowService(adapter, adapter, SQLiteReviewStore(":memory:"))

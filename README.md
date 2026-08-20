@@ -192,10 +192,18 @@ export RAGFLOW_BASE_URL=http://localhost:9380
 export RAGFLOW_API_KEY=...
 ```
 
-After a RAGFlow dataset is uploaded and ready, run a live component check:
+Before choosing a dataset, run a connectivity check to verify the selected live
+providers and memory adapter:
 
 ```bash
 make workspace-status ENV_FILE=.env.pska
+make live-connectivity-check ENV_FILE=.env.pska
+```
+
+After a RAGFlow dataset is uploaded and ready, run the full live component
+proof:
+
+```bash
 export PSKA_COMPONENT_DATASET_IDS=...
 # or:
 export PSKA_COMPONENT_DATASET_NAMES="ready dataset name"
@@ -205,7 +213,9 @@ make live-component-check
 make live-component-check ENV_FILE=.env.pska
 ```
 
-This command runs runtime diagnostics, memory search verification, retrieval
+The connectivity check runs runtime diagnostics and memory search verification
+without requiring a dataset scope. The full component proof runs runtime
+diagnostics, memory search verification, retrieval
 probe, and the live closed-loop probe in one structured result. It does not use
 fake providers as proof. A successful result means the configured live
 providers completed readiness, retrieval, agentic Ask, source inspection, and
@@ -795,13 +805,15 @@ daily memory capture does not disappear into generic pending reviews.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.
-`pska_component_check` is the full component proof path; if memory or
-closed-loop checks are skipped, the result is `incomplete` rather than a full
-success. Component-check, workspace-status, and live closed-loop CLI startup
-configuration errors are returned as structured JSON with a nonzero exit. A
-processing KB scope also returns `incomplete`, so long-running parsing,
-embedding, or indexing is reported as a readiness wait rather than a provider
-fallback or backend failure.
+`pska_component_check` is the full component proof path by default; if memory
+or closed-loop checks are skipped, the result is `incomplete` rather than a
+full success. Set `PSKA_COMPONENT_CONNECTIVITY_ONLY=1` or use
+`make live-connectivity-check` when you only need runtime/provider/memory
+connectivity without a dataset scope. Component-check, workspace-status, and
+live closed-loop CLI startup configuration errors are returned as structured
+JSON with a nonzero exit. A processing KB scope also returns `incomplete`, so
+long-running parsing, embedding, or indexing is reported as a readiness wait
+rather than a provider fallback or backend failure.
 `pska_alpha_readiness` is the product trial gate: it does not run writes or a
 closed-loop probe, but tells operators whether the current instance is ready for
 owner dogfooding, guided technical alpha, or only demo/development use.

@@ -466,18 +466,26 @@ Graphiti health check can pass while LLM or embedding provider configuration
 is still missing; diagnostics and the probe report that condition as a provider
 error instead of using fallback data.
 
+Use `make live-connectivity-check` when you only need a no-scope runtime
+connectivity check: Product API configuration, KB gateway reachability,
+retrieval provider health, memory provider configuration, and a live
+memory-search contract check. It sets `PSKA_COMPONENT_CONNECTIVITY_ONLY=1`,
+skips retrieval/closed-loop proof, and reports `mode=connectivity_only` so it
+cannot be mistaken for a sourced Ask proof.
+
 Use `make live-component-check`, `pska_component_check`, or
 `POST /api/runtime/component-check` when the question is whether the configured
-components can support the product loop. The component check runs runtime
-diagnostics, explicit memory probe, retrieval probe, and live closed-loop probe
-in one structured result. It exits successfully only when the full component
-proof passes; missing dataset scope, skipped core checks, fake live providers,
-memory search failures, and retrieval/Ask/export failures are surfaced as
-explicit step failures. Startup configuration errors, such as a selected
-RAGFlow provider without `RAGFLOW_API_KEY`, are returned as structured JSON with
-a nonzero exit instead of falling through to fake data. A selected scope that is
-still parsing, chunking, embedding, or indexing returns `incomplete`, not
-`error`, because the next action is to wait for KB readiness.
+components can support the product loop over a selected ready dataset. The
+component check runs runtime diagnostics, explicit memory probe, retrieval
+probe, and live closed-loop probe in one structured result. It exits
+successfully only when the full component proof passes; missing dataset scope,
+skipped core checks, fake live providers, memory search failures, and
+retrieval/Ask/export failures are surfaced as explicit step failures. Startup
+configuration errors, such as a selected RAGFlow provider without
+`RAGFLOW_API_KEY`, are returned as structured JSON with a nonzero exit instead
+of falling through to fake data. A selected scope that is still parsing,
+chunking, embedding, or indexing returns `incomplete`, not `error`, because the
+next action is to wait for KB readiness.
 The selected scope can be provided as `PSKA_COMPONENT_DATASET_IDS` or
 `PSKA_COMPONENT_DATASET_NAMES`. Dataset names are resolved through the
 configured KB gateway, and unresolved or ambiguous names return `incomplete`
@@ -536,11 +544,11 @@ on fake adapters or silent provider fallback.
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow
 export PSKA_KB_PROVIDER=ragflow
-export PSKA_MEMORY_PROVIDER=graphiti
+export PSKA_MEMORY_PROVIDER=gbrain
 export RAGFLOW_BASE_URL=http://127.0.0.1:9380
 export RAGFLOW_API_KEY=...
-export GRAPHITI_BASE_URL=http://127.0.0.1:8000
-export GRAPHITI_GROUP_ID=pska-essential
+export GBRAIN_MCP_URL=http://127.0.0.1:3131/mcp
+export GBRAIN_MCP_TOKEN=...
 export PSKA_LOOP_DATASET_NAME="live-upload-test"
 export PSKA_LOOP_FILE_PATHS="/path/to/document.pdf"
 export PSKA_LOOP_QUESTION="Summarize the uploaded documents with sources."
@@ -558,6 +566,7 @@ make live-closed-loop
 
 # Equivalent explicit env-file form:
 make workspace-status ENV_FILE=.env.pska
+make live-connectivity-check ENV_FILE=.env.pska
 make live-ingest-loop ENV_FILE=.env.pska
 make live-ingest-loop-resume ENV_FILE=.env.pska
 make live-component-check ENV_FILE=.env.pska

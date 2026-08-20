@@ -52,6 +52,7 @@ def run_component_check(
     source_inspection_limit: int = 1,
     require_memory: bool = True,
     run_closed_loop: bool = True,
+    connectivity_only: bool = False,
 ) -> dict[str, Any]:
     requested_dataset_ids = _normalized_ids(dataset_ids or [])
     requested_dataset_names = _normalized_ids(dataset_names or [])
@@ -74,7 +75,7 @@ def run_component_check(
         "runtime.diagnostics",
         str(diagnostics.get("status") or "unknown"),
         "Runtime diagnostics completed.",
-        required=False,
+        required=connectivity_only,
         providers=diagnostics.get("providers") or {},
         adapter_slots=((diagnostics.get("capabilities") or {}).get("adapter_slots") or {}).get("summary") or {},
     )
@@ -98,6 +99,44 @@ def run_component_check(
         )
     else:
         add_step("memory.probe", "skipped", "Memory probe skipped by configuration.")
+
+    if connectivity_only:
+        scope_resolution = {
+            "dataset_ids": requested_dataset_ids,
+            "dataset_names": requested_dataset_names,
+            "resolved_dataset_names": [],
+            "unresolved_dataset_names": [],
+            "ambiguous_dataset_names": [],
+        }
+        add_step(
+            "scope.check",
+            "skipped",
+            "Dataset scope is not required for a connectivity-only component check.",
+            required=False,
+            dataset_ids=requested_dataset_ids,
+            dataset_names=requested_dataset_names,
+        )
+        status = _component_status(steps)
+        return {
+            "kind": "component_check",
+            "mode": "connectivity_only",
+            "status": status,
+            "message": _component_message(status),
+            "providers": {
+                **(diagnostics.get("providers") or {}),
+                "kb": str(getattr(gateway, "backend_name", None) or (diagnostics.get("providers") or {}).get("kb") or ""),
+            },
+            "scope": {
+                **scope_resolution,
+                "document_ids": selected_document_ids,
+                "use_kg": bool(use_kg),
+            },
+            "steps": steps,
+            "diagnostics": diagnostics,
+            "memory_probe": memory_probe,
+            "retrieval_probe": None,
+            "closed_loop_probe": None,
+        }
 
     try:
         scope_resolution = resolve_dataset_scope(
@@ -186,6 +225,7 @@ def run_component_check(
     status = _component_status(steps)
     return {
         "kind": "component_check",
+        "mode": "full_component_proof",
         "status": status,
         "message": _component_message(status),
         "providers": {
@@ -236,6 +276,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         require_memory=not _env_enabled("PSKA_COMPONENT_SKIP_MEMORY"),
         run_closed_loop=not _env_enabled("PSKA_COMPONENT_SKIP_CLOSED_LOOP"),
+        connectivity_only=_env_enabled("PSKA_COMPONENT_CONNECTIVITY_ONLY"),
     )
     print(json.dumps(to_jsonable(result), ensure_ascii=False, indent=2))
     return 0 if result.get("status") == "ok" else 2
@@ -245,9 +286,11 @@ def _component_status(steps: list[dict[str, Any]]) -> str:
     required = [step for step in steps if step.get("required")]
     if any(step.get("status") in _INCOMPLETE_STEP_STATUSES for step in required):
         return "incomplete"
-    if any(step.get("status") == "error" for step in steps):
+    if any(step.get("status") == "error" for step in required):
         return "error"
-    if any(step.get("status") not in {"ok"} for step in required):
+    if any(step.get("status") not in {"ok", "warning"} for step in required):
+        return "error"
+    if any(step.get("status") == "error" for step in steps):
         return "error"
     if any(step.get("status") == "warning" for step in steps):
         return "warning"
