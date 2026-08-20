@@ -450,6 +450,8 @@ GET  /api/memory/{memory_id}/timeline
 GET  /api/trace/query
 GET  /api/wakeup/plan
 GET  /api/observability/metrics
+GET  /api/sources/recall-eval
+POST /api/sources/recall-eval
 POST /api/hermes/answer-proofs
 GET  /api/hermes/answer-proofs
 POST /api/agentic/context-brief
@@ -526,6 +528,7 @@ pska_eidolia_memory_review_create      # Done: thought/artifact -> governed Memo
 pska_trace_query                       # Done: audit/review/source/memory/Eidolia derived trace
 pska_trace_coverage                    # Done: recent audit coverage by PSKA category
 pska_observability_metrics             # Done: source/recall/duplicate/eval/proof/memory metrics
+pska_source_recall_eval                # Done: fixture/provided source recall case eval
 pska_eidolia_project_trace_import      # Done: explicit project files -> SourceRef/audit trace
 ```
 
@@ -616,6 +619,13 @@ matrix，并给出 activation gates。结论保持 `sqlite_fts5` 为默认 provi
 Tantivy 只是已评估候选，不创建索引、不写 source registry、不写源文件、不写
 Memory，也不允许 Hermes/agent 覆盖默认 provider。
 
+2026-08-21 P5-Recall 更新：新增 `pska_source_recall_eval` 与
+`GET/POST /api/sources/recall-eval`。GET fixture 使用隔离临时 source root
+验证 finance report、Eidolia 创作、PSKA/GBrain memory 和 expected-zero 四类
+召回用例；POST/MCP 支持传入真实 `query` + `expected_paths` case 来评估当前
+indexed source roots。该评测只写 audit event，不扫描 live roots，不写 source
+files，不写 Memory，不创建 Review，不依赖 embedding。
+
 ### 7.9 Jobs And Wakeup
 
 当前 SQLite job ledger 可以覆盖开发机和单用户场景。升级路线：
@@ -653,7 +663,8 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
   zero-result metrics 已通过 `pska_observability_metrics` 聚合。
 - Done baseline: duplicate report/review/cleanup proposal 指标已通过
   `pska_observability_metrics` 聚合；真实删除/合并仍不支持。
-- RAG/source recall eval cases。
+- Done baseline: RAG/source recall eval cases 已通过 `pska_source_recall_eval`
+  覆盖 fixture 和 provided cases。
 
 成熟组件：
 
@@ -873,6 +884,9 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: `pska_observability_metrics` / `GET /api/observability/metrics`
   增加只读审计指标报告，覆盖 source extraction failure、source recall
   zero result、duplicate review、eval failure、answer proof check 和 memory use。
+- Done: `pska_source_recall_eval` / `GET/POST /api/sources/recall-eval`
+  增加 source recall 用例评测，默认 fixture 覆盖财报、Eidolia 创作、
+  PSKA/GBrain memory 和 expected-zero 场景，provided cases 可验证真实 source roots。
 - OpenTelemetry optional tracing。
 - Phoenix/Ragas/DeepEval eval adapters。
 - 显式安装后的 launchd/cron 调用 source audit tick。
@@ -880,6 +894,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done baseline: source audit due tick wakeup plan/status。
 - Done baseline: source extraction failure、duplicate review、RAG/source recall
   zero result 的 audit-backed metrics。
+- Done baseline: RAG/source recall fixture/provided eval cases。
 
 验收：
 
@@ -892,6 +907,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done baseline: 最近 source extraction/source recall/duplicate/eval/proof/memory
   表现可通过 `pska_observability_metrics` 检查；OpenTelemetry/Phoenix/Ragas/
   DeepEval 外部适配仍是 optional。
+- Done baseline: “是否真的查到了指定来源”可通过 `pska_source_recall_eval`
+  的 fixture/provided cases 验证；外部 Ragas/DeepEval 仍是 optional。
 
 ### Phase 6: Cloud Connectors And Optional Temporal Graph Memory
 

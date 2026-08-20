@@ -141,10 +141,12 @@ async function main() {
     && jsAsset.text.includes("/api/jobs/health?include_kb=false")
     && jsAsset.text.includes("/api/wakeup/plan")
     && jsAsset.text.includes("/api/observability/metrics?limit=300")
+    && jsAsset.text.includes("/api/sources/recall-eval?mode=fixture&limit=5")
     && jsAsset.text.includes("jobHealthStatusLabel")
     && jsAsset.text.includes("jobHealthCount")
     && jsAsset.text.includes("wakeupStatusLabel")
     && jsAsset.text.includes("observabilityMetricsStatusLabel")
+    && jsAsset.text.includes("sourceRecallEvalStatusLabel")
     && jsAsset.text.includes("renderAnswerProofs")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
@@ -212,6 +214,15 @@ async function main() {
       && json.observability_metrics?.data_flow?.writes_memory_directly === false
       && json.observability_metrics?.data_flow?.runs_jobs === false
       && json.observability_metrics?.data_flow?.exports_external_trace === false,
+  );
+  await testJson("Dashboard: source recall eval", "/api/extensions/pska-mini/sidecar/api/sources/recall-eval?mode=fixture&limit=5", {}, (json, response) =>
+    response.ok
+      && json?.source_recall_eval?.schema === "pska.source_recall_eval.v1"
+      && json.source_recall_eval?.status === "ok"
+      && json.source_recall_eval?.data_flow?.read_only === true
+      && json.source_recall_eval?.data_flow?.writes_source_files === false
+      && json.source_recall_eval?.data_flow?.writes_memory_directly === false
+      && json.source_recall_eval?.data_flow?.embedding_required === false,
   );
   await testJson("Dashboard: alpha readiness", "/api/extensions/pska-mini/sidecar/api/alpha/readiness", {}, (json, response) =>
     response.ok

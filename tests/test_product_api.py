@@ -322,6 +322,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/roots/{root_id}/scan"), contract_routes)
         self.assertIn(("POST", "/api/sources/search"), contract_routes)
         self.assertIn(("GET", "/api/sources/search-index/evaluation"), contract_routes)
+        self.assertIn(("GET", "/api/sources/recall-eval"), contract_routes)
+        self.assertIn(("POST", "/api/sources/recall-eval"), contract_routes)
         self.assertIn(("POST", "/api/sources/neighbors"), contract_routes)
         self.assertIn(("POST", "/api/sources/duplicates"), contract_routes)
         self.assertIn(("POST", "/api/sources/duplicate-review"), contract_routes)
@@ -364,9 +366,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m36_observability_metrics")
+        self.assertEqual(source_layer["status"], "m37_source_recall_eval")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_recall_eval", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", source_layer["mcp_tools"]["implemented"])
@@ -426,13 +429,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(tantivy_search["maturity"], "evaluated_candidate")
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m38_observability_metrics")
+        self.assertEqual(assistant_layer["status"], "m39_source_recall_eval")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_agentic_context_brief", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief_list", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_specialist_profiles", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_hermes_answer_proofs", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_recall_eval", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_readiness", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", assistant_layer["mcp_tools"]["implemented"])
@@ -494,6 +498,15 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_source_registry"])
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_memory_directly"])
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["creates_index"])
+        self.assertEqual(tool_policy["pska_source_recall_eval"]["access"], "read")
+        self.assertTrue(tool_policy["pska_source_recall_eval"]["audit_backed"])
+        self.assertTrue(tool_policy["pska_source_recall_eval"]["evaluates_source_recall_cases"])
+        self.assertTrue(tool_policy["pska_source_recall_eval"]["supports_provided_cases"])
+        self.assertFalse(tool_policy["pska_source_recall_eval"]["writes_source_files"])
+        self.assertFalse(tool_policy["pska_source_recall_eval"]["writes_source_registry"])
+        self.assertFalse(tool_policy["pska_source_recall_eval"]["writes_memory_directly"])
+        self.assertFalse(tool_policy["pska_source_recall_eval"]["runs_jobs"])
+        self.assertFalse(tool_policy["pska_source_recall_eval"]["embedding_required"])
         self.assertEqual(tool_policy["pska_trace_coverage"]["access"], "read")
         self.assertTrue(tool_policy["pska_trace_coverage"]["audit_backed"])
         self.assertFalse(tool_policy["pska_trace_coverage"]["writes_source_files"])
@@ -942,6 +955,21 @@ class ProductApiTests(unittest.TestCase):
                 {"query": "Hermes personal source", "scope": {"root_ids": [registered["root"]["root_id"]]}},
             )
             search_index_evaluation = self._get_json("/api/sources/search-index/evaluation")
+            recall_fixture_eval = self._get_json("/api/sources/recall-eval?mode=fixture&limit=5")
+            recall_provided_eval = self._post_json(
+                "/api/sources/recall-eval",
+                {
+                    "scope": {"root_ids": [registered["root"]["root_id"]]},
+                    "cases": [
+                        {
+                            "case_id": "architecture_source",
+                            "query": "Hermes personal source route architecture",
+                            "expected_paths": ["Architecture.md"],
+                        }
+                    ],
+                    "limit": 5,
+                },
+            )
             architecture_packet = next(
                 packet
                 for packet in searched["context_packets"]
@@ -1146,6 +1174,18 @@ class ProductApiTests(unittest.TestCase):
         self.assertGreaterEqual(evaluation["source_index_stats"]["active_object_count"], 6)
         self.assertGreaterEqual(evaluation["source_index_stats"]["indexed_section_count"], 6)
         self.assertIn("tantivy", {provider["name"] for provider in evaluation["provider_matrix"]})
+        fixture_eval = recall_fixture_eval["source_recall_eval"]
+        self.assertEqual(fixture_eval["schema"], "pska.source_recall_eval.v1")
+        self.assertEqual(fixture_eval["status"], "ok")
+        self.assertTrue(fixture_eval["data_flow"]["uses_isolated_fixture"])
+        self.assertFalse(fixture_eval["data_flow"]["writes_source_files"])
+        self.assertFalse(fixture_eval["data_flow"]["writes_memory_directly"])
+        provided_eval = recall_provided_eval["source_recall_eval"]
+        self.assertEqual(provided_eval["schema"], "pska.source_recall_eval.v1")
+        self.assertEqual(provided_eval["status"], "ok")
+        self.assertEqual(provided_eval["summary"]["passed_case_count"], 1)
+        self.assertFalse(provided_eval["data_flow"]["writes_source_files"])
+        self.assertFalse(provided_eval["data_flow"]["writes_memory_directly"])
         self.assertIn("match_reason", architecture_packet["metadata"])
         self.assertIn("rank_boost", architecture_packet["metadata"])
         self.assertIn("snippet_plain", architecture_packet["metadata"])
@@ -1258,6 +1298,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source.audit_job.run", actions)
         self.assertIn("source.extraction_job.enqueue", actions)
         self.assertIn("source.extraction_job.run", actions)
+        self.assertIn("source.recall_eval.run", actions)
         self.assertIn("source.obsidian_moc.propose", actions)
         self.assertIn("source.obsidian_moc.apply", actions)
         coverage = trace_coverage["trace_coverage"]

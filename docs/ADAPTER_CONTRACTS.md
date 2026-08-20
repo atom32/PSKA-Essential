@@ -212,6 +212,12 @@ Rules:
   reasons, rebuild, and rollback before replacing `sqlite_fts5`.
 - Embedding indexes remain optional caches, not a prerequisite for local source
   retrieval.
+- `pska_source_recall_eval` is the implemented read-only recall-case baseline.
+  It runs fixture or caller-provided query/expected-path cases through the
+  current PSKA source search contract, records only audit events, and reports
+  missed expected sources, expected-zero failures, forbidden hits, and
+  unintended embedding dependency. It does not scan live roots, write source
+  files, write memory, create reviews, run jobs, or replace the search index.
 
 ### DedupPort
 
@@ -438,6 +444,7 @@ The current public tool surface is:
 - `pska_source_root_register`
 - `pska_source_scan`
 - `pska_source_search`
+- `pska_source_recall_eval`
 - `pska_source_neighbors`
 - `pska_duplicate_report`
 - `pska_source_audit_run`
@@ -485,6 +492,7 @@ The current public tool surface is:
 - `pska_memory_why_used`
 - `pska_trace_coverage`
 - `pska_observability_metrics`
+- `pska_source_recall_eval`
 - `pska_workflow_memory_attribution`
 - `pska_workflow_memory_suggestions`
 - `pska_memory_apply`
@@ -646,6 +654,11 @@ events into source extraction, source recall, duplicate review, eval, answer
 proof, memory use, and memory governance metrics. It is intentionally separate
 from external trace exporters: reading it does not run jobs, activate due jobs,
 write source files, write memory, create reviews, or export traces.
+`pska_source_recall_eval` and `GET/POST /api/sources/recall-eval` provide the
+Phase 5 source recall case baseline. The GET fixture checks finance-report,
+Eidolia-writing, PSKA/GBrain-memory, and expected-zero examples in an isolated
+temporary source root. The POST/MCP path accepts real query/expected path cases
+and evaluates current indexed roots without scanning or writing them.
 `pska_source_extract_job_enqueue`, `pska_source_extract_job_list`, and
 `pska_source_extract_job_run` provide the PSKA-owned source extraction queue.
 Jobs run a selected extractor through `pska_source_scan`, update rebuildable

@@ -40,6 +40,7 @@ EXPECTED_TOOLS = {
     "pska_source_scan",
     "pska_source_search",
     "pska_search_index_evaluation",
+    "pska_source_recall_eval",
     "pska_source_neighbors",
     "pska_duplicate_report",
     "pska_duplicate_review_list",
@@ -139,7 +140,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m38_observability_metrics")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m39_source_recall_eval")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -149,6 +150,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_agentic_context_brief_list", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_specialist_profiles", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", capabilities["source_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_source_recall_eval", capabilities["source_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_coverage", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_observability_metrics", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_job_health", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -161,6 +163,13 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(evaluation["data_flow"]["writes_source_registry"])
         self.assertFalse(evaluation["data_flow"]["writes_memory_directly"])
         self.assertFalse(evaluation["data_flow"]["creates_index"])
+        recall_eval = tools["pska_source_recall_eval"](mode="fixture", limit=5)
+        self.assertEqual(recall_eval["schema"], "pska.source_recall_eval.v1")
+        self.assertEqual(recall_eval["status"], "ok")
+        self.assertTrue(recall_eval["data_flow"]["read_only"])
+        self.assertFalse(recall_eval["data_flow"]["writes_source_files"])
+        self.assertFalse(recall_eval["data_flow"]["writes_memory_directly"])
+        self.assertFalse(recall_eval["data_flow"]["embedding_required"])
         coverage = tools["pska_trace_coverage"](limit=20)
         self.assertEqual(coverage["schema"], "pska.trace_coverage.v1")
         self.assertTrue(coverage["data_flow"]["read_only"])
@@ -503,6 +512,15 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_search_index_evaluation"]["writes_source_registry"])
         self.assertFalse(policy["pska_search_index_evaluation"]["writes_memory_directly"])
         self.assertFalse(policy["pska_search_index_evaluation"]["creates_index"])
+        self.assertEqual(policy["pska_source_recall_eval"]["access"], "read")
+        self.assertTrue(policy["pska_source_recall_eval"]["audit_backed"])
+        self.assertTrue(policy["pska_source_recall_eval"]["evaluates_source_recall_cases"])
+        self.assertTrue(policy["pska_source_recall_eval"]["supports_provided_cases"])
+        self.assertFalse(policy["pska_source_recall_eval"]["writes_source_files"])
+        self.assertFalse(policy["pska_source_recall_eval"]["writes_source_registry"])
+        self.assertFalse(policy["pska_source_recall_eval"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_source_recall_eval"]["runs_jobs"])
+        self.assertFalse(policy["pska_source_recall_eval"]["embedding_required"])
         self.assertEqual(policy["pska_trace_coverage"]["access"], "read")
         self.assertTrue(policy["pska_trace_coverage"]["audit_backed"])
         self.assertFalse(policy["pska_trace_coverage"]["writes_source_files"])

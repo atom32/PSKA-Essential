@@ -64,6 +64,7 @@
     jobHealth: null,
     wakeupPlan: null,
     observabilityMetrics: null,
+    sourceRecallEval: null,
     scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
@@ -767,6 +768,7 @@
     const jobs = jobHealth();
     const wakeup = wakeupPlan();
     const metrics = observabilityMetrics();
+    const recallEval = sourceRecallEval();
     const alpha = alphaReadiness();
     container.innerHTML = `
       <div class="pska-mini-page-pills">
@@ -778,6 +780,7 @@
         <span class="pska-mini-pill is-${escapeAttr(jobHealthTone(jobs))}" title="${escapeAttr(jobHealthTitle(jobs))}"><b>Jobs</b> ${escapeHtml(jobHealthStatusLabel(jobs))}</span>
         <span class="pska-mini-pill is-${escapeAttr(wakeupTone(wakeup))}" title="${escapeAttr(wakeupTitle(wakeup))}"><b>Wakeup</b> ${escapeHtml(wakeupStatusLabel(wakeup))}</span>
         <span class="pska-mini-pill is-${escapeAttr(observabilityMetricsTone(metrics))}" title="${escapeAttr(observabilityMetricsTitle(metrics))}"><b>Metrics</b> ${escapeHtml(observabilityMetricsStatusLabel(metrics))}</span>
+        <span class="pska-mini-pill is-${escapeAttr(sourceRecallEvalTone(recallEval))}" title="${escapeAttr(sourceRecallEvalTitle(recallEval))}"><b>Recall</b> ${escapeHtml(sourceRecallEvalStatusLabel(recallEval))}</span>
         <span class="pska-mini-pill is-${escapeAttr(alphaTone(alpha))}" title="${escapeAttr(alphaTitle(alpha))}"><b>Alpha</b> ${escapeHtml(alphaStatusLabel(alpha))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
@@ -785,6 +788,7 @@
       ${jobHealthWarning(jobs)}
       ${wakeupWarning(wakeup)}
       ${observabilityMetricsWarning(metrics)}
+      ${sourceRecallEvalWarning(recallEval)}
       ${memoryPage.error ? `<div class="pska-mini-warning">${escapeHtml(memoryPage.error)}</div>` : ""}
     `;
     const statusSelect = document.getElementById("pskaMiniReviewStatus");
@@ -1148,6 +1152,7 @@
       jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: 5000 }),
       wakeupPlan: pskaMiniFetchJson("/api/wakeup/plan", { timeoutMs: 5000 }),
       observabilityMetrics: pskaMiniFetchJson("/api/observability/metrics?limit=300", { timeoutMs: 5000 }),
+      sourceRecallEval: pskaMiniFetchJson("/api/sources/recall-eval?mode=fixture&limit=5", { timeoutMs: 5000 }),
       alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 5000 }),
       diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 5000 })
     });
@@ -1164,6 +1169,7 @@
       jobHealth: valueOrNull(results.jobHealth)?.job_health || null,
       wakeupPlan: valueOrNull(results.wakeupPlan)?.wakeup_plan || null,
       observabilityMetrics: valueOrNull(results.observabilityMetrics)?.observability_metrics || null,
+      sourceRecallEval: valueOrNull(results.sourceRecallEval)?.source_recall_eval || null,
       alphaReadiness: valueOrNull(results.alphaReadiness)?.alpha_readiness || null,
       scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
@@ -1204,6 +1210,7 @@
           <span class="pska-mini-pill is-warn"><b>Jobs</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Wakeup</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Metrics</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>Recall</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Alpha</b> checking</span>
         </div>
         <div class="pska-mini-muted">Refreshing PSKA workspace status...</div>
@@ -1221,6 +1228,7 @@
     const jobs = jobHealth();
     const wakeup = wakeupPlan();
     const metrics = observabilityMetrics();
+    const recallEval = sourceRecallEval();
     const alpha = alphaReadiness();
     const statusItems = [
       ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad", ""],
@@ -1231,6 +1239,7 @@
       ["Jobs", jobHealthStatusLabel(jobs), jobHealthTone(jobs), jobHealthTitle(jobs)],
       ["Wakeup", wakeupStatusLabel(wakeup), wakeupTone(wakeup), wakeupTitle(wakeup)],
       ["Metrics", observabilityMetricsStatusLabel(metrics), observabilityMetricsTone(metrics), observabilityMetricsTitle(metrics)],
+      ["Recall", sourceRecallEvalStatusLabel(recallEval), sourceRecallEvalTone(recallEval), sourceRecallEvalTitle(recallEval)],
       ["Alpha", alphaStatusLabel(alpha), alphaTone(alpha), alphaTitle(alpha)]
     ];
     container.innerHTML = `
@@ -1245,6 +1254,7 @@
       ${jobHealthWarning(jobs)}
       ${wakeupWarning(wakeup)}
       ${observabilityMetricsWarning(metrics)}
+      ${sourceRecallEvalWarning(recallEval)}
       ${Object.keys(dashboard.errors).length ? `
         <div class="pska-mini-warning">${Object.entries(dashboard.errors).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join("<br>")}</div>
       ` : ""}
@@ -1457,6 +1467,51 @@
       .map((group) => `${group.id || group.label || "metrics"}: ${group.status}`);
     if (!groups.length) return "";
     return `<div class="pska-mini-warning">Metrics: ${escapeHtml(groups.join(" · "))}</div>`;
+  }
+
+  function sourceRecallEval() {
+    return dashboard.sourceRecallEval || null;
+  }
+
+  function sourceRecallEvalStatusLabel(evalReport) {
+    if (!evalReport) return "not visible";
+    const summary = evalReport.summary || {};
+    if (evalReport.status === "ok") {
+      return `${Number(summary.passed_case_count || 0)}/${Number(summary.case_count || 0)}`;
+    }
+    if (evalReport.status === "needs_attention") {
+      return `${Number(summary.failed_case_count || 0)} failed`;
+    }
+    if (evalReport.status === "no_cases") return "no cases";
+    return String(evalReport.status || "unknown");
+  }
+
+  function sourceRecallEvalTone(evalReport) {
+    const status = String(evalReport?.status || "");
+    if (!evalReport) return "bad";
+    if (status === "ok") return "ok";
+    if (status === "no_cases") return "warn";
+    return "bad";
+  }
+
+  function sourceRecallEvalTitle(evalReport) {
+    if (!evalReport) return "PSKA source recall eval is not visible in Product API.";
+    const summary = evalReport.summary || {};
+    return [
+      String(evalReport.status || "unknown"),
+      `${summary.passed_case_count || 0}/${summary.case_count || 0} passed`,
+      `${summary.expected_hit_count || 0} expected hits`,
+      `${summary.forbidden_hit_count || 0} wrong hits`
+    ].join(" · ");
+  }
+
+  function sourceRecallEvalWarning(evalReport) {
+    if (!evalReport || evalReport.status !== "needs_attention") return "";
+    const failedIds = (Array.isArray(evalReport.cases) ? evalReport.cases : [])
+      .filter((item) => item?.status !== "ok")
+      .slice(0, 3)
+      .map((item) => item.case_id || "case");
+    return `<div class="pska-mini-warning">Recall: ${escapeHtml(failedIds.join(" · ") || "check failed cases")}</div>`;
   }
 
   function alphaReadiness() {

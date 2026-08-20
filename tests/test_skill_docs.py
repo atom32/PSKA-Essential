@@ -36,6 +36,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_source_audit_schedule_create", text)
         self.assertIn("pska_wakeup_plan", text)
         self.assertIn("pska_observability_metrics", text)
+        self.assertIn("pska_source_recall_eval", text)
         self.assertIn("pska_source_audit_job_tick", text)
         self.assertIn("pska_source_audit_job_run", text)
         self.assertIn("pska_source_extract_job_enqueue", text)
@@ -307,6 +308,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_source_root_register",
             "pska_source_scan",
             "pska_source_search",
+            "pska_source_recall_eval",
             "pska_source_neighbors",
             "pska_duplicate_report",
             "pska_source_audit_run",

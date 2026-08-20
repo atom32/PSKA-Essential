@@ -48,7 +48,7 @@ GROUP_RULES: tuple[dict[str, Any], ...] = (
     {
         "id": "eval",
         "label": "Evaluation",
-        "actions": ("eval.run",),
+        "actions": ("eval.run", "source.recall_eval.run"),
         "zero_result_keys": (),
     },
     {
@@ -206,6 +206,7 @@ def _group_metrics(
             {
                 "ok_count": sum(1 for event in events if _metadata_bool(event, "ok") is True),
                 "failed_count": len(failed),
+                "source_recall_eval_count": _action_counts(events).get("source.recall_eval.run", 0),
                 "suite_counts": _metadata_value_counts(events, "suite"),
                 "failed_step_count": sum(len(_metadata_list(event, "failed_steps")) for event in events),
             }
@@ -380,7 +381,7 @@ def _next_actions(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _event_failed(event: Any) -> bool:
     status = _metadata_status(event)
     metadata = dict(getattr(event, "metadata", {}) or {})
-    if status in {"failed", "failure", "error", "exception", "cancelled", "blocked"}:
+    if status in {"failed", "failure", "error", "exception", "cancelled", "blocked", "needs_attention"}:
         return True
     if _metadata_bool(event, "ok") is False:
         return True

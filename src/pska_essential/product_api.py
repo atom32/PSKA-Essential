@@ -85,6 +85,7 @@ from pska_essential.source_extraction_jobs import (
     list_source_extraction_jobs,
     run_source_extraction_job,
 )
+from pska_essential.source_recall_eval import build_source_recall_eval
 from pska_essential.search_index_evaluation import build_search_index_evaluation
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
@@ -142,6 +143,8 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/roots/{root_id}/scan"},
     {"method": "POST", "path": "/api/sources/search"},
     {"method": "GET", "path": "/api/sources/search-index/evaluation"},
+    {"method": "GET", "path": "/api/sources/recall-eval"},
+    {"method": "POST", "path": "/api/sources/recall-eval"},
     {"method": "POST", "path": "/api/sources/neighbors"},
     {"method": "POST", "path": "/api/sources/duplicates"},
     {"method": "POST", "path": "/api/sources/duplicate-review"},
@@ -1150,6 +1153,38 @@ def _handler_class(state: ProductApiState):
                     {
                         "ok": True,
                         "evaluation": build_search_index_evaluation(state.service),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/sources/recall-eval":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "source_recall_eval": build_source_recall_eval(
+                            state.service,
+                            mode=str(query.get("mode") or "fixture"),
+                            limit=_int_param(query.get("limit"), 5),
+                        ),
+                    }
+                )
+                return
+
+            if method == "POST" and path == "/api/sources/recall-eval":
+                payload = self._read_json()
+                raw_cases = payload.get("cases") or []
+                if not isinstance(raw_cases, list):
+                    raise ApiError("cases must be a JSON array", HTTPStatus.BAD_REQUEST)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "source_recall_eval": build_source_recall_eval(
+                            state.service,
+                            cases=raw_cases,
+                            scope=_optional_dict(payload, "scope"),
+                            mode=str(payload.get("mode") or "provided"),
+                            limit=int(payload.get("limit") or 5),
+                        ),
                     }
                 )
                 return

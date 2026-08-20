@@ -73,6 +73,7 @@ from pska_essential.source_extraction_jobs import (
     list_source_extraction_jobs,
     run_source_extraction_job,
 )
+from pska_essential.source_recall_eval import build_source_recall_eval
 from pska_essential.search_index_evaluation import build_search_index_evaluation
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
@@ -150,6 +151,20 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_search_index_evaluation():
         return build_search_index_evaluation(service)
+
+    def pska_source_recall_eval(
+        cases: list[dict[str, Any]] | None = None,
+        scope: dict[str, Any] | None = None,
+        mode: str = "fixture",
+        limit: int = 5,
+    ):
+        return build_source_recall_eval(
+            service,
+            cases=cases or None,
+            scope=scope or {},
+            mode=mode,
+            limit=limit,
+        )
 
     def pska_trace_coverage(limit: int = 200):
         return build_trace_coverage(service, limit=limit)
@@ -1465,6 +1480,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_scan": pska_source_scan,
         "pska_source_search": pska_source_search,
         "pska_search_index_evaluation": pska_search_index_evaluation,
+        "pska_source_recall_eval": pska_source_recall_eval,
         "pska_trace_coverage": pska_trace_coverage,
         "pska_observability_metrics": pska_observability_metrics,
         "pska_wakeup_plan": pska_wakeup_plan,

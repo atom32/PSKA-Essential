@@ -96,6 +96,13 @@ candidate memory, review, and durable export.
   export.
 - Use `pska_provider_jobs` when the user asks what is still processing, queued,
   failed, or ready across KB ingestion and PSKA digest jobs.
+- Use `pska_source_recall_eval` when the user asks whether PSKA actually finds
+  the expected source files, when a demo/query appears to have missed evidence,
+  or when you need a small regression set for source recall. Use fixture mode
+  for a PSKA self-check, and provided cases with `query` plus `expected_paths`
+  for real user roots. Treat it as read-only source evaluation: it records audit
+  events but does not scan roots, write source files, write memory, create
+  reviews, run jobs, or require embeddings.
 - Use `pska_observability_metrics` when the user asks where PSKA recently
   failed, why source recall looks weak, whether extraction is silently failing,
   whether duplicate-review work is piling up, or whether answer proof/eval

@@ -48,6 +48,16 @@ recall, source-route memory retrieval, why-used traceability, and read-only
 writeback refusal in an isolated fake service. The bare CLI form does not
 require live provider env; Product API/MCP invocation records only the outer
 `eval.run` result on the caller service.
+For source recall case regression, call Product API
+`GET /api/sources/recall-eval?mode=fixture&limit=5` or MCP
+`pska_source_recall_eval(mode="fixture")`. The fixture suite uses isolated
+temporary documents for finance-report, Eidolia-writing, PSKA/GBrain memory,
+and expected-zero cases. To evaluate real source roots without scanning or
+writing them, call `POST /api/sources/recall-eval` or MCP
+`pska_source_recall_eval(cases=[...], scope={...})` with cases containing
+`query` and `expected_paths`. The report writes only PSKA audit events; it does
+not write source files, write memory, create reviews, run jobs, or require
+embeddings.
 To inspect whether recent governed operations are recoverable from PSKA audit
 traces, call Product API `GET /api/observability/trace-coverage?limit=200` or
 MCP `pska_trace_coverage(limit=200)`. The report is read-only and summarizes

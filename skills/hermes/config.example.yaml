@@ -29,6 +29,7 @@ mcp_servers:
         - pska_source_root_register
         - pska_source_scan
         - pska_source_search
+        - pska_source_recall_eval
         - pska_source_neighbors
         - pska_duplicate_report
         - pska_source_audit_run

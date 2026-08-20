@@ -126,6 +126,24 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "evaluates_optional_adapters": True,
         "default_provider": "sqlite_fts5",
     },
+    "pska_source_recall_eval": {
+        "category": "source",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "evaluates_source_recall_cases": True,
+        "default_mode": "fixture",
+        "supports_provided_cases": True,
+        "writes_audit_events": True,
+        "writes_source_files": False,
+        "writes_source_registry": False,
+        "writes_memory_directly": False,
+        "creates_review": False,
+        "runs_jobs": False,
+        "activates_due_jobs": False,
+        "exports_external_trace": False,
+        "embedding_required": False,
+    },
     "pska_source_neighbors": {
         "category": "source",
         "access": "read",
@@ -863,7 +881,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m36_observability_metrics",
+        "status": "m37_source_recall_eval",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -877,6 +895,7 @@ def source_layer_contract() -> dict[str, Any]:
                 "pska_source_scan",
                 "pska_source_search",
                 "pska_search_index_evaluation",
+                "pska_source_recall_eval",
                 "pska_source_read",
                 "pska_source_neighbors",
                 "pska_duplicate_report",
@@ -954,7 +973,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m38_observability_metrics",
+        "status": "m39_source_recall_eval",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -985,6 +1004,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_source_extract_job_run",
                 "pska_source_watch_once",
                 "pska_search_index_evaluation",
+                "pska_source_recall_eval",
                 "pska_obsidian_moc_propose",
                 "pska_obsidian_moc_apply",
                 "pska_memory_card_list",
