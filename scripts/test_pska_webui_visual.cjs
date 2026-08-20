@@ -206,6 +206,21 @@ async function runDesktop(context, checks, artifacts) {
   artifacts.desktopSourceRecall = path.join(OUT_DIR, "desktop-source-recall.png");
   await page.screenshot({ path: artifacts.desktopSourceRecall, fullPage: false });
 
+  await page.click("#pskaMiniAgenticBrief");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#pskaMiniPreviewBox")?.innerText || "";
+    return /Agentic Brief/iu.test(text) && /Specialists:/iu.test(text);
+  }, { timeout: 30000 });
+  const agenticBriefText = await pageText(page, "#pskaMiniPreviewBox");
+  assertCheck(checks, "Desktop Agentic Brief shows specialist profiles", (
+    /Agentic Brief/iu.test(agenticBriefText)
+      && /Specialists:/iu.test(agenticBriefText)
+      && /Specialist/iu.test(agenticBriefText)
+      && /read tool/iu.test(agenticBriefText)
+  ), {
+    text: agenticBriefText.slice(0, 900),
+  });
+
   await page.click("#pskaMiniClose");
   await page.waitForSelector("#pskaMiniMenu", { state: "hidden", timeout: 10000 });
   await page.click("#pskaMiniRailButton");

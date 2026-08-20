@@ -278,7 +278,11 @@ async function main() {
       memory_limit: 4,
       trace_limit: 8,
     },
-  }, (json, response) => response.ok && json?.agentic_context_brief?.status === "ready");
+  }, (json, response) => response.ok
+    && json?.agentic_context_brief?.status === "ready"
+    && Array.isArray(json?.agentic_context_brief?.specialists?.recommended_profiles)
+    && json.agentic_context_brief.specialists.recommended_profiles.length > 0
+    && json.agentic_context_brief.specialists.data_flow?.starts_agents === false);
 
   await testJson("Button: Source Recall", "/api/extensions/pska-mini/sidecar/api/sources/search", {
     method: "POST",

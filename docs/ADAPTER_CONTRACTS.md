@@ -660,13 +660,14 @@ briefing, not a chat answer and not a direct provider interface.
 - bounded KB evidence and local source recall as `ContextPacket`-shaped blocks;
 - relevant Memory Card notes from governed memory search;
 - memory-use and source trace summaries from audit/review-derived views;
-- specialist role hints for Recall Agent, Memory Curator, and Trace Explainer;
+- specialist tool profiles for Recall, Memory Curator, Trace Auditor,
+  Decision Ledger, Eidolia Creation, and Verifier roles;
 - deduplicated next actions for Ask, Reader, Memory, Trace, and Jarvis follow-up;
 - data-flow flags proving it does not write source files, write memory directly,
   create reviews, require embeddings, or generate final answer text.
 
-This is the M31 pre-answer context contract. It is the agentic counterpart to
-`/api/turn-context`: the latter returns compact turn blocks, while M31 explains
+This is the M33 pre-answer context contract. It is the agentic counterpart to
+`/api/turn-context`: the latter returns compact turn blocks, while M33 explains
 which PSKA layer should be inspected or invoked next.
 
 `pska_agentic_context_brief_list(limit, scan_limit)` returns:

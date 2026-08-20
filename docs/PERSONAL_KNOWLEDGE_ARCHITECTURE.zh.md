@@ -530,7 +530,9 @@ Hermes 的默认行为：
 - 当前实现入口：`pska_jarvis_briefing` 聚合 workspace status、source audit、
   memory/review cues 和可执行 `next_actions`，作为 Hermes 的 Jarvis-style dashboard。
 - 当前前置上下文入口：`pska_agentic_context_brief` 把 KB evidence、本地 source
-  recall、相关 Memory Card、trace signal 和 specialist role hints 合成一份只读 brief。
+  recall、相关 Memory Card、trace signal 和 specialist tool profiles 合成一份只读 brief。
+  profiles 由 `pska_agentic_specialist_profiles` 提供，只声明 read/review/forbidden tool
+  boundary，不启动常驻 agent，不绕过 Review。
 - 当前上下文恢复入口：`pska_agentic_context_brief_list` 从 workflow ledger 读取近期
   brief snapshot，让刷新页面或后续 Hermes 回合能复用前置上下文，不重新检索。
 - 用户说“整理这些文件夹”，系统能生成文件地图、重复组、标签建议、待确认动作。

@@ -410,10 +410,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("like_fallback", sqlite_search["supports"])
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m32_agentic_context_brief_history")
+        self.assertEqual(assistant_layer["status"], "m33_specialist_tool_profiles")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_agentic_context_brief", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief_list", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_agentic_specialist_profiles", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_hermes_answer_proofs", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_readiness", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", assistant_layer["mcp_tools"]["implemented"])
@@ -452,6 +454,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_agentic_context_brief"]["generates_answer_text"])
         self.assertEqual(tool_policy["pska_agentic_context_brief_list"]["category"], "assistant")
         self.assertTrue(tool_policy["pska_agentic_context_brief_list"]["reads_workflow_ledger"])
+        self.assertEqual(tool_policy["pska_agentic_specialist_profiles"]["category"], "assistant")
+        self.assertFalse(tool_policy["pska_agentic_specialist_profiles"]["starts_agents"])
+        self.assertFalse(tool_policy["pska_agentic_specialist_profiles"]["runs_tools"])
+        self.assertEqual(tool_policy["pska_hermes_answer_proofs"]["category"], "assistant")
+        self.assertTrue(tool_policy["pska_hermes_answer_proofs"]["reads_audit_log"])
+        self.assertFalse(tool_policy["pska_hermes_answer_proofs"]["stores_full_answer"])
         self.assertEqual(tool_policy["pska_alpha_first_run_session"]["access"], "read")
         self.assertEqual(tool_policy["pska_alpha_first_run_item_update"]["access"], "write")
         self.assertFalse(tool_policy["pska_alpha_first_run_item_update"]["writes_source_files"])
@@ -2526,6 +2534,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(len(brief["recall"]["evidence_blocks"]), 1)
         self.assertEqual(brief["memory"]["relevant_memories"][0]["fact_id"], "mem-agentic-context")
         self.assertIn("trace_explainer", {role["role_id"] for role in brief["agentic_roles"]})
+        self.assertIn("specialists", brief)
+        self.assertIn("trace_auditor", set(brief["specialists"]["selected_profile_ids"]))
+        self.assertFalse(brief["specialists"]["data_flow"]["starts_agents"])
         self.assertGreaterEqual(brief["trace"]["signal_count"], 1)
         self.assertIn("run_agentic_question", {action["action"] for action in brief["next_actions"]})
         self.assertFalse(brief["data_flow"]["writes_source_files"])
@@ -2547,6 +2558,23 @@ class ProductApiTests(unittest.TestCase):
         actions = [event.action for event in self.service.store.list_audit_events()]
         self.assertIn("agentic_context.brief.build", actions)
         self.assertIn("memory.search", actions)
+
+    def test_agentic_specialist_profiles_route_is_read_only_tool_boundary(self):
+        payload = self._get_json(
+            "/api/agentic/specialist-profiles?question=Eidolia%20novel%20memory%20trace&limit=4"
+        )
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["schema"], "pska.agentic_specialist_profile_list.v1")
+        self.assertEqual(payload["status"], "ready")
+        self.assertFalse(payload["data_flow"]["starts_agents"])
+        self.assertFalse(payload["data_flow"]["runs_tools"])
+        self.assertFalse(payload["data_flow"]["writes_memory_directly"])
+        selected = set(payload["selected_profile_ids"])
+        self.assertIn("eidolia_creation_specialist", selected)
+        self.assertIn("memory_curator", selected)
+        eidolia = next(profile for profile in payload["recommended_profiles"] if profile["profile_id"] == "eidolia_creation_specialist")
+        self.assertIn("pska_eidolia_context_read", eidolia["tool_profile"]["read_tools"])
 
     def test_webui_compact_brief_routes_omit_large_internal_layers(self):
         self.service.memory.facts.append(

@@ -5,6 +5,7 @@ from typing import Any
 from uuid import uuid4
 
 from pska_essential.audit import audit_event
+from pska_essential.agentic_specialists import build_agentic_specialist_profiles
 from pska_essential.capabilities import product_capabilities
 from pska_essential.contracts import ContextPacket, MemoryFact, SourceRef, to_jsonable, utc_now_iso
 from pska_essential.jarvis import build_jarvis_briefing
@@ -33,6 +34,7 @@ def build_agentic_context_brief(
     source_limit: int = 5,
     memory_limit: int = 5,
     trace_limit: int = 8,
+    specialist_profile_ids: list[str] | None = None,
     audit: bool = True,
 ) -> dict[str, Any]:
     """Build a read-only context brief for Hermes before it answers or acts."""
@@ -50,6 +52,13 @@ def build_agentic_context_brief(
     requested_memory_limit = _bounded_limit(memory_limit, default=5, maximum=20)
     requested_trace_limit = _bounded_limit(trace_limit, default=8, maximum=30)
     brief_id = f"agentic_brief_{uuid4().hex}"
+    specialists = build_agentic_specialist_profiles(
+        objective=selected_objective,
+        question=selected_question,
+        project_hint=project_hint,
+        profile_ids=specialist_profile_ids,
+        limit=4,
+    )
 
     warnings: list[dict[str, Any]] = []
     jarvis, jarvis_error = _safe_jarvis_briefing(
@@ -137,7 +146,15 @@ def build_agentic_context_brief(
         "source_scope": selected_source_scope,
         "run_id": getattr(run, "run_id", ""),
         "summary": summary,
-        "agentic_roles": _agentic_roles(),
+        "agentic_roles": _agentic_roles(specialists.get("recommended_profiles") or []),
+        "specialists": {
+            "schema": specialists.get("schema"),
+            "selection_mode": specialists.get("selection_mode"),
+            "selected_profile_ids": specialists.get("selected_profile_ids") or [],
+            "recommended_profiles": specialists.get("recommended_profiles") or [],
+            "warnings": specialists.get("warnings") or [],
+            "data_flow": specialists.get("data_flow") or {},
+        },
         "recall": {
             "query": prompt,
             "evidence_blocks": evidence_blocks,
@@ -188,6 +205,7 @@ def build_agentic_context_brief(
                 trace_signal_count=trace["signal_count"],
                 next_action_count=len(next_actions),
                 warning_count=len(warnings),
+                specialist_profile_ids=specialists.get("selected_profile_ids") or [],
                 writes_source_files=False,
                 writes_memory_directly=False,
                 generates_answer_text=False,
@@ -567,6 +585,7 @@ def _brief_snapshot(brief: dict[str, Any]) -> dict[str, Any]:
         "source_scope": brief.get("source_scope") or {},
         "run_id": brief.get("run_id") or "",
         "summary": brief.get("summary") or {},
+        "specialists": _compact_specialists(brief.get("specialists") or {}),
         "recall": {
             "query": _excerpt(recall.get("query") or "", 600),
             "evidence_blocks": [_compact_recall_block(item) for item in (recall.get("evidence_blocks") or [])[:6]],
@@ -588,6 +607,34 @@ def _brief_snapshot(brief: dict[str, Any]) -> dict[str, Any]:
         "next_actions": (brief.get("next_actions") or [])[:8],
         "data_flow": brief.get("data_flow") or {},
         "limitations": brief.get("limitations") or [],
+    }
+
+
+def _compact_specialists(specialists: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": specialists.get("schema") or "",
+        "selection_mode": specialists.get("selection_mode") or "",
+        "selected_profile_ids": specialists.get("selected_profile_ids") or [],
+        "recommended_profiles": [
+            _compact_specialist_profile(profile)
+            for profile in (specialists.get("recommended_profiles") or [])[:6]
+            if isinstance(profile, dict)
+        ],
+        "warnings": (specialists.get("warnings") or [])[:6],
+        "data_flow": specialists.get("data_flow") or {},
+    }
+
+
+def _compact_specialist_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": profile.get("schema") or "",
+        "profile_id": profile.get("profile_id") or "",
+        "role_id": profile.get("role_id") or "",
+        "label": profile.get("label") or "",
+        "purpose": _excerpt(profile.get("purpose") or "", 300),
+        "tool_profile": profile.get("tool_profile") or {},
+        "output_contract": profile.get("output_contract") or {},
+        "selection": profile.get("selection") or {},
     }
 
 
@@ -677,7 +724,21 @@ def _brief_status(
     return "needs_more_context"
 
 
-def _agentic_roles() -> list[dict[str, Any]]:
+def _agentic_roles(specialist_profiles: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    if specialist_profiles:
+        return [
+            {
+                "role_id": str(profile.get("role_id") or profile.get("profile_id") or ""),
+                "profile_id": str(profile.get("profile_id") or ""),
+                "label": str(profile.get("label") or ""),
+                "purpose": str(profile.get("purpose") or ""),
+                "entry_tools": list((profile.get("tool_profile") or {}).get("read_tools") or [])[:8],
+                "review_tools": list((profile.get("tool_profile") or {}).get("review_tools") or [])[:6],
+                "forbidden_tools": list((profile.get("tool_profile") or {}).get("forbidden_tools") or [])[:8],
+            }
+            for profile in specialist_profiles
+            if isinstance(profile, dict)
+        ]
     return [
         {
             "role_id": "recall_agent",

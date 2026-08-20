@@ -2219,9 +2219,11 @@
     const recall = brief.recall || {};
     const memory = brief.memory || {};
     const trace = brief.trace || {};
-    const evidence = Array.isArray(recall.evidence_blocks) ? recall.evidence_blocks : [];
+    const specialists = brief.specialists || {};
+    const evidence = Array.isArray(recall.evidence_blocks) ? recall.evidence_blocks : (Array.isArray(recall.kb_evidence) ? recall.kb_evidence : []);
     const sources = Array.isArray(recall.source_recall) ? recall.source_recall : [];
     const memories = Array.isArray(memory.relevant_memories) ? memory.relevant_memories : [];
+    const profiles = Array.isArray(specialists.recommended_profiles) ? specialists.recommended_profiles : [];
     const actions = Array.isArray(brief.next_actions) ? brief.next_actions : [];
     const lines = [
       `Agentic Brief · ${brief.status || summary.status || "unknown"}`,
@@ -2235,6 +2237,12 @@
       "",
       "Memory:",
       ...(memories.length ? memories.slice(0, 3).map((item, index) => `${index + 1}. ${item.fact_id || "memory"} - ${truncate(item.text || "", 220)}`) : ["none"]),
+      "",
+      "Specialists:",
+      ...(profiles.length ? profiles.slice(0, 4).map((item, index) => {
+        const tools = item.tool_profile?.read_tools || [];
+        return `${index + 1}. ${item.label || item.profile_id || "specialist"} - ${truncate(item.purpose || "", 160)} (${tools.length} read tool${tools.length === 1 ? "" : "s"})`;
+      }) : ["none"]),
       "",
       "Next actions:",
       ...(actions.length ? actions.slice(0, 4).map((item, index) => `${index + 1}. ${item.label || item.action || "action"} (${item.tool || item.api || "PSKA"})`) : ["none"])

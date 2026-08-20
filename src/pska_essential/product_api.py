@@ -21,6 +21,7 @@ from pska_essential.agentic_loop import (
     run_agentic_question_with_readiness,
 )
 from pska_essential.agentic_context_brief import build_agentic_context_brief, list_agentic_context_briefs
+from pska_essential.agentic_specialists import build_agentic_specialist_profiles
 from pska_essential.alpha_readiness import (
     build_alpha_readiness,
     build_alpha_recovery_plan,
@@ -105,6 +106,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/jarvis/briefing"},
     {"method": "POST", "path": "/api/agentic/context-brief"},
     {"method": "GET", "path": "/api/agentic/context-briefs"},
+    {"method": "GET", "path": "/api/agentic/specialist-profiles"},
     {"method": "GET", "path": "/api/provider/jobs"},
     {"method": "GET", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/hermes/answer-proofs"},
@@ -904,6 +906,8 @@ def _handler_class(state: ProductApiState):
                     source_limit=_bounded_int(payload.get("source_limit"), default=5, minimum=0, maximum=20),
                     memory_limit=_bounded_int(payload.get("memory_limit"), default=5, minimum=0, maximum=20),
                     trace_limit=_bounded_int(payload.get("trace_limit"), default=8, minimum=0, maximum=30),
+                    specialist_profile_ids=_optional_str_list(payload, "specialist_profile_ids")
+                    or _optional_str_list(payload, "specialists"),
                 )
                 if _compact_response_requested(payload):
                     brief = _compact_agentic_context_brief(brief)
@@ -917,6 +921,17 @@ def _handler_class(state: ProductApiState):
                     service=state.service,
                     limit=limit,
                     scan_limit=scan_limit,
+                )
+                self._send_json({"ok": True, **result})
+                return
+
+            if method == "GET" and path == "/api/agentic/specialist-profiles":
+                result = build_agentic_specialist_profiles(
+                    objective=query.get("objective") or "",
+                    question=query.get("question") or query.get("query") or "",
+                    project_hint=query.get("project_hint") or "",
+                    profile_ids=_csv_values(query.get("profile_ids") or query.get("profile_id") or ""),
+                    limit=_int_param(query.get("limit"), 4),
                 )
                 self._send_json({"ok": True, **result})
                 return
@@ -2487,6 +2502,7 @@ def _compact_agentic_context_brief(brief: dict[str, Any]) -> dict[str, Any]:
         "scope": brief.get("scope"),
         "source_scope": brief.get("source_scope"),
         "summary": brief.get("summary") or {},
+        "specialists": _compact_agentic_specialists(brief.get("specialists") or {}),
         "recall": {
             "kb_evidence": list(recall.get("kb_evidence") or [])[:8],
             "source_recall": list(recall.get("source_recall") or [])[:8],
@@ -2505,6 +2521,34 @@ def _compact_agentic_context_brief(brief: dict[str, Any]) -> dict[str, Any]:
         "limitations": brief.get("limitations") or [],
         "warnings": brief.get("warnings") or [],
         "data_flow": brief.get("data_flow") or {},
+    }
+
+
+def _compact_agentic_specialists(specialists: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": specialists.get("schema") or "",
+        "selection_mode": specialists.get("selection_mode") or "",
+        "selected_profile_ids": list(specialists.get("selected_profile_ids") or [])[:8],
+        "recommended_profiles": [
+            _compact_agentic_specialist_profile(profile)
+            for profile in list(specialists.get("recommended_profiles") or [])[:6]
+            if isinstance(profile, dict)
+        ],
+        "warnings": list(specialists.get("warnings") or [])[:6],
+        "data_flow": specialists.get("data_flow") or {},
+    }
+
+
+def _compact_agentic_specialist_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": profile.get("schema") or "",
+        "profile_id": profile.get("profile_id") or "",
+        "role_id": profile.get("role_id") or "",
+        "label": profile.get("label") or "",
+        "purpose": str(profile.get("purpose") or "")[:300],
+        "tool_profile": profile.get("tool_profile") or {},
+        "output_contract": profile.get("output_contract") or {},
+        "selection": profile.get("selection") or {},
     }
 
 

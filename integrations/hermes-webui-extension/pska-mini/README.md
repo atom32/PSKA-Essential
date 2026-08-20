@@ -20,6 +20,8 @@ It provides:
 - PSKA Product API health/status/diagnostics preview through the WebUI
   extension sidecar
 - a retrieval probe for quick RAGFlow path verification
+- an Agentic Brief preview with deterministic specialist tool-profile
+  recommendations
 - a Recent Answer Proofs block that reads PSKA `hermes.answer_proof`
   audit records, shows observed answer-side tool use, and opens trace-backed
   proof details through `View Trace`; a selected proof can seed an editable

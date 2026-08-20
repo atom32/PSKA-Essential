@@ -43,6 +43,8 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("pskaMiniCreateDigestTask", script)
         self.assertIn("pskaMiniJarvisBrief", script)
         self.assertIn("pskaMiniAgenticBrief", script)
+        self.assertIn("Specialists:", script)
+        self.assertIn("recommended_profiles", script)
         self.assertIn("pskaMiniSourceRecall", script)
         self.assertIn("buildForcedSkillMessage", script)
         self.assertIn("stripForcedSkillEnvelope", script)

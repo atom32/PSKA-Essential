@@ -12,6 +12,7 @@ from pska_essential.agentic_loop import (
     run_agentic_question_with_readiness,
 )
 from pska_essential.agentic_context_brief import build_agentic_context_brief, list_agentic_context_briefs
+from pska_essential.agentic_specialists import build_agentic_specialist_profiles
 from pska_essential.alpha_readiness import (
     build_alpha_readiness,
     build_alpha_recovery_plan,
@@ -37,6 +38,7 @@ from pska_essential.eidolia_import import import_eidolia_project_traces
 from pska_essential.env_file import env_file_arg_parser, load_env_file
 from pska_essential.eval import run_eval
 from pska_essential.governance import build_workspace_policy_from_env
+from pska_essential.hermes_answer_trace import list_hermes_answer_proofs
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.jarvis import build_jarvis_briefing
 from pska_essential.kb_audit import (
@@ -451,6 +453,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         source_limit: int = 5,
         memory_limit: int = 5,
         trace_limit: int = 8,
+        specialist_profile_ids: list[str] | None = None,
     ):
         return build_agentic_context_brief(
             service=service,
@@ -464,10 +467,43 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             source_limit=source_limit,
             memory_limit=memory_limit,
             trace_limit=trace_limit,
+            specialist_profile_ids=specialist_profile_ids or None,
         )
 
     def pska_agentic_context_brief_list(limit: int = 10, scan_limit: int | None = None):
         return list_agentic_context_briefs(service=service, limit=limit, scan_limit=scan_limit)
+
+    def pska_agentic_specialist_profiles(
+        objective: str = "",
+        question: str = "",
+        project_hint: str = "",
+        profile_ids: list[str] | None = None,
+        limit: int = 4,
+    ):
+        return build_agentic_specialist_profiles(
+            objective=objective,
+            question=question,
+            project_hint=project_hint,
+            profile_ids=profile_ids or None,
+            limit=limit,
+        )
+
+    def pska_hermes_answer_proofs(
+        proof_id: str = "",
+        session_id: str = "",
+        response_id: str = "",
+        read_only: bool | None = None,
+        limit: int = 20,
+    ):
+        return list_hermes_answer_proofs(
+            service,
+            proof_id=proof_id,
+            session_id=session_id,
+            response_id=response_id,
+            read_only=read_only,
+            limit=limit,
+            audit=False,
+        )
 
     def pska_runtime_diagnostics():
         return build_runtime_diagnostics(
@@ -1418,6 +1454,8 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_jarvis_briefing": pska_jarvis_briefing,
         "pska_agentic_context_brief": pska_agentic_context_brief,
         "pska_agentic_context_brief_list": pska_agentic_context_brief_list,
+        "pska_agentic_specialist_profiles": pska_agentic_specialist_profiles,
+        "pska_hermes_answer_proofs": pska_hermes_answer_proofs,
         "pska_runtime_diagnostics": pska_runtime_diagnostics,
         "pska_alpha_readiness": pska_alpha_readiness,
         "pska_alpha_trial_guide": pska_alpha_trial_guide,

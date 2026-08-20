@@ -788,8 +788,12 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
   snapshot 恢复，支持刷新页面和后续 Hermes 回合复用，不重新检索、不写 memory。
 - Done: `pska_eidolia_memory_review_create` 从 thought/artifact 创建 Memory Card candidate。
 - Done: `pska_eidolia_project_trace_import` 只读导入 project files / agentic traces 的 SourceRef/audit。
-- Hermes skill 增加 specialist consultation 规则。
-- Specialist 先作为 tools/profile，不作为独立常驻 agent。
+- Done: `pska_agentic_specialist_profiles` 暴露 Recall、Memory Curator、Trace Auditor、
+  Decision Ledger、Eidolia Creation 和 Verifier 六类 specialist tool profiles。
+  `pska_agentic_context_brief` 会按目标/问题确定性推荐 profiles，并返回 read/review/forbidden
+  tool boundary；这不是常驻多 agent，也不执行工具或写 memory。
+- Done: `pska_hermes_answer_proofs` 暴露只读 MCP list 工具，供 Trace Auditor profile
+  查看 Hermes answer proof audit。
 
 验收：
 
@@ -893,7 +897,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Memory review creation from Eidolia thought.
 - [x] Agentic Context Brief over source recall, memory, trace, and next actions.
 - [x] Recent Agentic Context Brief recovery from workflow snapshots.
-- [ ] Specialist tool profiles.
+- [x] Specialist tool profiles.
 
 ## 10. What Not To Do Yet
 

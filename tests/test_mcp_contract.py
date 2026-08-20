@@ -26,6 +26,8 @@ EXPECTED_TOOLS = {
     "pska_jarvis_briefing",
     "pska_agentic_context_brief",
     "pska_agentic_context_brief_list",
+    "pska_agentic_specialist_profiles",
+    "pska_hermes_answer_proofs",
     "pska_alpha_readiness",
     "pska_alpha_trial_guide",
     "pska_alpha_recovery_plan",
@@ -132,7 +134,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m32_agentic_context_brief_history")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m33_specialist_tool_profiles")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -140,6 +142,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_alpha_first_run_item_update", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief_list", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_agentic_specialist_profiles", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -705,6 +708,11 @@ class McpContractTests(unittest.TestCase):
                 trace_limit=6,
             )
             recent = tools["pska_agentic_context_brief_list"](limit=3)
+            specialists = tools["pska_agentic_specialist_profiles"](
+                question="How should PSKA use source recall, memory, trace, and verification?",
+                limit=4,
+            )
+            answer_proofs = tools["pska_hermes_answer_proofs"](limit=3)
 
         self.assertEqual(brief["schema"], "pska.agentic_context_brief.v1")
         self.assertIn(brief["status"], {"ready", "degraded"})
@@ -712,6 +720,9 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(len(brief["recall"]["evidence_blocks"]), 1)
         self.assertEqual(brief["memory"]["relevant_memories"][0]["fact_id"], "mem-agentic-context")
         self.assertIn("recall_agent", {role["role_id"] for role in brief["agentic_roles"]})
+        self.assertIn("specialists", brief)
+        self.assertIn("verifier_specialist", set(brief["specialists"]["selected_profile_ids"]))
+        self.assertFalse(brief["specialists"]["data_flow"]["starts_agents"])
         self.assertGreaterEqual(brief["trace"]["signal_count"], 1)
         self.assertIn("run_agentic_question", {action["action"] for action in brief["next_actions"]})
         self.assertFalse(brief["data_flow"]["writes_source_files"])
@@ -731,6 +742,11 @@ class McpContractTests(unittest.TestCase):
         actions = [event.action for event in service.store.list_audit_events()]
         self.assertIn("agentic_context.brief.build", actions)
         self.assertIn("memory.search", actions)
+        self.assertEqual(specialists["schema"], "pska.agentic_specialist_profile_list.v1")
+        self.assertFalse(specialists["data_flow"]["runs_tools"])
+        self.assertIn("memory_curator", set(specialists["selected_profile_ids"]))
+        self.assertEqual(answer_proofs["schema"], "pska.hermes_answer_proof_list.v1")
+        self.assertFalse(answer_proofs["data_flow"]["writes_memory_directly"])
 
     def test_alpha_readiness_tool_reports_product_trial_gate(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):
