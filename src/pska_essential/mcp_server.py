@@ -41,6 +41,7 @@ from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.hermes_answer_trace import list_hermes_answer_proofs
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.jarvis import build_jarvis_briefing
+from pska_essential.job_health import build_job_health
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -410,6 +411,19 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             source_audit_limit=source_audit_limit,
             audit_limit=audit_limit,
             include_ready=include_ready,
+        )
+
+    def pska_job_health(
+        now: str = "",
+        limit: int = 50,
+        include_kb: bool = True,
+    ):
+        return build_job_health(
+            service,
+            build_kb_gateway_from_env(),
+            now=now,
+            limit=limit,
+            include_kb=include_kb,
         )
 
     def pska_workspace_status(
@@ -1460,6 +1474,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_capabilities_get": pska_capabilities_get,
         "pska_migration_manifest": pska_migration_manifest,
         "pska_provider_jobs": pska_provider_jobs,
+        "pska_job_health": pska_job_health,
         "pska_workspace_status": pska_workspace_status,
         "pska_jarvis_briefing": pska_jarvis_briefing,
         "pska_agentic_context_brief": pska_agentic_context_brief,

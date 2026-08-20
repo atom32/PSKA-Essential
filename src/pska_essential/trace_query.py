@@ -43,11 +43,12 @@ def build_trace_query(
         descending=True,
         limit=_audit_scan_limit(requested_limit, query, normalized_ref) if requested_limit else None,
     )
+    events.extend(_selector_core_events(service, query, requested_limit))
     entries = [_entry_from_event(event) for event in events if _event_matches(event, query, normalized_ref)]
     review_entries = _review_entries(service, query, normalized_ref)
     entries.extend(review_entries)
     entries = _dedupe_entries(entries)
-    entries.sort(key=lambda item: str(item.get("occurred_at") or ""), reverse=True)
+    entries.sort(key=lambda item: _entry_sort_key(item, query), reverse=True)
     if requested_limit:
         entries = entries[:requested_limit]
     summary = _summary(entries)
@@ -314,6 +315,33 @@ def _dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(key)
         result.append(entry)
     return result
+
+
+def _entry_sort_key(entry: dict[str, Any], query: dict[str, Any]) -> tuple[int, str]:
+    evidence = entry.get("evidence") or {}
+    action = str(evidence.get("action") or "")
+    priority = 0
+    if query.get("target_id") and str(evidence.get("target_id") or "") == query["target_id"]:
+        priority += 10
+    if query.get("action") and action == query["action"]:
+        priority += 10
+    if action.endswith(".list") or action == "trace.query":
+        priority -= 2
+    if action == "hermes.answer_proof":
+        priority += 4
+    return priority, str(entry.get("occurred_at") or "")
+
+
+def _selector_core_events(service: Any, query: dict[str, Any], requested_limit: int) -> list[Any]:
+    if query.get("action"):
+        return []
+    if query.get("target_type") == "hermes_turn" and query.get("target_id"):
+        return service.store.list_audit_events(
+            action="hermes.answer_proof",
+            descending=True,
+            limit=max(requested_limit, 50),
+        )
+    return []
 
 
 def _audit_scan_limit(requested_limit: int, query: dict[str, Any], source_ref: SourceRef | None) -> int:

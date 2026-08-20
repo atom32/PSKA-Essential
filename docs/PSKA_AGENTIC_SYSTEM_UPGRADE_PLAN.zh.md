@@ -411,6 +411,13 @@ P5 的第一块 trace coverage 已落地：
 trace store，不导出外部 trace，不写源文件，不写 durable memory；OpenTelemetry
 和 Phoenix 仍作为后续可选 exporter。
 
+P5 的 job health dashboard baseline 已落地：
+`GET /api/jobs/health` 与 `pska_job_health` 在 `pska_provider_jobs` 的归一化队列
+之上生成只读健康视图，按 digest、source audit、source extraction 和可选 KB
+ingestion 分组显示 due、queued、failed、stale、actionable 计数和下一步动作。
+它不会在读取时运行 job，不会自动 tick due schedule，不写源文件、source registry
+或 Memory；自动 tick 仍交给 launchd/cron 调用显式 endpoint。
+
 新增 Product API / MCP：
 
 ```text
@@ -456,6 +463,8 @@ pska_memory_use_trace
 pska_memory_why_used
 pska_memory_timeline
 pska_trace_query
+pska_trace_coverage
+pska_job_health
 pska_agentic_context_brief
 pska_agentic_context_brief_list
 pska_workflow_memory_attribution
@@ -617,6 +626,8 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 - `pska_trace_id` 贯穿 Product API、MCP、workflow、source read、memory search。
 - Done: `pska_trace_coverage` 以 SQLite audit id 作为 PSKA trace id，提供
   ask/source/memory/writeback/eval/job 的最近覆盖率报告。
+- Done: `pska_job_health` 提供 digest/source audit/source extraction/KB
+  ingestion 的任务健康 dashboard data。
 - `memory.use` audit/action。
 - source extraction failure metrics。
 - duplicate proposal acceptance/rejection metrics。
@@ -832,10 +843,13 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
   增加只读 trace 覆盖报告，按 ask、source/retrieval、memory、governed
   writeback、eval 和 background jobs 分组显示最近 audit 样本、trace ids、
   缺失动作和建议 probe。
+- Done: `pska_job_health` / `GET /api/jobs/health` 增加只读 job health
+  dashboard data，覆盖 digest、source audit、source extraction 和 KB ingestion
+  的 due/queued/failed/stale/actionable 状态。
 - OpenTelemetry optional tracing。
 - Phoenix/Ragas/DeepEval eval adapters。
 - `watchdog` 或 launchd/cron 调用 source scan/audit tick。
-- Source extraction/digest/source audit job health dashboard。
+- Done baseline: Source extraction/digest/source audit job health dashboard。
 
 验收：
 

@@ -53,6 +53,10 @@ traces, call Product API `GET /api/observability/trace-coverage?limit=200` or
 MCP `pska_trace_coverage(limit=200)`. The report is read-only and summarizes
 Ask, source/retrieval, memory, governed writeback, eval, and background-job
 coverage using SQLite audit ids as PSKA trace ids.
+For job health dashboard data, call Product API `GET /api/jobs/health` or MCP
+`pska_job_health()`. It groups digest, source audit, source extraction, and KB
+ingestion jobs, reports due/queued/failed/stale state, and returns explicit
+next actions without running jobs or activating due schedules.
 
 ### 2. Hermes MCP Development
 

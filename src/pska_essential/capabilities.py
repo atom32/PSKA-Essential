@@ -641,6 +641,18 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
     "pska_audit_list": {"category": "audit", "access": "read", "durable": False},
     "pska_migration_manifest": {"category": "migration", "access": "read", "durable": False},
     "pska_provider_jobs": {"category": "jobs", "access": "read", "durable": False},
+    "pska_job_health": {
+        "category": "jobs",
+        "access": "read",
+        "durable": False,
+        "reads_job_ledger": True,
+        "runs_jobs": False,
+        "activates_due_jobs": False,
+        "writes_source_files": False,
+        "writes_source_registry": False,
+        "writes_memory_directly": False,
+        "embedding_required": False,
+    },
     "pska_policy_get": {"category": "policy", "access": "read", "durable": False},
     "pska_capabilities_get": {"category": "policy", "access": "read", "durable": False},
     "pska_workspace_status": {"category": "status", "access": "read", "durable": False},
@@ -908,7 +920,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m35_trace_coverage",
+        "status": "m36_job_health",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -961,6 +973,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_eidolia_memory_review_create",
                 "pska_trace_query",
                 "pska_trace_coverage",
+                "pska_job_health",
                 "pska_eidolia_project_trace_import",
             ],
             "planned": [

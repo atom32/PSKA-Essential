@@ -91,6 +91,43 @@ class TraceQueryTests(unittest.TestCase):
         self.assertEqual(event.metadata["entry_count"], result["entry_count"])
         self.assertFalse(event.metadata["writes_memory_directly"])
 
+    def test_target_trace_prioritizes_core_event_over_list_noise(self):
+        service = build_fake_service()
+        proof_id = "hproof-demo"
+        service.store.add_audit_event(
+            audit_event(
+                "hermes.answer_proof",
+                "hermes_turn",
+                proof_id,
+                proof_id=proof_id,
+            )
+        )
+        for index in range(12):
+            service.store.add_audit_event(
+                audit_event(
+                    "hermes.answer_proof.list",
+                    "hermes_turn",
+                    proof_id,
+                    proof_id=proof_id,
+                    index=index,
+                )
+            )
+
+        result = build_trace_query(
+            service,
+            target_type="hermes_turn",
+            target_id=proof_id,
+            limit=10,
+            audit=False,
+        )
+
+        self.assertEqual(result["status"], "found")
+        self.assertEqual(result["entries"][0]["evidence"]["action"], "hermes.answer_proof")
+        self.assertIn(
+            "hermes.answer_proof",
+            {entry["evidence"]["action"] for entry in result["entries"]},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

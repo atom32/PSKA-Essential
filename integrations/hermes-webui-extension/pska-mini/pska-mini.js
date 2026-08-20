@@ -61,6 +61,7 @@
     hermesProjects: null,
     hermesWorkspaces: null,
     alphaReadiness: null,
+    jobHealth: null,
     scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
@@ -761,6 +762,7 @@
     const kb = workspace.kb || {};
     const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
+    const jobs = jobHealth();
     const alpha = alphaReadiness();
     container.innerHTML = `
       <div class="pska-mini-page-pills">
@@ -769,10 +771,12 @@
         <span class="pska-mini-pill ${kb.usable ? "is-ok" : "is-warn"}"><b>KB</b> ${escapeHtml(kb.usable ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready")}</span>
         <span class="pska-mini-pill is-${escapeAttr(embeddingTone(embedding))}" title="${escapeAttr(embeddingTitle(embedding))}"><b>Embedding</b> ${escapeHtml(embeddingStatusLabel(embedding))}</span>
         <span class="pska-mini-pill is-${escapeAttr(gbrainTone(gbrain))}"><b>GBrain</b> ${escapeHtml(gbrainStatusLabel(gbrain))}</span>
+        <span class="pska-mini-pill is-${escapeAttr(jobHealthTone(jobs))}" title="${escapeAttr(jobHealthTitle(jobs))}"><b>Jobs</b> ${escapeHtml(jobHealthStatusLabel(jobs))}</span>
         <span class="pska-mini-pill is-${escapeAttr(alphaTone(alpha))}" title="${escapeAttr(alphaTitle(alpha))}"><b>Alpha</b> ${escapeHtml(alphaStatusLabel(alpha))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
+      ${jobHealthWarning(jobs)}
       ${memoryPage.error ? `<div class="pska-mini-warning">${escapeHtml(memoryPage.error)}</div>` : ""}
     `;
     const statusSelect = document.getElementById("pskaMiniReviewStatus");
@@ -1133,6 +1137,7 @@
       hermesProfile: fetchWebuiJson("/api/profile/active", { timeoutMs: 5000 }),
       hermesProjects: fetchWebuiJson("/api/projects", { timeoutMs: 5000 }),
       hermesWorkspaces: fetchWebuiJson("/api/workspaces", { timeoutMs: 5000 }),
+      jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: 5000 }),
       alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 5000 }),
       diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 5000 })
     });
@@ -1146,6 +1151,7 @@
       hermesProfile: valueOrNull(results.hermesProfile),
       hermesProjects: valueOrNull(results.hermesProjects),
       hermesWorkspaces: valueOrNull(results.hermesWorkspaces),
+      jobHealth: valueOrNull(results.jobHealth)?.job_health || null,
       alphaReadiness: valueOrNull(results.alphaReadiness)?.alpha_readiness || null,
       scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
@@ -1183,6 +1189,7 @@
           <span class="pska-mini-pill is-warn"><b>Memory</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Embedding</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>GBrain</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>Jobs</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Alpha</b> checking</span>
         </div>
         <div class="pska-mini-muted">Refreshing PSKA workspace status...</div>
@@ -1197,6 +1204,7 @@
     const memoryOk = Boolean(providers.memory) && !dashboard.diagnosticsError;
     const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
+    const jobs = jobHealth();
     const alpha = alphaReadiness();
     const statusItems = [
       ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad", ""],
@@ -1204,6 +1212,7 @@
       ["Memory", memoryOk ? providers.memory : "down", memoryOk ? "ok" : "bad", ""],
       ["Embedding", embeddingStatusLabel(embedding), embeddingTone(embedding), embeddingTitle(embedding)],
       ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain), ""],
+      ["Jobs", jobHealthStatusLabel(jobs), jobHealthTone(jobs), jobHealthTitle(jobs)],
       ["Alpha", alphaStatusLabel(alpha), alphaTone(alpha), alphaTitle(alpha)]
     ];
     container.innerHTML = `
@@ -1215,6 +1224,7 @@
         `).join("")}
       </div>
       ${dashboard.diagnosticsError ? `<div class="pska-mini-warning">Runtime diagnostics: ${escapeHtml(dashboard.diagnosticsError)}</div>` : ""}
+      ${jobHealthWarning(jobs)}
       ${Object.keys(dashboard.errors).length ? `
         <div class="pska-mini-warning">${Object.entries(dashboard.errors).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join("<br>")}</div>
       ` : ""}
@@ -1265,6 +1275,59 @@
     if (!component) return "bad";
     if (component.runtime?.participates_in_memory_search) return "ok";
     return "warn";
+  }
+
+  function jobHealth() {
+    return dashboard.jobHealth || null;
+  }
+
+  function jobHealthStatusLabel(health) {
+    if (!health) return "not visible";
+    const summary = health.summary || {};
+    const total = jobHealthCount(summary, "job");
+    if (health.status === "empty") return "empty";
+    if (health.status === "needs_attention") return `${jobHealthCount(summary, "failed")} failed`;
+    if (health.status === "action_required") {
+      const due = jobHealthCount(summary, "due");
+      const active = jobHealthCount(summary, "running") + jobHealthCount(summary, "processing");
+      if (due) return `${due} due`;
+      if (active) return `${active} active`;
+      return `${total} queued`;
+    }
+    return total ? `${total} tracked` : String(health.status || "ok");
+  }
+
+  function jobHealthTone(health) {
+    if (!health) return "bad";
+    if (health.status === "needs_attention") return "bad";
+    if (health.status === "action_required") return "warn";
+    return "ok";
+  }
+
+  function jobHealthTitle(health) {
+    if (!health) return "PSKA job health is not visible in Product API.";
+    const summary = health.summary || {};
+    return [
+      String(health.status || "unknown"),
+      `${jobHealthCount(summary, "job")} jobs`,
+      `${jobHealthCount(summary, "due")} due`,
+      `${jobHealthCount(summary, "failed")} failed`
+    ].join(" · ");
+  }
+
+  function jobHealthCount(summary, key) {
+    return Number(summary?.[`${key}_count`] || summary?.[key] || 0);
+  }
+
+  function jobHealthWarning(health) {
+    if (!health) return "";
+    if (!["needs_attention", "action_required"].includes(String(health.status || ""))) return "";
+    const groups = Object.entries(health.groups || {})
+      .filter(([, group]) => group?.status && group.status !== "ok" && group.status !== "empty")
+      .slice(0, 3)
+      .map(([key, group]) => `${key}: ${group.status}`);
+    if (!groups.length) return "";
+    return `<div class="pska-mini-warning">Job health: ${escapeHtml(groups.join(" · "))}</div>`;
   }
 
   function alphaReadiness() {

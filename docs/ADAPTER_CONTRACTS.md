@@ -304,6 +304,7 @@ Rules:
 enqueue(job) -> JobRecord
 tick(now, limit) -> TickResult
 run(job_id) -> JobResult
+health(limit) -> JobHealthReport
 ```
 
 Provider slots:
@@ -319,6 +320,10 @@ Rules:
 - Tick may enqueue work; it must not silently scan full disk or write memory.
 - The current watchdog implementation is `watch_once`: it listens for a short
   explicit interval and then queues source extraction and/or audit jobs.
+- `pska_job_health` is the implemented read-only dashboard data over normalized
+  provider jobs. It groups digest, source audit, source extraction, and optional
+  KB ingestion jobs, reports due/queued/failed/stale state, and returns explicit
+  next actions without running jobs or activating due schedules.
 - Temporal is a backend for job durability, not the PSKA workflow contract.
 
 ### CloudSourcePort
@@ -476,6 +481,7 @@ The current public tool surface is:
 - `pska_memory_lifecycle`
 - `pska_export_brief`
 - `pska_audit_list`
+- `pska_job_health`
 - `pska_component_check`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
@@ -607,6 +613,10 @@ same routine. Jobs are stored as workflow metadata, surfaced through
 keep the same no source-file write, no direct memory write, no embedding
 guarantee. `pska_source_audit_job_tick` only promotes due waiting jobs to queued
 jobs; scanning still requires running the explicit audit job.
+`pska_job_health` and `GET /api/jobs/health` provide the Phase 5 health
+dashboard data for digest, source audit, source extraction, and optional KB
+ingestion jobs. It is read-only: it does not run jobs, does not activate due
+jobs, and does not write source files, source registry entries, or memory.
 `pska_source_extract_job_enqueue`, `pska_source_extract_job_list`, and
 `pska_source_extract_job_run` provide the PSKA-owned source extraction queue.
 Jobs run a selected extractor through `pska_source_scan`, update rebuildable

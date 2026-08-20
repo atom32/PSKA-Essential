@@ -52,6 +52,7 @@ from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.hermes_answer_trace import list_hermes_answer_proofs, record_hermes_answer_proof
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.jarvis import build_jarvis_briefing
+from pska_essential.job_health import build_job_health
 from pska_essential.kb_audit import (
     add_kb_dataset_create_audit,
     add_kb_dataset_delete_audit,
@@ -110,6 +111,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/agentic/context-briefs"},
     {"method": "GET", "path": "/api/agentic/specialist-profiles"},
     {"method": "GET", "path": "/api/provider/jobs"},
+    {"method": "GET", "path": "/api/jobs/health"},
     {"method": "GET", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/turn-context"},
@@ -334,6 +336,21 @@ def _handler_class(state: ProductApiState):
                             digest_limit=_int_param(query.get("digest_limit"), 50),
                             audit_limit=_int_param(query.get("audit_limit"), 50),
                             include_ready=_bool_value(query.get("include_ready"), True),
+                        ),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/jobs/health":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "job_health": build_job_health(
+                            state.service,
+                            state.kb_gateway_factory(),
+                            now=str(query.get("now") or ""),
+                            limit=_int_param(query.get("limit"), 50),
+                            include_kb=_bool_param(query.get("include_kb"), True),
                         ),
                     }
                 )

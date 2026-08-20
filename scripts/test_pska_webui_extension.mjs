@@ -138,6 +138,9 @@ async function main() {
     && jsAsset.text.includes("/api/alpha/readiness")
     && jsAsset.text.includes("/api/alpha/first-run-session")
     && jsAsset.text.includes("/api/hermes/answer-proofs")
+    && jsAsset.text.includes("/api/jobs/health?include_kb=false")
+    && jsAsset.text.includes("jobHealthStatusLabel")
+    && jsAsset.text.includes("jobHealthCount")
     && jsAsset.text.includes("renderAnswerProofs")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
@@ -181,6 +184,13 @@ async function main() {
   );
   await testJson("Dashboard: runtime diagnostics", "/api/extensions/pska-mini/sidecar/api/runtime/diagnostics", {}, (json, response) =>
     response.ok && json?.diagnostics?.status !== "error",
+  );
+  await testJson("Dashboard: job health", "/api/extensions/pska-mini/sidecar/api/jobs/health?include_kb=false", {}, (json, response) =>
+    response.ok
+      && json?.job_health?.schema === "pska.job_health.v1"
+      && json.job_health?.data_flow?.read_only === true
+      && json.job_health?.data_flow?.runs_jobs === false
+      && json.job_health?.data_flow?.activates_due_jobs === false,
   );
   await testJson("Dashboard: alpha readiness", "/api/extensions/pska-mini/sidecar/api/alpha/readiness", {}, (json, response) =>
     response.ok
