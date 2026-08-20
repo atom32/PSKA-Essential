@@ -565,7 +565,7 @@ PSKA 只自建认知语义、治理边界和产品工作流；底层能力尽量
 ### Phase 1: Memory Productization
 
 - Memory Card UI：active 与 health scan 已落地；suggestions 仍待做。
-- Memory use trace / why-used：第一版已能解释 search/card inspection 何时触达某条记忆；回答级 `memory_attribution` 已能在 Ask/workflow artifact 上输出 `used_memory_ids`。
+- Memory use trace / why-used：第一版已能解释 search/card inspection 何时触达某条记忆；回答级 `memory_attribution` 已能在 Ask/workflow artifact 上输出 `used_memory_ids`；Hermes WebUI 真实回答 proof 已能写入 `hermes.answer_proof` audit，并通过 `pska_trace_query(action="hermes.answer_proof")` 反查回答侧实际观测到的 PSKA 工具调用。
 - Memory health scan：第一版已覆盖 missing envelope、refresh/stale candidate 和保守的 active-card conflict。
 - Memory suggestions：第一版已能从 sourced workflow 产出可治理的 memory review suggestion，不直接写 durable memory。
 - Memory Timeline / Ledger：第一版已能把 Memory Card、lifecycle audit、use trace

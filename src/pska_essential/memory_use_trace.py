@@ -63,7 +63,7 @@ def list_memory_use_traces(
         "trace_actions": list(MEMORY_USE_TRACE_ACTIONS),
         "limitations": [
             "Trace records prove candidate retrieval or explicit card inspection.",
-            "They do not yet prove the final model response relied on the memory.",
+            "Hermes answer proofs can attach observed answer-side PSKA tool use, but still do not expose hidden model causality.",
         ],
         "next_actions": _trace_collection_next_actions(traces, selected_memory_id),
     }
@@ -101,7 +101,7 @@ def explain_memory_why_used(
         "confidence": _trace_confidence(traces),
         "limitations": [
             "This is an audit-backed explanation of candidate retrieval and inspection.",
-            "A future answer-level trace should attach final response ids and used_memory_ids explicitly.",
+            "Hermes answer proofs can attach final response ids and used_memory_ids when the caller records them.",
         ],
         "next_actions": _why_used_next_actions(selected_memory_id, traces),
     }

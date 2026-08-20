@@ -48,6 +48,7 @@ from pska_essential.eval import run_eval
 from pska_essential.embedding_component import build_embedding_component_status
 from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import build_workspace_policy_from_env
+from pska_essential.hermes_answer_trace import list_hermes_answer_proofs, record_hermes_answer_proof
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.jarvis import build_jarvis_briefing
 from pska_essential.kb_audit import (
@@ -105,6 +106,8 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/agentic/context-brief"},
     {"method": "GET", "path": "/api/agentic/context-briefs"},
     {"method": "GET", "path": "/api/provider/jobs"},
+    {"method": "GET", "path": "/api/hermes/answer-proofs"},
+    {"method": "POST", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/turn-context"},
     {"method": "POST", "path": "/api/ask"},
     {"method": "POST", "path": "/api/digest"},
@@ -1605,6 +1608,57 @@ def _handler_class(state: ProductApiState):
                     descending=True,
                 )
                 self._send_json({"ok": True, "events": to_jsonable(events)})
+                return
+
+            if method == "POST" and path == "/api/hermes/answer-proofs":
+                payload = self._read_json()
+                source_refs = payload.get("source_refs") or []
+                if not isinstance(source_refs, list):
+                    raise ApiError("source_refs must be a list", HTTPStatus.BAD_REQUEST)
+                result = record_hermes_answer_proof(
+                    state.service,
+                    session_id=_required_str(payload, "session_id"),
+                    proof_id=str(payload.get("proof_id") or ""),
+                    message_id=str(payload.get("message_id") or ""),
+                    response_id=str(payload.get("response_id") or ""),
+                    caller=str(payload.get("caller") or ""),
+                    question=str(payload.get("question") or ""),
+                    question_preview=str(payload.get("question_preview") or ""),
+                    question_sha256=str(payload.get("question_sha256") or ""),
+                    answer=str(payload.get("answer") or ""),
+                    answer_preview=str(payload.get("answer_preview") or ""),
+                    answer_sha256=str(payload.get("answer_sha256") or ""),
+                    answer_length=int(payload.get("answer_length") or 0),
+                    dataset_ids=_optional_str_list(payload, "dataset_ids"),
+                    document_ids=_optional_str_list(payload, "document_ids"),
+                    source_root_ids=_optional_str_list(payload, "source_root_ids"),
+                    source_refs=source_refs,
+                    proof_summary=_optional_dict(payload, "proof_summary"),
+                    tool_events=payload.get("tool_events"),
+                    checks=payload.get("checks") or [],
+                    artifacts=_optional_dict(payload, "artifacts"),
+                    webui=str(payload.get("webui") or ""),
+                    started_at=str(payload.get("started_at") or ""),
+                    finished_at=str(payload.get("finished_at") or ""),
+                    read_only=_bool_value(payload.get("read_only"), False) if "read_only" in payload else None,
+                    metadata=_optional_dict(payload, "metadata"),
+                )
+                self._send_json({"ok": True, **result}, HTTPStatus.CREATED)
+                return
+
+            if method == "GET" and path == "/api/hermes/answer-proofs":
+                read_only = None
+                if query.get("read_only") not in {None, ""}:
+                    read_only = _bool_param(query.get("read_only"), False)
+                result = list_hermes_answer_proofs(
+                    state.service,
+                    proof_id=query.get("proof_id") or "",
+                    session_id=query.get("session_id") or "",
+                    response_id=query.get("response_id") or "",
+                    read_only=read_only,
+                    limit=_int_param(query.get("limit"), 20),
+                )
+                self._send_json({"ok": True, **result})
                 return
 
             if method == "GET" and path == "/api/trace/query":

@@ -241,17 +241,20 @@ make webui-extension-llm-proof
 
 ```text
 ok = true
-session_id = 01e886e311b4
+session_id = da2146f8fc2d
 kept_session = false
 message_length = 10462
-answer_length = 1633
+answer_length = 2144
+answer_proof_record.status = recorded
+proof_id = hproof_0768c2ba9aa24a92b1ba82897b56fc99
+audit_event_id = aud_641fa296c6124247b51f3804e3293661
 ```
 
 回答侧实际完成的 PSKA 工具调用：
 
 ```text
+mcp__pska_essential__pska_source_root_list
 mcp__pska_essential__pska_source_search
-mcp__pska_essential__pska_retrieval_probe
 mcp__pska_essential__pska_workspace_status
 mcp__pska_essential__pska_source_read
 mcp__pska_essential__pska_memory_search
@@ -266,9 +269,10 @@ write_like_events = 0
 Final answer is substantive and source-oriented
 Visible user turn remains clean
 Temporary WebUI session cleanup OK
+Persist Hermes answer proof in PSKA audit OK
 ```
 
-这条 proof 会真实调用模型，因此不放进默认 `alpha-acceptance-webui`；需要展示 Hermes Agent 确实使用 PSKA 时再显式运行。
+这条 proof 会真实调用模型，因此不放进默认 `alpha-acceptance-webui`；需要展示 Hermes Agent 确实使用 PSKA 时再显式运行。成功后它会写入 `hermes.answer_proof` audit 事件；可通过 `GET /api/hermes/answer-proofs` 或 `GET /api/trace/query?action=hermes.answer_proof` 反查，保存的是问题/回答预览、哈希、工具调用摘要和检查结果，不保存完整回答文本。
 
 ## 记忆治理状态
 

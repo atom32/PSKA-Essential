@@ -99,7 +99,7 @@ cd /Users/xudawei/PSKA-Essential
 - First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注。
 - Kanban 投影：把 PSKA 审核项同步到 Hermes 的 `pska-review` 看板。
 - Digest Runner：创建 Hermes Tasks 入口，用于摘要和消化任务。
-- LLM proof：可选地让 Hermes 真实回答一次，确认回答侧调用了 PSKA 工具、没有写入型动作，并清理临时会话。
+- LLM proof：可选地让 Hermes 真实回答一次，确认回答侧调用了 PSKA 工具、没有写入型动作，清理临时会话，并把回答侧 proof 写入 PSKA audit。
 
 它现在故意不提供：
 
@@ -469,7 +469,7 @@ Next actions: 8
 - Alpha readiness 与 First-run checklist 可在 Hermes extension 主页面查看和更新。
 - Hermes Kanban `pska-review` 投影。
 - Hermes Tasks `PSKA Digest Runner` 入口。
-- 可选真实 LLM proof：Hermes 回答侧调用 PSKA source search、retrieval probe、workspace status、source read 和 memory search，并保持只读。
+- 可选真实 LLM proof：Hermes 回答侧调用 PSKA source root list、source search、workspace status、source read 和 memory search，并保持只读；proof 会落到 `hermes.answer_proof` audit，可用 `/api/hermes/answer-proofs` 或 `/api/trace/query?action=hermes.answer_proof` 反查。
 
 当前还不应该承诺：
 

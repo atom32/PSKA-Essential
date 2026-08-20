@@ -395,6 +395,13 @@ memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨
 events；不新建第二套 trace store，不写源文件，不写 durable memory，不需要 embedding，
 也不声称能还原隐藏模型因果。
 
+P4 的回答侧 proof 也已落地为最小闭环：
+`POST /api/hermes/answer-proofs` 接收 Hermes WebUI proof harness 或后续 extension bridge
+捕获到的真实回答证据，写入 `hermes.answer_proof` audit；`GET /api/hermes/answer-proofs`
+和 `GET /api/trace/query?action=hermes.answer_proof` 可反查本轮回答实际观测到哪些
+PSKA 工具调用、是否只读、对应 dataset/source root 范围和检查结果。它只保存问题/回答的
+短预览、SHA-256、工具摘要和检查结果，不保存完整回答文本，不写长期记忆，不写用户源文件。
+
 新增 Product API / MCP：
 
 ```text
@@ -411,6 +418,8 @@ GET  /api/memory/{memory_id}/use-trace
 GET  /api/memory/{memory_id}/why-used
 GET  /api/memory/{memory_id}/timeline
 GET  /api/trace/query
+POST /api/hermes/answer-proofs
+GET  /api/hermes/answer-proofs
 POST /api/agentic/context-brief
 GET  /api/memory/cards/suggestions
 GET  /api/memory/cards/conflicts

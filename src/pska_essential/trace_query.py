@@ -113,7 +113,7 @@ def _entry_from_event(event: Any) -> dict[str, Any]:
         },
         "review_ids": _ids(metadata, "review_id"),
         "proposal_ids": _ids(metadata, "proposal_id"),
-        "memory_ids": _ids(metadata, "memory_id", "memory_target_id"),
+        "memory_ids": _ids(metadata, "memory_id", "memory_ids", "memory_target_id", "used_memory_ids"),
         "source_refs": _event_source_refs(event, metadata),
         "confidence": "audit_record",
     }
@@ -124,6 +124,8 @@ def _review_entries(
     query: dict[str, Any],
     source_ref: SourceRef | None,
 ) -> list[dict[str, Any]]:
+    if query["action"]:
+        return []
     entries = []
     for review in service.store.list_reviews(limit=200):
         if not _review_matches(review, query, source_ref):
@@ -166,7 +168,7 @@ def _event_matches(event: Any, query: dict[str, Any], source_ref: SourceRef | No
     if query["proposal_id"] and query["proposal_id"] not in _ids(metadata, "proposal_id"):
         if str(getattr(event, "target_id", "") or "") != query["proposal_id"]:
             return False
-    if query["memory_id"] and query["memory_id"] not in _ids(metadata, "memory_id", "memory_target_id"):
+    if query["memory_id"] and query["memory_id"] not in _ids(metadata, "memory_id", "memory_ids", "memory_target_id", "used_memory_ids"):
         if str(getattr(event, "target_id", "") or "") != query["memory_id"]:
             return False
     if source_ref is not None and not _source_ref_matches_any(source_ref, _event_source_refs(event, metadata)):
@@ -274,7 +276,7 @@ def _ids(metadata: dict[str, Any], *keys: str) -> list[str]:
 
 def _event_summary(event: Any) -> str:
     metadata = dict(getattr(event, "metadata", {}) or {})
-    for key in ("message", "reason", "query", "status", "memory_type", "node_type"):
+    for key in ("message", "reason", "query", "question_preview", "answer_preview", "status", "memory_type", "node_type"):
         value = metadata.get(key)
         if value:
             return str(value)

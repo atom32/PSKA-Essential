@@ -3,8 +3,10 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 
 const WEBUI = stripTrailingSlash(process.env.HERMES_WEBUI_URL || "http://127.0.0.1:8787");
+const PSKA_API = stripTrailingSlash(process.env.PSKA_API_BASE_URL || "http://127.0.0.1:8765");
 const PASSWORD = process.env.HERMES_WEBUI_PASSWORD || process.env.PSKA_WEBUI_TEST_PASSWORD || "";
 const PLAYWRIGHT_MODULE = process.env.PSKA_PLAYWRIGHT_MODULE || process.env.PLAYWRIGHT_MODULE || "playwright";
 const BROWSER_CHANNEL = process.env.PSKA_PLAYWRIGHT_CHANNEL || "";
@@ -19,6 +21,7 @@ const HEADLESS = !truthy(process.env.PSKA_PLAYWRIGHT_HEADED);
 const KEEP_SESSION = truthy(process.env.PSKA_LLM_PROOF_KEEP_SESSION);
 const TIMEOUT_MS = Number(process.env.PSKA_LLM_PROOF_TIMEOUT_MS || 240000);
 const STORAGE_KEY = "pska-mini.hermes-webui.scope.v1";
+const RECORD_ANSWER_PROOF = !falsy(process.env.PSKA_LLM_PROOF_RECORD_ANSWER_PROOF);
 
 function usage() {
   console.log(`Usage: node scripts/test_pska_webui_llm_proof.cjs
@@ -35,6 +38,9 @@ Environment:
   PSKA_LLM_PROOF_OUT            output directory, default: /tmp/pska-webui-llm-proof-*
   PSKA_LLM_PROOF_TIMEOUT_MS     default: 240000
   PSKA_LLM_PROOF_KEEP_SESSION   set to 1 to keep the created WebUI session
+  PSKA_LLM_PROOF_RECORD_ANSWER_PROOF
+                                  set to 0/false/no/off to skip POSTing proof metadata to PSKA API
+  PSKA_API_BASE_URL              default: http://127.0.0.1:8765
   PSKA_PLAYWRIGHT_HEADED        set to 1 for headed browser
 
 This is an optional real-LLM proof. It lets Hermes WebUI run normally, records
@@ -55,8 +61,16 @@ function truthy(value) {
   return /^(1|true|yes|on)$/iu.test(String(value || ""));
 }
 
+function falsy(value) {
+  return /^(0|false|no|off)$/iu.test(String(value || ""));
+}
+
 function timestampSlug() {
   return new Date().toISOString().replace(/[:.]/gu, "-");
+}
+
+function sha256(value) {
+  return crypto.createHash("sha256").update(String(value || ""), "utf8").digest("hex");
 }
 
 function loadPlaywright() {
@@ -265,6 +279,52 @@ async function cleanupSession(context, sessionId, checks) {
   });
 }
 
+async function recordAnswerProof(context, {
+  sessionId,
+  checks,
+  proofSummary,
+  artifacts,
+  startedAt,
+  answer,
+  cleanupOk,
+}) {
+  if (!RECORD_ANSWER_PROOF) return null;
+  const payload = {
+    session_id: sessionId,
+    caller: "webui-extension-llm-proof",
+    webui: WEBUI,
+    started_at: startedAt,
+    finished_at: new Date().toISOString(),
+    question_preview: QUESTION.slice(0, 600),
+    question_sha256: sha256(QUESTION),
+    answer_preview: String(answer || "").slice(0, 600),
+    answer_sha256: answer ? sha256(answer) : "",
+    answer_length: String(answer || "").length,
+    dataset_ids: DATASET_ID ? [DATASET_ID] : [],
+    source_root_ids: SOURCE_ROOT_ID ? [SOURCE_ROOT_ID] : [],
+    proof_summary: proofSummary,
+    checks,
+    artifacts,
+    read_only: (proofSummary.write_like_tools || []).length === 0,
+    metadata: {
+      script: "scripts/test_pska_webui_llm_proof.cjs",
+      kept_session: KEEP_SESSION,
+      cleanup_ok: Boolean(cleanupOk),
+      output_dir: OUT_DIR,
+    },
+  };
+  const response = await context.request.post(`${PSKA_API}/api/hermes/answer-proofs`, { data: payload });
+  const json = await safeJson(response);
+  assertCheck(checks, "Persist Hermes answer proof in PSKA audit", response.ok() && json?.ok !== false, {
+    pska_api: PSKA_API,
+    status: response.status(),
+    proof_id: json?.proof?.proof_id || "",
+    audit_event_id: json?.audit_event_id || "",
+    error: json?.error || null,
+  });
+  return json;
+}
+
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const { chromium } = loadPlaywright();
@@ -282,6 +342,8 @@ async function main() {
   let context = null;
   let cleanupAttempted = false;
   let proofSummary = {};
+  let finalAnswer = "";
+  let answerProofRecord = null;
 
   try {
     context = await prepareContext(browser, { width: 1280, height: 720 });
@@ -385,6 +447,7 @@ async function main() {
     const writeLikeEvents = toolEvents.filter(isWriteLikeToolEvent);
     const writeLikeTools = Array.from(new Set(writeLikeEvents.map(eventToolName).filter(Boolean)));
     const answer = assistantAnswerFromMessages(state.messages);
+    finalAnswer = answer;
     proofSummary = {
       tool_names: toolNames,
       completed_pska_tools: Array.from(new Set(completedPskaTools)),
@@ -442,13 +505,22 @@ async function main() {
 
     await cleanupSession(context, sessionId, checks);
     cleanupAttempted = true;
-    await page.close();
-    await context.close();
 
     const failedCleanup = checks.find((check) => check.name === "Cleanup temporary WebUI session" && !check.ok);
     if (failedCleanup) {
       throw new Error(`Cleanup temporary WebUI session failed: ${JSON.stringify(failedCleanup.detail)}`);
     }
+    answerProofRecord = await recordAnswerProof(context, {
+      sessionId,
+      checks,
+      proofSummary,
+      artifacts,
+      startedAt,
+      answer: finalAnswer,
+      cleanupOk: !failedCleanup,
+    });
+    await page.close();
+    await context.close();
   } finally {
     if (context && sessionId && !cleanupAttempted && !KEEP_SESSION) {
       try {
@@ -470,6 +542,7 @@ async function main() {
     kept_session: KEEP_SESSION,
     artifacts,
     proof_summary: proofSummary,
+    answer_proof_record: answerProofRecord,
     checks,
   };
   const resultPath = path.join(OUT_DIR, "llm-proof-results.json");

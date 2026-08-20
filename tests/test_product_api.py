@@ -293,6 +293,8 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/reviews/merge-candidates"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
         self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
+        self.assertIn(("GET", "/api/hermes/answer-proofs"), contract_routes)
+        self.assertIn(("POST", "/api/hermes/answer-proofs"), contract_routes)
         self.assertIn(("POST", "/api/agentic/context-brief"), contract_routes)
         self.assertIn(("GET", "/api/agentic/context-briefs"), contract_routes)
         self.assertIn(("POST", "/api/digest"), contract_routes)
@@ -537,6 +539,9 @@ class ProductApiTests(unittest.TestCase):
         trace_view = capabilities["capabilities"]["memory"]["trace_view"]
         self.assertEqual(trace_view["schema"], "pska.trace_query_view.v1")
         self.assertEqual(trace_view["mcp_tool"], "pska_trace_query")
+        self.assertEqual(trace_view["answer_proof"]["record_api"], "POST /api/hermes/answer-proofs")
+        self.assertEqual(trace_view["answer_proof"]["audit_action"], "hermes.answer_proof")
+        self.assertFalse(trace_view["answer_proof"]["stores_full_answer"])
         self.assertFalse(trace_view["data_flow"]["embedding_required"])
         interaction_model = capabilities["capabilities"]["memory"]["interaction_model"]
         self.assertEqual(interaction_model["schema"], "pska.memory_interaction_model.v1")
@@ -1709,6 +1714,44 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(listed["count"], 1)
         audit = self._get_json("/api/audit?limit=10&action=memory.why_used")
         self.assertEqual(audit["events"][0]["target_id"], "mem-route")
+
+    def test_hermes_answer_proof_routes_record_audit_trace(self):
+        recorded = self._post_json(
+            "/api/hermes/answer-proofs",
+            {
+                "session_id": "sess-api",
+                "response_id": "resp-api",
+                "caller": "webui-extension-llm-proof",
+                "question": "这轮回答用了哪些 PSKA 工具？",
+                "answer_preview": "它使用了来源检索和记忆检索，并保持只读。",
+                "answer_length": 22,
+                "dataset_ids": ["ds-api"],
+                "source_root_ids": ["root-api"],
+                "proof_summary": {
+                    "tool_names": ["pska_source_search", "pska_memory_search"],
+                    "completed_pska_tools": ["pska_source_search", "pska_memory_search"],
+                    "write_like_tools": [],
+                },
+                "checks": [{"name": "Answer-side turn stayed read-only", "ok": True}],
+                "metadata": {"used_memory_ids": ["mem-api"]},
+            },
+        )
+        listed = self._get_json("/api/hermes/answer-proofs?session_id=sess-api")
+        traced = self._get_json("/api/trace/query?action=hermes.answer_proof&limit=10")
+
+        self.assertTrue(recorded["ok"])
+        self.assertEqual(recorded["schema"], "pska.hermes_answer_proof.v1")
+        self.assertEqual(recorded["proof"]["scope"]["dataset_ids"], ["ds-api"])
+        self.assertEqual(recorded["proof"]["scope"]["memory_ids"], ["mem-api"])
+        self.assertTrue(recorded["proof"]["read_only"])
+        self.assertFalse(recorded["proof"]["data_flow"]["writes_memory_directly"])
+        self.assertEqual(listed["proof_count"], 1)
+        self.assertEqual(listed["proofs"][0]["session_id"], "sess-api")
+        self.assertEqual(traced["status"], "found")
+        self.assertEqual(traced["entries"][0]["evidence"]["action"], "hermes.answer_proof")
+        actions = {event.action for event in self.service.store.list_audit_events(limit=20)}
+        self.assertIn("hermes.answer_proof", actions)
+        self.assertIn("hermes.answer_proof.list", actions)
 
     def test_memory_timeline_route_combines_card_trace_and_source_anchor(self):
         self.service.memory.facts.append(

@@ -1356,7 +1356,7 @@ def memory_use_trace_view_contract() -> dict[str, Any]:
             "message_id",
             "purpose",
         ],
-        "limitation": "candidate retrieval or card inspection only; final answer influence must be attached by a later response-level trace",
+        "limitation": "candidate retrieval or card inspection only; answer-side tool use is attached through hermes.answer_proof audit records",
     }
 
 
@@ -1381,7 +1381,23 @@ def trace_query_view_contract() -> dict[str, Any]:
         "output_schema": "pska.trace_query.v1",
         "selectors": ["target_type", "target_id", "review_id", "proposal_id", "memory_id", "source_ref", "action"],
         "entry_types": ["audit_event", "review_record"],
-        "evidence_sources": ["PSKA audit events", "review records", "Memory Card source refs", "Eidolia SourceRefs"],
+        "evidence_sources": [
+            "PSKA audit events",
+            "review records",
+            "Memory Card source refs",
+            "Eidolia SourceRefs",
+            "Hermes answer proofs",
+        ],
+        "answer_proof": {
+            "record_api": "POST /api/hermes/answer-proofs",
+            "list_api": "GET /api/hermes/answer-proofs",
+            "audit_action": "hermes.answer_proof",
+            "stores_full_question": False,
+            "stores_full_answer": False,
+            "text_storage": "preview_and_sha256",
+            "recording_owner": "deterministic_webui_harness_or_extension_bridge",
+            "mcp_query_path": "pska_trace_query(action='hermes.answer_proof')",
+        },
         "principle": "trace query is a derived view over existing ledgers and does not create a second trace store",
         "data_flow": {
             "writes_memory_directly": False,
