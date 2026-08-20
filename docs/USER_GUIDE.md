@@ -4,10 +4,11 @@ This guide explains how PSKA should be used as a product today. It is written
 from the intended v1 shape: Hermes WebUI is the daily user entry point, while
 PSKA is the knowledge workflow and governance layer behind it.
 
-For the current local runnable demo, read
-[`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md) first. That
-baseline uses Hermes WebUI, Eidolia, RAGFlow, SQLite memory, and SQLite review;
-Graphiti is optional, not required for the demo.
+For the current local dogfood run, use Hermes WebUI, Eidolia, RAGFlow, GBrain
+memory, and PSKA Review. The older
+[`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md) remains a
+historical freeze of the SQLite-memory demo. Graphiti is optional, not required
+for the dogfood path.
 
 ## Product Shape
 

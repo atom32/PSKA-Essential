@@ -45,8 +45,9 @@ Read these first when deciding how to use or extend the project:
   deployment for RAGFlow upstream compose plus Hermes Agent, Hermes-WebUI,
   PSKA Product API/MCP, and Eidolia.
 - [Demo Baseline 2026-08-03](docs/DEMO_BASELINE_2026-08-03.zh.md):
-  current local demo freeze for Hermes WebUI, Eidolia, PSKA-Essential,
-  RAGFlow, SQLite memory, and SQLite review.
+  historical local demo freeze for Hermes WebUI, Eidolia, PSKA-Essential,
+  RAGFlow, SQLite memory, and SQLite review. The current dogfood memory
+  provider has since moved to GBrain.
 - [System Interaction Model](docs/SYSTEM_INTERACTION_MODEL.zh.md): current
   Hermes WebUI, Eidolia, PSKA, RAGFlow, memory, review, and LLM routing rules.
 - [PSKA User Guide](docs/USER_GUIDE.md): daily Hermes WebUI workflow, ingestion,
@@ -158,14 +159,15 @@ through `/api/pska/*` and PSKA MCP tools.
 
 ## External Backends
 
-Production/live mode requires explicit providers. The current local demo
-baseline uses RAGFlow plus SQLite memory:
+Production/live mode requires explicit providers. The current local dogfood
+baseline uses RAGFlow plus GBrain memory:
 
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow
 export PSKA_KB_PROVIDER=ragflow
-export PSKA_MEMORY_PROVIDER=sqlite
-export PSKA_MEMORY_DB=/Users/xudawei/PSKA-Essential/.pska-essential/memory.sqlite3
+export PSKA_MEMORY_PROVIDER=gbrain
+export GBRAIN_MCP_URL=http://127.0.0.1:3131/mcp
+export GBRAIN_MCP_TOKEN=...
 ```
 
 Selected live providers also require their connection environment variables at
@@ -176,7 +178,7 @@ the Make targets accept `ENV_FILE=.env.pska`. This is only configuration
 loading; PSKA still fails when required providers or keys are absent.
 
 Graphiti can be selected later with `PSKA_MEMORY_PROVIDER=graphiti`, but it is
-not required for evidence retrieval, SQLite review, or the current demo memory
+not required for evidence retrieval, PSKA review, or the current GBrain memory
 loop.
 
 RAGFlow retrieval:
@@ -243,18 +245,18 @@ instead of producing an unsourced answer. When the result includes a blocked
 `PSKA_LOOP_RUN_ID=<run_id> make live-ingest-loop-resume` or
 `pska-essential-ingest-loop-resume <run_id>`.
 
-SQLite memory:
+SQLite memory fallback:
 
 ```bash
 export PSKA_MEMORY_PROVIDER=sqlite
 export PSKA_MEMORY_DB=/Users/xudawei/PSKA-Essential/.pska-essential/memory.sqlite3
 ```
 
-The SQLite memory adapter is the lightweight local baseline. It persists only
+The SQLite memory adapter is the lightweight local fallback. It persists only
 reviewed PSKA memory facts, source refs, metadata, and versions. It is useful
-when Graphiti is unavailable or when the workspace needs a small durable memory
-provider without a graph service. It is not a document store, vector index, or
-Review UI.
+for isolated tests or when a workspace needs a small durable memory provider
+without GBrain or a graph service. It is not the current dogfood memory
+provider, a document store, vector index, or Review UI.
 
 Graphiti memory:
 

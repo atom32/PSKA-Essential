@@ -32,11 +32,79 @@ Hermes / Hermes WebUI / Eidolia
 | PSKA MCP | HTTP MCP | `127.0.0.1:8766/mcp` | Hermes 接入入口 |
 | Hermes WebUI | 本机 Python，next 代码已提升到稳定 label | `127.0.0.1:8787` | 主前端，含 PSKA extension |
 | Eidolia | 本机 Node | `127.0.0.1:8797` | 创作工作台 |
-| GBrain | 本机 Bun HTTP | `127.0.0.1:3131` | 可选组件 |
+| GBrain | 本机 Bun HTTP | `127.0.0.1:3131` | 当前 PSKA memory provider，HTTP MCP |
 | RAGFlow stable | 源码后端 + Vite 前端 | API `9380`，Web `9222` | 当前可运行版本 |
 | RAGFlow base | Docker 依赖服务 | MySQL/ES/MinIO/Redis/NATS | 不是 RAGFlow 应用容器 |
 | Embedding dev | 本机 Infinity Embeddings launchd | `127.0.0.1:6380` | `BAAI/bge-m3`，MPS，label 为 `com.yuxi.infinity-emb` |
-| Graphiti | Docker | `127.0.0.1:8000` | 图记忆候选 provider |
+| Graphiti | Docker | `127.0.0.1:8000` | 可选图记忆候选 provider，非当前主路径 |
+
+当前状态应优先通过统一入口查看：
+
+```bash
+scripts/pska_component_channel.sh status
+```
+
+该命令会同时显示：
+
+- PSKA 当前 provider 选择：retrieval、KB、memory；
+- PSKA API、PSKA HTTP MCP、Hermes WebUI 主入口；
+- RAGFlow、GBrain、Embedding、Eidolia 等 provider；
+- Graphiti、RAGFlow next、Hermes WebUI next 等可选/旁路实例。
+
+## 当前运行形态
+
+建议把开发机分成三种运行形态，而不是所有东西永远常驻。
+
+### Lean dogfood
+
+用途：日常自己使用 PSKA，辅助 ChatGPT 记忆导入、资料召回、Eidolia 创作、review 和 trace。
+
+应常驻：
+
+- PSKA API：`8765`
+- PSKA HTTP MCP：`8766/mcp`
+- Hermes WebUI：`8787`
+- GBrain HTTP MCP：`3131`
+- RAGFlow stable API/Web/worker：`9380/9222`
+- RAGFlow Docker 依赖：MySQL、ES、MinIO、Redis/NATS
+- Embedding dev：`6380`，Infinity Embeddings
+- Eidolia：`8797`
+
+应默认关闭或不常驻：
+
+- Graphiti/Neo4j，除非正在验证图记忆 provider；
+- RAGFlow v0.27 `9388/9228`；
+- Hermes WebUI next `8887`。
+
+如果 `PSKA_MEMORY_PROVIDER=gbrain`，Graphiti 容器健康与否不应影响 PSKA 主路径。省电时可以
+停止 Graphiti 和 Neo4j 容器，但不要停止 RAGFlow 的 MySQL、ES、MinIO、Redis/NATS 依赖。
+
+### Full demo
+
+用途：给人演示“组件集合体系统”，需要展示可替换 provider 和图记忆候选能力。
+
+可以额外启动：
+
+- Graphiti/Neo4j；
+- 录制脚本所需的 mock 文档、source roots 和 Eidolia demo 数据；
+- 根据 demo 需要启动视频录制或浏览器视觉测试。
+
+Full demo 仍然不允许 WebUI extension 直接调用 RAGFlow、Graphiti 或 embedding。
+
+### Upgrade preview
+
+用途：验证 RAGFlow v0.27 或 Hermes WebUI/agent 新版本。
+
+只短暂启动旁路实例：
+
+```bash
+scripts/pska_component_channel.sh start-next --component ragflow --apply
+scripts/pska_component_channel.sh check-next --component ragflow
+scripts/pska_component_channel.sh stop-next --component ragflow --apply
+```
+
+升级预览实例不应长期占用资源，也不应默认替换 `.env.pska`。只有通过 smoke、回滚路径和
+adapter 一致性检查后，才允许 promote。
 
 当前开发机 embedding 形态：
 
@@ -654,8 +722,8 @@ python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webn
   RAGFlow worker      launchd 常驻
   Embedding           6380, Infinity Embeddings, bge-m3, MPS, com.yuxi.infinity-emb
   Eidolia             8797
-  GBrain              3131
-  Graphiti            8000, Docker
+  GBrain              3131, 当前 memory provider
+  Graphiti            8000, Docker，可选，不是当前主路径
 
 候选线：
   RAGFlow v0.27 API   9388, 已 smoke，通过后停止
@@ -688,6 +756,13 @@ embedding 分层：
 - 这意味着 full-compose 交付包应在干净交付机上启动；如果要在开发机上并行验证，需要先改
   `.env` 里的 `EMBEDDING_HOST_PORT`、`HERMES_WEBUI_PORT`、`RAGFLOW_HOST_PORT` 等端口，
   或停止对应开发服务。
+
+当前 lean dogfood 结论：
+
+- `PSKA_MEMORY_PROVIDER=gbrain`，GBrain HTTP MCP 是主路径。
+- Graphiti/Neo4j 只在验证图记忆 provider 时需要；否则可以停掉来省电。
+- RAGFlow next 和 Hermes WebUI next 只做旁路验证，不应常驻。
+- `scripts/pska_component_channel.sh status` 是判断当前机器处于哪种运行形态的第一入口。
 
 ## 切换门槛
 

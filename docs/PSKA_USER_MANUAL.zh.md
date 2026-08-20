@@ -64,8 +64,8 @@ cd /Users/xudawei/PSKA-Essential
 ```text
 RAGFlow: OK
 RAGFlow task executor: OK
-Graphiti: OK
 GBrain HTTP MCP: OK
+Graphiti optional: OK
 PSKA Product API: OK
 PSKA MCP HTTP: OK
 Eidolia: OK
@@ -493,7 +493,7 @@ RAGFlow 需要解析、切片和建立索引。PSKA 会检查 readiness。如果
 
 ### Graphiti 和 GBrain 都是什么关系？
 
-它们都是可替换或可组合的记忆/图组件。PSKA 不把自己绑定死在某个 provider 上，而是要求它们通过 Memory Card、SourceRef、Review、Audit 这些合同接入。
+它们都是可替换或可组合的记忆/图组件。当前主路径使用 GBrain 保存长期记忆；Graphiti 是可选图记忆 provider，只有在专门验证图记忆时才需要常驻。PSKA 不把自己绑定死在某个 provider 上，而是要求它们通过 Memory Card、SourceRef、Review、Audit 这些合同接入。
 
 ### Eidolia 是不是 PSKA 的一部分？
 
@@ -548,7 +548,7 @@ curl -sS 'http://127.0.0.1:8765/api/sources/roots' | jq
 写作本手册时，已用当前本机服务复核：
 
 ```text
-服务状态：RAGFlow、RAGFlow task executor、Graphiti、GBrain HTTP MCP、PSKA Product API、PSKA MCP HTTP、Eidolia、Hermes WebUI 均为 OK。
+服务状态：RAGFlow、RAGFlow task executor、GBrain HTTP MCP、PSKA Product API、PSKA MCP HTTP、Eidolia、Hermes WebUI 均为 OK；Graphiti 作为 optional provider 当前在线，但不是 dogfood 主路径必需组件。
 本地 Source Recall：对 root_ebdf0044b0442f494246012f 查询“收入增长、现金流、库存、未交付订单”，返回 3 条命中。
 RAGFlow dataset：07f35e1a9b9411f197ff8391030412c0 可列出，document_count=4，chunk_count=6。
 Memory health：card_count=10，issue_count=0。

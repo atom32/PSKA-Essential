@@ -3,10 +3,9 @@
 PSKA-Essential should not be developed as a giant all-in-one stack. Its value is
 the adapter boundary, so the runtime model is layered.
 
-The current runnable demo baseline is
-[`DEMO_BASELINE_2026-08-03.zh.md`](DEMO_BASELINE_2026-08-03.zh.md): Hermes
-WebUI + Eidolia + RAGFlow + SQLite memory + SQLite review. Graphiti is a
-supported optional memory provider, not a prerequisite for the baseline demo.
+The current runnable dogfood baseline is Hermes WebUI + Eidolia + RAGFlow +
+GBrain memory + PSKA Review. Graphiti is a supported optional graph memory
+provider, not a prerequisite for the baseline demo.
 
 ## Modes
 
@@ -115,13 +114,14 @@ reports, switch to RAGFlow-backed KB mode so parsing and embedding are handled
 by the external KB.
 
 Live RAGFlow mode uses the same Product API command after setting providers
-explicitly. The current local demo uses SQLite memory:
+explicitly. The current local dogfood path uses GBrain memory over HTTP MCP:
 
 ```bash
 export PSKA_RETRIEVAL_PROVIDER=ragflow
 export PSKA_KB_PROVIDER=ragflow
-export PSKA_MEMORY_PROVIDER=sqlite
-export PSKA_MEMORY_DB=/Users/xudawei/PSKA-Essential/.pska-essential/memory.sqlite3
+export PSKA_MEMORY_PROVIDER=gbrain
+export GBRAIN_MCP_URL=http://127.0.0.1:3131/mcp
+export GBRAIN_MCP_TOKEN=...
 export RAGFLOW_BASE_URL=http://127.0.0.1:9380
 export RAGFLOW_API_KEY=...
 export PSKA_GOVERNANCE_DURABLE_MEMORY=manual_review
@@ -133,10 +133,11 @@ PYTHONPATH=src python3 -m pska_essential.product_api
 The selected live providers must have their required connection env configured
 before Product API, MCP, workspace-status, component-check, or live closed-loop
 startup. RAGFlow retrieval/KB requires `RAGFLOW_BASE_URL` and
-`RAGFLOW_API_KEY`; Graphiti memory additionally requires `GRAPHITI_BASE_URL`
-when `PSKA_MEMORY_PROVIDER=graphiti`. Missing values fail explicitly and are
-not replaced by implicit localhost, empty-key, fake, or alternate-provider
-defaults.
+`RAGFLOW_API_KEY`; GBrain memory requires `GBRAIN_MCP_URL` and auth material
+when `PSKA_MEMORY_PROVIDER=gbrain`; Graphiti memory additionally requires
+`GRAPHITI_BASE_URL` when `PSKA_MEMORY_PROVIDER=graphiti`. Missing values fail
+explicitly and are not replaced by implicit localhost, empty-key, fake, or
+alternate-provider defaults.
 Instead of exporting each value in the shell, copy `.env.example` to an explicit
 runtime file such as `.env.pska`, fill in real keys, and pass it with
 `--env-file .env.pska` or `make ... ENV_FILE=.env.pska`. PSKA does not

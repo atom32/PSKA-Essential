@@ -22,8 +22,8 @@ curl http://127.0.0.1:8765/api/health
 - RAGFlow 返回 `pong`
 - PSKA Product API 返回 `ok: true`
 
-Graphiti 只有在 `PSKA_MEMORY_PROVIDER=graphiti` 时才是必需组件。当前轻量路径
-使用 `PSKA_MEMORY_PROVIDER=sqlite`，因此 evidence retrieval、review 和基础
+Graphiti 只有在 `PSKA_MEMORY_PROVIDER=graphiti` 时才是必需组件。当前 dogfood 主路径
+使用 `PSKA_MEMORY_PROVIDER=gbrain`，因此 evidence retrieval、review 和基础
 memory 闭环不依赖 Graphiti。
 
 推荐直接使用统一启动脚本：
@@ -53,7 +53,8 @@ PSKA 自带的 `http://127.0.0.1:8765` 只是诊断和调试 surface，不是日
 说明：
 
 - `.env.pska` 使用真实 RAGFlow KB/retrieval。
-- 当前开发手顺使用 SQLite memory；它是轻量本地 memory provider，不需要 Graphiti。
+- 当前开发手顺使用 GBrain HTTP MCP 作为 memory provider；SQLite memory 只作为本地 fallback
+  或离线测试形态，不是当前主路径。
 - Graphiti 可以作为未来图记忆 provider 接回，但它需要自己的 LLM/embedding provider
   配置完整，不能阻塞 RAGFlow evidence retrieval。
 

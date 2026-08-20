@@ -16,6 +16,7 @@ HERMES_AGENT_NEXT_PYTHON="${HERMES_AGENT_NEXT_PYTHON:-${HERMES_HOME_EFFECTIVE}/v
 
 PSKA_ENV_FILE="${PSKA_ENV_FILE:-${PSKA_HOME}/.env.pska}"
 PSKA_API_BASE_URL="${PSKA_API_BASE_URL:-http://127.0.0.1:8765}"
+PSKA_MCP_URL="${PSKA_MCP_URL:-http://127.0.0.1:8766/mcp}"
 PSKA_API_LABEL="${PSKA_API_LABEL:-com.pska.essential.api}"
 PSKA_MCP_LABEL="${PSKA_MCP_LABEL:-com.pska.essential.mcp}"
 
@@ -27,6 +28,11 @@ RAGFLOW_NEXT_API_TOKEN="${RAGFLOW_NEXT_API_TOKEN:-${PSKA_V027_API_TOKEN:-}}"
 
 EMBEDDING_DEV_BASE_URL="${EMBEDDING_DEV_BASE_URL:-http://127.0.0.1:6380}"
 EMBEDDING_DEV_LABEL="${EMBEDDING_DEV_LABEL:-com.yuxi.infinity-emb}"
+
+GBRAIN_BASE_URL="${GBRAIN_BASE_URL:-http://127.0.0.1:3131}"
+GRAPHITI_BASE_URL="${GRAPHITI_BASE_URL:-http://127.0.0.1:8000}"
+EIDOLIA_BASE_URL="${EIDOLIA_BASE_URL:-http://127.0.0.1:8797}"
+EIDOLIA_HEALTH_PATH="${EIDOLIA_HEALTH_PATH:-/health}"
 
 HERMES_WEBUI_STABLE_URL="${HERMES_WEBUI_STABLE_URL:-http://127.0.0.1:8787}"
 HERMES_WEBUI_NEXT_URL="${HERMES_WEBUI_NEXT_URL:-http://127.0.0.1:8887}"
@@ -99,6 +105,12 @@ http_ok() {
   curl -fsS --max-time "${HTTP_PROBE_TIMEOUT:-5}" "$1" >/dev/null 2>&1
 }
 
+http_mcp_ok() {
+  local code
+  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time "${HTTP_PROBE_TIMEOUT:-5}" "$1" 2>/dev/null || true)"
+  [[ "$code" == "200" || "$code" == "405" || "$code" == "406" ]]
+}
+
 tcp_listening() {
   local port="$1"
   lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
@@ -129,6 +141,15 @@ status_url() {
   fi
 }
 
+status_mcp_url() {
+  local name="$1" url="$2"
+  if http_mcp_ok "$url"; then
+    printf '  OK   %-24s %s\n' "$name" "$url"
+  else
+    printf '  MISS %-24s %s\n' "$name" "$url"
+  fi
+}
+
 status_label() {
   local label="$1"
   if label_loaded "$label"; then
@@ -138,15 +159,69 @@ status_label() {
   fi
 }
 
+print_pska_runtime_summary() {
+  local json
+  command -v python3 >/dev/null 2>&1 || return 0
+  if ! json="$(curl -fsS --max-time "${HTTP_PROBE_TIMEOUT:-5}" "${PSKA_API_BASE_URL}/api/workspace/status?compact=1&view=channel&next_action_limit=0" 2>/dev/null)"; then
+    return 0
+  fi
+  printf '%s' "$json" | python3 -c '
+import json
+import sys
+
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+status = payload.get("workspace_status") or {}
+providers = status.get("providers") or {}
+components = status.get("components") or {}
+embedding = components.get("embedding") or {}
+gbrain = components.get("gbrain") or {}
+memory = status.get("memory") or {}
+kb = status.get("kb") or {}
+providers_retrieval = providers.get("retrieval", "")
+providers_kb = providers.get("kb", "")
+providers_memory = providers.get("memory", "")
+kb_status = kb.get("status", "")
+kb_ready = kb.get("ready_dataset_count", 0)
+kb_total = kb.get("dataset_count", 0)
+memory_backend = memory.get("backend", "")
+memory_cards = memory.get("card_count", 0)
+embedding_mode = embedding.get("mode", "")
+embedding_model = (embedding.get("model") or {}).get("configured", "")
+
+print("[pska-channel] PSKA runtime")
+print(f"  providers              retrieval={providers_retrieval} kb={providers_kb} memory={providers_memory}")
+print(f"  kb                     status={kb_status} ready={kb_ready}/{kb_total}")
+print(f"  memory                 backend={memory_backend} cards={memory_cards}")
+print(f"  embedding              mode={embedding_mode} model={embedding_model}")
+if gbrain:
+    gbrain_selected = bool(gbrain.get("selected_as_memory_provider"))
+    gbrain_mode = gbrain.get("mode", "")
+    print(f"  gbrain                 selected={gbrain_selected} mode={gbrain_mode}")
+'
+}
+
 print_status() {
-  log "HTTP endpoints"
+  print_pska_runtime_summary
+
+  log "primary HTTP endpoints"
   status_url "PSKA API" "${PSKA_API_BASE_URL}/api/health"
+  status_mcp_url "PSKA HTTP MCP" "${PSKA_MCP_URL}"
+  status_url "Hermes WebUI stable" "${HERMES_WEBUI_STABLE_URL}/health"
+
+  log "provider HTTP endpoints"
   status_url "RAGFlow stable API" "${RAGFLOW_STABLE_API}/api/v1/system/ping"
   status_url "RAGFlow stable Web" "${RAGFLOW_STABLE_WEB}/"
+  status_url "GBrain memory" "${GBRAIN_BASE_URL}/health"
+  status_url "Embedding dev" "${EMBEDDING_DEV_BASE_URL}/health"
+  status_url "Eidolia" "${EIDOLIA_BASE_URL}${EIDOLIA_HEALTH_PATH}"
+
+  log "optional/side-by-side HTTP endpoints"
+  status_url "Graphiti optional" "${GRAPHITI_BASE_URL}/healthcheck"
   status_url "RAGFlow next API" "${RAGFLOW_NEXT_API}/api/v1/system/ping"
   status_url "RAGFlow next Web" "${RAGFLOW_NEXT_WEB}/"
-  status_url "Embedding dev" "${EMBEDDING_DEV_BASE_URL}/health"
-  status_url "Hermes WebUI stable" "${HERMES_WEBUI_STABLE_URL}/health"
   status_url "Hermes WebUI next" "${HERMES_WEBUI_NEXT_URL}/health"
 
   log "launchd labels"
@@ -157,6 +232,8 @@ print_status() {
   status_label "com.pska.ragflow.web.next"
   status_label "com.pska.ragflow.task-executor.next"
   status_label "${EMBEDDING_DEV_LABEL}"
+  status_label "com.pska.gbrain-http"
+  status_label "com.pska.eidolia"
   status_label "com.pska.hermes-webui"
   status_label "com.pska.hermes-webui.next"
 }
