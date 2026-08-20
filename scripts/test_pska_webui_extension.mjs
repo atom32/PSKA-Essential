@@ -137,7 +137,14 @@ async function main() {
   });
 
   await testJson("Sidecar health through WebUI", "/api/extensions/pska-mini/sidecar/api/health");
-  await testJson("Dashboard: workspace status", "/api/extensions/pska-mini/sidecar/api/workspace/status");
+  await testJson("Dashboard: workspace status", "/api/extensions/pska-mini/sidecar/api/workspace/status?compact=1&view=webui", {}, (json, response) =>
+    response.ok && json?.workspace_status?.kind === "workspace_status_compact"
+      && json.workspace_status?.components?.embedding?.schema === "pska.embedding_component_status.v1",
+  );
+  await testJson("Dashboard: embedding component", "/api/extensions/pska-mini/sidecar/api/components/embedding", {}, (json, response) =>
+    response.ok && json?.component?.schema === "pska.embedding_component_status.v1"
+      && json.component?.governance?.allowed_flow === "Hermes/WebUI -> PSKA -> RAGFlow -> embedding",
+  );
   await testJson("Dashboard: KB datasets", "/api/extensions/pska-mini/sidecar/api/kb/datasets", {}, (json, response) =>
     response.ok && Array.isArray(json?.datasets) && json.datasets.some((dataset) => (dataset.dataset_id || dataset.id) === DATASET_ID),
   );

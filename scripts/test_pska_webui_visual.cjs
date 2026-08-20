@@ -136,7 +136,9 @@ async function openMenuAndWait(page) {
   await page.waitForSelector("#pskaMiniMenu", { state: "visible", timeout: 10000 });
   await page.waitForFunction(() => {
     const text = document.querySelector("#pskaMiniStatus")?.innerText || "";
-    return /API\s+ready/iu.test(text) && /KB\s+(\d+\/\d+|ready)/iu.test(text);
+    return /API\s+ready/iu.test(text)
+      && /KB\s+(\d+\/\d+|ready)/iu.test(text)
+      && /Embedding\s+(local|TEI|external)/iu.test(text);
   }, { timeout: 20000 });
 }
 
@@ -178,7 +180,14 @@ async function runDesktop(context, checks, artifacts) {
       statusText: document.querySelector("#pskaMiniStatus")?.innerText || "",
     };
   });
-  assertCheck(checks, "Desktop menu visible and in viewport", menuCheck.visible && !Object.values(menuCheck.overflows).some(Boolean), menuCheck);
+  assertCheck(
+    checks,
+    "Desktop menu visible and in viewport",
+    menuCheck.visible
+      && !Object.values(menuCheck.overflows).some(Boolean)
+      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText),
+    menuCheck,
+  );
   artifacts.desktopMenu = path.join(OUT_DIR, "desktop-menu.png");
   await page.screenshot({ path: artifacts.desktopMenu, fullPage: false });
 
@@ -206,6 +215,7 @@ async function runDesktop(context, checks, artifacts) {
     const reviewText = document.querySelector("#pskaMiniReviewList")?.innerText || "";
     const countMatch = count.match(/(\d+)\s+shown/iu);
     return /API\s+ready/iu.test(status)
+      && /Embedding\s+(local|TEI|external)/iu.test(status)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/Loading memory/iu.test(memoryText)
@@ -225,6 +235,7 @@ async function runDesktop(context, checks, artifacts) {
     "Memory page visible with memory and review data",
     memoryCheck.visible
       && /PSKA Memory/iu.test(memoryCheck.title)
+      && /Embedding\s+(local|TEI|external)/iu.test(memoryCheck.status)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/Loading memory/iu.test(memoryCheck.firstMemory)
@@ -314,7 +325,14 @@ async function runMobile(context, checks, artifacts) {
       statusText: document.querySelector("#pskaMiniStatus")?.innerText || "",
     };
   });
-  assertCheck(checks, "Mobile menu visible and in viewport", menuCheck.visible && !Object.values(menuCheck.overflows).some(Boolean), menuCheck);
+  assertCheck(
+    checks,
+    "Mobile menu visible and in viewport",
+    menuCheck.visible
+      && !Object.values(menuCheck.overflows).some(Boolean)
+      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText),
+    menuCheck,
+  );
   artifacts.mobileMenu = path.join(OUT_DIR, "mobile-menu.png");
   await page.screenshot({ path: artifacts.mobileMenu, fullPage: false });
   await page.close();

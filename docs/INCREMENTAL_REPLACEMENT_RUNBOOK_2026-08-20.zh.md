@@ -85,6 +85,15 @@ Hermes / WebUI
 `http://pska-embedding:80`。这两种形态共享同一个 PSKA component status，不再是两套互相
 看不见的说明。
 
+Hermes WebUI extension 跟进：
+
+- PSKA-mini dashboard 使用 compact workspace status：
+  `GET /api/workspace/status?compact=1&view=webui&next_action_limit=8`
+- chip 菜单显示 `Embedding` 状态。
+- PSKA Memory 页面顶部显示 `Embedding` 状态。
+- contract test 覆盖 sidecar 的 `GET /api/components/embedding`。
+- Playwright 视觉 smoke 覆盖桌面菜单、移动菜单和 Memory 页面里的 Embedding 状态。
+
 ## RAGFlow v0.27 旁路状态
 
 旁路目录：

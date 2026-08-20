@@ -593,12 +593,14 @@
     const workspace = dashboard.workspace || {};
     const providers = workspace.providers || dashboard.health?.providers || {};
     const kb = workspace.kb || {};
+    const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
     container.innerHTML = `
       <div class="pska-mini-page-pills">
         <span class="pska-mini-pill ${dashboard.health?.ok ? "is-ok" : "is-bad"}"><b>API</b> ${dashboard.health?.ok ? "ready" : "missing"}</span>
         <span class="pska-mini-pill ${providers.memory ? "is-ok" : "is-warn"}"><b>Memory</b> ${escapeHtml(providers.memory || "unknown")}</span>
         <span class="pska-mini-pill ${kb.usable ? "is-ok" : "is-warn"}"><b>KB</b> ${escapeHtml(kb.usable ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready")}</span>
+        <span class="pska-mini-pill is-${escapeAttr(embeddingTone(embedding))}" title="${escapeAttr(embeddingTitle(embedding))}"><b>Embedding</b> ${escapeHtml(embeddingStatusLabel(embedding))}</span>
         <span class="pska-mini-pill is-${escapeAttr(gbrainTone(gbrain))}"><b>GBrain</b> ${escapeHtml(gbrainStatusLabel(gbrain))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
@@ -716,7 +718,7 @@
     renderDashboard();
     const results = await settleObject({
       health: pskaMiniFetchJson("/api/health"),
-      workspace: pskaMiniFetchJson("/api/workspace/status"),
+      workspace: pskaMiniFetchJson("/api/workspace/status?compact=1&view=webui&next_action_limit=8"),
       datasets: pskaMiniFetchJson("/api/kb/datasets"),
       hermesProfile: fetchWebuiJson("/api/profile/active", { timeoutMs: 5000 }),
       hermesProjects: fetchWebuiJson("/api/projects", { timeoutMs: 5000 }),
@@ -767,6 +769,7 @@
           <span class="pska-mini-pill is-warn"><b>API</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>KB</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Memory</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>Embedding</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>GBrain</b> checking</span>
         </div>
         <div class="pska-mini-muted">Refreshing PSKA workspace status...</div>
@@ -779,27 +782,58 @@
     const apiOk = Boolean(dashboard.health?.ok);
     const kbOk = Boolean(kb.usable);
     const memoryOk = Boolean(providers.memory) && !dashboard.diagnosticsError;
+    const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
     const statusItems = [
-      ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad"],
-      ["KB", kbOk ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready", kbOk ? "ok" : "warn"],
-      ["Memory", memoryOk ? providers.memory : "down", memoryOk ? "ok" : "bad"],
-      ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain)]
+      ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad", ""],
+      ["KB", kbOk ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready", kbOk ? "ok" : "warn", ""],
+      ["Memory", memoryOk ? providers.memory : "down", memoryOk ? "ok" : "bad", ""],
+      ["Embedding", embeddingStatusLabel(embedding), embeddingTone(embedding), embeddingTitle(embedding)],
+      ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain), ""]
     ];
     container.innerHTML = `
       <div class="pska-mini-status-pills">
-        ${statusItems.map(([label, value, tone]) => `
-          <span class="pska-mini-pill is-${escapeAttr(tone)}">
+        ${statusItems.map(([label, value, tone, title]) => `
+          <span class="pska-mini-pill is-${escapeAttr(tone)}" ${title ? `title="${escapeAttr(title)}"` : ""}>
             <b>${escapeHtml(label)}</b> ${escapeHtml(value)}
           </span>
         `).join("")}
       </div>
-      ${dashboard.diagnosticsError ? `<div class="pska-mini-warning">Graphiti diagnostics: ${escapeHtml(dashboard.diagnosticsError)}</div>` : ""}
+      ${dashboard.diagnosticsError ? `<div class="pska-mini-warning">Runtime diagnostics: ${escapeHtml(dashboard.diagnosticsError)}</div>` : ""}
       ${Object.keys(dashboard.errors).length ? `
         <div class="pska-mini-warning">${Object.entries(dashboard.errors).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join("<br>")}</div>
       ` : ""}
       ${dashboard.loadedAt ? `<div class="pska-mini-muted">Last refresh: ${escapeHtml(dashboard.loadedAt)}</div>` : ""}
     `;
+  }
+
+  function embeddingComponent() {
+    return dashboard.workspace?.components?.embedding || null;
+  }
+
+  function embeddingStatusLabel(component) {
+    if (!component) return "not visible";
+    const model = String(component.model?.configured || "").trim();
+    const mode = String(component.mode || component.status || "").trim();
+    if (mode === "local_infinity_dev") return model ? `local ${model}` : "local";
+    if (mode === "tei_container_delivery") return model ? `TEI ${model}` : "TEI";
+    if (mode === "external_http_embedding") return "external";
+    if (mode === "disabled") return "disabled";
+    return mode || "unknown";
+  }
+
+  function embeddingTone(component) {
+    if (!component) return "bad";
+    if (component.status === "configured") return "ok";
+    if (component.status === "disabled") return "warn";
+    return "bad";
+  }
+
+  function embeddingTitle(component) {
+    if (!component) return "Embedding component is not visible in PSKA workspace status.";
+    const endpoint = component.endpoints?.ragflow_expected_url || component.endpoints?.host_health_url || "";
+    const flow = "Hermes/WebUI -> PSKA -> RAGFlow -> embedding";
+    return [component.runtime?.product_flow_status, endpoint, flow].filter(Boolean).join(" · ");
   }
 
   function gbrainComponent() {
@@ -1080,7 +1114,7 @@
       JSON.stringify(payload, null, 2),
       "```",
       "",
-      "Operational rule: when PSKA is enabled from the chip, use PSKA-Essential MCP retrieval tools for knowledge-base evidence before answering. Treat Graphiti memory as optional; if memory diagnostics fail, keep retrieval working and say memory is unavailable only when it matters."
+      "Operational rule: when PSKA is enabled from the chip, use PSKA-Essential MCP retrieval tools for knowledge-base evidence before answering. Treat memory and embedding as governed PSKA components; keep retrieval working when an optional component is unavailable, and mention the unavailable component only when it matters."
     ];
     return lines.join("\n");
   }
