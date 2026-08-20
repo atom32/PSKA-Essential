@@ -71,7 +71,16 @@ PSKA 自带的 `http://127.0.0.1:8765` 只是诊断和调试 surface，不是日
 
 ```bash
 make workspace-status ENV_FILE=.env.pska.demo
+scripts/pska_component_channel.sh status
 ```
+
+如果日常 dogfooding 想省电，先 dry-run 看会停哪些 optional 组件：
+
+```bash
+scripts/pska_component_channel.sh stop-optional
+```
+
+确认后再加 `--apply`。该命令只处理 Graphiti/Neo4j 和旁路 next 实例，不会停止当前主路径。
 
 ## 3. 基础闭环：WebUI 问答到工作产物
 

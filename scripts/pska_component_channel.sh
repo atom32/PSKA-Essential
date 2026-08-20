@@ -8,6 +8,9 @@ BACKUP_ROOT="${PSKA_CHANNEL_BACKUP_ROOT:-${HERMES_HOME_EFFECTIVE}/pska-channel-b
 
 RAGFLOW_STABLE_HOME="${RAGFLOW_STABLE_HOME:-/Users/xudawei/PSKA-Components/ragflow}"
 RAGFLOW_NEXT_HOME="${RAGFLOW_NEXT_HOME:-/Users/xudawei/PSKA-Components/ragflow-v0.27.0}"
+GRAPHITI_HOME="${GRAPHITI_HOME:-/Users/xudawei/PSKA-Components/graphiti}"
+GRAPHITI_COMPOSE_FILE="${GRAPHITI_COMPOSE_FILE:-docker-compose.pska.yml}"
+GRAPHITI_ENV_FILE="${GRAPHITI_ENV_FILE:-.env.pska}"
 HERMES_WEBUI_STABLE_HOME="${HERMES_WEBUI_STABLE_HOME:-/Users/xudawei/hermes-webui}"
 HERMES_WEBUI_NEXT_HOME="${HERMES_WEBUI_NEXT_HOME:-/Users/xudawei/PSKA-Components/hermes-webui-next}"
 HERMES_AGENT_STABLE_PYTHON="${HERMES_AGENT_STABLE_PYTHON:-${HERMES_HOME_EFFECTIVE}/hermes-agent/venv/bin/python}"
@@ -55,13 +58,14 @@ Commands:
   start-next                     Start side-by-side next components.
   stop-next                      Stop side-by-side next components.
   check-next                     Check side-by-side next components.
+  stop-optional                  Stop optional non-dogfood components.
   promote-hermes-next            Replace stable Hermes WebUI launchd job with next WebUI/agent.
   rollback-hermes                Restore the most recent stable Hermes WebUI launchd backup.
   promote-ragflow-next           Point PSKA .env.pska at side-by-side RAGFlow v0.27.
   rollback-ragflow-env           Restore the most recent .env.pska backup.
 
 Options:
-  --component NAME               all, hermes, ragflow, ragflow-worker.
+  --component NAME               all, hermes, ragflow, ragflow-worker; stop-optional also accepts graphiti,next.
   --with-worker                  Include the v0.27 task executor for start/stop/check-next.
   --stop-stable-ragflow          After promote-ragflow-next, stop old stable RAGFlow jobs.
   --no-restart-pska              Do not restart PSKA API/MCP after .env.pska changes.
@@ -71,6 +75,7 @@ Options:
 Safe defaults:
   - status/check-next are read-only.
   - start-next/stop-next/promote/rollback require --apply.
+  - stop-optional requires --apply and never stops PSKA, Hermes stable, GBrain, RAGFlow stable, embedding, or Eidolia.
   - next RAGFlow stays on 9388/9228 and isolated DB/Redis.
   - PSKA keeps using Hermes WebUI as the only frontend.
 EOF
@@ -109,6 +114,18 @@ http_mcp_ok() {
   local code
   code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time "${HTTP_PROBE_TIMEOUT:-5}" "$1" 2>/dev/null || true)"
   [[ "$code" == "200" || "$code" == "405" || "$code" == "406" ]]
+}
+
+docker_compose() {
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+    return
+  fi
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+    return
+  fi
+  return 127
 }
 
 tcp_listening() {
@@ -412,6 +429,30 @@ stop_next_hermes() {
   wait_for_label_unloaded "com.pska.hermes-webui.next" || true
 }
 
+stop_optional_graphiti() {
+  if (( ! APPLY )); then
+    log "would stop optional Graphiti/Neo4j via ${GRAPHITI_HOME}/${GRAPHITI_COMPOSE_FILE}"
+    log "would preserve Neo4j volume because this uses docker compose down without -v"
+    return 0
+  fi
+  [[ -d "$GRAPHITI_HOME" ]] || die "GRAPHITI_HOME not found: $GRAPHITI_HOME"
+  [[ -f "${GRAPHITI_HOME}/${GRAPHITI_COMPOSE_FILE}" ]] || die "Graphiti compose file not found: ${GRAPHITI_HOME}/${GRAPHITI_COMPOSE_FILE}"
+  docker_compose version >/dev/null 2>&1 || die "docker compose is required to stop optional Graphiti"
+  (
+    cd "$GRAPHITI_HOME"
+    if [[ -f "$GRAPHITI_ENV_FILE" ]]; then
+      docker_compose -f "$GRAPHITI_COMPOSE_FILE" --env-file "$GRAPHITI_ENV_FILE" down
+    else
+      docker_compose -f "$GRAPHITI_COMPOSE_FILE" down
+    fi
+  )
+}
+
+stop_optional_next() {
+  stop_next_hermes
+  stop_next_ragflow
+}
+
 check_next_ragflow() {
   status_url "RAGFlow next API" "${RAGFLOW_NEXT_API}/api/v1/system/ping"
   status_url "RAGFlow next Web" "${RAGFLOW_NEXT_WEB}/api/v1/system/ping"
@@ -546,6 +587,17 @@ run_stop_next() {
   esac
 }
 
+run_stop_optional() {
+  case "$COMPONENT" in
+    all) stop_optional_next; stop_optional_graphiti ;;
+    graphiti) stop_optional_graphiti ;;
+    next) stop_optional_next ;;
+    hermes) stop_next_hermes ;;
+    ragflow|ragflow-worker) stop_next_ragflow ;;
+    *) die "unknown stop-optional component: $COMPONENT" ;;
+  esac
+}
+
 run_check_next() {
   case "$COMPONENT" in
     all) check_next_ragflow; check_next_hermes ;;
@@ -577,6 +629,7 @@ case "$command" in
   start-next) run_start_next ;;
   stop-next) run_stop_next ;;
   check-next) run_check_next ;;
+  stop-optional) run_stop_optional ;;
   promote-hermes-next) promote_hermes_next ;;
   rollback-hermes) rollback_hermes ;;
   promote-ragflow-next) promote_ragflow_next ;;

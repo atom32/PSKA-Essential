@@ -79,6 +79,27 @@ scripts/pska_component_channel.sh status
 如果 `PSKA_MEMORY_PROVIDER=gbrain`，Graphiti 容器健康与否不应影响 PSKA 主路径。省电时可以
 停止 Graphiti 和 Neo4j 容器，但不要停止 RAGFlow 的 MySQL、ES、MinIO、Redis/NATS 依赖。
 
+省电 dry-run：
+
+```bash
+scripts/pska_component_channel.sh stop-optional
+```
+
+真正停止 optional 组件：
+
+```bash
+scripts/pska_component_channel.sh stop-optional --apply
+```
+
+只停 Graphiti/Neo4j：
+
+```bash
+scripts/pska_component_channel.sh stop-optional --component graphiti --apply
+```
+
+这个命令不会停止 PSKA API、PSKA HTTP MCP、Hermes WebUI stable、GBrain、RAGFlow stable、
+embedding dev 或 Eidolia；Graphiti 使用 `docker compose down`，不会删除 Neo4j volume。
+
 ### Full demo
 
 用途：给人演示“组件集合体系统”，需要展示可替换 provider 和图记忆候选能力。
