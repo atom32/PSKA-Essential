@@ -428,6 +428,7 @@
     panel.querySelector("#pskaMiniSourceEvidenceDetail").addEventListener("click", onSourceEvidenceClick);
     panel.querySelector("#pskaMiniMemoryDraftSource").addEventListener("click", onMemoryDraftSourceClick);
     panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
+    panel.querySelector("#pskaMiniReviewDetail").addEventListener("click", onReviewDetailClick);
     panel.querySelector("#pskaMiniClearMemoryDraftSource").addEventListener("click", clearMemoryDraftSource);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
     panel.querySelector("#pskaMiniImportChatgptMemory").addEventListener("click", importChatgptMemorySummary);
@@ -987,6 +988,13 @@
     }
   }
 
+  async function onReviewDetailClick(event) {
+    const button = event.target?.closest?.("[data-pska-first-run-review-done]");
+    if (!button) return;
+    event.preventDefault();
+    await markReviewQueueDone();
+  }
+
   async function loadReviewDetail(reviewId) {
     memoryPage = { ...memoryPage, loading: true, message: "Loading review detail...", error: "" };
     renderMemoryPage();
@@ -1487,6 +1495,11 @@
     await updateFirstRunItem("run_sourced_ask", "done", note);
   }
 
+  async function markReviewQueueDone() {
+    const note = reviewQueueInspectionNote();
+    await updateFirstRunItem("review_memory_queue", "done", note);
+  }
+
   function sourcedAskNote() {
     const proof = memoryPage.answerProofDetail || {};
     const summary = proof.tool_summary || {};
@@ -1501,6 +1514,20 @@
       toolLabel ? `${toolLabel}${extraTools}` : "",
       `${datasetCount} KB`,
       `${sourceRootCount} source root`
+    ].filter(Boolean).join(" · ");
+  }
+
+  function reviewQueueInspectionNote() {
+    const detail = memoryPage.detail || {};
+    const proposal = detail.proposal || {};
+    const kind = String(proposal.kind || detail.kind || "candidate");
+    const status = normalizeReviewStatus(detail);
+    const sourceCount = Array.isArray(proposal.source_refs) ? proposal.source_refs.length : 0;
+    return [
+      `review ${shortId(detail.review_id || detail.id || "", 12) || "unknown"}`,
+      reviewKindLabel(kind),
+      reviewStatusLabel(status),
+      `${sourceCount} source refs`
     ].filter(Boolean).join(" · ");
   }
 
@@ -1617,6 +1644,11 @@
       <div class="pska-mini-page-section-head">
         <h2>Review Detail</h2>
         <code>${escapeHtml(detail.review_id || "")}</code>
+      </div>
+      <div class="pska-mini-answer-proof-detail-block">
+        <strong>First-run evidence</strong>
+        <p>Record that you inspected this Review Queue candidate before accepting, rejecting, or applying memory.</p>
+        <button class="pska-mini-inline-btn" data-pska-first-run-review-done="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark review inspected</button>
       </div>
       <pre>${escapeHtml(stableJson(detail))}</pre>
     `;

@@ -422,6 +422,11 @@ Hermes WebUI 在 Recent Answer Proofs 中打开一条只读、检查通过、且
 scope 计数写入 operator note。这个动作只写 checklist/audit state，不重新执行 Ask，不创建 Review，
 也不写 durable memory。
 
+P2 的第四十块已落地为 first-run Review Queue inspection：
+Hermes WebUI 在 Review Queue 中打开一条 Review Detail 后，显示 `Mark review inspected`。
+点击后把 `review_memory_queue` 标成 done，并把 review id、候选类型、状态和 source-ref 数量写入
+operator note。这个动作只记录检查证据，不 accept/reject/apply，也不写 durable memory。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。

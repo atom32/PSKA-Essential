@@ -607,7 +607,7 @@ creative/
 
 - 从前三天的 daily 和 decisions 里提取候选记忆。
 - 只选 1 到 3 条。
-- 进入 Review Queue。
+- 进入 Review Queue，打开一条候选详情，点 `Mark review inspected` 记录这次检查。
 - 只 apply 真正有长期价值的。
 - 如果候选来自一次 Hermes 回答，先在 Recent Answer Proofs 点开 `View Trace`，
   点 `Mark sourced Ask done` 记录这次带来源问答，再用 `Draft Memory Candidate` 起草；

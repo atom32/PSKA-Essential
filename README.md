@@ -894,6 +894,11 @@ operator opens a read-only proof with successful PSKA tool use, Hermes WebUI
 shows `Mark sourced Ask done` and records the proof id, tool summary, and scope
 counts in the operator note. This remains checklist-only state; it does not run
 Ask again, create reviews, or write durable memory.
+M30d links Review Queue inspection back to the first-run checklist: after an
+operator opens a Review Detail, Hermes WebUI shows `Mark review inspected` and
+records the review id, candidate kind, status, and source-ref count against
+`review_memory_queue`. This still does not accept, reject, apply, or write
+memory; it only records that the queue was inspected.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

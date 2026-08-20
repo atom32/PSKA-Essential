@@ -260,6 +260,7 @@ async function runDesktop(context, checks, artifacts) {
     firstRun: document.querySelector("#pskaMiniFirstRun")?.innerText?.slice(0, 1200) || "",
     answerProofs: document.querySelector("#pskaMiniAnswerProofs")?.innerText?.slice(0, 1200) || "",
     hasAnswerProofButton: Boolean(document.querySelector("[data-pska-answer-proof-id]")),
+    hasReviewViewButton: Boolean(document.querySelector('[data-pska-review-action="view"]')),
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
     fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 2000) || "",
     firstMemory: document.querySelector("#pskaMiniMemoryResults")?.innerText?.slice(0, 400) || "",
@@ -288,6 +289,54 @@ async function runDesktop(context, checks, artifacts) {
       && !/Loading reviews/iu.test(memoryCheck.firstReview),
     memoryCheck,
   );
+
+  if (memoryCheck.hasReviewViewButton) {
+    await page.click('[data-pska-review-action="view"]');
+    await page.waitForFunction(() => {
+      const detail = document.querySelector("#pskaMiniReviewDetail")?.innerText || "";
+      return /Review Detail/iu.test(detail) && /Mark review inspected/iu.test(detail);
+    }, { timeout: 20000 });
+    const reviewDetailText = await pageText(page, "#pskaMiniReviewDetail");
+    assertCheck(checks, "Review detail exposes first-run inspection action", (
+      /Review Detail/iu.test(reviewDetailText)
+        && /First-run evidence/iu.test(reviewDetailText)
+        && /Mark review inspected/iu.test(reviewDetailText)
+    ), {
+      text: reviewDetailText.slice(0, 900),
+    });
+    await page.click("[data-pska-first-run-review-done]");
+    await page.waitForFunction(() => {
+      const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+      const item = items.find((node) => /Inspect Memory Review queue/iu.test(node.innerText || ""));
+      const text = item?.innerText || "";
+      const note = item?.querySelector("textarea")?.value || "";
+      return /done\s+·\s+required/iu.test(text) && /review/iu.test(note);
+    }, { timeout: 15000 });
+    const reviewQueueCheck = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+      const item = items.find((node) => /Inspect Memory Review queue/iu.test(node.innerText || ""));
+      return {
+        text: item?.innerText?.slice(0, 900) || "",
+        note: item?.querySelector("textarea")?.value || "",
+      };
+    });
+    assertCheck(checks, "Review detail marks first-run review queue done with review note", (
+      /done\s+·\s+required/iu.test(reviewQueueCheck.text)
+        && /review/iu.test(reviewQueueCheck.note)
+        && /source refs|pending|accepted|rejected|applied/iu.test(reviewQueueCheck.note)
+    ), reviewQueueCheck);
+  } else {
+    checks.push({
+      name: "Review detail exposes first-run inspection action",
+      ok: true,
+      detail: { skipped: "No review candidate available in current queue" },
+    });
+    checks.push({
+      name: "Review detail marks first-run review queue done with review note",
+      ok: true,
+      detail: { skipped: "No review candidate available in current queue" },
+    });
+  }
 
   await page.fill("#pskaMiniSourceEvidenceQuery", "Northstar Robotics");
   await page.click("#pskaMiniSourceEvidenceSearch");
