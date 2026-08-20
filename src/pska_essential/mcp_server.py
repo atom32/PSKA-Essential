@@ -58,6 +58,7 @@ from pska_essential.memory_review_queue import build_memory_review_queue
 from pska_essential.memory_timeline import build_memory_timeline
 from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
+from pska_essential.observability_metrics import build_observability_metrics
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.source_audit_jobs import (
@@ -152,6 +153,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_trace_coverage(limit: int = 200):
         return build_trace_coverage(service, limit=limit)
+
+    def pska_observability_metrics(limit: int = 500):
+        return build_observability_metrics(service, limit=limit)
 
     def pska_wakeup_plan(
         api_base_url: str = "",
@@ -1462,6 +1466,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_search": pska_source_search,
         "pska_search_index_evaluation": pska_search_index_evaluation,
         "pska_trace_coverage": pska_trace_coverage,
+        "pska_observability_metrics": pska_observability_metrics,
         "pska_wakeup_plan": pska_wakeup_plan,
         "pska_source_neighbors": pska_source_neighbors,
         "pska_duplicate_report": pska_duplicate_report,

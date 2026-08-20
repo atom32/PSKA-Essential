@@ -279,6 +279,7 @@ Rules:
 emit_trace(event) -> None
 emit_metric(metric) -> None
 trace_coverage(limit) -> TraceCoverageReport
+metrics(limit) -> ObservabilityMetricsReport
 ```
 
 Provider slots:
@@ -295,6 +296,11 @@ Rules:
 - `pska_trace_coverage` is the implemented read-only baseline over SQLite
   audit. It reports recent trace coverage for Ask, source/retrieval, memory,
   governed writeback, eval, and background jobs without exporting traces.
+- `pska_observability_metrics` is the implemented read-only metrics baseline
+  over the same SQLite audit ledger. It reports recent source extraction
+  failures, source recall zero results, duplicate review activity, eval
+  failures, Hermes answer-proof checks, and memory-use signals without running
+  jobs, writing source files, writing memory, or exporting external traces.
 - Observability adapters may export traces and metrics, but cannot become the
   authoritative memory/source/review store.
 
@@ -438,6 +444,7 @@ The current public tool surface is:
 - `pska_source_audit_job_enqueue`
 - `pska_source_audit_schedule_create`
 - `pska_wakeup_plan`
+- `pska_observability_metrics`
 - `pska_source_audit_job_list`
 - `pska_source_audit_job_tick`
 - `pska_source_audit_job_run`
@@ -477,6 +484,7 @@ The current public tool surface is:
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
 - `pska_trace_coverage`
+- `pska_observability_metrics`
 - `pska_workflow_memory_attribution`
 - `pska_workflow_memory_suggestions`
 - `pska_memory_apply`
@@ -632,6 +640,12 @@ commands. Reading it is safe: it does not install launchd, does not call
 `pska_source_audit_job_tick`, and does not run source audits. The scheduled
 trigger itself only promotes due waiting source audit jobs to queued metadata;
 the explicit job runner still performs the audit.
+`pska_observability_metrics` and `GET /api/observability/metrics` provide the
+Phase 5 read-only operational metrics baseline. The report groups recent audit
+events into source extraction, source recall, duplicate review, eval, answer
+proof, memory use, and memory governance metrics. It is intentionally separate
+from external trace exporters: reading it does not run jobs, activate due jobs,
+write source files, write memory, create reviews, or export traces.
 `pska_source_extract_job_enqueue`, `pska_source_extract_job_list`, and
 `pska_source_extract_job_run` provide the PSKA-owned source extraction queue.
 Jobs run a selected extractor through `pska_source_scan`, update rebuildable

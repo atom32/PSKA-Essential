@@ -69,6 +69,7 @@ from pska_essential.memory_review_queue import build_memory_review_queue
 from pska_essential.memory_timeline import build_memory_timeline
 from pska_essential.memory_use_trace import explain_memory_why_used, list_memory_use_traces
 from pska_essential.migration_manifest import build_migration_manifest
+from pska_essential.observability_metrics import build_observability_metrics
 from pska_essential.provider_jobs import build_provider_job_status
 from pska_essential.readiness import evaluate_kb_readiness
 from pska_essential.runtime_context import build_runtime_workspace_context
@@ -114,6 +115,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/provider/jobs"},
     {"method": "GET", "path": "/api/jobs/health"},
     {"method": "GET", "path": "/api/wakeup/plan"},
+    {"method": "GET", "path": "/api/observability/metrics"},
     {"method": "GET", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/turn-context"},
@@ -369,6 +371,18 @@ def _handler_class(state: ProductApiState):
                             limit=_int_param(query.get("limit"), 20),
                             label=str(query.get("label") or ""),
                             check_loaded=_bool_param(query.get("check_loaded"), False),
+                        ),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/observability/metrics":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "observability_metrics": build_observability_metrics(
+                            state.service,
+                            limit=_int_param(query.get("limit"), 500),
                         ),
                     }
                 )

@@ -515,6 +515,22 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "embedding_required": False,
         "generates_answer_text": False,
     },
+    "pska_observability_metrics": {
+        "category": "trace",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "reads_audit_ledger": True,
+        "writes_source_files": False,
+        "writes_source_registry": False,
+        "writes_memory_directly": False,
+        "runs_jobs": False,
+        "activates_due_jobs": False,
+        "creates_review": False,
+        "exports_external_trace": False,
+        "embedding_required": False,
+        "generates_answer_text": False,
+    },
     "pska_memory_change_from_conversation": {
         "category": "memory",
         "access": "write",
@@ -847,7 +863,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m35_wakeup_plan",
+        "status": "m36_observability_metrics",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -871,6 +887,7 @@ def source_layer_contract() -> dict[str, Any]:
                 "pska_source_audit_job_enqueue",
                 "pska_source_audit_schedule_create",
                 "pska_wakeup_plan",
+                "pska_observability_metrics",
                 "pska_source_audit_job_list",
                 "pska_source_audit_job_tick",
                 "pska_source_audit_job_run",
@@ -937,7 +954,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m37_wakeup_plan",
+        "status": "m38_observability_metrics",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -991,6 +1008,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_eidolia_memory_review_create",
                 "pska_trace_query",
                 "pska_trace_coverage",
+                "pska_observability_metrics",
                 "pska_job_health",
                 "pska_eidolia_project_trace_import",
             ],

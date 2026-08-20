@@ -35,6 +35,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("pska_source_audit_job_enqueue", text)
         self.assertIn("pska_source_audit_schedule_create", text)
         self.assertIn("pska_wakeup_plan", text)
+        self.assertIn("pska_observability_metrics", text)
         self.assertIn("pska_source_audit_job_tick", text)
         self.assertIn("pska_source_audit_job_run", text)
         self.assertIn("pska_source_extract_job_enqueue", text)
@@ -312,6 +313,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_source_audit_job_enqueue",
             "pska_source_audit_schedule_create",
             "pska_wakeup_plan",
+            "pska_observability_metrics",
             "pska_source_audit_job_list",
             "pska_source_audit_job_tick",
             "pska_source_audit_job_run",

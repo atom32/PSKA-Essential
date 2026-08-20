@@ -96,6 +96,12 @@ candidate memory, review, and durable export.
   export.
 - Use `pska_provider_jobs` when the user asks what is still processing, queued,
   failed, or ready across KB ingestion and PSKA digest jobs.
+- Use `pska_observability_metrics` when the user asks where PSKA recently
+  failed, why source recall looks weak, whether extraction is silently failing,
+  whether duplicate-review work is piling up, or whether answer proof/eval
+  checks are healthy. Treat it as a read-only view over PSKA audit events; it
+  does not run jobs, create reviews, write source files, write memory, or export
+  external traces.
 - Refresh `pska_workspace_status` after KB, Ask, review, or memory actions that
   change workspace state.
 - Treat `workspace.memory_namespace` from `pska_workspace_status` as PSKA

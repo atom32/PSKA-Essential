@@ -425,6 +425,13 @@ cron fallback line 与人工安装命令。读取 plan 不会安装 scheduler，
 不会运行 job，不扫描 source root，不写 Memory；显式 CLI `pska-essential-wakeup install`
 才会写 `~/Library/LaunchAgents`。
 
+P5 的 observability metrics baseline 已落地：
+`GET /api/observability/metrics` 与 `pska_observability_metrics` 会从 SQLite audit
+只读聚合 source extraction、source recall、duplicate review、eval、Hermes
+answer proof、memory use 和 memory governance 指标。它用于回答“最近哪里失败、
+哪里零召回、哪些重复组待复核、回答证据是否有失败检查”，不会运行 job、不会
+activate due schedule、不会创建 Review、不会写 source/memory，也不会导出外部 trace。
+
 新增 Product API / MCP：
 
 ```text
@@ -442,6 +449,7 @@ GET  /api/memory/{memory_id}/why-used
 GET  /api/memory/{memory_id}/timeline
 GET  /api/trace/query
 GET  /api/wakeup/plan
+GET  /api/observability/metrics
 POST /api/hermes/answer-proofs
 GET  /api/hermes/answer-proofs
 POST /api/agentic/context-brief
@@ -472,6 +480,7 @@ pska_memory_why_used
 pska_memory_timeline
 pska_trace_query
 pska_trace_coverage
+pska_observability_metrics
 pska_job_health
 pska_wakeup_plan
 pska_agentic_context_brief
@@ -516,6 +525,7 @@ pska_eidolia_context_read              # Done: payload -> SourceRef(adapter="eid
 pska_eidolia_memory_review_create      # Done: thought/artifact -> governed Memory Card review
 pska_trace_query                       # Done: audit/review/source/memory/Eidolia derived trace
 pska_trace_coverage                    # Done: recent audit coverage by PSKA category
+pska_observability_metrics             # Done: source/recall/duplicate/eval/proof/memory metrics
 pska_eidolia_project_trace_import      # Done: explicit project files -> SourceRef/audit trace
 ```
 
@@ -639,8 +649,10 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 - Done: `pska_job_health` 提供 digest/source audit/source extraction/KB
   ingestion 的任务健康 dashboard data。
 - `memory.use` audit/action。
-- source extraction failure metrics。
-- duplicate proposal acceptance/rejection metrics。
+- Done baseline: source extraction failure metrics 与 RAG/source recall
+  zero-result metrics 已通过 `pska_observability_metrics` 聚合。
+- Done baseline: duplicate report/review/cleanup proposal 指标已通过
+  `pska_observability_metrics` 聚合；真实删除/合并仍不支持。
 - RAG/source recall eval cases。
 
 成熟组件：
@@ -858,11 +870,16 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
   的 due/queued/failed/stale/actionable 状态。
 - Done: `pska_wakeup_plan` / `GET /api/wakeup/plan` 增加只读 local wakeup
   bridge plan/status，生成 launchd/cron tick 调度材料但不自动安装或运行。
+- Done: `pska_observability_metrics` / `GET /api/observability/metrics`
+  增加只读审计指标报告，覆盖 source extraction failure、source recall
+  zero result、duplicate review、eval failure、answer proof check 和 memory use。
 - OpenTelemetry optional tracing。
 - Phoenix/Ragas/DeepEval eval adapters。
 - 显式安装后的 launchd/cron 调用 source audit tick。
 - Done baseline: Source extraction/digest/source audit job health dashboard。
 - Done baseline: source audit due tick wakeup plan/status。
+- Done baseline: source extraction failure、duplicate review、RAG/source recall
+  zero result 的 audit-backed metrics。
 
 验收：
 
@@ -872,6 +889,9 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done baseline: 到期 audit 的本机 wakeup bridge 已有安装材料和状态检查；
   真正启用仍需 operator 显式安装 launchd/cron，且 tick 仍只处理授权 root
   的 scheduled source audit metadata。
+- Done baseline: 最近 source extraction/source recall/duplicate/eval/proof/memory
+  表现可通过 `pska_observability_metrics` 检查；OpenTelemetry/Phoenix/Ragas/
+  DeepEval 外部适配仍是 optional。
 
 ### Phase 6: Cloud Connectors And Optional Temporal Graph Memory
 

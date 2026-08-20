@@ -85,6 +85,8 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("jobHealthCount", script)
         self.assertIn('"/api/wakeup/plan"', script)
         self.assertIn("wakeupStatusLabel", script)
+        self.assertIn('"/api/observability/metrics?limit=300"', script)
+        self.assertIn("observabilityMetricsStatusLabel", script)
         self.assertIn("First-run checklist", script)
         self.assertIn("pskaMiniFirstRun", script)
         self.assertIn("pskaMiniAnswerProofDetail", script)

@@ -63,6 +63,7 @@
     alphaReadiness: null,
     jobHealth: null,
     wakeupPlan: null,
+    observabilityMetrics: null,
     scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
@@ -765,6 +766,7 @@
     const gbrain = gbrainComponent();
     const jobs = jobHealth();
     const wakeup = wakeupPlan();
+    const metrics = observabilityMetrics();
     const alpha = alphaReadiness();
     container.innerHTML = `
       <div class="pska-mini-page-pills">
@@ -775,12 +777,14 @@
         <span class="pska-mini-pill is-${escapeAttr(gbrainTone(gbrain))}"><b>GBrain</b> ${escapeHtml(gbrainStatusLabel(gbrain))}</span>
         <span class="pska-mini-pill is-${escapeAttr(jobHealthTone(jobs))}" title="${escapeAttr(jobHealthTitle(jobs))}"><b>Jobs</b> ${escapeHtml(jobHealthStatusLabel(jobs))}</span>
         <span class="pska-mini-pill is-${escapeAttr(wakeupTone(wakeup))}" title="${escapeAttr(wakeupTitle(wakeup))}"><b>Wakeup</b> ${escapeHtml(wakeupStatusLabel(wakeup))}</span>
+        <span class="pska-mini-pill is-${escapeAttr(observabilityMetricsTone(metrics))}" title="${escapeAttr(observabilityMetricsTitle(metrics))}"><b>Metrics</b> ${escapeHtml(observabilityMetricsStatusLabel(metrics))}</span>
         <span class="pska-mini-pill is-${escapeAttr(alphaTone(alpha))}" title="${escapeAttr(alphaTitle(alpha))}"><b>Alpha</b> ${escapeHtml(alphaStatusLabel(alpha))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
       ${jobHealthWarning(jobs)}
       ${wakeupWarning(wakeup)}
+      ${observabilityMetricsWarning(metrics)}
       ${memoryPage.error ? `<div class="pska-mini-warning">${escapeHtml(memoryPage.error)}</div>` : ""}
     `;
     const statusSelect = document.getElementById("pskaMiniReviewStatus");
@@ -1143,6 +1147,7 @@
       hermesWorkspaces: fetchWebuiJson("/api/workspaces", { timeoutMs: 5000 }),
       jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: 5000 }),
       wakeupPlan: pskaMiniFetchJson("/api/wakeup/plan", { timeoutMs: 5000 }),
+      observabilityMetrics: pskaMiniFetchJson("/api/observability/metrics?limit=300", { timeoutMs: 5000 }),
       alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 5000 }),
       diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 5000 })
     });
@@ -1158,6 +1163,7 @@
       hermesWorkspaces: valueOrNull(results.hermesWorkspaces),
       jobHealth: valueOrNull(results.jobHealth)?.job_health || null,
       wakeupPlan: valueOrNull(results.wakeupPlan)?.wakeup_plan || null,
+      observabilityMetrics: valueOrNull(results.observabilityMetrics)?.observability_metrics || null,
       alphaReadiness: valueOrNull(results.alphaReadiness)?.alpha_readiness || null,
       scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
@@ -1197,6 +1203,7 @@
           <span class="pska-mini-pill is-warn"><b>GBrain</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Jobs</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Wakeup</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>Metrics</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Alpha</b> checking</span>
         </div>
         <div class="pska-mini-muted">Refreshing PSKA workspace status...</div>
@@ -1213,6 +1220,7 @@
     const gbrain = gbrainComponent();
     const jobs = jobHealth();
     const wakeup = wakeupPlan();
+    const metrics = observabilityMetrics();
     const alpha = alphaReadiness();
     const statusItems = [
       ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad", ""],
@@ -1222,6 +1230,7 @@
       ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain), ""],
       ["Jobs", jobHealthStatusLabel(jobs), jobHealthTone(jobs), jobHealthTitle(jobs)],
       ["Wakeup", wakeupStatusLabel(wakeup), wakeupTone(wakeup), wakeupTitle(wakeup)],
+      ["Metrics", observabilityMetricsStatusLabel(metrics), observabilityMetricsTone(metrics), observabilityMetricsTitle(metrics)],
       ["Alpha", alphaStatusLabel(alpha), alphaTone(alpha), alphaTitle(alpha)]
     ];
     container.innerHTML = `
@@ -1235,6 +1244,7 @@
       ${dashboard.diagnosticsError ? `<div class="pska-mini-warning">Runtime diagnostics: ${escapeHtml(dashboard.diagnosticsError)}</div>` : ""}
       ${jobHealthWarning(jobs)}
       ${wakeupWarning(wakeup)}
+      ${observabilityMetricsWarning(metrics)}
       ${Object.keys(dashboard.errors).length ? `
         <div class="pska-mini-warning">${Object.entries(dashboard.errors).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join("<br>")}</div>
       ` : ""}
@@ -1391,6 +1401,62 @@
     const action = Array.isArray(plan.next_actions) ? plan.next_actions[0] : null;
     const label = action?.label || wakeupStatusLabel(plan);
     return `<div class="pska-mini-warning">Wakeup: ${escapeHtml(label)}. ${escapeHtml(plan.launchd?.install_command || "")}</div>`;
+  }
+
+  function observabilityMetrics() {
+    return dashboard.observabilityMetrics || null;
+  }
+
+  function observabilityMetricsStatusLabel(metrics) {
+    if (!metrics) return "not visible";
+    const summary = metrics.summary || {};
+    const status = String(metrics.status || "");
+    if (status === "needs_attention") {
+      const failed = Number(summary.failed_event_count || 0);
+      if (failed) return `${failed} failed`;
+      const proof = Number(summary.answer_failed_check_count || 0);
+      if (proof) return `${proof} proof`;
+      return "attention";
+    }
+    if (status === "action_required") {
+      const zero = Number(summary.zero_result_event_count || 0);
+      if (zero) return `${zero} zero`;
+      return "review";
+    }
+    if (status === "no_recent_signal") return "no signals";
+    return `${Number(summary.observed_group_count || 0)} groups`;
+  }
+
+  function observabilityMetricsTone(metrics) {
+    const status = String(metrics?.status || "");
+    if (!metrics) return "bad";
+    if (status === "needs_attention") return "bad";
+    if (status === "action_required" || status === "no_recent_signal") return "warn";
+    return "ok";
+  }
+
+  function observabilityMetricsTitle(metrics) {
+    if (!metrics) return "PSKA observability metrics are not visible in Product API.";
+    const summary = metrics.summary || {};
+    return [
+      String(metrics.status || "unknown"),
+      `${summary.event_count || 0} events`,
+      `${summary.failed_event_count || 0} failed`,
+      `${summary.zero_result_event_count || 0} zero`,
+      `${summary.answer_failed_check_count || 0} proof checks`
+    ].join(" · ");
+  }
+
+  function observabilityMetricsWarning(metrics) {
+    if (!metrics) return "";
+    const status = String(metrics.status || "");
+    if (!["needs_attention", "action_required"].includes(status)) return "";
+    const groups = (Array.isArray(metrics.groups) ? metrics.groups : [])
+      .filter((group) => ["needs_attention", "action_required"].includes(String(group?.status || "")))
+      .slice(0, 3)
+      .map((group) => `${group.id || group.label || "metrics"}: ${group.status}`);
+    if (!groups.length) return "";
+    return `<div class="pska-mini-warning">Metrics: ${escapeHtml(groups.join(" · "))}</div>`;
   }
 
   function alphaReadiness() {

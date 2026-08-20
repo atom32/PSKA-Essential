@@ -71,6 +71,7 @@ EXPECTED_TOOLS = {
     "pska_eidolia_memory_review_create",
     "pska_trace_query",
     "pska_trace_coverage",
+    "pska_observability_metrics",
     "pska_wakeup_plan",
     "pska_eidolia_project_trace_import",
     "pska_policy_get",
@@ -138,7 +139,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m37_wakeup_plan")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m38_observability_metrics")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -149,6 +150,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_agentic_specialist_profiles", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", capabilities["source_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_coverage", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_observability_metrics", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_job_health", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_wakeup_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         evaluation = tools["pska_search_index_evaluation"]()
@@ -164,6 +166,13 @@ class McpContractTests(unittest.TestCase):
         self.assertTrue(coverage["data_flow"]["read_only"])
         self.assertFalse(coverage["data_flow"]["writes_source_files"])
         self.assertFalse(coverage["data_flow"]["writes_memory_directly"])
+        metrics = tools["pska_observability_metrics"](limit=20)
+        self.assertEqual(metrics["schema"], "pska.observability_metrics.v1")
+        self.assertTrue(metrics["data_flow"]["read_only"])
+        self.assertFalse(metrics["data_flow"]["writes_source_files"])
+        self.assertFalse(metrics["data_flow"]["writes_memory_directly"])
+        self.assertFalse(metrics["data_flow"]["runs_jobs"])
+        self.assertFalse(metrics["data_flow"]["exports_external_trace"])
         with patch.dict("os.environ", {"PSKA_DEV_FAKE": "1", "PSKA_KB_PROVIDER": "fake"}, clear=False):
             reset_fake_kb_gateway()
             job_health = tools["pska_job_health"](include_kb=False)
@@ -500,6 +509,15 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_trace_coverage"]["writes_source_registry"])
         self.assertFalse(policy["pska_trace_coverage"]["writes_memory_directly"])
         self.assertFalse(policy["pska_trace_coverage"]["exports_external_trace"])
+        self.assertEqual(policy["pska_observability_metrics"]["access"], "read")
+        self.assertTrue(policy["pska_observability_metrics"]["audit_backed"])
+        self.assertTrue(policy["pska_observability_metrics"]["reads_audit_ledger"])
+        self.assertFalse(policy["pska_observability_metrics"]["writes_source_files"])
+        self.assertFalse(policy["pska_observability_metrics"]["writes_source_registry"])
+        self.assertFalse(policy["pska_observability_metrics"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_observability_metrics"]["runs_jobs"])
+        self.assertFalse(policy["pska_observability_metrics"]["activates_due_jobs"])
+        self.assertFalse(policy["pska_observability_metrics"]["exports_external_trace"])
         self.assertEqual(policy["pska_job_health"]["access"], "read")
         self.assertTrue(policy["pska_job_health"]["reads_job_ledger"])
         self.assertFalse(policy["pska_job_health"]["runs_jobs"])

@@ -294,6 +294,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
         self.assertIn(("GET", "/api/jobs/health"), contract_routes)
         self.assertIn(("GET", "/api/wakeup/plan"), contract_routes)
+        self.assertIn(("GET", "/api/observability/metrics"), contract_routes)
         self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
         self.assertIn(("GET", "/api/hermes/answer-proofs"), contract_routes)
         self.assertIn(("POST", "/api/hermes/answer-proofs"), contract_routes)
@@ -363,7 +364,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m35_wakeup_plan")
+        self.assertEqual(source_layer["status"], "m36_observability_metrics")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
@@ -375,6 +376,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_audit_job_enqueue", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_schedule_create", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_wakeup_plan", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_observability_metrics", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_list", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_run", source_layer["mcp_tools"]["implemented"])
@@ -424,7 +426,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(tantivy_search["maturity"], "evaluated_candidate")
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m37_wakeup_plan")
+        self.assertEqual(assistant_layer["status"], "m38_observability_metrics")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_agentic_context_brief", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief_list", assistant_layer["mcp_tools"]["implemented"])
@@ -457,6 +459,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_eidolia_memory_review_create", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_query", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_coverage", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_observability_metrics", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_job_health", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_project_trace_import", assistant_layer["mcp_tools"]["implemented"])
         tool_policy = capabilities["capabilities"]["tool_policy"]["tools"]
@@ -497,6 +500,15 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_trace_coverage"]["writes_source_registry"])
         self.assertFalse(tool_policy["pska_trace_coverage"]["writes_memory_directly"])
         self.assertFalse(tool_policy["pska_trace_coverage"]["exports_external_trace"])
+        self.assertEqual(tool_policy["pska_observability_metrics"]["access"], "read")
+        self.assertTrue(tool_policy["pska_observability_metrics"]["audit_backed"])
+        self.assertTrue(tool_policy["pska_observability_metrics"]["reads_audit_ledger"])
+        self.assertFalse(tool_policy["pska_observability_metrics"]["writes_source_files"])
+        self.assertFalse(tool_policy["pska_observability_metrics"]["writes_source_registry"])
+        self.assertFalse(tool_policy["pska_observability_metrics"]["writes_memory_directly"])
+        self.assertFalse(tool_policy["pska_observability_metrics"]["runs_jobs"])
+        self.assertFalse(tool_policy["pska_observability_metrics"]["activates_due_jobs"])
+        self.assertFalse(tool_policy["pska_observability_metrics"]["exports_external_trace"])
         self.assertEqual(tool_policy["pska_job_health"]["access"], "read")
         self.assertTrue(tool_policy["pska_job_health"]["reads_job_ledger"])
         self.assertFalse(tool_policy["pska_job_health"]["runs_jobs"])
@@ -3097,6 +3109,8 @@ class ProductApiTests(unittest.TestCase):
         health = health_payload["job_health"]
         wakeup_payload = self._get_json("/api/wakeup/plan?interval_minutes=15&limit=20")
         wakeup = wakeup_payload["wakeup_plan"]
+        metrics_payload = self._get_json("/api/observability/metrics?limit=50")
+        metrics = metrics_payload["observability_metrics"]
 
         self.assertTrue(payload["ok"])
         self.assertEqual(jobs["schema"], "pska.provider_jobs.v1")
@@ -3118,6 +3132,13 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(wakeup["data_flow"]["activates_due_jobs"])
         self.assertFalse(wakeup["data_flow"]["runs_jobs"])
         self.assertEqual(wakeup["target"]["api"], "POST /api/sources/audit-jobs/tick")
+        self.assertTrue(metrics_payload["ok"])
+        self.assertEqual(metrics["schema"], "pska.observability_metrics.v1")
+        self.assertTrue(metrics["data_flow"]["read_only"])
+        self.assertFalse(metrics["data_flow"]["writes_source_files"])
+        self.assertFalse(metrics["data_flow"]["writes_memory_directly"])
+        self.assertFalse(metrics["data_flow"]["runs_jobs"])
+        self.assertFalse(metrics["data_flow"]["exports_external_trace"])
 
     def test_parse_documents_route_uses_product_api_boundary(self):
         parsed = self._post_json(

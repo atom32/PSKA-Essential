@@ -140,9 +140,11 @@ async function main() {
     && jsAsset.text.includes("/api/hermes/answer-proofs")
     && jsAsset.text.includes("/api/jobs/health?include_kb=false")
     && jsAsset.text.includes("/api/wakeup/plan")
+    && jsAsset.text.includes("/api/observability/metrics?limit=300")
     && jsAsset.text.includes("jobHealthStatusLabel")
     && jsAsset.text.includes("jobHealthCount")
     && jsAsset.text.includes("wakeupStatusLabel")
+    && jsAsset.text.includes("observabilityMetricsStatusLabel")
     && jsAsset.text.includes("renderAnswerProofs")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
@@ -201,6 +203,15 @@ async function main() {
       && json.wakeup_plan?.data_flow?.calls_tick_endpoint === false
       && json.wakeup_plan?.data_flow?.activates_due_jobs === false
       && json.wakeup_plan?.data_flow?.runs_jobs === false,
+  );
+  await testJson("Dashboard: observability metrics", "/api/extensions/pska-mini/sidecar/api/observability/metrics?limit=300", {}, (json, response) =>
+    response.ok
+      && json?.observability_metrics?.schema === "pska.observability_metrics.v1"
+      && json.observability_metrics?.data_flow?.read_only === true
+      && json.observability_metrics?.data_flow?.writes_source_files === false
+      && json.observability_metrics?.data_flow?.writes_memory_directly === false
+      && json.observability_metrics?.data_flow?.runs_jobs === false
+      && json.observability_metrics?.data_flow?.exports_external_trace === false,
   );
   await testJson("Dashboard: alpha readiness", "/api/extensions/pska-mini/sidecar/api/alpha/readiness", {}, (json, response) =>
     response.ok
