@@ -351,16 +351,7 @@ def _checks(*, diagnostics: dict[str, Any], workspace_status: dict[str, Any], ca
                 "candidate_quality_issue_count": reviews.get("candidate_quality_issue_count", 0),
             },
         ),
-        _check(
-            "user_trial_ux",
-            "warn",
-            "Alpha UX is usable as an operator console, but first-run onboarding, backups, and guided recovery are still incomplete.",
-            required=False,
-            evidence={
-                "webui": "operator_console",
-                "missing": ["first_run_wizard", "writeback_backup_restore", "guided_recovery"],
-            },
-        ),
+        _user_trial_ux_check(capabilities),
     ]
     return checks
 
@@ -434,6 +425,49 @@ def _action_for_check(code: str, check: dict[str, Any]) -> dict[str, Any]:
         "view": view,
         "params": {"check": code},
     }
+
+
+def _user_trial_ux_check(capabilities: dict[str, Any]) -> dict[str, Any]:
+    tools = ((capabilities.get("tool_policy") or {}).get("tools") or {})
+    assistant_tools = set((((capabilities.get("assistant_layer") or {}).get("mcp_tools") or {}).get("implemented")) or [])
+    required_tools = {
+        "pska_alpha_trial_guide": "guided_trial_plan",
+        "pska_alpha_recovery_plan": "backup_recovery_boundary",
+        "pska_alpha_first_run_session": "persisted_first_run_checklist",
+        "pska_alpha_first_run_item_update": "operator_progress_notes",
+    }
+    missing = [
+        capability
+        for tool_name, capability in required_tools.items()
+        if tool_name not in tools or tool_name not in assistant_tools
+    ]
+    implemented = [capability for capability in required_tools.values() if capability not in missing]
+    if not missing:
+        return _check(
+            "user_trial_ux",
+            "pass",
+            "Alpha UX exposes a guided first-run checklist, recovery boundary plan, and operator progress notes.",
+            required=False,
+            evidence={
+                "webui": "guided_operator_console",
+                "implemented": list(required_tools.values()),
+                "missing": [],
+                "manual_rehearsal_required": ["provider_backups", "native_writeback_rollback"],
+                "does_not_execute_backups": True,
+                "does_not_execute_trial_steps": True,
+            },
+        )
+    return _check(
+        "user_trial_ux",
+        "warn",
+        "Alpha UX is usable as an operator console, but guided first-run or recovery surfaces are incomplete.",
+        required=False,
+        evidence={
+            "webui": "operator_console",
+            "implemented": implemented,
+            "missing": missing,
+        },
+    )
 
 
 def _check(code: str, status: str, message: str, *, required: bool, evidence: dict[str, Any] | None = None) -> dict[str, Any]:

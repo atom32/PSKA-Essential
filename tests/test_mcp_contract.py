@@ -751,6 +751,9 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(checks["provider_configuration"]["status"], "warn")
         self.assertEqual(checks["source_safety"]["status"], "pass")
         self.assertEqual(checks["memory_governance"]["status"], "pass")
+        self.assertEqual(checks["user_trial_ux"]["status"], "pass")
+        self.assertIn("guided_trial_plan", checks["user_trial_ux"]["evidence"]["implemented"])
+        self.assertTrue(checks["user_trial_ux"]["evidence"]["does_not_execute_trial_steps"])
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
         self.assertIn("configure_live_providers", [action["action"] for action in result["next_actions"]])
 
