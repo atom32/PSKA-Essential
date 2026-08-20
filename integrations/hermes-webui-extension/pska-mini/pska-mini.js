@@ -554,7 +554,13 @@
     renderMemoryPage();
   }
 
-  function onAnswerProofDetailClick(event) {
+  async function onAnswerProofDetailClick(event) {
+    const sourcedAskButton = event.target?.closest?.("[data-pska-first-run-sourced-ask-done]");
+    if (sourcedAskButton) {
+      event.preventDefault();
+      await markSourcedAskDone();
+      return;
+    }
     const button = event.target?.closest?.("[data-pska-answer-proof-draft]");
     if (!button) return;
     event.preventDefault();
@@ -1262,6 +1268,8 @@
     const checks = Array.isArray(proof.checks) ? proof.checks : [];
     const entries = Array.isArray(trace.entries) ? trace.entries : [];
     const tools = Array.isArray(summary.completed_pska_tools) ? summary.completed_pska_tools : [];
+    const failedCount = Number(proof.check_summary?.failed_check_count || 0);
+    const canMarkSourcedAsk = Boolean(proof.read_only) && tools.length > 0 && failedCount === 0;
     container.innerHTML = `
       <div class="pska-mini-page-section-head">
         <h2>Answer Proof Detail</h2>
@@ -1281,6 +1289,7 @@
         <strong>Memory candidate</strong>
         <p>Draft from this proof, then edit before creating a Review candidate.</p>
         <button class="pska-mini-page-btn" data-pska-answer-proof-draft="${escapeAttr(proof.proof_id || "")}" type="button">Draft Memory Candidate</button>
+        ${canMarkSourcedAsk ? `<button class="pska-mini-inline-btn" data-pska-first-run-sourced-ask-done="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark sourced Ask done</button>` : ""}
       </div>
       <div class="pska-mini-answer-proof-detail-block">
         <strong>Checks</strong>
@@ -1471,6 +1480,28 @@
   async function markSourceEvidenceRehearsalDone() {
     const note = sourceEvidenceRehearsalNote();
     await updateFirstRunItem("rehearse_source_evidence_memory", "done", note);
+  }
+
+  async function markSourcedAskDone() {
+    const note = sourcedAskNote();
+    await updateFirstRunItem("run_sourced_ask", "done", note);
+  }
+
+  function sourcedAskNote() {
+    const proof = memoryPage.answerProofDetail || {};
+    const summary = proof.tool_summary || {};
+    const tools = Array.isArray(summary.completed_pska_tools) ? summary.completed_pska_tools : [];
+    const scope = proof.scope || {};
+    const sourceRootCount = Array.isArray(scope.source_root_ids) ? scope.source_root_ids.length : 0;
+    const datasetCount = Array.isArray(scope.dataset_ids) ? scope.dataset_ids.length : 0;
+    const toolLabel = tools.slice(0, 4).map((tool) => lastNameSegment(tool)).join(" / ");
+    const extraTools = tools.length > 4 ? ` +${tools.length - 4}` : "";
+    return [
+      `answer proof ${shortId(proof.proof_id || "", 12) || "unknown"}`,
+      toolLabel ? `${toolLabel}${extraTools}` : "",
+      `${datasetCount} KB`,
+      `${sourceRootCount} source root`
+    ].filter(Boolean).join(" · ");
   }
 
   function sourceEvidenceRehearsalNote() {

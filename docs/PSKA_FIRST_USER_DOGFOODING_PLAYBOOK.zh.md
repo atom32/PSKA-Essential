@@ -610,7 +610,8 @@ creative/
 - 进入 Review Queue。
 - 只 apply 真正有长期价值的。
 - 如果候选来自一次 Hermes 回答，先在 Recent Answer Proofs 点开 `View Trace`，
-  再用 `Draft Memory Candidate` 起草；必须改写成稳定记忆后再创建审核候选。
+  点 `Mark sourced Ask done` 记录这次带来源问答，再用 `Draft Memory Candidate` 起草；
+  必须改写成稳定记忆后再创建审核候选。
 - 如果候选来自本地资料或 ChatGPT 完整对话档案，先在 Source Evidence 里 search/read，
   再用 `Draft Memory Candidate` 起草；必须改写成稳定记忆后再创建审核候选。
 - 起草后点 `Mark rehearsal done`，让 First-run checklist 把 `Rehearse source evidence to memory`

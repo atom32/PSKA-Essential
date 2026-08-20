@@ -378,11 +378,33 @@ async function runDesktop(context, checks, artifacts) {
       /Answer Proof Detail/iu.test(proofDetail)
         && /Completed PSKA tools/iu.test(proofDetail)
         && /Draft Memory Candidate/iu.test(proofDetail)
+        && /Mark sourced Ask done/iu.test(proofDetail)
         && /Trace entries/iu.test(proofDetail)
         && /hermes\.answer_proof|answer proof|trace/iu.test(proofDetail)
     ), {
       text: proofDetail.slice(0, 1200),
     });
+    await page.click("[data-pska-first-run-sourced-ask-done]");
+    await page.waitForFunction(() => {
+      const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+      const item = items.find((node) => /Run one sourced Ask/iu.test(node.innerText || ""));
+      const text = item?.innerText || "";
+      const note = item?.querySelector("textarea")?.value || "";
+      return /done\s+·\s+required/iu.test(text) && /answer proof/iu.test(note);
+    }, { timeout: 15000 });
+    const sourcedAskCheck = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+      const item = items.find((node) => /Run one sourced Ask/iu.test(node.innerText || ""));
+      return {
+        text: item?.innerText?.slice(0, 900) || "",
+        note: item?.querySelector("textarea")?.value || "",
+      };
+    });
+    assertCheck(checks, "Answer proof marks first-run sourced Ask done with proof note", (
+      /done\s+·\s+required/iu.test(sourcedAskCheck.text)
+        && /answer proof/iu.test(sourcedAskCheck.note)
+        && /source root|KB|pska_/iu.test(sourcedAskCheck.note)
+    ), sourcedAskCheck);
     await page.click("[data-pska-answer-proof-draft]");
     await page.waitForFunction(() => {
       const draft = document.querySelector("#pskaMiniMemoryDraft")?.value || "";

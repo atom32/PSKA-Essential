@@ -889,6 +889,11 @@ memory apply. Hermes WebUI shows a `Mark rehearsal done` button only after a
 Source Evidence draft is attached; clicking it records the item with a source
 note. This is checklist-only state; the item update does not run source search,
 create reviews, or write memory.
+M30c links Recent Answer Proofs back to the sourced Ask first-run item: after an
+operator opens a read-only proof with successful PSKA tool use, Hermes WebUI
+shows `Mark sourced Ask done` and records the proof id, tool summary, and scope
+counts in the operator note. This remains checklist-only state; it does not run
+Ask again, create reviews, or write durable memory.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

@@ -416,6 +416,12 @@ source search/read -> source-backed memory draft -> human rewrite -> Review Queu
 Hermes WebUI 只有在 Source Evidence draft 已附加来源后才显示 `Mark rehearsal done`，点击后把来源写入
 operator note；旧内置页面展示上限同步放宽，避免第 8 个清单项被隐藏。
 
+P2 的第三十九块已落地为 first-run sourced Ask proof：
+Hermes WebUI 在 Recent Answer Proofs 中打开一条只读、检查通过、且实际使用了 PSKA 工具的 proof 后，
+显示 `Mark sourced Ask done`。点击后把 `run_sourced_ask` 标成 done，并把 proof id、工具摘要和
+scope 计数写入 operator note。这个动作只写 checklist/audit state，不重新执行 Ask，不创建 Review，
+也不写 durable memory。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。
