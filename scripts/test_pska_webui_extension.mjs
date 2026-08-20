@@ -147,6 +147,17 @@ async function main() {
     status: jsAsset.response.status,
     bytes: jsAsset.text.length,
   });
+  record("Extension JS keeps chat bridge injection and display sanitizer", jsAsset.response.ok
+    && jsAsset.text.includes("installSendBridge()")
+    && jsAsset.text.includes("installApiBridge()")
+    && jsAsset.text.includes("buildForcedSkillMessage")
+    && jsAsset.text.includes("stripForcedSkillEnvelope")
+    && jsAsset.text.includes("[FORCED SKILL CONTEXT:")
+    && jsAsset.text.includes("PSKA-Mini Runtime Scope")
+    && jsAsset.text.includes('"/api/chat/start"'), {
+    status: jsAsset.response.status,
+    bytes: jsAsset.text.length,
+  });
   const cssAsset = await request("/extensions/pska-mini/pska-mini.css");
   record("Extension CSS loads", cssAsset.response.ok && cssAsset.text.includes(".pska-mini-chip") && cssAsset.text.includes(".pska-mini-first-run"), {
     status: cssAsset.response.status,

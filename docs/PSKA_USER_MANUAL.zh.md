@@ -90,6 +90,7 @@ cd /Users/xudawei/PSKA-Essential
 - dataset/document scope：选择本轮问题使用哪个知识库和文档范围。
 - Source Root IDs：指定本地资料文件夹范围。
 - Preview：预览本轮会注入的 PSKA 上下文。
+- 真实发问桥接：在 Hermes WebUI 里发送问题时，把已选资料范围带入本轮请求，同时聊天窗口仍只显示用户原始问题。
 - Jarvis Brief：查看当前工作区的摘要、问题、待办和建议动作。
 - Agentic Brief：让 PSKA 在回答前整理证据、来源、记忆和历史轨迹。
 - Source Recall：不用 embedding，按本地文件元数据和全文索引召回资料。
@@ -449,6 +450,7 @@ Next actions: 8
 
 - Hermes WebUI 作为主入口。
 - PSKA extension 选择范围和预览上下文。
+- Hermes WebUI 真实发送问题时，PSKA 范围会进入本轮请求，且不会污染可见聊天记录。
 - 本地文件夹扫描、索引、召回。
 - 本地文件夹查重。
 - 只写 sidecar 的标签和评论。

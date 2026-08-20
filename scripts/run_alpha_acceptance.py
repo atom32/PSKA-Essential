@@ -36,6 +36,7 @@ def main() -> int:
     parser.add_argument("--skip-full-proof", action="store_true")
     parser.add_argument("--include-webui-contract", action="store_true")
     parser.add_argument("--include-webui-visual", action="store_true")
+    parser.add_argument("--include-webui-turn-bridge", action="store_true")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
 
@@ -149,6 +150,21 @@ def main() -> int:
                 bool(visual.get("ok")),
                 f"ok={visual.get('ok')}",
                 output_dir=visual.get("output_dir") or "",
+            )
+        )
+
+    if args.include_webui_turn_bridge:
+        turn_bridge = _run_node_json(["node", "scripts/test_pska_webui_turn_bridge.cjs"], env=env, timeout=args.timeout)
+        _write_json(out_dir / "webui_extension_turn_bridge.json", turn_bridge)
+        artifacts["webui_extension_turn_bridge"] = str(out_dir / "webui_extension_turn_bridge.json")
+        captured = turn_bridge.get("captured_chat_start") or {}
+        checks.append(
+            _check(
+                "webui_extension_turn_bridge",
+                bool(turn_bridge.get("ok")),
+                f"ok={turn_bridge.get('ok')} forced_context_count={captured.get('forced_context_count')}",
+                output_dir=turn_bridge.get("output_dir") or "",
+                message_length=captured.get("message_length") or 0,
             )
         )
 

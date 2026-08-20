@@ -119,7 +119,7 @@ closed_loop.probe   ok
 闭环输出：
 
 ```text
-run_id                  = run_c756a144b39047d79595000b9d905cc2
+run_id                  = run_4299dd00aa6e42cd89b212d0e05a205c
 memory_count            = 1
 retrieval_context_count = 2
 closed_loop_contexts    = 4
@@ -152,8 +152,8 @@ HERMES_WEBUI_PASSWORD=****** make webui-extension-contract
 结果：
 
 ```text
-total  = 34
-passed = 34
+total  = 35
+passed = 35
 failed = 0
 ```
 
@@ -180,6 +180,7 @@ Memory search/review candidate/reject
 Kanban projection
 Digest task
 chat bridge skill dependency
+chat bridge forced injection/sanitizer contract
 ```
 
 视觉测试：
@@ -203,6 +204,28 @@ mobile PSKA chip visible and not overlapping send
 mobile menu visible and in viewport
 console warnings/errors = 0
 ```
+
+真实发问链路测试：
+
+```bash
+NODE_PATH=/tmp/pska-playwright/node_modules \
+PSKA_PLAYWRIGHT_MODULE=playwright-core \
+PSKA_PLAYWRIGHT_CHANNEL=chrome \
+HERMES_WEBUI_PASSWORD=****** \
+make webui-extension-turn-bridge
+```
+
+结果：
+
+```text
+ok = true
+Hermes /api/chat/start intercepted
+forced_context_count = 1
+message_length = 10417
+visible user turn remains clean
+```
+
+这证明 `pska-mini` 不是只在面板里展示状态；当用户在 Hermes WebUI 里真实发送问题时，extension 会把 PSKA skill、dataset scope、source root scope 注入到 Hermes 的 `message` 字段，同时聊天窗口仍只显示用户原始问题。
 
 ## 记忆治理状态
 
@@ -289,6 +312,11 @@ NODE_PATH=/tmp/pska-playwright/node_modules \
   PSKA_PLAYWRIGHT_CHANNEL=chrome \
   HERMES_WEBUI_PASSWORD=****** \
   make webui-extension-visual
+NODE_PATH=/tmp/pska-playwright/node_modules \
+  PSKA_PLAYWRIGHT_MODULE=playwright-core \
+  PSKA_PLAYWRIGHT_CHANNEL=chrome \
+  HERMES_WEBUI_PASSWORD=****** \
+  make webui-extension-turn-bridge
 PSKA_COMPONENT_CONNECTIVITY_ONLY=1 \
   PYTHONPATH=src .venv/bin/python -m pska_essential.component_check --env-file .env.pska
 ```
@@ -297,8 +325,9 @@ PSKA_COMPONENT_CONNECTIVITY_ONLY=1 \
 
 ```text
 unittest                472 tests OK
-webui-extension-contract 34/34 OK
+webui-extension-contract 35/35 OK
 webui-extension-visual   OK
+webui-extension-turn-bridge OK
 live-connectivity-check  OK
 full-component-proof     OK
 ```
