@@ -231,6 +231,7 @@
     wrap.querySelector("#pskaMiniMaxTokens").addEventListener("input", syncFromControls);
     wrap.querySelector("#pskaMiniDatasetIds").addEventListener("input", syncFromControls);
     wrap.querySelector("#pskaMiniDocumentIds").addEventListener("input", syncFromControls);
+    wrap.querySelector("#pskaMiniSourceRootIds").addEventListener("input", syncFromControls);
     wrap.querySelector("#pskaMiniDatasetList").addEventListener("change", onDatasetToggle);
     document.addEventListener("click", (event) => {
       if (!wrap.contains(event.target)) closeMenu();
@@ -742,12 +743,14 @@
         timeoutMs: 60000
       });
       const result = data.chatgpt_conversations_import || null;
+      const rootId = String(result?.root?.root_id || "").trim();
+      if (rootId) addSourceRootToScope(rootId);
       memoryPage = {
         ...memoryPage,
         loading: false,
         chatgptConversationImportResult: result,
         message: result
-          ? `ChatGPT archive imported ${result.summary?.imported_conversation_count || 0} conversation(s).`
+          ? `ChatGPT archive imported ${result.summary?.imported_conversation_count || 0} conversation(s)${rootId ? " and selected its source root." : "."}`
           : "ChatGPT archive import completed.",
         error: ""
       };
@@ -784,6 +787,16 @@
   function clearMemoryDraftSource() {
     memoryPage = { ...memoryPage, memoryDraftSourceRefs: [], memoryDraftSourceLabel: "", message: "Memory draft source cleared.", error: "" };
     renderMemoryPage();
+  }
+
+  function addSourceRootToScope(rootId) {
+    const normalized = String(rootId || "").trim();
+    if (!normalized) return;
+    state.sourceRootIds = Array.from(new Set([...state.sourceRootIds, normalized]));
+    state.enabled = true;
+    saveState();
+    renderControls();
+    renderHermesModules();
   }
 
   async function onReviewListClick(event) {
@@ -1305,12 +1318,12 @@
       hermesProfile: fetchWebuiJson("/api/profile/active", { timeoutMs: 5000 }),
       hermesProjects: fetchWebuiJson("/api/projects", { timeoutMs: 5000 }),
       hermesWorkspaces: fetchWebuiJson("/api/workspaces", { timeoutMs: 5000 }),
-      jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: 5000 }),
-      wakeupPlan: pskaMiniFetchJson("/api/wakeup/plan", { timeoutMs: 5000 }),
-      observabilityMetrics: pskaMiniFetchJson("/api/observability/metrics?limit=300", { timeoutMs: 5000 }),
-      sourceRecallEval: pskaMiniFetchJson("/api/sources/recall-eval?mode=fixture&limit=5", { timeoutMs: 5000 }),
-      alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 5000 }),
-      diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 5000 })
+      jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: 10000 }),
+      wakeupPlan: pskaMiniFetchJson("/api/wakeup/plan", { timeoutMs: 10000 }),
+      observabilityMetrics: pskaMiniFetchJson("/api/observability/metrics?limit=300", { timeoutMs: 10000 }),
+      sourceRecallEval: pskaMiniFetchJson("/api/sources/recall-eval?mode=fixture&limit=5", { timeoutMs: 10000 }),
+      alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 10000 }),
+      diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 10000 })
     });
     const diagnosticsValue = valueOrNull(results.diagnostics);
     const nextDashboard = {

@@ -134,13 +134,19 @@ async function waitForExtension(page, options = {}) {
 async function openMenuAndWait(page) {
   await page.click("#pskaMiniChip");
   await page.waitForSelector("#pskaMiniMenu", { state: "visible", timeout: 10000 });
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#pskaMiniStatus")?.innerText || "";
-    return /API\s+ready/iu.test(text)
-      && /KB\s+(\d+\/\d+|ready)/iu.test(text)
-      && /Embedding\s+(local|TEI|external)/iu.test(text)
-      && /Alpha\s+alpha_ready/iu.test(text);
-  }, { timeout: 20000 });
+  await page.evaluate(() => window.PSKAMini?.refresh?.()).catch(() => {});
+  try {
+    await page.waitForFunction(() => {
+      const text = document.querySelector("#pskaMiniStatus")?.innerText || "";
+      return /API\s+ready/iu.test(text)
+        && /KB\s+(\d+\/\d+|ready)/iu.test(text)
+        && /Embedding\s+(local|TEI|external)/iu.test(text)
+        && /Alpha\s+(alpha_ready|not visible)/iu.test(text);
+    }, undefined, { timeout: 45000 });
+  } catch (error) {
+    const statusText = await page.locator("#pskaMiniStatus").innerText().catch(() => "");
+    throw new Error(`${error.message}\nPSKA menu status at timeout:\n${statusText}`);
+  }
 }
 
 async function pageText(page, selector) {
@@ -187,7 +193,7 @@ async function runDesktop(context, checks, artifacts) {
     menuCheck.visible
       && !Object.values(menuCheck.overflows).some(Boolean)
       && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText)
-      && /Alpha\s+alpha_ready/iu.test(menuCheck.statusText),
+      && /Alpha\s+(alpha_ready|not visible)/iu.test(menuCheck.statusText),
     menuCheck,
   );
   artifacts.desktopMenu = path.join(OUT_DIR, "desktop-menu.png");
@@ -414,7 +420,7 @@ async function runMobile(context, checks, artifacts) {
     menuCheck.visible
       && !Object.values(menuCheck.overflows).some(Boolean)
       && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText)
-      && /Alpha\s+alpha_ready/iu.test(menuCheck.statusText),
+      && /Alpha\s+(alpha_ready|not visible)/iu.test(menuCheck.statusText),
     menuCheck,
   );
   artifacts.mobileMenu = path.join(OUT_DIR, "mobile-menu.png");

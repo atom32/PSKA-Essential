@@ -153,6 +153,7 @@ async function main() {
     && jsAsset.text.includes("renderChatgptImportResult")
     && jsAsset.text.includes("importChatgptConversationArchive")
     && jsAsset.text.includes("renderChatgptConversationImportResult")
+    && jsAsset.text.includes("addSourceRootToScope(rootId)")
     && jsAsset.text.includes("renderAnswerProofs")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
