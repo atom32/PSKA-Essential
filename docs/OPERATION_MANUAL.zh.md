@@ -36,6 +36,13 @@ make start-workspace
 检查不只看 `/api/health`，还会验证 `/api/capabilities` 中的 Product API
 contract，避免旧进程还活着但缺少 `/api/memory/search` 等新接口。
 
+当前 dogfood 主路径使用 GBrain，所以统一启动脚本默认不会拉起 Graphiti/Neo4j。需要验证
+Graphiti 时显式使用：
+
+```bash
+scripts/start_pska_workspace.sh --with-graphiti
+```
+
 如果只想手动启动 PSKA Product API，可使用：
 
 ```bash

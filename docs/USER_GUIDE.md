@@ -71,6 +71,9 @@ make start-workspace
 It checks RAGFlow, the selected memory provider, PSKA Product API, and Hermes
 WebUI; starts missing local services when a known startup path exists; then
 opens Hermes WebUI.
+With the current GBrain dogfood profile, Graphiti is optional and is not
+auto-started unless `--with-graphiti`, `GRAPHITI_AUTOSTART=1`, or
+`PSKA_MEMORY_PROVIDER=graphiti` is used.
 
 1. Start the configured provider backends.
 2. Start PSKA Product API with an explicit env file.

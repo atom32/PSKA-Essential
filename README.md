@@ -133,8 +133,10 @@ PSKA Product API, and Hermes WebUI; starts missing local services where this
 machine has a known startup path; then opens Hermes WebUI as the v1 product
 workspace. The PSKA Product API check validates the lightweight Product API
 contract, not just `/api/health`, so a stale local 8765 process that lacks
-routes such as `/api/memory/search` is reported as `STALE` and restarted. For
-status without starting services:
+routes such as `/api/memory/search` is reported as `STALE` and restarted. With
+the current GBrain dogfood profile, this does not auto-start Graphiti; use
+`scripts/start_pska_workspace.sh --with-graphiti` only when validating the
+optional graph memory provider. For status without starting services:
 
 ```bash
 make start-workspace START_WORKSPACE_ARGS=--status-only

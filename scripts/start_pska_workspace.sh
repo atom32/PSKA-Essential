@@ -20,6 +20,7 @@ SKIP_GBRAIN=0
 SKIP_PSKA=0
 SKIP_HERMES=0
 SKIP_EIDOLIA=0
+WITH_GRAPHITI=0
 STATUS_ONLY=0
 HERMES_CONFIG_CHANGED=0
 
@@ -34,6 +35,7 @@ Options:
   --status-only    Only print health status; do not start anything.
   --skip-ragflow   Do not start/check RAGFlow.
   --skip-graphiti  Do not start/check Graphiti.
+  --with-graphiti  Start/check optional Graphiti even when memory provider is not graphiti.
   --skip-gbrain    Do not start/check GBrain HTTP MCP.
   --skip-pska      Do not start/check PSKA Product API.
   --skip-hermes    Do not start/check Hermes WebUI.
@@ -60,6 +62,7 @@ Useful overrides:
   GBRAIN_MCP_URL=http://127.0.0.1:3131/mcp
   GBRAIN_SURFACE=verbs
   GBRAIN_AUTOSTART=1      Start GBrain even when PSKA_MEMORY_PROVIDER is not gbrain.
+  GRAPHITI_AUTOSTART=1    Start Graphiti even when PSKA_MEMORY_PROVIDER is not graphiti.
   PSKA_API_HOST=127.0.0.1
   PSKA_API_PORT=8765
   PSKA_API_BASE_URL=http://127.0.0.1:8765
@@ -83,6 +86,7 @@ while [[ $# -gt 0 ]]; do
     --status-only) STATUS_ONLY=1; OPEN_FRONTEND=0 ;;
     --skip-ragflow) SKIP_RAGFLOW=1 ;;
     --skip-graphiti) SKIP_GRAPHITI=1 ;;
+    --with-graphiti) WITH_GRAPHITI=1 ;;
     --skip-gbrain) SKIP_GBRAIN=1 ;;
     --skip-pska) SKIP_PSKA=1 ;;
     --skip-hermes) SKIP_HERMES=1; OPEN_FRONTEND=0 ;;
@@ -379,6 +383,10 @@ gbrain_should_start() {
   [[ "${PSKA_MEMORY_PROVIDER:-}" == "gbrain" || "${GBRAIN_AUTOSTART:-0}" == "1" ]]
 }
 
+graphiti_should_start() {
+  [[ "${PSKA_MEMORY_PROVIDER:-}" == "graphiti" || "${GRAPHITI_AUTOSTART:-0}" == "1" || "${WITH_GRAPHITI}" == "1" ]]
+}
+
 print_gbrain_status_line() {
   if ! gbrain_should_start; then
     return 0
@@ -387,6 +395,19 @@ print_gbrain_status_line() {
     printf '  OK   %s (%s)\n' "GBrain HTTP MCP" "${GBRAIN_MCP_URL}"
   else
     printf '  MISS %s (%s)\n' "GBrain HTTP MCP" "${GBRAIN_MCP_URL}"
+  fi
+}
+
+print_graphiti_status_line() {
+  local health_url="${GRAPHITI_BASE_URL}/healthcheck"
+  if graphiti_should_start; then
+    print_status_line "Graphiti" "${health_url}"
+    return 0
+  fi
+  if http_ok "${health_url}"; then
+    printf '  OK   %s (%s)\n' "Graphiti optional" "${health_url}"
+  else
+    printf '  OFF  %s (%s; not selected)\n' "Graphiti optional" "${health_url}"
   fi
 }
 
@@ -519,6 +540,10 @@ start_gbrain_if_needed() {
 }
 
 start_graphiti_if_needed() {
+  if ! graphiti_should_start; then
+    log "Skipping optional Graphiti; memory provider is ${PSKA_MEMORY_PROVIDER:-unset}. Use --with-graphiti or GRAPHITI_AUTOSTART=1 to start it."
+    return 0
+  fi
   local health_url="${GRAPHITI_BASE_URL}/healthcheck"
   if http_ok "${health_url}"; then
     log "Graphiti already running"
@@ -1498,6 +1523,9 @@ log "Using env file: ${ENV_FILE}"
 log "PSKA API: ${PSKA_API_BASE_URL}"
 log "PSKA MCP: ${PSKA_MCP_BASE_URL}"
 gbrain_should_start && log "GBrain HTTP MCP: ${GBRAIN_MCP_URL}"
+if (( ! SKIP_GRAPHITI )) && graphiti_should_start; then
+  log "Graphiti: ${GRAPHITI_BASE_URL}"
+fi
 log "Hermes WebUI: ${HERMES_WEBUI_BASE_URL}"
 (( SKIP_EIDOLIA )) || log "Eidolia: ${EIDOLIA_BASE_URL}"
 
@@ -1505,7 +1533,7 @@ if (( STATUS_ONLY )); then
   echo "Status:"
   (( SKIP_RAGFLOW )) || print_status_line "RAGFlow" "${RAGFLOW_BASE_URL}/api/v1/system/ping"
   (( SKIP_RAGFLOW )) || print_ragflow_task_executor_status_line
-  (( SKIP_GRAPHITI )) || print_status_line "Graphiti" "${GRAPHITI_BASE_URL}/healthcheck"
+  (( SKIP_GRAPHITI )) || print_graphiti_status_line
   (( SKIP_GBRAIN )) || print_gbrain_status_line
   if (( ! SKIP_PSKA )); then
     print_pska_status_line

@@ -78,6 +78,12 @@ scripts/pska_component_channel.sh status
 
 如果 `PSKA_MEMORY_PROVIDER=gbrain`，Graphiti 容器健康与否不应影响 PSKA 主路径。省电时可以
 停止 Graphiti 和 Neo4j 容器，但不要停止 RAGFlow 的 MySQL、ES、MinIO、Redis/NATS 依赖。
+`scripts/start_pska_workspace.sh` 默认也不会在 GBrain dogfood 模式下自动拉起 Graphiti；
+只有以下情况会启动或强制检查 Graphiti：
+
+- `PSKA_MEMORY_PROVIDER=graphiti`
+- `GRAPHITI_AUTOSTART=1`
+- `scripts/start_pska_workspace.sh --with-graphiti`
 
 省电 dry-run：
 
