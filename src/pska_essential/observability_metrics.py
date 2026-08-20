@@ -17,7 +17,7 @@ GROUP_RULES: tuple[dict[str, Any], ...] = (
     {
         "id": "source_extraction",
         "label": "Source Extraction",
-        "actions": ("source.extraction_job.enqueue", "source.extraction_job.run"),
+        "actions": ("source.extraction_job.enqueue", "source.extraction_job.run", "chatgpt.conversations.import"),
         "zero_result_keys": (),
     },
     {
@@ -173,6 +173,7 @@ def _group_metrics(
             {
                 "enqueue_count": _action_counts(events).get("source.extraction_job.enqueue", 0),
                 "run_count": len(run_events),
+                "chatgpt_conversation_import_count": _action_counts(events).get("chatgpt.conversations.import", 0),
                 "completed_count": sum(1 for event in run_events if _metadata_status(event) in {"completed", "ok"}),
                 "failed_count": len(failed),
                 "failure_rate": _ratio(len(failed), len(run_events)),

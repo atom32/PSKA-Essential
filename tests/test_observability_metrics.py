@@ -83,6 +83,16 @@ class ObservabilityMetricsTests(unittest.TestCase):
                 writes_memory_directly=False,
             )
         )
+        service.store.add_audit_event(
+            audit_event(
+                "chatgpt.conversations.import",
+                "source_import",
+                "cgconv_demo",
+                status="imported",
+                imported_conversation_count=2,
+                writes_memory_directly=False,
+            )
+        )
 
         report = build_observability_metrics(service, limit=100)
 
@@ -97,6 +107,7 @@ class ObservabilityMetricsTests(unittest.TestCase):
         self.assertFalse(report["data_flow"]["exports_external_trace"])
         groups = {group["id"]: group for group in report["groups"]}
         self.assertEqual(groups["source_extraction"]["metrics"]["failed_count"], 1)
+        self.assertEqual(groups["source_extraction"]["metrics"]["chatgpt_conversation_import_count"], 1)
         self.assertEqual(groups["source_recall"]["metrics"]["zero_result_event_count"], 1)
         self.assertEqual(groups["duplicate_review"]["metrics"]["reported_group_count"], 2)
         self.assertEqual(groups["duplicate_review"]["metrics"]["review_status_counts"]["reviewed"], 1)

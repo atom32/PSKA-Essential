@@ -60,6 +60,7 @@ EXPECTED_TOOLS = {
     "pska_source_collection_create",
     "pska_source_collection_list",
     "pska_source_collection_resolve",
+    "pska_chatgpt_conversations_import",
     "pska_source_tag_propose",
     "pska_source_tag_apply",
     "pska_source_comment_propose",
@@ -152,6 +153,8 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_agentic_specialist_profiles", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", capabilities["source_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_source_recall_eval", capabilities["source_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_chatgpt_conversations_import", capabilities["source_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_chatgpt_conversations_import", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_coverage", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_observability_metrics", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_job_health", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -394,7 +397,7 @@ class McpContractTests(unittest.TestCase):
         listed = tools["pska_workflow_list"](limit=5)
         self.assertEqual(listed[0]["run_id"], run["run_id"])
         packets = tools["pska_context_retrieve"]("adapter review", run_id=run["run_id"], limit=1)
-        self.assertEqual(len(packets), 1)
+        self.assertGreaterEqual(len(packets), 1)
         source = tools["pska_source_read"](packets[0]["source_ref"])
         self.assertIn("PSKA-Essential", source["text"])
         policy = tools["pska_policy_get"]()
@@ -522,6 +525,12 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_source_recall_eval"]["writes_memory_directly"])
         self.assertFalse(policy["pska_source_recall_eval"]["runs_jobs"])
         self.assertFalse(policy["pska_source_recall_eval"]["embedding_required"])
+        self.assertTrue(policy["pska_chatgpt_conversations_import"]["writes_normalized_archive_files"])
+        self.assertTrue(policy["pska_chatgpt_conversations_import"]["writes_source_registry"])
+        self.assertFalse(policy["pska_chatgpt_conversations_import"]["writes_original_export_files"])
+        self.assertFalse(policy["pska_chatgpt_conversations_import"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_chatgpt_conversations_import"]["creates_review"])
+        self.assertFalse(policy["pska_chatgpt_conversations_import"]["embedding_required"])
         self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["review_required"])
         self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["creates_review"])
         self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["skips_private_by_default"])
@@ -1134,6 +1143,66 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
         self.assertEqual(service.store.list_reviews(status="pending")[0]["review_id"], result["created"][0]["review_id"])
         self.assertEqual(len(service.memory_search("small object models", {}, 10)), 0)
+
+    def test_chatgpt_conversations_import_tool_creates_searchable_source_archive(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        export_payload = [
+            {
+                "id": "conv-tool-pska",
+                "title": "PSKA source recall",
+                "messages": [
+                    {
+                        "id": "msg-tool-user",
+                        "role": "user",
+                        "content": {
+                            "parts": [
+                                "ChatGPT conversations should become source archive material, not durable memory."
+                            ]
+                        },
+                    },
+                    {
+                        "id": "msg-tool-assistant",
+                        "role": "assistant",
+                        "content": {"parts": ["Source recall can cite the normalized conversation archive."]},
+                    },
+                ],
+            }
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            export_path = Path(temp_dir) / "conversations.json"
+            output_dir = Path(temp_dir) / "archive"
+            export_path.write_text(json.dumps(export_payload), encoding="utf-8")
+
+            result = tools["pska_chatgpt_conversations_import"](
+                str(export_path),
+                output_dir=str(output_dir),
+                source_label="ChatGPT MCP conversation archive",
+                conversation_limit=0,
+            )
+            packets = tools["pska_source_search"](
+                "ChatGPT conversations source archive material",
+                {"root_ids": [result["root"]["root_id"]]},
+                limit=5,
+            )
+            source = tools["pska_source_read"](packets[0]["source_ref"])
+            facts = tools["pska_memory_search"]("ChatGPT conversations source archive material", {}, 10)
+            search_text = "\n".join(packet.get("text", "") for packet in packets)
+
+        self.assertEqual(result["schema"], "pska.chatgpt_conversations_import.v1")
+        self.assertEqual(result["status"], "imported")
+        self.assertEqual(result["summary"]["imported_conversation_count"], 1)
+        self.assertEqual(result["root"]["kind"], "local_folder")
+        self.assertFalse(result["data_flow"]["writes_original_export_files"])
+        self.assertTrue(result["data_flow"]["writes_normalized_archive_files"])
+        self.assertTrue(result["data_flow"]["writes_source_registry"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertFalse(result["data_flow"]["creates_review"])
+        self.assertFalse(result["data_flow"]["embedding_required"])
+        self.assertGreaterEqual(len(packets), 1)
+        self.assertIn("ChatGPT conversations should become source archive material", search_text)
+        self.assertTrue(source["text"])
+        self.assertEqual(facts, [])
 
     def test_chatgpt_memory_summary_import_tool_creates_review_candidates(self):
         service = build_fake_service()

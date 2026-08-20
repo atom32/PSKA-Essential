@@ -139,6 +139,7 @@ async function main() {
     && jsAsset.text.includes("/api/alpha/first-run-session")
     && jsAsset.text.includes("/api/hermes/answer-proofs")
     && jsAsset.text.includes("/api/memory/chatgpt-summary/import")
+    && jsAsset.text.includes("/api/sources/chatgpt-conversations/import")
     && jsAsset.text.includes("/api/jobs/health?include_kb=false")
     && jsAsset.text.includes("/api/wakeup/plan")
     && jsAsset.text.includes("/api/observability/metrics?limit=300")
@@ -150,6 +151,8 @@ async function main() {
     && jsAsset.text.includes("sourceRecallEvalStatusLabel")
     && jsAsset.text.includes("importChatgptMemorySummary")
     && jsAsset.text.includes("renderChatgptImportResult")
+    && jsAsset.text.includes("importChatgptConversationArchive")
+    && jsAsset.text.includes("renderChatgptConversationImportResult")
     && jsAsset.text.includes("renderAnswerProofs")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,

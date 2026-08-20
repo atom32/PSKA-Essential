@@ -21,6 +21,7 @@ from pska_essential.alpha_readiness import (
     update_alpha_first_run_session,
 )
 from pska_essential.capabilities import product_capabilities
+from pska_essential.chatgpt_conversations_import import import_chatgpt_conversations
 from pska_essential.chatgpt_memory_import import build_chatgpt_memory_summary_import
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
@@ -371,6 +372,24 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
 
     def pska_source_collection_resolve(collection_id: str, limit: int = 10):
         return to_jsonable(service.source_collection_resolve(collection_id, limit=limit))
+
+    def pska_chatgpt_conversations_import(
+        export_path: str,
+        output_dir: str = "",
+        source_label: str = "",
+        conversation_limit: int = 100,
+        scan: bool = True,
+        scan_max_bytes: int = 1_000_000,
+    ):
+        return import_chatgpt_conversations(
+            service,
+            export_path=export_path,
+            output_dir=output_dir,
+            source_label=source_label,
+            conversation_limit=conversation_limit,
+            scan=scan,
+            scan_max_bytes=scan_max_bytes,
+        )
 
     def pska_source_tag_propose(
         target_ref: dict[str, Any],
@@ -1526,6 +1545,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_collection_create": pska_source_collection_create,
         "pska_source_collection_list": pska_source_collection_list,
         "pska_source_collection_resolve": pska_source_collection_resolve,
+        "pska_chatgpt_conversations_import": pska_chatgpt_conversations_import,
         "pska_source_tag_propose": pska_source_tag_propose,
         "pska_source_tag_apply": pska_source_tag_apply,
         "pska_source_comment_propose": pska_source_comment_propose,

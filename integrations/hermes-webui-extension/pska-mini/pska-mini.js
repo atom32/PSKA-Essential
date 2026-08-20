@@ -45,6 +45,7 @@
     memoryDraftSourceRefs: [],
     memoryDraftSourceLabel: "",
     chatgptImportResult: null,
+    chatgptConversationImportResult: null,
     reviewStatus: "pending",
     detail: null,
     firstRunSession: null,
@@ -354,6 +355,16 @@
                 </div>
                 <div class="pska-mini-memory-import-result" id="pskaMiniChatgptImportResult"></div>
               </details>
+              <details class="pska-mini-memory-create" id="pskaMiniChatgptConversationImport">
+                <summary>Import ChatGPT conversation archive</summary>
+                <input id="pskaMiniChatgptConversationPath" type="text" placeholder="Path to conversations.json or export zip">
+                <input id="pskaMiniChatgptConversationOutput" type="text" placeholder="Optional PSKA archive output folder">
+                <div class="pska-mini-memory-create-actions">
+                  <label>limit <input id="pskaMiniChatgptConversationLimit" type="number" min="0" max="5000" step="50" value="100"></label>
+                  <button class="pska-mini-page-btn" id="pskaMiniImportChatgptConversations" type="button">Import archive</button>
+                </div>
+                <div class="pska-mini-memory-import-result" id="pskaMiniChatgptConversationImportResult"></div>
+              </details>
             </section>
             <section class="pska-mini-page-section">
               <div class="pska-mini-page-section-head">
@@ -391,6 +402,7 @@
     panel.querySelector("#pskaMiniClearMemoryDraftSource").addEventListener("click", clearMemoryDraftSource);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
     panel.querySelector("#pskaMiniImportChatgptMemory").addEventListener("click", importChatgptMemorySummary);
+    panel.querySelector("#pskaMiniImportChatgptConversations").addEventListener("click", importChatgptConversationArchive);
     renderMemoryPage();
   }
 
@@ -702,6 +714,52 @@
     }
   }
 
+  async function importChatgptConversationArchive() {
+    const pathBox = document.getElementById("pskaMiniChatgptConversationPath");
+    const outputBox = document.getElementById("pskaMiniChatgptConversationOutput");
+    const limitBox = document.getElementById("pskaMiniChatgptConversationLimit");
+    const exportPath = String(pathBox?.value || "").trim();
+    const outputDir = String(outputBox?.value || "").trim();
+    const limit = boundedInt(limitBox?.value, 100, 0, 5000);
+    if (!exportPath) {
+      memoryPage = { ...memoryPage, error: "ChatGPT conversation export path is required.", message: "" };
+      renderMemoryPage();
+      return;
+    }
+    memoryPage = { ...memoryPage, loading: true, message: "Importing ChatGPT conversation archive...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson("/api/sources/chatgpt-conversations/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          export_path: exportPath,
+          output_dir: outputDir,
+          source_label: "ChatGPT conversation archive",
+          conversation_limit: limit,
+          scan: true
+        }),
+        timeoutMs: 60000
+      });
+      const result = data.chatgpt_conversations_import || null;
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        chatgptConversationImportResult: result,
+        message: result
+          ? `ChatGPT archive imported ${result.summary?.imported_conversation_count || 0} conversation(s).`
+          : "ChatGPT archive import completed.",
+        error: ""
+      };
+      await refreshDashboard();
+      toast("PSKA ChatGPT conversation archive imported.", "success");
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+      renderMemoryPage();
+      toast(`PSKA ChatGPT archive import failed: ${errorText(error)}`, "error");
+    }
+  }
+
   function draftMemoryCandidateFromAnswerProof() {
     const proof = memoryPage.answerProofDetail || null;
     if (!proof) return;
@@ -807,6 +865,7 @@
     renderAnswerProofDetail();
     renderMemoryDraftSource();
     renderChatgptImportResult();
+    renderChatgptConversationImportResult();
     renderMemoryResults();
     renderReviewList();
     renderReviewDetail();
@@ -1078,6 +1137,29 @@
         created ${escapeHtml(String(summary.created_count || 0))} ·
         private skipped ${escapeHtml(String(summary.skipped_private_count || 0))} ·
         boundary ${escapeHtml(summary.privacy_boundary_created ? "yes" : "no")}
+      </div>
+    `;
+  }
+
+  function renderChatgptConversationImportResult() {
+    const container = document.getElementById("pskaMiniChatgptConversationImportResult");
+    if (!container) return;
+    const result = memoryPage.chatgptConversationImportResult;
+    if (!result) {
+      container.innerHTML = "";
+      return;
+    }
+    const summary = result.summary || {};
+    const archive = result.archive || {};
+    const rootId = result.root?.root_id || "";
+    container.innerHTML = `
+      <div class="pska-mini-memory-draft-source">
+        Archive <strong>${escapeHtml(shortId(result.import_id || "", 12) || "done")}</strong> ·
+        conversations ${escapeHtml(String(summary.imported_conversation_count || 0))}/${escapeHtml(String(summary.selected_conversation_count || 0))} ·
+        files ${escapeHtml(String(archive.file_count || 0))} ·
+        root ${escapeHtml(shortId(rootId, 12) || "not scanned")}
+        <br>
+        ${escapeHtml(archive.output_dir || "")}
       </div>
     `;
   }

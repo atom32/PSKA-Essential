@@ -284,8 +284,9 @@ class SkillDocsTests(unittest.TestCase):
     def test_hermes_config_exposes_daily_pska_surface(self):
         text = Path("skills/hermes/config.example.yaml").read_text(encoding="utf-8")
 
-        self.assertIn("--env-file", text)
-        self.assertIn("/Users/xudawei/PSKA-Essential/.env.pska", text)
+        self.assertIn('url: "http://127.0.0.1:8766/mcp"', text)
+        self.assertNotIn("command:", text)
+        self.assertNotIn("args:", text)
         self.assertNotIn("PSKA_DEV_FAKE", text)
         self.assertNotIn("PSKA_RETRIEVAL_PROVIDER: \"fake\"", text)
         self.assertNotIn("PSKA_MEMORY_PROVIDER: \"fake\"", text)
@@ -354,6 +355,7 @@ class SkillDocsTests(unittest.TestCase):
             "pska_memory_change_from_conversation",
             "pska_conversation_memory_candidates_create",
             "pska_chatgpt_memory_summary_import",
+            "pska_chatgpt_conversations_import",
             "pska_memory_lifecycle",
             "pska_review_list",
             "pska_review_get",

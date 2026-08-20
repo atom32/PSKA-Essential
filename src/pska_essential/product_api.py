@@ -30,6 +30,7 @@ from pska_essential.alpha_readiness import (
     update_alpha_first_run_session,
 )
 from pska_essential.capabilities import product_capabilities
+from pska_essential.chatgpt_conversations_import import import_chatgpt_conversations
 from pska_essential.chatgpt_memory_import import build_chatgpt_memory_summary_import
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
@@ -156,6 +157,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/sources/collections"},
     {"method": "POST", "path": "/api/sources/collections"},
     {"method": "POST", "path": "/api/sources/collections/{collection_id}/resolve"},
+    {"method": "POST", "path": "/api/sources/chatgpt-conversations/import"},
     {"method": "POST", "path": "/api/sources/tags/proposals"},
     {"method": "POST", "path": "/api/sources/tags/{proposal_id}/apply"},
     {"method": "POST", "path": "/api/sources/comments/proposals"},
@@ -1298,6 +1300,22 @@ def _handler_class(state: ProductApiState):
                     limit=int(payload.get("limit") or 10),
                 )
                 self._send_json({"ok": True, "resolved": to_jsonable(resolved)})
+                return
+
+            if method == "POST" and path == "/api/sources/chatgpt-conversations/import":
+                payload = self._read_json()
+                raw_limit = payload.get("conversation_limit", 100)
+                conversation_limit = 100 if raw_limit in (None, "") else int(raw_limit)
+                result = import_chatgpt_conversations(
+                    state.service,
+                    export_path=_required_str(payload, "export_path"),
+                    output_dir=str(payload.get("output_dir") or ""),
+                    source_label=str(payload.get("source_label") or ""),
+                    conversation_limit=conversation_limit,
+                    scan=_bool_value(payload.get("scan"), True),
+                    scan_max_bytes=int(payload.get("scan_max_bytes") or 1_000_000),
+                )
+                self._send_json({"ok": True, "chatgpt_conversations_import": result}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/sources/tags/proposals":

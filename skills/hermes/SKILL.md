@@ -208,6 +208,13 @@ candidate memory, review, and durable export.
   false unless the user explicitly asks otherwise: private life, family,
   health, and intimate-history chunks should remain source-archive material by
   default, with only a privacy boundary candidate created for future behavior.
+- If the user provides a full ChatGPT conversation export, call
+  `pska_chatgpt_conversations_import` on `conversations.json`, an export `.zip`,
+  or a folder containing `conversations.json`. This normalizes the export into a
+  PSKA-managed local source archive, registers and scans that archive, and does
+  not edit the original export, write durable memory, create reviews, or require
+  embeddings. After importing, use `pska_source_search`/`pska_source_read` for
+  recall; only promote selected, stable claims through governed memory review.
 - If `pska_memory_change_from_conversation` returns `status="needs_target"`,
   call `pska_memory_search` with the returned `next_actions` query, ask the user
   to disambiguate when needed, then retry with the selected `memory_fact`.

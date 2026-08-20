@@ -393,6 +393,13 @@ P2 的第三十五块已落地为 ChatGPT memory summary import：
 它复用 conversation candidate/review queue 通道，不直接写 GBrain/SQLite memory，
 不写 source files，不需要 embedding，也不会把完整导入文本写入 audit；默认跳过
 私密人生、家庭、健康和亲密经历段落，只创建一条隐私使用边界候选。
+P2 的第三十六块已落地为 ChatGPT conversations source archive import：
+`POST /api/sources/chatgpt-conversations/import` 与
+`pska_chatgpt_conversations_import` 把 `conversations.json`、ChatGPT 导出
+zip 或包含该文件的文件夹规范化为 PSKA 管理的 markdown 资料档案，并注册为
+read-only local source root。它不修改原始导出，不直接写 GBrain/SQLite memory，
+不创建 Review，不需要 embedding；后续只能先 source search/read，再把被确认的
+稳定事实走 governed memory review。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
@@ -442,6 +449,7 @@ activate due schedule、不会创建 Review、不会写 source/memory，也不�
 
 ```text
 POST /api/sources/memory-candidates/from-audit
+POST /api/sources/chatgpt-conversations/import
 POST /api/memory/conversation-candidates
 POST /api/memory/chatgpt-summary/import
 GET  /api/memory/cards
@@ -981,6 +989,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add persisted alpha first-run session/checklist progress without executing trial steps.
 - [x] Add operator notes to alpha first-run checklist items for rehearsal evidence.
 - [x] Add ChatGPT memory summary import into governed Review candidates with private-by-default handling.
+- [x] Add ChatGPT full conversation export import as a governed source archive without writing memory.
 
 ### P3 Backlog
 

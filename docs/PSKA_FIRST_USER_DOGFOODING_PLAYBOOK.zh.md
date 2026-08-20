@@ -281,6 +281,31 @@ curl -fsS http://127.0.0.1:8765/api/memory/chatgpt-summary/import \
 - 默认跳过私密人生、家庭、健康和亲密经历段落。
 - 如果发现私密段落，只创建一条“默认不要在无关任务里暴露”的边界候选。
 
+### 3.7 ChatGPT 完整对话档案
+
+目的：把 `conversations.json` 或 ChatGPT 导出 zip 变成可检索的资料档案，而不是直接变成长期记忆。
+
+用法：
+
+```bash
+curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "export_path": "/path/to/conversations.json",
+    "source_label": "ChatGPT 完整对话档案",
+    "conversation_limit": 100,
+    "scan": true
+  }'
+```
+
+这条路径只会写入 PSKA 管理的 markdown 档案并注册为本地资料源：
+
+- 不修改 ChatGPT 原始导出文件。
+- 不直接写 GBrain。
+- 不创建记忆审核项。
+- 不需要 embedding。
+- 后续先用 source search/read 找证据，再挑选稳定事实进入记忆审核。
+
 导入后先打开 Hermes WebUI 的 PSKA Memory 页面，看 Review Queue。只把稳定身份、长期项目、
 工作习惯、明确偏好和保护边界 apply 到长期记忆；长篇人生回忆先留在 private source archive。
 

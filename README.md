@@ -483,6 +483,7 @@ Operational loop tools:
 - `pska_memory_change_from_conversation`
 - `pska_conversation_memory_candidates_create`
 - `pska_chatgpt_memory_summary_import`
+- `pska_chatgpt_conversations_import`
 - `pska_memory_review_from_workflow`
 - `pska_memory_refresh_review`
 - `pska_memory_update_review`
@@ -829,6 +830,13 @@ exported ChatGPT personalized memory summaries. It creates the same governed
 Review candidates, skips private life/family/health/intimate chunks by default,
 adds only a privacy-boundary candidate for those skipped chunks, and never
 writes durable memory, source files, embeddings, or full import text directly.
+`pska_chatgpt_conversations_import` is the companion source-archive bridge for
+full ChatGPT exports. It accepts `conversations.json`, an export `.zip`, or a
+folder containing `conversations.json`, normalizes selected conversations into
+PSKA-managed markdown files, registers that archive as a local source root, and
+scans it through the no-embedding source registry. It does not edit the original
+export, write durable memory, or create reviews; stable claims must still be
+promoted later through governed memory review.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.
@@ -998,6 +1006,7 @@ Implemented Alpha routes:
 - `POST /api/sources/comments/{proposal_id}/apply`
 - `POST /api/sources/obsidian/moc/proposals`
 - `POST /api/sources/obsidian/moc/{proposal_id}/apply`
+- `POST /api/sources/chatgpt-conversations/import`
 - `POST /api/sources/memory-reviews`
 - `POST /api/sources/memory-candidates/from-audit`
 - `POST /api/sources/read`

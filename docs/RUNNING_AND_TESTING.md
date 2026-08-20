@@ -174,6 +174,24 @@ durable memory, edit source files, require embeddings, or store the full import
 text in audit. Private life, family, health, and intimate-history chunks are
 skipped by default and represented only by a privacy-boundary candidate.
 
+ChatGPT full conversation export import for source recall:
+
+```bash
+curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "export_path": "/path/to/conversations.json",
+    "source_label": "ChatGPT conversation archive",
+    "conversation_limit": 100,
+    "scan": true
+  }'
+```
+
+This writes normalized markdown files under PSKA's managed import archive,
+registers that archive as a read-only local source root, and makes it searchable
+through `/api/sources/search`. It does not edit the original export, write
+durable memory, create reviews, or require embeddings.
+
 Live RAGFlow mode uses the same Product API command after setting providers
 explicitly. The current local dogfood path uses GBrain memory over HTTP MCP:
 

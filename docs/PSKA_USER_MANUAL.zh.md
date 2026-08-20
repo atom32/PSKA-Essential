@@ -323,7 +323,7 @@ Scan: 3 scanned, 3 indexed, 0 errors
 - 候选卡已经过 Review。
 - fact `4` 到 `11` 都已写入 GBrain。
 - 每条都能追溯到 `chatgpt_memory_seed.zh.md`。
-- 完整 ChatGPT 对话记录还没导入。
+- 完整 ChatGPT 对话记录导入能力已经具备；真实导出包是否已导入，以 Source Root 和 audit 为准。
 
 等完整对话记录导出后，下一步不是直接灌进记忆，而是：
 
@@ -462,6 +462,7 @@ Next actions: 8
 - Review 接受后写入 GBrain。
 - GBrain fact 回查 PSKA 来源引用。
 - ChatGPT 记忆摘要导入成 Memory Card。
+- ChatGPT 完整对话导入为只读资料档案。
 - 私密记忆保护边界。
 - Eidolia thought 通过 SourceRef 接入 PSKA。
 - Agentic Context Brief 汇总证据、来源、记忆和 trace。
@@ -476,7 +477,7 @@ Next actions: 8
 当前还不应该承诺：
 
 - 面向普通用户的独立 PSKA 前端。
-- 完整 ChatGPT 对话记录已经导入。
+- 没有导出包时，不能承诺完整 ChatGPT 对话记录已经真实导入。
 - 任意文件格式都能完美解析。
 - 全自动整理私人硬盘且自动删除重复文件。
 - Agent 可以绕过 Review 直接写长期记忆。
@@ -510,7 +511,20 @@ RAGFlow 需要解析、切片和建立索引。PSKA 会检查 readiness。如果
 
 ### 接下来导入完整 ChatGPT 对话要怎么做？
 
-先把导出的对话文件作为只读资料源注册和索引。然后按项目、时间、人物、主题提取候选卡。候选要去重、检查质量、进入 Review。只有确认后的内容才写入长期记忆。
+把 ChatGPT 导出的 `conversations.json` 或 export zip 交给 PSKA：
+
+```bash
+curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "export_path": "/path/to/conversations.json",
+    "source_label": "ChatGPT 完整对话档案",
+    "conversation_limit": 100,
+    "scan": true
+  }'
+```
+
+它会写入 PSKA 管理的 markdown 档案、注册只读资料源并建立本地检索。然后按项目、时间、人物、主题提取候选卡。候选要去重、检查质量、进入 Review。只有确认后的内容才写入长期记忆。
 
 ## 15. 命令速查
 

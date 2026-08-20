@@ -335,6 +335,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("GET", "/api/sources/collections"), contract_routes)
         self.assertIn(("POST", "/api/sources/collections"), contract_routes)
         self.assertIn(("POST", "/api/sources/collections/{collection_id}/resolve"), contract_routes)
+        self.assertIn(("POST", "/api/sources/chatgpt-conversations/import"), contract_routes)
         self.assertIn(("POST", "/api/sources/tags/proposals"), contract_routes)
         self.assertIn(("POST", "/api/sources/tags/{proposal_id}/apply"), contract_routes)
         self.assertIn(("POST", "/api/sources/comments/proposals"), contract_routes)
@@ -371,6 +372,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_recall_eval", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_chatgpt_conversations_import", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", source_layer["mcp_tools"]["implemented"])
@@ -438,6 +440,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_hermes_answer_proofs", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_recall_eval", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_chatgpt_conversations_import", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_readiness", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", assistant_layer["mcp_tools"]["implemented"])
@@ -508,6 +511,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_source_recall_eval"]["writes_memory_directly"])
         self.assertFalse(tool_policy["pska_source_recall_eval"]["runs_jobs"])
         self.assertFalse(tool_policy["pska_source_recall_eval"]["embedding_required"])
+        self.assertTrue(tool_policy["pska_chatgpt_conversations_import"]["writes_normalized_archive_files"])
+        self.assertTrue(tool_policy["pska_chatgpt_conversations_import"]["writes_source_registry"])
+        self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["writes_original_export_files"])
+        self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["writes_memory_directly"])
+        self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["creates_review"])
+        self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["embedding_required"])
         self.assertTrue(tool_policy["pska_chatgpt_memory_summary_import"]["review_required"])
         self.assertTrue(tool_policy["pska_chatgpt_memory_summary_import"]["creates_review"])
         self.assertTrue(tool_policy["pska_chatgpt_memory_summary_import"]["skips_private_by_default"])
@@ -671,6 +680,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(inflow_paths["chatgpt_memory_summary_import"]["writes_source_files"])
         self.assertFalse(inflow["upload_behavior"]["creates_graph_projection"])
         self.assertIn("digest_job", [path["name"] for path in inflow["paths"]])
+        source_layer = capabilities["capabilities"]["source_layer"]
+        self.assertEqual(source_layer["chatgpt_conversations_import"]["api"], "/api/sources/chatgpt-conversations/import")
+        self.assertEqual(source_layer["chatgpt_conversations_import"]["mcp"], "pska_chatgpt_conversations_import")
+        self.assertFalse(source_layer["chatgpt_conversations_import"]["writes_original_export_files"])
+        self.assertFalse(source_layer["chatgpt_conversations_import"]["writes_memory_directly"])
+        self.assertFalse(source_layer["chatgpt_conversations_import"]["creates_review"])
         lineage = capabilities["capabilities"]["memory"]["lineage"]
         self.assertEqual(lineage["schema"], "pska.memory_lineage.v1")
         self.assertFalse(lineage["pska_authoritative_mapping_table"])
@@ -1536,6 +1551,77 @@ class ProductApiTests(unittest.TestCase):
         resolve_event = next(event for event in audit["events"] if event["action"] == "source.collection.resolve")
         self.assertFalse(resolve_event["metadata"]["writes_source_files"])
         self.assertFalse(resolve_event["metadata"]["embedding_required"])
+
+    def test_chatgpt_conversations_import_route_creates_searchable_source_archive(self):
+        export_payload = [
+            {
+                "id": "conv-pska",
+                "title": "PSKA source archive",
+                "messages": [
+                    {
+                        "id": "msg-user-1",
+                        "role": "user",
+                        "content": "ChatGPT full conversations should enter PSKA as source archive.",
+                    },
+                    {
+                        "id": "msg-assistant-1",
+                        "role": "assistant",
+                        "content": "Only reviewed claims should become Memory Cards.",
+                    },
+                ],
+            }
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            export_path = Path(temp_dir) / "conversations.json"
+            output_dir = Path(temp_dir) / "archive"
+            export_path.write_text(json.dumps(export_payload), encoding="utf-8")
+
+            imported = self._post_json(
+                "/api/sources/chatgpt-conversations/import",
+                {
+                    "export_path": str(export_path),
+                    "output_dir": str(output_dir),
+                    "source_label": "ChatGPT full conversation export",
+                    "conversation_limit": 0,
+                },
+            )
+            result = imported["chatgpt_conversations_import"]
+            searched = self._post_json(
+                "/api/sources/search",
+                {
+                    "query": "ChatGPT full conversations source archive",
+                    "scope": {"root_ids": [result["root"]["root_id"]]},
+                    "limit": 5,
+                },
+            )
+            source = self._post_json(
+                "/api/sources/read",
+                {"source_ref": searched["context_packets"][0]["source_ref"]},
+            )
+            memory = self._post_json(
+                "/api/memory/search",
+                {"query": "ChatGPT full conversations source archive", "scope": {}, "limit": 10},
+            )
+            search_text = "\n".join(packet.get("text", "") for packet in searched["context_packets"])
+
+        self.assertTrue(imported["ok"])
+        self.assertEqual(result["schema"], "pska.chatgpt_conversations_import.v1")
+        self.assertEqual(result["status"], "imported")
+        self.assertEqual(result["summary"]["imported_conversation_count"], 1)
+        self.assertTrue(result["archive"]["file_count"])
+        self.assertEqual(result["root"]["kind"], "local_folder")
+        self.assertFalse(result["data_flow"]["writes_original_export_files"])
+        self.assertTrue(result["data_flow"]["writes_normalized_archive_files"])
+        self.assertTrue(result["data_flow"]["writes_source_registry"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertFalse(result["data_flow"]["creates_review"])
+        self.assertFalse(result["data_flow"]["embedding_required"])
+        self.assertGreaterEqual(searched["count"], 1)
+        self.assertIn("ChatGPT full conversations should enter PSKA as source archive", search_text)
+        self.assertTrue(source["source"]["text"])
+        self.assertEqual(memory["count"], 0)
+        audit = self._get_json("/api/audit?limit=10&action=chatgpt.conversations.import")
+        self.assertEqual(audit["events"][0]["metadata"]["imported_conversation_count"], 1)
 
     def test_source_watch_once_route_delegates_to_bounded_watcher(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,13 +1,6 @@
 mcp_servers:
   pska-essential:
-    command: "python3"
-    args:
-      - "-m"
-      - "pska_essential"
-      - "--env-file"
-      - "/Users/xudawei/PSKA-Essential/.env.pska"
-    env:
-      PYTHONPATH: "/Users/xudawei/PSKA-Essential/src"
+    url: "http://127.0.0.1:8766/mcp"
     tools:
       include:
         # Daily Hermes/WebUI surface:
@@ -72,6 +65,7 @@ mcp_servers:
         - pska_memory_change_from_conversation
         - pska_conversation_memory_candidates_create
         - pska_chatgpt_memory_summary_import
+        - pska_chatgpt_conversations_import
         - pska_memory_lifecycle
         - pska_review_list
         - pska_review_get
