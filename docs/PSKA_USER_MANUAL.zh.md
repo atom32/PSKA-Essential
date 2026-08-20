@@ -524,7 +524,8 @@ curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
   }'
 ```
 
-它会写入 PSKA 管理的 markdown 档案、注册只读资料源并建立本地检索。然后按项目、时间、人物、主题提取候选卡。候选要去重、检查质量、进入 Review。只有确认后的内容才写入长期记忆。
+它会写入 PSKA 管理的 markdown 档案、生成 `PSKA_IMPORT_MANIFEST.json` 和
+`PSKA_IMPORT_REPORT.md`、注册只读资料源并建立本地检索。然后按项目、时间、人物、主题提取候选卡。候选要去重、检查质量、进入 Review。只有确认后的内容才写入长期记忆。
 
 ## 15. 命令速查
 

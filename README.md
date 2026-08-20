@@ -834,7 +834,9 @@ writes durable memory, source files, embeddings, or full import text directly.
 full ChatGPT exports. It accepts `conversations.json`, an export `.zip`, or a
 folder containing `conversations.json`, normalizes selected conversations into
 PSKA-managed markdown files, registers that archive as a local source root, and
-scans it through the no-embedding source registry. It does not edit the original
+scans it through the no-embedding source registry. Each archive also gets
+`PSKA_IMPORT_MANIFEST.json` and `PSKA_IMPORT_REPORT.md` so the import remains
+inspectable later through source search/read. It does not edit the original
 export, write durable memory, or create reviews; stable claims must still be
 promoted later through governed memory review.
 `pska_memory_probe` checks whether the configured memory backend can search

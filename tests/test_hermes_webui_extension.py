@@ -106,6 +106,7 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn('"/api/sources/chatgpt-conversations/import"', script)
         self.assertIn("renderChatgptConversationImportResult", script)
         self.assertIn("addSourceRootToScope(rootId)", script)
+        self.assertIn("Report:", script)
         self.assertNotIn("HermesChatStartHooks", script)
         self.assertNotIn("context_provider", script)
         self.assertNotRegex(script, re.compile(r'fetch\(["\']/api/pska/'))

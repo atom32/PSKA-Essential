@@ -12,12 +12,15 @@ from pska_essential.audit import audit_event
 
 
 CHATGPT_CONVERSATIONS_IMPORT_SCHEMA = "pska.chatgpt_conversations_import.v1"
+CHATGPT_CONVERSATIONS_ARCHIVE_MANIFEST_SCHEMA = "pska.chatgpt_conversations_archive_manifest.v1"
 DEFAULT_OUTPUT_ROOT = ".pska-essential/imports/chatgpt"
 DEFAULT_CONVERSATION_LIMIT = 100
 MAX_CONVERSATION_LIMIT = 5000
 DEFAULT_SCAN_MAX_BYTES = 1_000_000
 MAX_MESSAGE_CHARS = 30_000
 MAX_CONVERSATION_CHARS = 200_000
+MANIFEST_FILENAME = "PSKA_IMPORT_MANIFEST.json"
+REPORT_FILENAME = "PSKA_IMPORT_REPORT.md"
 
 
 class ChatGPTConversationsImportError(ValueError):
@@ -94,6 +97,7 @@ def import_chatgpt_conversations(
 
     root = None
     scan_result = None
+    import_report = None
     if scan and written:
         root = service.source_root_register(
             str(archive_dir),
@@ -101,9 +105,26 @@ def import_chatgpt_conversations(
             permission_mode="read_only",
             label=label,
         )
+    if written:
+        import_report = _write_import_report(
+            archive_dir,
+            import_id=import_id,
+            label=label,
+            export_file=export_file,
+            export_member=member_name,
+            export_hash=export_hash,
+            conversations=conversations,
+            selected=selected,
+            written=written,
+            skipped=skipped,
+            warning_count=warning_count,
+            root=root,
+            scan_requested=scan,
+        )
+    if scan and written and root:
         scan_result = service.source_scan(
             root["root_id"],
-            max_files=max(len(written) + 5, 10),
+            max_files=max(len(written) + 7, 10),
             max_bytes=max(1, int(scan_max_bytes or DEFAULT_SCAN_MAX_BYTES)),
             extractor="builtin_text",
         )
@@ -121,8 +142,11 @@ def import_chatgpt_conversations(
         "archive": {
             "output_dir": str(archive_dir),
             "file_count": len(written),
+            "managed_file_count": len(written) + (2 if import_report else 0),
             "files": written[:20],
             "file_listing_truncated": len(written) > 20,
+            "manifest_path": (import_report or {}).get("manifest_path", ""),
+            "report_path": (import_report or {}).get("report_path", ""),
         },
         "summary": {
             "conversation_count": len(conversations),
@@ -139,6 +163,7 @@ def import_chatgpt_conversations(
         "data_flow": {
             "writes_original_export_files": False,
             "writes_normalized_archive_files": bool(written),
+            "writes_import_report_files": bool(import_report),
             "writes_source_registry": bool(scan_result),
             "writes_memory_directly": False,
             "creates_review": False,
@@ -155,6 +180,8 @@ def import_chatgpt_conversations(
             export_path=str(export_file),
             export_member=member_name,
             output_dir=str(archive_dir),
+            manifest_path=(import_report or {}).get("manifest_path", ""),
+            report_path=(import_report or {}).get("report_path", ""),
             conversation_count=result["summary"]["conversation_count"],
             imported_conversation_count=result["summary"]["imported_conversation_count"],
             skipped_conversation_count=result["summary"]["skipped_conversation_count"],
@@ -162,6 +189,7 @@ def import_chatgpt_conversations(
             root_id=(root or {}).get("root_id", ""),
             writes_original_export_files=False,
             writes_normalized_archive_files=bool(written),
+            writes_import_report_files=bool(import_report),
             writes_source_registry=bool(scan_result),
             writes_memory_directly=False,
             creates_review=False,
@@ -385,6 +413,179 @@ def _render_conversation_markdown(
         markdown = markdown[: MAX_CONVERSATION_CHARS - 90].rstrip() + "\n\n[Conversation truncated by PSKA import for source-index safety.]\n"
         warnings.append({"code": "conversation_truncated", "message": "Conversation markdown exceeded import safety limit."})
     return markdown, warnings
+
+
+def _write_import_report(
+    archive_dir: Path,
+    *,
+    import_id: str,
+    label: str,
+    export_file: Path,
+    export_member: str,
+    export_hash: str,
+    conversations: list[dict[str, Any]],
+    selected: list[dict[str, Any]],
+    written: list[dict[str, Any]],
+    skipped: list[dict[str, Any]],
+    warning_count: int,
+    root: dict[str, Any] | None,
+    scan_requested: bool,
+) -> dict[str, str]:
+    manifest_path = archive_dir / MANIFEST_FILENAME
+    report_path = archive_dir / REPORT_FILENAME
+    manifest = _build_archive_manifest(
+        import_id=import_id,
+        label=label,
+        export_file=export_file,
+        export_member=export_member,
+        export_hash=export_hash,
+        archive_dir=archive_dir,
+        conversations=conversations,
+        selected=selected,
+        written=written,
+        skipped=skipped,
+        warning_count=warning_count,
+        root=root,
+        scan_requested=scan_requested,
+    )
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_path.write_text(_render_import_report_markdown(manifest), encoding="utf-8")
+    return {
+        "manifest_path": str(manifest_path),
+        "report_path": str(report_path),
+        "relative_manifest_path": MANIFEST_FILENAME,
+        "relative_report_path": REPORT_FILENAME,
+    }
+
+
+def _build_archive_manifest(
+    *,
+    import_id: str,
+    label: str,
+    export_file: Path,
+    export_member: str,
+    export_hash: str,
+    archive_dir: Path,
+    conversations: list[dict[str, Any]],
+    selected: list[dict[str, Any]],
+    written: list[dict[str, Any]],
+    skipped: list[dict[str, Any]],
+    warning_count: int,
+    root: dict[str, Any] | None,
+    scan_requested: bool,
+) -> dict[str, Any]:
+    return {
+        "schema": CHATGPT_CONVERSATIONS_ARCHIVE_MANIFEST_SCHEMA,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "import_id": import_id,
+        "source": {
+            "label": label,
+            "export_path": str(export_file),
+            "export_member": export_member,
+            "sha256": export_hash,
+        },
+        "archive": {
+            "output_dir": str(archive_dir),
+            "conversation_file_count": len(written),
+            "managed_file_count": len(written) + 2,
+            "manifest_file": MANIFEST_FILENAME,
+            "report_file": REPORT_FILENAME,
+        },
+        "summary": {
+            "conversation_count": len(conversations),
+            "selected_conversation_count": len(selected),
+            "imported_conversation_count": len(written),
+            "skipped_conversation_count": len(skipped),
+            "message_count": sum(int(item.get("message_count") or 0) for item in written),
+            "warning_count": warning_count,
+        },
+        "root": _manifest_root(root),
+        "scan_requested": bool(scan_requested),
+        "conversation_files": written[:1000],
+        "conversation_file_listing_truncated": len(written) > 1000,
+        "skipped": skipped[:1000],
+        "skipped_truncated": len(skipped) > 1000,
+        "data_flow": {
+            "writes_original_export_files": False,
+            "writes_normalized_archive_files": True,
+            "writes_import_report_files": True,
+            "writes_source_registry": bool(root),
+            "writes_memory_directly": False,
+            "creates_review": False,
+            "embedding_required": False,
+        },
+    }
+
+
+def _manifest_root(root: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not root:
+        return None
+    return {
+        "root_id": root.get("root_id", ""),
+        "label": root.get("label", ""),
+        "kind": root.get("kind", ""),
+        "permission_mode": root.get("permission_mode", ""),
+        "absolute_path": root.get("absolute_path", ""),
+    }
+
+
+def _render_import_report_markdown(manifest: dict[str, Any]) -> str:
+    summary = manifest["summary"]
+    root = manifest.get("root") or {}
+    lines = [
+        "# PSKA ChatGPT Conversation Import Report",
+        "",
+        "<!-- PSKA:CHATGPT-CONVERSATION-ARCHIVE-REPORT -->",
+        "",
+        f"- Import ID: `{manifest['import_id']}`",
+        f"- Source label: {manifest['source']['label']}",
+        f"- Export path: `{manifest['source']['export_path']}`",
+        f"- Export member: `{manifest['source']['export_member']}`",
+        f"- Archive folder: `{manifest['archive']['output_dir']}`",
+        f"- Source root: `{root.get('root_id') or 'not registered'}`",
+        f"- Permission: `{root.get('permission_mode') or 'not registered'}`",
+        "",
+        "## Summary",
+        "",
+        f"- Conversations in export: {summary['conversation_count']}",
+        f"- Conversations selected: {summary['selected_conversation_count']}",
+        f"- Conversations imported: {summary['imported_conversation_count']}",
+        f"- Conversations skipped: {summary['skipped_conversation_count']}",
+        f"- Messages imported: {summary['message_count']}",
+        f"- Warnings: {summary['warning_count']}",
+        "",
+        "## Data Flow",
+        "",
+        "- Original ChatGPT export files were not modified.",
+        "- Normalized markdown archive files were written under this folder.",
+        "- Durable memory was not written.",
+        "- Memory Review items were not created.",
+        "- Embeddings were not required.",
+        "",
+        "## Conversation Files",
+        "",
+    ]
+    for item in manifest.get("conversation_files", [])[:200]:
+        lines.append(f"- `{item['relative_path']}` - {item['title']} ({item['message_count']} messages)")
+    if manifest.get("conversation_file_listing_truncated"):
+        lines.append("- Conversation file list truncated in this report.")
+    skipped = manifest.get("skipped") or []
+    if skipped:
+        lines.extend(["", "## Skipped", ""])
+        for item in skipped[:100]:
+            lines.append(f"- {item.get('title') or item.get('conversation_id') or item.get('index')} - {item.get('reason')}")
+        if manifest.get("skipped_truncated"):
+            lines.append("- Skipped list truncated in this report.")
+    lines.extend(
+        [
+            "",
+            "## Next Actions",
+            "",
+            "- Use source search/read over this source root to recall the archive.",
+            "- Promote only stable, behavior-changing claims through governed memory review.",
+        ]
+    )
+    return "\n".join(lines).strip() + "\n"
 
 
 def _next_actions(root: dict[str, Any] | None, written: list[dict[str, Any]]) -> list[dict[str, Any]]:

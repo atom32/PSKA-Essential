@@ -304,6 +304,7 @@ curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
 - 不直接写 GBrain。
 - 不创建记忆审核项。
 - 不需要 embedding。
+- 档案目录会生成 `PSKA_IMPORT_MANIFEST.json` 和 `PSKA_IMPORT_REPORT.md`，方便以后回查这次导入的来源、数量、跳过项和边界。
 - 后续先用 source search/read 找证据，再挑选稳定事实进入记忆审核。
 
 导入后先打开 Hermes WebUI 的 PSKA Memory 页面，看 Review Queue。只把稳定身份、长期项目、

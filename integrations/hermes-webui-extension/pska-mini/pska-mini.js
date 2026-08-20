@@ -1173,6 +1173,7 @@
         root ${escapeHtml(shortId(rootId, 12) || "not scanned")}
         <br>
         ${escapeHtml(archive.output_dir || "")}
+        ${archive.report_path ? `<br>Report: ${escapeHtml(archive.report_path)}` : ""}
       </div>
     `;
   }
