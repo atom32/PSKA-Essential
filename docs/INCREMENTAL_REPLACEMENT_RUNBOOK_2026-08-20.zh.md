@@ -724,15 +724,18 @@ scripts/pska_component_channel.sh promote-ragflow-next --no-restart-pska
 python3 scripts/verify_hermes_extension_demo_pack.py
 make demo-browser-verify
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video
-python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case finance_report_research --basename hermes_pska_finance_case_demo --min-duration 30
-python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webnovel_author --basename hermes_pska_webnovel_case_demo --min-duration 30
+python3 scripts/verify_hermes_extension_demo_pack.py --require-video --basename hermes_pska_extension_demo_long --min-duration 180
+python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case finance_report_research --basename hermes_pska_finance_case_demo --min-duration 120
+python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webnovel_author --basename hermes_pska_webnovel_case_demo --min-duration 120
 ```
 
 本机视频验证结果：
 
 - core demo：`60.9s`，`1280x720`，无音轨，10 段字幕。
+- long core demo：`190.2s`，`1280x720`，无音轨，10 段字幕。
 - finance case：`123.4s`，`1280x720`，无音轨，10 段字幕。
-- webnovel case：`96.0s`，`1280x720`，无音轨，10 段字幕。
+- webnovel case：`133.5s`，`1280x720`，无音轨，10 段字幕；Eidolia 镜头保留
+  `23.6s`，展示想法/产物两类节点与续写草稿。
 
 ## 当前开发环境结论
 

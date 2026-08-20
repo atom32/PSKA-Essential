@@ -87,8 +87,8 @@ Agentic Brief compact response: 41950 bytes
 当前脚本继续扩展后重新运行：
 
 ```text
-total=37
-passed=37
+total=41
+passed=41
 failed=0
 ```
 
@@ -107,6 +107,10 @@ Dashboard: workspace status
 Dashboard: embedding component
 Dashboard: KB datasets
 Dashboard: runtime diagnostics
+Dashboard: job health
+Dashboard: wakeup plan
+Dashboard: observability metrics
+Dashboard: source recall eval
 Dashboard: alpha readiness
 Alpha: first-run session
 Alpha: first-run item update
@@ -154,13 +158,9 @@ WebUI `/api/kanban/tasks/<id>/patch` 归档。复核 `pska-review` 看板默认�
 
 ## 仍需注意
 
-这次测试是 WebUI sidecar/API 合同测试，不是完整视觉点击测试。它验证了页面按钮实际会调用的路径、认证、CSRF、sidecar、后端响应和写入保护，但没有做像素级截图和鼠标点击回放。
+这次测试是 WebUI sidecar/API 合同测试，不是完整视觉点击测试。它验证了页面按钮实际会调用的路径、
+认证、CSRF、sidecar、后端响应和写入保护。
 
-如要继续做视觉层测试，需要补 Playwright 或浏览器控制工具，检查：
-
-- chip 是否出现在正确位置；
-- 菜单打开/关闭是否正常；
-- preview 文本是否在页面上正确显示；
-- 移动端按钮是否可见；
-- Memory Page 布局是否没有遮挡；
-- Kanban/Tasks 投影在 Hermes UI 里是否好看、可理解。
+视觉层已由 `/Users/xudawei/PSKA-Essential/scripts/test_pska_webui_visual.cjs` 追加覆盖：当前
+Playwright 复测为 `24/24`，并确认 first-run checklist 经真实页面按钮达到 `8/8`、
+`7/7 required` 和 `ready for repetition`。

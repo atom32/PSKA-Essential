@@ -85,7 +85,7 @@ Memory Page 状态、搜索结果、审核队列可见
 Memory Page Recent Answer Proofs 区块可见且不处于 loading
 Answer Proof Detail 可通过 `View Trace` 展开，并显示 trace entries、checks 和完成的 PSKA 工具
 Source Evidence 可搜索选中资料源、读取全文，并把证据起草为带来源的记忆候选
-Memory Page 搜索、View、创建临时候选、拒绝临时候选路径已手动验证
+first-run checklist 可通过真实页面按钮闭环到 `8/8`、`7/7 required` 和 `ready for repetition`
 手机 PSKA chip 可见
 手机 PSKA chip 不与发送按钮重叠
 手机 PSKA 菜单可打开
@@ -139,14 +139,29 @@ checks=7/7
 console warnings/errors=0
 ```
 
+2026-08-21 追加复测：
+
+```text
+output_dir=/tmp/pska-webui-visual-final-post-contract
+ok=true
+checks=24/24
+first-run meter=8/8
+first-run summary=readiness alpha_ready · recovery needs_rehearsal · 7/7 required
+console warnings/errors=0
+```
+
 覆盖结果包括：
 
 ```text
 Desktop menu visible and in viewport
 Desktop Source Recall returns visible results
+Source Evidence marks first-run rehearsal done with source note
 Memory page visible with memory and review data
 Recent Answer Proofs visible inside Memory page
 Answer proof detail shows trace and tools
+Answer proof marks first-run sourced Ask done with proof note
+First-run exit notes record readiness and repeat guidance
+First-run checklist reaches ready-for-repetition 8/8
 Mobile PSKA chip visible and not overlapping send
 Mobile menu visible and in viewport
 ```

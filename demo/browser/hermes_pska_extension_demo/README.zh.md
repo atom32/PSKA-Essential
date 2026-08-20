@@ -150,6 +150,16 @@ python3 scripts/verify_hermes_extension_demo_pack.py \
   --min-duration 120
 ```
 
+## 本机已验证素材
+
+当前本机 `dist/` 为可再生成产物，不进入 git。最新验证结果：
+
+- `hermes_pska_extension_demo.mp4`：`60.9s`，`1280x720`，无音轨，10 段字幕。
+- `hermes_pska_extension_demo_long.mp4`：`190.2s`，`1280x720`，无音轨，10 段字幕。
+- `hermes_pska_finance_case_demo.mp4`：`123.4s`，`1280x720`，无音轨，10 段字幕。
+- `hermes_pska_webnovel_case_demo.mp4`：`133.5s`，`1280x720`，无音轨，10 段字幕。
+- 网文 case 的 Eidolia 镜头从 `01:49.072` 到 `02:12.633`，用于展示想法/产物节点和续写草稿。
+
 ## 边界
 
 这个 demo 不应该录：
