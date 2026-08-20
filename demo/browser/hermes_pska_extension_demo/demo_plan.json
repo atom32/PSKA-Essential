@@ -1,0 +1,61 @@
+{
+  "schema": "pska.hermes_extension_demo_plan.v1",
+  "title": "Hermes WebUI PSKA Extension Demo",
+  "subtitle": "PSKA as glue layer, governance layer, and Hermes extension",
+  "output_basename": "hermes_pska_extension_demo",
+  "tts": "none",
+  "entrypoint": "Hermes WebUI",
+  "base_url": "http://127.0.0.1:8787",
+  "scenes": [
+    {
+      "id": "webui_entry",
+      "title": "Hermes WebUI 是主入口",
+      "components": ["Hermes WebUI", "pska-mini extension"]
+    },
+    {
+      "id": "extension_status",
+      "title": "PSKA extension 连接 sidecar",
+      "components": ["extension sidecar proxy", "PSKA Product API"]
+    },
+    {
+      "id": "scope_selection",
+      "title": "选择本轮知识范围",
+      "components": ["PSKA runtime scope", "RAGFlow dataset metadata", "SQLite memory"]
+    },
+    {
+      "id": "jarvis_brief",
+      "title": "Jarvis Briefing",
+      "components": ["pska_jarvis_briefing", "workspace status", "source audit", "memory review queue"]
+    },
+    {
+      "id": "agentic_brief",
+      "title": "Agentic Context Brief",
+      "components": ["pska_agentic_context_brief", "evidence", "source recall", "memory", "trace"]
+    },
+    {
+      "id": "source_recall",
+      "title": "无 embedding Source Recall",
+      "components": ["pska_source_search", "metadata-first RAG"]
+    },
+    {
+      "id": "chat_injection",
+      "title": "发起 Hermes chat turn",
+      "components": ["Hermes chat", "knowledge-retrieval skill", "PSKA-Mini Runtime Scope"]
+    },
+    {
+      "id": "memory_review",
+      "title": "PSKA Memory / Review",
+      "components": ["PSKA memory", "review queue", "apply-memory gate"]
+    },
+    {
+      "id": "projection_tasks",
+      "title": "投影到 Kanban 和 Tasks",
+      "components": ["Hermes Kanban", "Hermes Tasks", "PSKA Digest Runner"]
+    },
+    {
+      "id": "eidolia_bridge",
+      "title": "Eidolia 内嵌创作入口",
+      "components": ["Eidolia extension", "Eidolia source/trace bridge"]
+    }
+  ]
+}

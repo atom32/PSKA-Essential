@@ -17,10 +17,9 @@ deploy/full-compose/.runtime/
 
 # Local demo and recording artifacts stay on this machine.
 demo/video/
-demo/browser/hermes_pska_extension_demo/
+demo/browser/hermes_pska_extension_demo/dist/
+demo/browser/hermes_pska_extension_demo/**/.DS_Store
 demo/full_flow_mock/
 docs/visual-tests/
 scripts/build_eidolia_supplement_demo.py
 scripts/build_pska_selling_points_rough_cut.py
-scripts/record_hermes_pska_extension_demo.cjs
-scripts/verify_hermes_extension_demo_pack.py

@@ -69,10 +69,11 @@ webui-extension-visual:
 	node scripts/test_pska_webui_visual.cjs
 
 demo-browser-verify:
-	$(PYTHON) scripts/verify_browser_demo_pack.py
+	$(PYTHON) scripts/verify_hermes_extension_demo_pack.py
 
 demo-browser-package:
-	$(PYTHON) scripts/package_browser_demo_pack.py
+	@echo "Legacy diagnostic-page demo packaging is disabled."
+	@echo "Use node scripts/record_hermes_pska_extension_demo.cjs, then python3 scripts/verify_hermes_extension_demo_pack.py --require-video."
 
 serve-api:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.product_api $(ENV_FILE_ARG)

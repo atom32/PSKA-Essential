@@ -568,6 +568,42 @@ scripts/pska_component_channel.sh promote-ragflow-next --no-restart-pska
   - 再按 plist bootout；
   - 等待候选 label 真正消失，避免 worker 停止延迟造成误判。
 
+## 演示素材入口纠偏
+
+旧 `demo/browser/pska_webui_demo` 是历史 Product API 诊断页素材，不再作为产品演示。
+已完成以下整理：
+
+- 旧诊断页 README、package、evidence matrix、剪映说明和 `report.html` 都改为禁用说明。
+- 旧录制、构建、旁白、打包、验证脚本都改为短 stub，执行时会明确提示改用 Hermes WebUI
+  extension demo。
+- 旧诊断页截图、视频、字幕、manifest、storyboard、source fixture 已从 git 跟踪中移除。
+- `make demo-browser-verify` 已改为验证 Hermes WebUI extension demo。
+- 新的可复现演示源文件进入仓库：
+  - `demo/browser/hermes_pska_extension_demo/README.zh.md`
+  - `demo/browser/hermes_pska_extension_demo/FEATURE_EVIDENCE_MATRIX.zh.md`
+  - `demo/browser/hermes_pska_extension_demo/demo_plan.json`
+  - `demo/browser/hermes_pska_extension_demo/source_root/`
+  - `demo/browser/hermes_pska_extension_demo/cases/`
+  - `scripts/record_hermes_pska_extension_demo.cjs`
+  - `scripts/verify_hermes_extension_demo_pack.py`
+- 新 demo 的 `dist/` 仍然是本机生成产物，不进仓库。
+
+已验证：
+
+```bash
+python3 scripts/verify_hermes_extension_demo_pack.py
+make demo-browser-verify
+python3 scripts/verify_hermes_extension_demo_pack.py --require-video
+python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case finance_report_research --basename hermes_pska_finance_case_demo --min-duration 30
+python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webnovel_author --basename hermes_pska_webnovel_case_demo --min-duration 30
+```
+
+本机视频验证结果：
+
+- core demo：`60.9s`，`1280x720`，无音轨，10 段字幕。
+- finance case：`123.4s`，`1280x720`，无音轨，10 段字幕。
+- webnovel case：`96.0s`，`1280x720`，无音轨，10 段字幕。
+
 ## 当前开发环境结论
 
 截至本次检查，开发机处于以下状态：

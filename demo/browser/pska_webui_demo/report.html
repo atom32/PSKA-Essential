@@ -3,286 +3,50 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PSKA Diagnostic Demo Report</title>
+    <title>Legacy PSKA Diagnostic Demo Disabled</title>
     <style>
-      :root {
-        color-scheme: light;
-        --ink: #182520;
-        --muted: #62736d;
-        --line: #d9e2dc;
-        --panel: #ffffff;
-        --band: #f4f7f4;
-        --accent: #247d74;
-        --accent-strong: #12594f;
-        --dark: #10201c;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
       body {
         margin: 0;
-        background: var(--band);
-        color: var(--ink);
+        background: #f6f7f8;
+        color: #17202a;
         font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFang SC", sans-serif;
-        line-height: 1.5;
+        line-height: 1.6;
       }
-
-      header {
-        background: var(--dark);
-        color: #f6faf8;
-        padding: 30px 32px 24px;
-      }
-
-      header h1 {
-        margin: 0 0 8px;
-        font-size: 32px;
-        letter-spacing: 0;
-      }
-
-      header p {
-        max-width: 860px;
-        margin: 0;
-        color: #cde1da;
-        font-size: 16px;
-      }
-
       main {
-        width: min(1180px, calc(100vw - 36px));
-        margin: 22px auto 42px;
+        width: min(820px, calc(100vw - 40px));
+        margin: 72px auto;
+        background: #fff;
+        border: 1px solid #d9dee5;
+        border-radius: 8px;
+        padding: 28px;
       }
-
-      section {
-        margin: 22px 0;
-      }
-
-      h2 {
+      h1 {
         margin: 0 0 14px;
-        font-size: 22px;
+        font-size: 28px;
         letter-spacing: 0;
       }
-
-      .hero-video {
-        background: #000;
-        border: 1px solid var(--line);
+      p {
+        margin: 10px 0;
       }
-
-      video {
-        display: block;
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        background: #000;
-      }
-
-      .asset-grid,
-      .poster-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-      }
-
-      .asset,
-      .poster,
-      .note {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 16px;
-      }
-
-      .asset strong,
-      .poster strong {
-        display: block;
-        margin-bottom: 6px;
-      }
-
-      .asset a,
-      .note a {
-        color: var(--accent-strong);
-        font-weight: 700;
-        text-decoration: none;
-      }
-
-      .asset p,
-      .poster p,
-      .note p {
-        margin: 0;
-        color: var(--muted);
-      }
-
-      .poster img {
-        display: block;
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        object-fit: cover;
-        border: 1px solid var(--line);
-        margin-bottom: 10px;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        font-size: 14px;
-      }
-
-      th,
-      td {
-        padding: 12px 14px;
-        border-bottom: 1px solid var(--line);
-        text-align: left;
-        vertical-align: top;
-      }
-
-      th {
-        background: #eaf1ee;
-        color: #1f3a34;
-        font-size: 13px;
-      }
-
-      tr:last-child td {
-        border-bottom: 0;
-      }
-
       code {
-        color: #173f39;
-        background: #edf4f1;
-        border-radius: 5px;
+        background: #edf1f5;
+        border-radius: 4px;
         padding: 2px 5px;
-      }
-
-      .time {
-        white-space: nowrap;
-        color: var(--accent-strong);
-        font-weight: 700;
-      }
-
-      @media (max-width: 860px) {
-        header {
-          padding: 24px 18px 20px;
-        }
-
-        main {
-          width: min(100vw - 24px, 720px);
-        }
-
-        .asset-grid,
-        .poster-grid {
-          grid-template-columns: 1fr;
-        }
-
-        table {
-          display: block;
-          overflow-x: auto;
-          white-space: nowrap;
-        }
       }
     </style>
   </head>
   <body>
-    <header>
-      <h1>PSKA Product API 诊断页素材报告</h1>
-      <p>真实 Chromium 录屏展示本地诊断页调用 PSKA Product API 的 smoke path：Agentic Context Brief、Ask、Sourced Brief、Memory、Trace、Activity audit、Sources 和无 embedding search。它不是 Hermes WebUI extension 的产品演示。</p>
-    </header>
-
     <main>
-      <section class="hero-video" aria-label="主视频">
-        <video controls preload="metadata" poster="dist/posters/02_sourced_brief.png">
-          <source src="dist/pska_webui_browser_recording_narrated.mp4" type="video/mp4" />
-          <track label="中文字幕" kind="subtitles" srclang="zh" src="dist/pska_webui_browser_recording_narrated.zh.srt" default />
-        </video>
-      </section>
-
-      <section>
-        <h2>交付物</h2>
-        <div class="asset-grid">
-          <article class="asset">
-            <strong>主视频</strong>
-            <p><a href="dist/pska_webui_browser_recording_narrated.mp4">旁白成片 MP4</a></p>
-          </article>
-          <article class="asset">
-            <strong>字幕</strong>
-            <p><a href="dist/pska_webui_browser_recording_narrated.zh.srt">SRT 字幕</a></p>
-          </article>
-          <article class="asset">
-            <strong>剪映</strong>
-            <p><a href="JIANYING_IMPORT.zh.md">导入说明</a></p>
-          </article>
-        </div>
-      </section>
-
-      <section>
-        <h2>关键证据帧</h2>
-        <div class="poster-grid">
-          <article class="poster">
-            <img src="dist/posters/01_context_brief.png" alt="Agentic Context Brief" />
-            <strong>Agentic Context Brief</strong>
-            <p>evidence、sources、memory、trace 和 next actions 同屏出现。</p>
-          </article>
-          <article class="poster">
-            <img src="dist/posters/02_sourced_brief.png" alt="Sourced Brief" />
-            <strong>Sourced Brief</strong>
-            <p>run id、source count、inspected source count、used memory count 可见。</p>
-          </article>
-          <article class="poster">
-            <img src="dist/posters/03_source_search.png" alt="No embedding source search" />
-            <strong>无 embedding search</strong>
-            <p>查询 browser demo 命中本地 Markdown 文件并显示行号。</p>
-          </article>
-        </div>
-      </section>
-
-      <section>
-        <h2>功能证据矩阵</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>功能点</th>
-              <th>视频时间</th>
-              <th>证据</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Home / Jarvis briefing</td>
-              <td class="time">00:00:05.777 - 00:00:15.713</td>
-              <td>Product API、知识库、Jarvis、资料源和记忆信号。</td>
-            </tr>
-            <tr>
-              <td>Agentic Context Brief</td>
-              <td class="time">00:00:15.713 - 00:00:29.166</td>
-              <td>Brief 汇总 evidence、source recall、Memory Card、trace 和 next actions。</td>
-            </tr>
-            <tr>
-              <td>Ask 与 Sourced Brief</td>
-              <td class="time">00:00:36.034 - 00:01:03.417</td>
-              <td>真实输入问题并得到带来源结果、Source Manifest 与 Memory Attribution。</td>
-            </tr>
-            <tr>
-              <td>Loop Trace</td>
-              <td class="time">00:01:03.417 - 00:01:16.248</td>
-              <td>展示 scope、governance、readiness、retrieval、memory 与 source inspection。</td>
-            </tr>
-            <tr>
-              <td>Memory 与 Activity</td>
-              <td class="time">00:01:16.248 - 00:01:46.611</td>
-              <td>Memory Card 治理入口和 agentic_loop.complete 审计记录。</td>
-            </tr>
-            <tr>
-              <td>Sources / no-embedding search</td>
-              <td class="time">00:01:46.611 - 00:02:15.266</td>
-              <td>本地文件夹 read_only/scanned，搜索命中 pska-demo-note.md。</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="note">
-        <h2>验证</h2>
-        <p>运行 <code>python3 scripts/verify_browser_demo_pack.py</code> 可检查视频流、字幕、manifest、poster 和本地引用。完整证据矩阵见 <a href="FEATURE_EVIDENCE_MATRIX.zh.md">FEATURE_EVIDENCE_MATRIX.zh.md</a>。</p>
-      </section>
+      <h1>Legacy Diagnostic Demo Disabled</h1>
+      <p>
+        这个历史报告页已禁用。它只代表早期 PSKA Product API 本地诊断页，不是 Hermes
+        WebUI extension 产品演示，也不代表 PSKA 有独立前端。
+      </p>
+      <p>
+        当前演示入口是 <code>demo/browser/hermes_pska_extension_demo/</code>，
+        录制脚本是 <code>scripts/record_hermes_pska_extension_demo.cjs</code>，
+        验证脚本是 <code>scripts/verify_hermes_extension_demo_pack.py</code>。
+      </p>
     </main>
   </body>
 </html>
