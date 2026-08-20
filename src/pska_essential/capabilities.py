@@ -649,7 +649,12 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
     "pska_memory_probe": {"category": "diagnostics", "access": "read", "durable": False},
     "pska_component_check": {"category": "diagnostics", "access": "read", "durable": False},
     "pska_live_closed_loop_probe": {"category": "diagnostics", "access": "read", "durable": False},
-    "pska_eval_run": {"category": "diagnostics", "access": "write", "durable": False},
+    "pska_eval_run": {
+        "category": "diagnostics",
+        "access": "write",
+        "durable": False,
+        "supported_suites": ["smoke", "product_acceptance", "governed_context"],
+    },
     "pska_propose": {"category": "workflow", "access": "write", "durable": False, "may_create_review": False},
 }
 

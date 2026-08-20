@@ -471,6 +471,10 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_search_index_evaluation"]["writes_source_registry"])
         self.assertFalse(policy["pska_search_index_evaluation"]["writes_memory_directly"])
         self.assertFalse(policy["pska_search_index_evaluation"]["creates_index"])
+        self.assertEqual(
+            policy["pska_eval_run"]["supported_suites"],
+            ["smoke", "product_acceptance", "governed_context"],
+        )
         self.assertFalse(policy["pska_source_collection_create"]["writes_source_files"])
         self.assertTrue(policy["pska_source_collection_create"]["writes_source_registry"])
         self.assertFalse(policy["pska_source_collection_resolve"]["embedding_required"])

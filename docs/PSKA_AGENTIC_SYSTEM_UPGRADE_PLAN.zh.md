@@ -814,6 +814,10 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 改动：
 
+- Done: `pska_eval_run("governed_context")` 增加隔离式治理回归评测，
+  覆盖 no-embedding source recall、source-route Memory utility、
+  audit-backed why-used 和 read-only source writeback refusal；不使用 live KB，
+  不写 live Memory provider，不污染 live source registry。
 - OpenTelemetry optional tracing。
 - Phoenix/Ragas/DeepEval eval adapters。
 - `watchdog` 或 launchd/cron 调用 source scan/audit tick。
@@ -822,7 +826,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 验收：
 
 - 每次 ask/source/memory/writeback 都有 trace id。
-- Eval 可以覆盖 source recall、memory utility、why-used、writeback safety。
+- Done: Eval 可以覆盖 source recall、memory utility、why-used、writeback safety。
 - 到期 audit 不需要用户手动点 tick，但仍只处理授权 root。
 
 ### Phase 6: Cloud Connectors And Optional Temporal Graph Memory

@@ -484,6 +484,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_source_registry"])
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_memory_directly"])
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["creates_index"])
+        self.assertEqual(
+            tool_policy["pska_eval_run"]["supported_suites"],
+            ["smoke", "product_acceptance", "governed_context"],
+        )
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_sidecar"], "write_target_dependent")
         self.assertIn(

@@ -538,6 +538,11 @@ adapters only when explicit local development/test fake mode is configured, and
 it records an `eval.run` audit event for the acceptance result. Outside explicit
 all-fake development mode, manual-review durable memory checks stop at the
 review gate and leave persistence to user review or workspace policy.
+`pska_eval_run("governed_context")` runs an isolated PSKA-core governance suite
+without live KB or live memory providers. It covers no-embedding source recall,
+source-route Memory utility, audit-backed why-used, and read-only source
+writeback refusal. It writes only the outer `eval.run` audit event to the
+caller service; temporary source registry and fake memory state stay isolated.
 `pska_ingest_loop` runs the file-first operational loop through PSKA adapters:
 local file ingest, readiness polling, agentic Ask, and sourced export. It
 returns `not_ready` and stops before Ask/export when ingestion is still

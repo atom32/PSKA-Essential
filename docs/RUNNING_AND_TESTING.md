@@ -41,6 +41,13 @@ The same product acceptance eval is available through Product API
 running with explicit development or live providers. Outside explicit all-fake
 development mode, its manual-review durable memory check stops at the review
 gate instead of applying memory automatically.
+For PSKA-core governance regression without touching live KB, live memory, or
+live source roots, run `pska-essential-eval governed_context` or call
+`pska_eval_run("governed_context")`. This suite checks no-embedding source
+recall, source-route memory retrieval, why-used traceability, and read-only
+writeback refusal in an isolated fake service. The bare CLI form does not
+require live provider env; Product API/MCP invocation records only the outer
+`eval.run` result on the caller service.
 
 ### 2. Hermes MCP Development
 
@@ -603,6 +610,8 @@ Core tests:
 - product acceptance eval for upload -> Ask/export -> resume -> governed memory
   review, with memory apply only in explicit all-fake development mode or by
   workspace policy
+- governed context eval for source recall -> source-route memory -> why-used
+  trace -> read-only writeback refusal without live provider writes
 - reviewed memory update/version lifecycle
 - reviewed memory deletion lifecycle
 - MCP tool registry
