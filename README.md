@@ -126,6 +126,23 @@ not-ready upload flow, governed durable memory transition, and audit trail
 without using fake as a live-provider fallback. Successful and failed eval runs
 record `eval.run` audit events.
 
+Run the current local alpha acceptance gate:
+
+```bash
+make alpha-acceptance ENV_FILE=.env.pska PYTHON=.venv/bin/python
+```
+
+For a demo-before-showing check that also covers Hermes WebUI extension
+contract and browser-level visual smoke, run:
+
+```bash
+NODE_PATH=/tmp/pska-playwright/node_modules \
+PSKA_PLAYWRIGHT_MODULE=playwright-core \
+PSKA_PLAYWRIGHT_CHANNEL=chrome \
+HERMES_WEBUI_PASSWORD=****** \
+make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
+```
+
 Run the full local Hermes workspace stack:
 
 ```bash

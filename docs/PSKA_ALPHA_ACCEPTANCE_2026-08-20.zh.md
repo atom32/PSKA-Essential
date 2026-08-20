@@ -259,6 +259,26 @@ RAGFlow next / Hermes WebUI next 是 side-by-side optional，不影响主线
 
 ## 验收命令清单
 
+推荐入口：
+
+```bash
+make alpha-acceptance ENV_FILE=.env.pska PYTHON=.venv/bin/python
+```
+
+演示前完整入口，包含 Hermes WebUI extension 契约和浏览器级视觉 smoke：
+
+```bash
+NODE_PATH=/tmp/pska-playwright/node_modules \
+PSKA_PLAYWRIGHT_MODULE=playwright-core \
+PSKA_PLAYWRIGHT_CHANNEL=chrome \
+HERMES_WEBUI_PASSWORD=****** \
+make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
+```
+
+这两个入口默认把原始 JSON 证据、`summary.json` 和 `summary.md` 写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。
+
+拆分命令：
+
 ```bash
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 HERMES_WEBUI_PASSWORD=****** make webui-extension-contract
