@@ -336,6 +336,19 @@ Hermes compact turn 复测：
 - 同一 turn 再调用 `pska_memory_health_scan` 成功。
 - turn 在 `3/5` API call 内正常结束，不再因为解析超大状态包撞到 max iterations。
 
+compact 改动后 WebUI 主入口补充回归：
+
+- `make webui-extension-contract` 已通过。
+- 合同测试结果：`29/29` 通过。
+- 覆盖登录、extension manifest/JS/CSS、sidecar health、workspace status、KB datasets、
+  runtime diagnostics、RAGFlow Probe、Preview、Jarvis Brief、Agentic Brief、Source Recall、
+  Memory Search、Review Queue、Kanban projection、Digest Task 和 Chat bridge skill content。
+- 浏览器级视觉 smoke 已通过，使用 `playwright-core` + Chrome channel。
+- 视觉输出目录：
+  `/var/folders/96/kqt4bhy12rs4sx3c0bsj03wm0000gp/T/pska-webui-visual-2026-08-20T13-42-55-236Z`。
+- 视觉覆盖桌面菜单、Source Recall、Memory 页面、移动端 PSKA chip、移动端菜单。
+- 控制台 warning/error：`0`。
+
 新合同：
 
 - 默认 `pska_workspace_status()` 不变，仍返回完整 `workspace_status`。
