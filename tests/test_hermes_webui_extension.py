@@ -111,6 +111,8 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("runSourceEvidenceSearch", script)
         self.assertIn("loadSourceEvidenceDetail", script)
         self.assertIn("draftMemoryCandidateFromSourceEvidence", script)
+        self.assertIn("markSourceEvidenceRehearsalDone", script)
+        self.assertIn('data-pska-first-run-rehearsal-done="1"', script)
         self.assertIn("SOURCE_EVIDENCE_DRAFT_PREFIX", script)
         self.assertIn("isUneditedSourceEvidenceDraft", script)
         self.assertIn('"/api/sources/search"', script)
@@ -146,6 +148,7 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn(".pska-mini-source-evidence", css)
         self.assertIn(".pska-mini-source-evidence-list", css)
         self.assertIn(".pska-mini-source-evidence-detail pre", css)
+        self.assertIn(".pska-mini-inline-btn", css)
 
     def test_sync_script_writes_webui_manifest_and_sidecar_consent(self):
         with tempfile.TemporaryDirectory() as tmp:

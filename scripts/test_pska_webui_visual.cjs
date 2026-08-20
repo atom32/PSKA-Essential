@@ -343,6 +343,27 @@ async function runDesktop(context, checks, artifacts) {
       && /证据摘录/iu.test(sourceEvidenceDraft.draft)
       && /source evidence/iu.test(sourceEvidenceDraft.source)
   ), sourceEvidenceDraft);
+
+  await page.click("[data-pska-first-run-rehearsal-done]");
+  await page.waitForFunction(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Rehearse source evidence to memory/iu.test(node.innerText || ""));
+    const text = item?.innerText || "";
+    return /done\s+·\s+required/iu.test(text) && /source evidence/iu.test(text);
+  }, { timeout: 15000 });
+  const rehearsalCheck = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Rehearse source evidence to memory/iu.test(node.innerText || ""));
+    return {
+      text: item?.innerText?.slice(0, 900) || "",
+      note: item?.querySelector("textarea")?.value || "",
+    };
+  });
+  assertCheck(checks, "Source Evidence marks first-run rehearsal done with source note", (
+    /done\s+·\s+required/iu.test(rehearsalCheck.text)
+      && /source evidence/iu.test(rehearsalCheck.note)
+      && /Northstar Robotics/iu.test(rehearsalCheck.note)
+  ), rehearsalCheck);
   artifacts.desktopSourceEvidence = path.join(OUT_DIR, "desktop-source-evidence.png");
   await page.screenshot({ path: artifacts.desktopSourceEvidence, fullPage: false });
 

@@ -885,8 +885,10 @@ only PSKA checklist/audit state, not user source files or durable memory.
 M30b adds a required first-run rehearsal item for Source Evidence-to-memory:
 operators must search/read source evidence, draft one source-backed memory
 candidate, and verify it still requires human rewrite and Review before durable
-memory apply. This is checklist-only state; the item update does not run source
-search, create reviews, or write memory.
+memory apply. Hermes WebUI shows a `Mark rehearsal done` button only after a
+Source Evidence draft is attached; clicking it records the item with a source
+note. This is checklist-only state; the item update does not run source search,
+create reviews, or write memory.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

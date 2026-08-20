@@ -426,6 +426,7 @@
     panel.querySelector("#pskaMiniAnswerProofDetail").addEventListener("click", onAnswerProofDetailClick);
     panel.querySelector("#pskaMiniSourceEvidenceResults").addEventListener("click", onSourceEvidenceClick);
     panel.querySelector("#pskaMiniSourceEvidenceDetail").addEventListener("click", onSourceEvidenceClick);
+    panel.querySelector("#pskaMiniMemoryDraftSource").addEventListener("click", onMemoryDraftSourceClick);
     panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
     panel.querySelector("#pskaMiniClearMemoryDraftSource").addEventListener("click", clearMemoryDraftSource);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
@@ -690,6 +691,13 @@
     } else if (action === "draft-detail") {
       draftMemoryCandidateFromSourceEvidenceDetail();
     }
+  }
+
+  async function onMemoryDraftSourceClick(event) {
+    const button = event.target?.closest?.("[data-pska-first-run-rehearsal-done]");
+    if (!button) return;
+    event.preventDefault();
+    await markSourceEvidenceRehearsalDone();
   }
 
   async function loadSourceEvidenceDetail(index) {
@@ -1362,8 +1370,9 @@
     const container = document.getElementById("pskaMiniMemoryDraftSource");
     if (!container) return;
     const label = String(memoryPage.memoryDraftSourceLabel || "").trim();
+    const canMarkSourceEvidence = label.toLowerCase().startsWith("source evidence ");
     container.innerHTML = label
-      ? `Source attached: <strong>${escapeHtml(label)}</strong>`
+      ? `Source attached: <strong>${escapeHtml(label)}</strong>${canMarkSourceEvidence ? ` <button class="pska-mini-inline-btn" data-pska-first-run-rehearsal-done="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark rehearsal done</button>` : ""}`
       : "Source attached: manual memory page";
   }
 
@@ -1457,6 +1466,18 @@
       `证据摘录：${truncate(text || "未记录文本", 520)}`
     ];
     return lines.join("\n");
+  }
+
+  async function markSourceEvidenceRehearsalDone() {
+    const note = sourceEvidenceRehearsalNote();
+    await updateFirstRunItem("rehearse_source_evidence_memory", "done", note);
+  }
+
+  function sourceEvidenceRehearsalNote() {
+    const ref = memoryPage.memoryDraftSourceRefs[0] || {};
+    const label = String(memoryPage.memoryDraftSourceLabel || "source evidence").trim();
+    const location = [ref.adapter, ref.path || ref.document_id || ref.source_id].filter(Boolean).join(" / ");
+    return [label, location].filter(Boolean).join(" · ");
   }
 
   function answerProofSourceRef(proof, trace) {

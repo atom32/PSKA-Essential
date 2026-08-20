@@ -613,7 +613,8 @@ creative/
   再用 `Draft Memory Candidate` 起草；必须改写成稳定记忆后再创建审核候选。
 - 如果候选来自本地资料或 ChatGPT 完整对话档案，先在 Source Evidence 里 search/read，
   再用 `Draft Memory Candidate` 起草；必须改写成稳定记忆后再创建审核候选。
-- 在 First-run checklist 里把 `Rehearse source evidence to memory` 标成 done，并写一句备注说明证据来源。
+- 起草后点 `Mark rehearsal done`，让 First-run checklist 把 `Rehearse source evidence to memory`
+  标成 done，并自动记录这次证据来源备注。
 
 验证：
 

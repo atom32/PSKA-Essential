@@ -413,7 +413,8 @@ P2 的第三十八块已落地为 first-run Source Evidence rehearsal：
 alpha first-run checklist 新增 `rehearse_source_evidence_memory` 必选项，要求操作者在首次试用中练一次
 source search/read -> source-backed memory draft -> human rewrite -> Review Queue 的路径。这个 item
 只写 checklist/audit state，不执行 search/read，不创建 Review，不写 source files，也不直接写 durable memory；
-旧内置页面展示上限同步放宽，避免第 8 个清单项被隐藏。
+Hermes WebUI 只有在 Source Evidence draft 已附加来源后才显示 `Mark rehearsal done`，点击后把来源写入
+operator note；旧内置页面展示上限同步放宽，避免第 8 个清单项被隐藏。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
