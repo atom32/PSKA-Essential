@@ -276,8 +276,78 @@ cd /Users/xudawei/PSKA-Components/hermes-agent-next
 - 旧 WebUI/agent 没有被删除，可通过备份 plist 回滚。
 - 回滚备份：
   `/Users/xudawei/.hermes/pska-channel-backups/20260820-210101/com.pska.hermes-webui.plist`。
-- 还没有用 next agent 发起真实 LLM turn；不过 PSKA MCP transport 和 tool discovery 已用
-  `hermes mcp test pska-essential` 验证。
+- 已用 next agent 发起真实 LLM turn，并确认模型通过 HTTP MCP 调用了 PSKA 工具。
+
+### Hermes 真实 agent turn 证据
+
+已完成一次真实 `hermes chat` 检查，要求 agent 只调用 PSKA 只读工具。
+
+结果：
+
+- session id：`20260820_212734_89b9fa`。
+- 使用模型：`deepseek-v4-flash`。
+- PSKA MCP server 注册成功，日志中显示 HTTP MCP 工具已发现。
+- 模型实际调用：
+  - `pska_workspace_status`
+  - `pska_memory_health_scan`
+- 结果判断：
+  - MCP 连通；
+  - memory provider 为 `gbrain`；
+  - KB/RAG provider 为 `ragflow`；
+  - `dev_fake=false`；
+  - 当前 memory card 数量为 `10`；
+  - memory health 未发现 quality/stale/conflict 问题。
+
+这次检查同时暴露一个真实工程问题：
+
+```text
+pska_workspace_status full view 约 386KB
+```
+
+对于 WebUI 诊断页，这是可接受的完整视图；但对于 Hermes agent，这是过大的上下文包，
+会增加 token、耗电和工具解析负担。因此已增加 agent-facing compact view：
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pska_essential.workspace_status_cli \
+  --env-file .env.pska \
+  --compact \
+  --next-action-limit 3
+```
+
+本机实测：
+
+```text
+compact workspace_status 约 6.9KB
+full workspace_status    约 386KB
+```
+
+PSKA API 重启后实测：
+
+```text
+GET /api/workspace/status?compact=1 约 5.4KB
+GET /api/workspace/status           约 270KB
+```
+
+Hermes compact turn 复测：
+
+- session id：`20260820_213943_38af95`。
+- `pska_workspace_status(compact=true,next_action_limit=3)` 调用成功。
+- Hermes 日志中该工具结果约 `7657` chars。
+- 同一 turn 再调用 `pska_memory_health_scan` 成功。
+- turn 在 `3/5` API call 内正常结束，不再因为解析超大状态包撞到 max iterations。
+
+新合同：
+
+- 默认 `pska_workspace_status()` 不变，仍返回完整 `workspace_status`。
+- MCP 可用 `pska_workspace_status(compact=true)` 或 `view="agent"` 请求
+  `workspace_status_compact`。
+- Product API 可用 `/api/workspace/status?compact=1` 或
+  `/api/workspace/status?view=agent` 请求 compact view。
+- CLI 可用 `--compact`。
+- compact view 保留 provider、workspace、governance、GBrain 参与状态、memory/card/health
+  数量、KB ready/blocked 计数和 next actions。
+- compact view 省略完整 datasets、dataset readiness、memory cards、memory health issues、
+  review/workflow/job 明细；agent 需要细节时再调用专门工具。
 
 ## Hermes WebUI 旁路/主线升级状态
 
@@ -424,6 +494,7 @@ Hermes WebUI next basic PSKA checks passed at http://127.0.0.1:8887
 ```bash
 bash -n scripts/pska_component_channel.sh
 PYTHONPATH=src python3 -m unittest tests.test_component_channel_script tests.test_hermes_webui_extension tests.test_adapters
+PYTHONPATH=src python3 -m unittest tests.test_workspace_status tests.test_workspace_status_cli tests.test_mcp_contract tests.test_product_api
 scripts/pska_component_channel.sh status
 scripts/pska_component_channel.sh start-next --component hermes
 scripts/pska_component_channel.sh start-next --component ragflow --with-worker
@@ -434,6 +505,7 @@ scripts/pska_component_channel.sh promote-ragflow-next --no-restart-pska
 验证结果：
 
 - 单元测试 `22` 个通过。
+- workspace status/API/MCP/CLI 相关单元测试 `143` 个通过。
 - 当前稳定线健康。
 - 候选线没有常驻。
 - dry-run 命令不会改 launchd、不会改 `.env.pska`、不会重启 PSKA。

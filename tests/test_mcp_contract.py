@@ -659,6 +659,7 @@ class McpContractTests(unittest.TestCase):
             dataset_id = ingested["dataset"]["dataset_id"]
 
             status = tools["pska_workspace_status"]()
+            compact = tools["pska_workspace_status"](compact=True, next_action_limit=1)
 
         self.assertEqual(status["kind"], "workspace_status")
         self.assertEqual(status["status"], "ready")
@@ -666,6 +667,12 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
         self.assertIn(dataset_id, status["next_actions"][0]["params"]["dataset_ids"])
+        self.assertEqual(compact["kind"], "workspace_status_compact")
+        self.assertEqual(compact["status"], "ready")
+        self.assertEqual(compact["kb"]["dataset_count"], 1)
+        self.assertNotIn("datasets", compact["kb"])
+        self.assertEqual(compact["next_actions"][0]["tool"], "pska_agentic_question_start")
+        self.assertIn(dataset_id, compact["next_actions"][0]["params"]["dataset_ids"])
 
     def test_agentic_context_brief_composes_recall_memory_trace_without_writes(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.dict("os.environ", _fake_env(), clear=True):

@@ -31,6 +31,24 @@ class WorkspaceStatusCliTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["action"], "run_file_to_work_product_loop")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_ingest_loop")
 
+    def test_workspace_status_cli_can_print_compact_agent_view(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):
+            reset_fake_kb_gateway()
+            env_file = _write_env(Path(tmp) / ".env.pska")
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                code = workspace_status_main(["--env-file", str(env_file), "--compact", "--next-action-limit", "1"])
+
+        status = json.loads(output.getvalue())
+        self.assertEqual(code, 0)
+        self.assertEqual(status["kind"], "workspace_status_compact")
+        self.assertEqual(status["status"], "empty")
+        self.assertNotIn("datasets", status["kb"])
+        self.assertNotIn("cards", status["memory"])
+        self.assertEqual(len(status["next_actions"]), 1)
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_ingest_loop")
+
     def test_workspace_status_cli_returns_nonzero_for_explicit_status_error(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):
             env_file = _write_env(

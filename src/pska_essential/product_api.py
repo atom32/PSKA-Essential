@@ -83,7 +83,7 @@ from pska_essential.source_extraction_jobs import (
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
 from pska_essential.workflow import WorkflowError, WorkflowService
-from pska_essential.workspace_status import build_workspace_status
+from pska_essential.workspace_status import build_workspace_status, compact_workspace_status
 
 
 KbGatewayFactory = Callable[[], Any]
@@ -401,6 +401,12 @@ def _handler_class(state: ProductApiState):
                     review_limit=_int_param(query.get("review_limit"), 50),
                     workflow_limit=_int_param(query.get("workflow_limit"), 50),
                 )
+                view = str(query.get("view") or query.get("response_view") or "").strip().lower()
+                if _bool_param(query.get("compact"), False) or view in {"compact", "agent", "webui", "extension"}:
+                    status = compact_workspace_status(
+                        status,
+                        next_action_limit=_int_param(query.get("next_action_limit"), 8),
+                    )
                 self._send_json({"ok": True, "workspace_status": status})
                 return
 

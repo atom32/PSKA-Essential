@@ -2301,6 +2301,20 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["view"], "ask")
         self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["demo"])
 
+    def test_workspace_status_route_can_return_compact_agent_view(self):
+        status = self._get_json("/api/workspace/status?compact=1&next_action_limit=1")["workspace_status"]
+
+        self.assertEqual(status["kind"], "workspace_status_compact")
+        self.assertEqual(status["source_kind"], "workspace_status")
+        self.assertEqual(status["status"], "ready")
+        self.assertEqual(status["kb"]["dataset_count"], 1)
+        self.assertNotIn("datasets", status["kb"])
+        self.assertNotIn("dataset_readiness", status["kb"])
+        self.assertNotIn("cards", status["memory"])
+        self.assertLessEqual(len(status["next_actions"]), 1)
+        self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
+        self.assertEqual(status["omitted"]["kb.datasets"], 1)
+
     def test_alpha_readiness_route_reports_trial_gate(self):
         readiness = self._get_json("/api/alpha/readiness")["alpha_readiness"]
         checks = {check["code"]: check for check in readiness["checks"]}

@@ -142,6 +142,234 @@ def build_workspace_status(
     }
 
 
+def compact_workspace_status(
+    status: dict[str, Any],
+    *,
+    next_action_limit: int = 8,
+    dataset_id_limit: int = 20,
+) -> dict[str, Any]:
+    """Return an agent-facing summary without bulky provider/detail lists."""
+
+    kb = dict(status.get("kb") or {})
+    memory = dict(status.get("memory") or {})
+    reviews = dict(status.get("reviews") or {})
+    workflows = dict(status.get("workflows") or {})
+    jobs = dict(status.get("jobs") or {})
+    capabilities = dict(status.get("capabilities") or {})
+    memory_caps = dict(capabilities.get("memory") or {})
+    cards = dict(memory.get("cards") or {})
+    health = dict(memory.get("health") or {})
+    components = dict(status.get("components") or {})
+    gbrain = dict(components.get("gbrain") or {})
+
+    return {
+        "kind": "workspace_status_compact",
+        "source_kind": status.get("kind"),
+        "status": status.get("status"),
+        "providers": dict(status.get("providers") or {}),
+        "workspace": _compact_workspace(dict(status.get("workspace") or {})),
+        "governance": _compact_governance(dict(status.get("governance") or {})),
+        "capabilities": {
+            "memory": _compact_memory_capabilities(memory_caps),
+        },
+        "components": {
+            "gbrain": _compact_gbrain(gbrain),
+        },
+        "memory": {
+            "backend": str(memory_caps.get("backend") or ""),
+            "card_count": _memory_card_count(cards, health),
+            "cards_status": cards.get("status"),
+            "cards_error": memory.get("cards_error"),
+            "health": _compact_memory_health(health),
+            "health_error": memory.get("health_error"),
+        },
+        "kb": {
+            "status": kb.get("status"),
+            "dataset_count": _as_int(kb.get("dataset_count")),
+            "ready_dataset_count": _as_int(kb.get("ready_dataset_count")),
+            "blocked_dataset_count": _as_int(kb.get("blocked_dataset_count")),
+            "usable": bool(kb.get("usable")),
+            "ready_dataset_ids": _limited_strings(kb.get("ready_dataset_ids"), dataset_id_limit),
+            "blocked_dataset_ids": _limited_strings(kb.get("blocked_dataset_ids"), dataset_id_limit),
+            "readiness": _compact_readiness(kb.get("readiness")),
+            "error": kb.get("error"),
+        },
+        "reviews": {
+            "pending_count": _as_int(reviews.get("pending_count")),
+            "accepted_unapplied_count": _as_int(reviews.get("accepted_unapplied_count")),
+            "candidate_quality_issue_count": _as_int(reviews.get("candidate_quality_issue_count")),
+        },
+        "workflows": {
+            "recent_count": _as_int(workflows.get("recent_count")),
+            "last_run": workflows.get("last_run") or "",
+            "resumable_ask_count": _as_int(workflows.get("resumable_ask_count")),
+            "resumable_error": workflows.get("resumable_error"),
+        },
+        "jobs": {
+            "status": jobs.get("status"),
+            "summary": dict(jobs.get("summary") or {}),
+            "error": jobs.get("error"),
+        },
+        "next_actions": _compact_next_actions(status.get("next_actions"), next_action_limit),
+        "omitted": {
+            "kb.datasets": _list_len(kb.get("datasets")),
+            "kb.dataset_readiness": _list_len(kb.get("dataset_readiness")),
+            "memory.cards": _list_len(cards.get("cards")),
+            "memory.health.issues": _list_len(health.get("issues")),
+            "reviews.pending": _list_len(reviews.get("pending")),
+            "reviews.accepted_unapplied": _list_len(reviews.get("accepted_unapplied")),
+            "reviews.candidate_quality": _list_len(reviews.get("candidate_quality")),
+            "workflows.resumable_asks": _list_len(workflows.get("resumable_asks")),
+            "jobs.recent": _list_len(jobs.get("recent")),
+        },
+    }
+
+
+def _compact_workspace(workspace: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "workspace_id": workspace.get("workspace_id") or "",
+        "tenant_configured": bool(workspace.get("tenant_configured")),
+        "workspace_configured": bool(workspace.get("workspace_configured")),
+        "memory_namespace": workspace.get("memory_namespace") or "",
+    }
+
+
+def _compact_governance(governance: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "durable_memory": governance.get("durable_memory") or "",
+        "conversation_memory": governance.get("conversation_memory") or "",
+        "digest_memory": governance.get("digest_memory") or "",
+        "memory_primary_user_path": governance.get("memory_primary_user_path") or "",
+        "review_queue_role": governance.get("review_queue_role") or "",
+        "visible_memory_editor": governance.get("visible_memory_editor") or "",
+        "visible_review_role": governance.get("visible_review_role") or "",
+    }
+
+
+def _compact_memory_capabilities(memory_caps: dict[str, Any]) -> dict[str, Any]:
+    operations = {}
+    for name, capability in (memory_caps.get("operations") or {}).items():
+        item = dict(capability or {})
+        operations[str(name)] = {
+            "supported": item.get("supported") is not False,
+            "reason": str(item.get("reason") or ""),
+        }
+    return {
+        "backend": str(memory_caps.get("backend") or ""),
+        "operations": operations,
+        "conversation_update_strategies": list(memory_caps.get("conversation_update_strategies") or []),
+    }
+
+
+def _compact_gbrain(gbrain: dict[str, Any]) -> dict[str, Any]:
+    runtime = dict(gbrain.get("runtime") or {})
+    transport = dict(gbrain.get("transport") or {})
+    package = dict(gbrain.get("package") or {})
+    return {
+        "schema": gbrain.get("schema"),
+        "name": gbrain.get("name"),
+        "status": gbrain.get("status"),
+        "mode": gbrain.get("mode"),
+        "version": package.get("version") or "",
+        "selected_as_memory_provider": bool((gbrain.get("pska") or {}).get("selected_as_memory_provider")),
+        "transport": {
+            "preferred": transport.get("preferred") or "",
+            "mcp_url_configured": bool(transport.get("mcp_url_configured")),
+            "stdio_product_flow_allowed": bool(transport.get("stdio_product_flow_allowed")),
+        },
+        "runtime": {
+            "product_flow_status": runtime.get("product_flow_status") or "",
+            "participates_in_memory_search": bool(runtime.get("participates_in_memory_search")),
+            "participates_in_agentic_context_brief": bool(runtime.get("participates_in_agentic_context_brief")),
+            "participates_in_jarvis_briefing": bool(runtime.get("participates_in_jarvis_briefing")),
+        },
+    }
+
+
+def _compact_memory_health(health: dict[str, Any]) -> dict[str, Any]:
+    if not health:
+        return {}
+    return {
+        "schema": health.get("schema"),
+        "status": health.get("status"),
+        "card_count": _as_int(health.get("card_count")),
+        "issue_count": _as_int(health.get("issue_count")),
+        "summary": dict(health.get("summary") or {}),
+        "next_actions": _compact_next_actions(health.get("next_actions"), 5),
+    }
+
+
+def _compact_readiness(readiness: Any) -> dict[str, Any] | None:
+    if not isinstance(readiness, dict):
+        return None
+    ingestion = dict(readiness.get("ingestion_status") or {})
+    compact: dict[str, Any] = {
+        "status": readiness.get("status"),
+        "ready": bool(readiness.get("ready")),
+        "message": readiness.get("message") or "",
+        "dataset_ids": _limited_strings(readiness.get("dataset_ids"), 20),
+        "document_ids": _limited_strings(readiness.get("document_ids"), 20),
+        "ingestion_status": {
+            "status": ingestion.get("status"),
+            "phase": ingestion.get("phase"),
+            "progress": ingestion.get("progress"),
+            "message": ingestion.get("message") or "",
+            "failure_code": ingestion.get("failure_code") or "",
+            "next_actions": _limited_strings(ingestion.get("next_actions"), 10),
+        },
+    }
+    blocking = readiness.get("blocking")
+    if isinstance(blocking, list):
+        compact["blocking"] = [str(item) for item in blocking[:10]]
+    return compact
+
+
+def _compact_next_actions(actions: Any, limit: int) -> list[dict[str, Any]]:
+    compact_actions: list[dict[str, Any]] = []
+    for action in list(actions or [])[: max(0, int(limit))]:
+        item = dict(action or {})
+        compact_actions.append(
+            {
+                "action": str(item.get("action") or ""),
+                "label": str(item.get("label") or ""),
+                "reason": str(item.get("reason") or ""),
+                "tool": str(item.get("tool") or ""),
+                "api": str(item.get("api") or ""),
+                "view": str(item.get("view") or ""),
+                "params": dict(item.get("params") or {}),
+                "requires_input": list(item.get("requires_input") or []),
+            }
+        )
+    return compact_actions
+
+
+def _memory_card_count(cards: dict[str, Any], health: dict[str, Any]) -> int:
+    count = _as_int(cards.get("count"), default=-1)
+    if count >= 0:
+        return count
+    health_count = _as_int(health.get("card_count"), default=-1)
+    if health_count >= 0:
+        return health_count
+    return _list_len(cards.get("cards"))
+
+
+def _limited_strings(value: Any, limit: int) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value[: max(0, int(limit))]]
+
+
+def _list_len(value: Any) -> int:
+    return len(value) if isinstance(value, list) else 0
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _kb_state(
     gateway: Any,
     *,

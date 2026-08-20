@@ -71,7 +71,7 @@ from pska_essential.source_extraction_jobs import (
 )
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
-from pska_essential.workspace_status import build_workspace_status
+from pska_essential.workspace_status import build_workspace_status, compact_workspace_status
 
 
 def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
@@ -406,14 +406,21 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         dataset_page_size: int = 30,
         review_limit: int = 50,
         workflow_limit: int = 50,
+        compact: bool = False,
+        view: str = "",
+        next_action_limit: int = 8,
     ):
-        return build_workspace_status(
+        status = build_workspace_status(
             service=service,
             gateway=build_kb_gateway_from_env(),
             dataset_page_size=dataset_page_size,
             review_limit=review_limit,
             workflow_limit=workflow_limit,
         )
+        response_view = str(view or "").strip().lower()
+        if compact or response_view in {"compact", "agent", "webui", "extension"}:
+            return compact_workspace_status(status, next_action_limit=next_action_limit)
+        return status
 
     def pska_jarvis_briefing(
         scope: dict[str, Any] | None = None,

@@ -8,7 +8,7 @@ from pska_essential.config import build_service_from_env
 from pska_essential.contracts import to_jsonable
 from pska_essential.env_file import preload_env_file
 from pska_essential.kb_gateway import build_kb_gateway_from_env
-from pska_essential.workspace_status import build_workspace_status
+from pska_essential.workspace_status import build_workspace_status, compact_workspace_status
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -17,6 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset-page-size", type=int, default=30)
     parser.add_argument("--review-limit", type=int, default=50)
     parser.add_argument("--workflow-limit", type=int, default=50)
+    parser.add_argument("--compact", action="store_true", help="Print the agent-facing compact status view.")
+    parser.add_argument("--next-action-limit", type=int, default=8)
     args = parser.parse_args(argv)
 
     try:
@@ -27,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
             review_limit=args.review_limit,
             workflow_limit=args.workflow_limit,
         )
+        if args.compact:
+            status = compact_workspace_status(status, next_action_limit=args.next_action_limit)
     except Exception as exc:  # noqa: BLE001 - CLI must report startup failures without fallback.
         status = startup_error_payload("workspace_status", exc, operation="Workspace status")
     print(json.dumps(to_jsonable(status), ensure_ascii=False, indent=2))

@@ -8,7 +8,7 @@ from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
 from pska_essential.contracts import MemoryFact, MemoryPatch, MemoryUpdate, Proposal, SourceRef
 from pska_essential.digest_jobs import enqueue_digest_job
 from pska_essential.review_store import SQLiteReviewStore
-from pska_essential.workspace_status import build_workspace_status
+from pska_essential.workspace_status import build_workspace_status, compact_workspace_status
 from pska_essential.workflow import WorkflowService, build_fake_service
 
 
@@ -226,6 +226,35 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["next_actions"][0]["view"], "ask")
         self.assertEqual(status["next_actions"][0]["params"]["dataset_ids"], ["demo"])
         self.assertEqual(status["next_actions"][0]["requires_input"], ["question"])
+
+    def test_compact_workspace_status_keeps_agent_routing_without_bulk_lists(self):
+        service = build_fake_service()
+        service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-workspace-compact",
+                text="PSKA compact status is the agent-facing workspace route.",
+                source_refs=[SourceRef(adapter="conversation", source_id="msg-compact")],
+            )
+        )
+        status = build_workspace_status(service=service, gateway=_Gateway())
+        compact = compact_workspace_status(status, next_action_limit=1)
+
+        self.assertEqual(compact["kind"], "workspace_status_compact")
+        self.assertEqual(compact["source_kind"], "workspace_status")
+        self.assertEqual(compact["status"], "ready")
+        self.assertEqual(compact["kb"]["dataset_count"], 1)
+        self.assertEqual(compact["kb"]["ready_dataset_count"], 1)
+        self.assertEqual(compact["kb"]["ready_dataset_ids"], ["demo"])
+        self.assertNotIn("datasets", compact["kb"])
+        self.assertNotIn("dataset_readiness", compact["kb"])
+        self.assertEqual(compact["memory"]["card_count"], 1)
+        self.assertNotIn("cards", compact["memory"])
+        self.assertEqual(compact["memory"]["health"]["card_count"], 1)
+        self.assertNotIn("issues", compact["memory"]["health"])
+        self.assertEqual(len(compact["next_actions"]), 1)
+        self.assertEqual(compact["next_actions"][0]["tool"], "pska_agentic_question_start")
+        self.assertEqual(compact["omitted"]["kb.datasets"], 1)
+        self.assertEqual(compact["omitted"]["memory.cards"], 1)
 
     def test_workspace_status_exposes_runtime_memory_namespace(self):
         with patch.dict(
