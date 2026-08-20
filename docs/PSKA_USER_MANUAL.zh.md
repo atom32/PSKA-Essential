@@ -65,7 +65,7 @@ cd /Users/xudawei/PSKA-Essential
 RAGFlow: OK
 RAGFlow task executor: OK
 GBrain HTTP MCP: OK
-Graphiti optional: OK
+Graphiti optional: OFF, not selected
 PSKA Product API: OK
 PSKA MCP HTTP: OK
 Eidolia: OK
@@ -80,6 +80,7 @@ cd /Users/xudawei/PSKA-Essential
 ```
 
 然后进入 Hermes WebUI。打开 PSKA 面板后，应该能看到 health/status、dataset 选择、scope 设置、Jarvis Brief、Agentic Brief、Source Recall、Memory/Review 等入口。
+进入 PSKA Memory 主页面后，还能看到 alpha readiness 和 First-run checklist；清单只记录人工试用进度，不会自动扫描文件、创建备份、写源文件或写长期记忆。
 
 ## 3. Hermes WebUI 里的基本操作
 
@@ -94,6 +95,7 @@ cd /Users/xudawei/PSKA-Essential
 - Source Recall：不用 embedding，按本地文件元数据和全文索引召回资料。
 - Memory 页面：搜索长期记忆，创建记忆候选。
 - Review 页面：查看候选，接受、拒绝，或把已接受候选写入长期记忆。
+- First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注。
 - Kanban 投影：把 PSKA 审核项同步到 Hermes 的 `pska-review` 看板。
 - Digest Runner：创建 Hermes Tasks 入口，用于摘要和消化任务。
 
@@ -461,6 +463,7 @@ Next actions: 8
 - Agentic Context Brief 汇总证据、来源、记忆和 trace。
 - Memory health 检查。
 - Review Queue 查看候选质量、重复候选和待处理项。
+- Alpha readiness 与 First-run checklist 可在 Hermes extension 主页面查看和更新。
 - Hermes Kanban `pska-review` 投影。
 - Hermes Tasks `PSKA Digest Runner` 入口。
 
@@ -548,7 +551,7 @@ curl -sS 'http://127.0.0.1:8765/api/sources/roots' | jq
 写作本手册时，已用当前本机服务复核：
 
 ```text
-服务状态：RAGFlow、RAGFlow task executor、GBrain HTTP MCP、PSKA Product API、PSKA MCP HTTP、Eidolia、Hermes WebUI 均为 OK；Graphiti 作为 optional provider 当前在线，但不是 dogfood 主路径必需组件。
+服务状态：RAGFlow、RAGFlow task executor、GBrain HTTP MCP、PSKA Product API、PSKA MCP HTTP、Eidolia、Hermes WebUI 均为 OK；Graphiti 作为 optional provider 当前 OFF 且未被选择，不是 dogfood 主路径必需组件。
 本地 Source Recall：对 root_ebdf0044b0442f494246012f 查询“收入增长、现金流、库存、未交付订单”，返回 3 条命中。
 RAGFlow dataset：07f35e1a9b9411f197ff8391030412c0 可列出，document_count=4，chunk_count=6。
 Memory health：card_count=10，issue_count=0。

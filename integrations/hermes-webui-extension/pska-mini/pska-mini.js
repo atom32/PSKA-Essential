@@ -39,6 +39,8 @@
     reviews: [],
     reviewStatus: "pending",
     detail: null,
+    firstRunSession: null,
+    firstRunSavingItem: "",
     message: "",
     error: ""
   };
@@ -301,6 +303,7 @@
       <div class="main-view-body">
         <div class="main-view-content pska-mini-page-content">
           <section class="pska-mini-page-status" id="pskaMiniPageStatus"></section>
+          <section class="pska-mini-first-run" id="pskaMiniFirstRun"></section>
           <div class="pska-mini-page-grid">
             <section class="pska-mini-page-section">
               <div class="pska-mini-page-section-head">
@@ -350,6 +353,7 @@
       memoryPage.reviewStatus = String(panel.querySelector("#pskaMiniReviewStatus")?.value || "pending");
       loadMemoryPageReviews();
     });
+    panel.querySelector("#pskaMiniFirstRun").addEventListener("click", onFirstRunClick);
     panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
     renderMemoryPage();
@@ -408,10 +412,55 @@
     memoryPage = { ...memoryPage, loading: true, error: "", message: "Loading PSKA memory..." };
     renderMemoryPage();
     try {
-      await Promise.all([refreshDashboard(), loadMemoryPageReviews(), runMemoryPageSearch({ silentEmpty: true })]);
+      await Promise.all([refreshDashboard(), loadFirstRunSession(), loadMemoryPageReviews(), runMemoryPageSearch({ silentEmpty: true })]);
       memoryPage = { ...memoryPage, loading: false, loadedAt: new Date().toLocaleTimeString(), message: "Loaded." };
     } catch (error) {
       memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+    }
+    renderMemoryPage();
+  }
+
+  async function loadFirstRunSession() {
+    const data = await pskaMiniFetchJson("/api/alpha/first-run-session", { timeoutMs: 15000 });
+    memoryPage = {
+      ...memoryPage,
+      firstRunSession: data.alpha_first_run_session || null,
+      loadedAt: new Date().toLocaleTimeString()
+    };
+    renderMemoryPage();
+  }
+
+  async function onFirstRunClick(event) {
+    const button = event.target?.closest?.("[data-pska-first-run-status]");
+    if (!button) return;
+    const itemId = button.getAttribute("data-pska-first-run-id") || "";
+    const status = button.getAttribute("data-pska-first-run-status") || "";
+    if (!itemId || !status) return;
+    const note = String(document.querySelector(`[data-pska-first-run-note="${cssEscape(itemId)}"]`)?.value || "").trim();
+    await updateFirstRunItem(itemId, status, note);
+  }
+
+  async function updateFirstRunItem(itemId, status, note) {
+    memoryPage = { ...memoryPage, firstRunSavingItem: itemId, message: `Updating first-run item ${itemId}...`, error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson(`/api/alpha/first-run-session/items/${encodeURIComponent(itemId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note }),
+        timeoutMs: 15000
+      });
+      memoryPage = {
+        ...memoryPage,
+        firstRunSavingItem: "",
+        firstRunSession: data.alpha_first_run_session || memoryPage.firstRunSession,
+        message: `First-run item ${itemId} marked ${status}.`,
+        error: ""
+      };
+      toast("PSKA first-run checklist updated.", "success");
+    } catch (error) {
+      memoryPage = { ...memoryPage, firstRunSavingItem: "", error: errorText(error), message: "" };
+      toast(`PSKA first-run update failed: ${errorText(error)}`, "error");
     }
     renderMemoryPage();
   }
@@ -583,6 +632,7 @@
 
   function renderMemoryPage() {
     renderMemoryPageStatus();
+    renderFirstRunSession();
     renderMemoryResults();
     renderReviewList();
     renderReviewDetail();
@@ -614,6 +664,91 @@
     if (statusSelect) statusSelect.value = memoryPage.reviewStatus;
     const queryInput = document.getElementById("pskaMiniMemoryQuery");
     if (queryInput && document.activeElement !== queryInput) queryInput.value = memoryPage.query || "";
+  }
+
+  function renderFirstRunSession() {
+    const container = document.getElementById("pskaMiniFirstRun");
+    if (!container) return;
+    const session = memoryPage.firstRunSession;
+    if (!session) {
+      container.innerHTML = `<div class="pska-mini-empty">First-run checklist is loading.</div>`;
+      return;
+    }
+    const progress = session.progress || {};
+    const checklist = Array.isArray(session.checklist) ? session.checklist : [];
+    container.innerHTML = `
+      <div class="pska-mini-first-run-head">
+        <div>
+          <h2>First-run checklist</h2>
+          <p>${escapeHtml(firstRunSummary(session))}</p>
+        </div>
+        <div class="pska-mini-first-run-meter" title="${escapeAttr(firstRunDataFlowTitle(session))}">
+          <strong>${escapeHtml(String(progress.done_count || 0))}/${escapeHtml(String(progress.total_count || 0))}</strong>
+          <span>${escapeHtml(firstRunStatusLabel(session.status))}</span>
+        </div>
+      </div>
+      <div class="pska-mini-first-run-list">
+        ${checklist.map((item) => renderFirstRunItem(item)).join("")}
+      </div>
+    `;
+  }
+
+  function renderFirstRunItem(item) {
+    const id = String(item.item_id || "");
+    const status = String(item.status || "pending");
+    const saving = memoryPage.firstRunSavingItem === id;
+    return `
+      <article class="pska-mini-first-run-item is-${escapeAttr(firstRunTone(status))}">
+        <div class="pska-mini-first-run-item-main">
+          <div class="pska-mini-first-run-item-title">
+            <strong>${escapeHtml(item.label || id)}</strong>
+            <span>${escapeHtml(firstRunStatusLabel(status))}${item.required ? " · required" : ""}</span>
+          </div>
+          <p>${escapeHtml(item.description || "")}</p>
+          <code>${escapeHtml(item.tool || "")}${item.api ? ` · ${escapeHtml(item.api)}` : ""}</code>
+          <textarea data-pska-first-run-note="${escapeAttr(id)}" rows="1" placeholder="Operator note">${escapeHtml(item.note || "")}</textarea>
+        </div>
+        <div class="pska-mini-first-run-actions">
+          <button class="pska-mini-page-btn" data-pska-first-run-status="done" data-pska-first-run-id="${escapeAttr(id)}" type="button" ${saving ? "disabled" : ""}>Done</button>
+          <button class="pska-mini-page-btn" data-pska-first-run-status="needs_attention" data-pska-first-run-id="${escapeAttr(id)}" type="button" ${saving ? "disabled" : ""}>Attention</button>
+          <button class="pska-mini-page-btn" data-pska-first-run-status="blocked" data-pska-first-run-id="${escapeAttr(id)}" type="button" ${saving ? "disabled" : ""}>Block</button>
+          <button class="pska-mini-page-btn" data-pska-first-run-status="skipped" data-pska-first-run-id="${escapeAttr(id)}" type="button" ${saving ? "disabled" : ""}>Skip</button>
+          <button class="pska-mini-page-btn" data-pska-first-run-status="pending" data-pska-first-run-id="${escapeAttr(id)}" type="button" ${saving ? "disabled" : ""}>Reset</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function firstRunSummary(session) {
+    const progress = session.progress || {};
+    const bits = [
+      `readiness ${session.readiness_status || "unknown"}`,
+      `recovery ${session.recovery_status || "unknown"}`,
+      `${progress.required_done_count || 0}/${progress.required_count || 0} required`
+    ];
+    return bits.join(" · ");
+  }
+
+  function firstRunDataFlowTitle(session) {
+    const flow = session.data_flow || {};
+    return [
+      "Checklist update only",
+      flow.writes_source_files ? "writes source files" : "does not write source files",
+      flow.writes_memory_directly ? "writes memory directly" : "does not write memory directly",
+      flow.executes_trial_step ? "executes trial steps" : "does not execute trial steps"
+    ].join(" · ");
+  }
+
+  function firstRunStatusLabel(status) {
+    return String(status || "pending").replace(/_/g, " ");
+  }
+
+  function firstRunTone(status) {
+    const normalized = String(status || "");
+    if (normalized === "done") return "ok";
+    if (normalized === "needs_attention" || normalized === "blocked") return "warn";
+    if (normalized === "skipped") return "bad";
+    return "pending";
   }
 
   function renderMemoryResults() {
@@ -2073,6 +2208,11 @@
 
   function escapeAttr(value) {
     return escapeHtml(value).replace(/"/g, "&quot;");
+  }
+
+  function cssEscape(value) {
+    if (window.CSS?.escape) return window.CSS.escape(String(value || ""));
+    return String(value || "").replace(/["\\\]]/g, "\\$&");
   }
 
   function escapeHtml(value) {

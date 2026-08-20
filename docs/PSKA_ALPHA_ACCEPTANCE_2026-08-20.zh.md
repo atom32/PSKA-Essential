@@ -152,8 +152,8 @@ HERMES_WEBUI_PASSWORD=****** make webui-extension-contract
 结果：
 
 ```text
-total  = 31
-passed = 31
+total  = 34
+passed = 34
 failed = 0
 ```
 
@@ -167,6 +167,8 @@ workspace status
 embedding component
 KB datasets
 runtime diagnostics
+alpha readiness
+alpha first-run session/checklist update
 Hermes profile/projects/workspaces
 RAGFlow probe
 memory-only preview
@@ -294,8 +296,8 @@ PSKA_COMPONENT_CONNECTIVITY_ONLY=1 \
 最近一次结果：
 
 ```text
-unittest                468 tests OK
-webui-extension-contract 31/31 OK
+unittest                472 tests OK
+webui-extension-contract 34/34 OK
 webui-extension-visual   OK
 live-connectivity-check  OK
 full-component-proof     OK

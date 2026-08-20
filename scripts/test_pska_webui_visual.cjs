@@ -215,10 +215,13 @@ async function runDesktop(context, checks, artifacts) {
     const count = document.querySelector("#pskaMiniMemoryCount")?.innerText || "";
     const memoryText = document.querySelector("#pskaMiniMemoryResults")?.innerText || "";
     const reviewText = document.querySelector("#pskaMiniReviewList")?.innerText || "";
+    const firstRunText = document.querySelector("#pskaMiniFirstRun")?.innerText || "";
     const countMatch = count.match(/(\d+)\s+shown/iu);
     return /API\s+ready/iu.test(status)
       && /Embedding\s+(local|TEI|external)/iu.test(status)
       && /Alpha\s+alpha_ready/iu.test(status)
+      && /First-run checklist/iu.test(firstRunText)
+      && /Confirm runtime and providers/iu.test(firstRunText)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/Loading memory/iu.test(memoryText)
@@ -229,6 +232,7 @@ async function runDesktop(context, checks, artifacts) {
     title: document.querySelector("#mainPskaMini .main-view-title")?.innerText || "",
     subtitle: document.querySelector("#mainPskaMini .pska-mini-page-sub")?.innerText || "",
     status: document.querySelector("#pskaMiniPageStatus")?.innerText || "",
+    firstRun: document.querySelector("#pskaMiniFirstRun")?.innerText?.slice(0, 1200) || "",
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
     fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 2000) || "",
     firstMemory: document.querySelector("#pskaMiniMemoryResults")?.innerText?.slice(0, 400) || "",
@@ -243,6 +247,10 @@ async function runDesktop(context, checks, artifacts) {
       && /governed memory and review queue/iu.test(memoryCheck.subtitle)
       && /Embedding\s+(local|TEI|external)/iu.test(memoryCheck.status)
       && /Alpha\s+alpha_ready/iu.test(memoryCheck.status)
+      && /First-run checklist/iu.test(memoryCheck.firstRun)
+      && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
+      && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)
+      && /recovery/iu.test(memoryCheck.firstRun)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/SQLite memory/iu.test(memoryCheck.fullText)

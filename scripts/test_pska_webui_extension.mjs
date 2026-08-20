@@ -68,6 +68,10 @@ function summarize(json, text) {
   if (json.datasets) return `datasets=${json.datasets.length}`;
   if (json.workspace_status) return `workspace_status keys=${Object.keys(json.workspace_status).length}`;
   if (json.alpha_readiness) return `alpha=${json.alpha_readiness.status || "unknown"}`;
+  if (json.alpha_first_run_session) {
+    const progress = json.alpha_first_run_session.progress || {};
+    return `first_run=${json.alpha_first_run_session.status || "unknown"} done=${progress.done_count || 0}/${progress.total_count || 0}`;
+  }
   if (json.diagnostics) return `diagnostics=${json.diagnostics.status || "ok"}`;
   if (json.probe) return `probe=${json.probe.status || "ok"} contexts=${json.probe.context_count || 0}`;
   if (json.turn_context) return `turn_context evidence=${(json.turn_context.evidence_blocks || []).length} memory=${(json.turn_context.memory_notes || []).length}`;
@@ -131,6 +135,7 @@ async function main() {
     && jsAsset.text.includes("runJarvisBrief")
     && jsAsset.text.includes("createDigestTask")
     && jsAsset.text.includes("/api/alpha/readiness")
+    && jsAsset.text.includes("/api/alpha/first-run-session")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
     bytes: jsAsset.text.length,
@@ -143,7 +148,7 @@ async function main() {
     bytes: jsAsset.text.length,
   });
   const cssAsset = await request("/extensions/pska-mini/pska-mini.css");
-  record("Extension CSS loads", cssAsset.response.ok && cssAsset.text.includes(".pska-mini-chip"), {
+  record("Extension CSS loads", cssAsset.response.ok && cssAsset.text.includes(".pska-mini-chip") && cssAsset.text.includes(".pska-mini-first-run"), {
     status: cssAsset.response.status,
     bytes: cssAsset.text.length,
   });
@@ -168,6 +173,28 @@ async function main() {
       && json?.alpha_readiness?.status === "alpha_ready"
       && json.alpha_readiness?.summary?.warn_count === 0
       && json.alpha_readiness?.summary?.fail_count === 0,
+  );
+  const firstRunSessionId = `pska-webui-extension-test-${Date.now()}`;
+  await testJson("Alpha: first-run session", `/api/extensions/pska-mini/sidecar/api/alpha/first-run-session?session_id=${encodeURIComponent(firstRunSessionId)}`, {}, (json, response) =>
+    response.ok
+      && json?.alpha_first_run_session?.schema === "pska.alpha_first_run_session.v1"
+      && Array.isArray(json.alpha_first_run_session?.checklist)
+      && json.alpha_first_run_session.checklist.length >= 6
+      && json.alpha_first_run_session?.data_flow?.executes_trial_step === false,
+  );
+  await testJson("Alpha: first-run item update", "/api/extensions/pska-mini/sidecar/api/alpha/first-run-session/items/confirm_runtime", {
+    method: "POST",
+    body: {
+      session_id: firstRunSessionId,
+      status: "done",
+      note: "temporary WebUI extension contract test",
+    },
+  }, (json, response) =>
+    response.ok
+      && json?.alpha_first_run_session?.progress?.done_count === 1
+      && json.alpha_first_run_session?.data_flow?.writes_source_files === false
+      && json.alpha_first_run_session?.data_flow?.writes_memory_directly === false
+      && json.alpha_first_run_session?.data_flow?.executes_trial_step === false,
   );
   await testJson("Hermes context: active profile", "/api/profile/active", {}, (json, response) => response.ok && (json?.profile || json?.name));
   await testJson("Hermes context: projects", "/api/projects", {}, (json, response) => response.ok && (Array.isArray(json?.projects) || Array.isArray(json)));
