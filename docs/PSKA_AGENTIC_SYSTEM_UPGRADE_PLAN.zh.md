@@ -450,6 +450,11 @@ Hermes WebUI 在 first-run checklist header 显示 `Mark exit notes`。点击后
 repeat guidance。这个动作不改变 alpha readiness，不把系统自动升级为 broader trial，只保存操作者
 对本次首次演练的退出总结。
 
+P2 的第四十五块已落地为 first-run closed-loop visual proof：
+浏览器级视觉 smoke test 现在会在记录 exit notes 后等待 Hermes WebUI checklist 显示 `8/8`、
+`7/7 required` 和 `ready for repetition`，并检查所有条目的状态都已变成 done。这是演示闭环证据，
+不新增独立前端，也不绕过 Hermes WebUI extension。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。

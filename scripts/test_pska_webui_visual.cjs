@@ -623,6 +623,47 @@ async function runDesktop(context, checks, artifacts) {
       && /required\s+\d+\/\d+/iu.test(exitNotesCheck.note)
       && /repeat|owner-only|broader trial/iu.test(exitNotesCheck.note)
   ), exitNotesCheck);
+  await page.waitForFunction(() => {
+    const header = document.querySelector(".pska-mini-first-run-head");
+    const meter = header?.querySelector(".pska-mini-first-run-meter")?.innerText || "";
+    const summary = header?.querySelector("p")?.innerText || "";
+    const statusMessage = document.querySelector("#pskaMiniPageStatus .pska-mini-page-note")?.innerText || "";
+    const exitButton = document.querySelector("[data-pska-first-run-exit-notes]");
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const statuses = items.map((node) => node.querySelector(".pska-mini-first-run-item-title span")?.innerText || "");
+    const doneItems = statuses.filter((status) => /^done\b/iu.test(status)).length;
+    return /8\/8/iu.test(meter)
+      && /ready for repetition/iu.test(meter)
+      && /7\/7 required/iu.test(summary)
+      && !/Updating first-run item/iu.test(statusMessage)
+      && !exitButton?.disabled
+      && items.length >= 8
+      && doneItems === items.length;
+  }, { timeout: 15000 });
+  const finalFirstRunCheck = await page.evaluate(() => {
+    const header = document.querySelector(".pska-mini-first-run-head");
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const statuses = items.map((node) => node.querySelector(".pska-mini-first-run-item-title span")?.innerText || "");
+    const exitButton = document.querySelector("[data-pska-first-run-exit-notes]");
+    return {
+      meter: header?.querySelector(".pska-mini-first-run-meter")?.innerText || "",
+      summary: header?.querySelector("p")?.innerText || "",
+      statusMessage: document.querySelector("#pskaMiniPageStatus .pska-mini-page-note")?.innerText || "",
+      exitButtonDisabled: Boolean(exitButton?.disabled),
+      doneItems: statuses.filter((status) => /^done\b/iu.test(status)).length,
+      itemCount: items.length,
+      statuses,
+    };
+  });
+  assertCheck(checks, "First-run checklist reaches ready-for-repetition 8/8", (
+    /8\/8/iu.test(finalFirstRunCheck.meter)
+      && /ready for repetition/iu.test(finalFirstRunCheck.meter)
+      && /7\/7 required/iu.test(finalFirstRunCheck.summary)
+      && !/Updating first-run item/iu.test(finalFirstRunCheck.statusMessage)
+      && !finalFirstRunCheck.exitButtonDisabled
+      && finalFirstRunCheck.itemCount >= 8
+      && finalFirstRunCheck.doneItems === finalFirstRunCheck.itemCount
+  ), finalFirstRunCheck);
   artifacts.desktopMemoryPage = path.join(OUT_DIR, "desktop-memory-page.png");
   await page.screenshot({ path: artifacts.desktopMemoryPage, fullPage: false });
 

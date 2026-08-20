@@ -920,6 +920,9 @@ M30h links first-run exit notes to the guided checklist: Hermes WebUI shows
 required-item progress, and conservative repeat guidance against
 `record_exit_notes`. This does not change alpha readiness; it only captures the
 operator's final first-run summary.
+M30i makes the first-run browser proof explicitly closed-loop: the live visual
+smoke now waits for the Hermes WebUI checklist to show `8/8`, `7/7 required`,
+and `ready for repetition` after exit notes are recorded.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches
