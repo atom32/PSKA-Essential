@@ -103,6 +103,18 @@ cp .env.example .env
 openssl rand -hex 32
 ```
 
+启动前先跑只读预检：
+
+```bash
+./bootstrap.sh preflight
+```
+
+它不会 clone、不会写 runtime、不会启动容器，只检查 Docker、WebUI/Gateway 基础安全、
+TEI embedding profile 和宿主端口占用。开发机如果已经运行本地 Infinity embedding、
+本机 RAGFlow 或 Hermes WebUI，默认的 `6380/9380/8787` 可能会被判定为冲突；这时要么停止
+开发服务，要么在 `.env` 里改 `EMBEDDING_HOST_PORT`、`RAGFLOW_HOST_PORT`、
+`HERMES_WEBUI_PORT` 等交付端口。
+
 先启动 RAGFlow：
 
 ```bash

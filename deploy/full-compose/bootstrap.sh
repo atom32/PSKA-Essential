@@ -10,6 +10,9 @@ log() { printf '[pska-full] %s\n' "$*"; }
 warn() { printf '[pska-full] warning: %s\n' "$*" >&2; }
 die() { printf '[pska-full] error: %s\n' "$*" >&2; exit 1; }
 
+PREFLIGHT_FAILURES=0
+PREFLIGHT_WARNINGS=0
+
 docker_compose() {
   if docker compose version >/dev/null 2>&1; then
     docker compose "$@"
@@ -517,6 +520,182 @@ validate_for_up() {
   esac
 }
 
+preflight_ok() {
+  printf '[pska-full] OK   %s\n' "$*"
+}
+
+preflight_warn() {
+  PREFLIGHT_WARNINGS=$((PREFLIGHT_WARNINGS + 1))
+  printf '[pska-full] WARN %s\n' "$*"
+}
+
+preflight_fail() {
+  PREFLIGHT_FAILURES=$((PREFLIGHT_FAILURES + 1))
+  printf '[pska-full] FAIL %s\n' "$*"
+}
+
+is_loopback_bind() {
+  case "${1:-}" in
+    127.0.0.1|localhost|::1) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_placeholder_secret() {
+  case "${1:-}" in
+    ""|change-me|change-me-gateway-key|change_me|CHANGEME) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+port_in_use() {
+  local port="$1"
+  if [[ -z "${port}" || "${port}" == "0" ]]; then
+    return 1
+  fi
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
+    return $?
+  fi
+  local py
+  py="$(python_bin)"
+  "${py}" - "${port}" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    sock.bind(("127.0.0.1", port))
+except OSError:
+    raise SystemExit(0)
+finally:
+    sock.close()
+raise SystemExit(1)
+PY
+}
+
+port_owner_summary() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1 " pid=" $2 " " $9; exit}'
+  else
+    printf 'unknown listener'
+  fi
+}
+
+project_owns_port() {
+  local port="$1" project="${PSKA_FULL_PROJECT:-pska-full}"
+  if [[ "${PSKA_FULL_PREFLIGHT_SKIP_DOCKER:-0}" == "1" ]]; then
+    return 1
+  fi
+  docker ps \
+    --filter "label=com.docker.compose.project=${project}" \
+    --format '{{.Ports}}' 2>/dev/null \
+    | grep -E "(^|[,:])${port}->|:${port}-" >/dev/null 2>&1
+}
+
+preflight_port() {
+  local name="$1" bind="$2" port="$3"
+  if [[ -z "${port}" ]]; then
+    preflight_warn "${name}: no host port configured; skipping."
+    return
+  fi
+  if [[ "${port}" == "0" ]]; then
+    preflight_warn "${name}: host port is 0/dynamic; manual URL checks will be required."
+    return
+  fi
+  if port_in_use "${port}"; then
+    if project_owns_port "${port}"; then
+      preflight_ok "${name}: ${bind}:${port} is already owned by compose project ${PSKA_FULL_PROJECT:-pska-full}."
+    else
+      preflight_fail "${name}: ${bind}:${port} is already in use by $(port_owner_summary "${port}")."
+    fi
+  else
+    preflight_ok "${name}: ${bind}:${port} is free."
+  fi
+}
+
+preflight_docker() {
+  if [[ "${PSKA_FULL_PREFLIGHT_SKIP_DOCKER:-0}" == "1" ]]; then
+    preflight_warn "Docker checks skipped because PSKA_FULL_PREFLIGHT_SKIP_DOCKER=1."
+    return
+  fi
+  if ! docker_compose version >/dev/null 2>&1; then
+    preflight_fail "Docker Compose is not available."
+    return
+  fi
+  preflight_ok "Docker Compose is available."
+  if ! docker info >/dev/null 2>&1; then
+    preflight_fail "Docker daemon is not reachable."
+  else
+    preflight_ok "Docker daemon is reachable."
+  fi
+}
+
+preflight_security() {
+  local webui_bind="${HERMES_WEBUI_BIND:-0.0.0.0}"
+  if ! is_loopback_bind "${webui_bind}" && is_placeholder_secret "${HERMES_WEBUI_PASSWORD:-}"; then
+    preflight_fail "Hermes WebUI binds to ${webui_bind}, but HERMES_WEBUI_PASSWORD is empty/change-me."
+  else
+    preflight_ok "Hermes WebUI password/bind check passed."
+  fi
+  case "${HERMES_WEBUI_CHAT_BACKEND:-gateway}" in
+    gateway|api_server|api-server)
+      if is_placeholder_secret "${HERMES_GATEWAY_API_KEY:-}"; then
+        preflight_fail "Hermes Gateway backend is enabled, but HERMES_GATEWAY_API_KEY is empty/change-me."
+      else
+        preflight_ok "Hermes Gateway API key is configured."
+      fi
+      ;;
+  esac
+  if [[ "${PSKA_RETRIEVAL_PROVIDER:-ragflow}" == "ragflow" && -z "${RAGFLOW_API_KEY:-}" ]]; then
+    preflight_warn "RAGFLOW_API_KEY is empty. This is expected before first RAGFlow initialization; full up will stop after ragflow-up until a key is configured."
+  fi
+}
+
+preflight_embedding() {
+  if [[ "${EMBEDDING_ENABLED:-1}" == "0" ]]; then
+    preflight_warn "EMBEDDING_ENABLED=0; PSKA-managed TEI embedding container will not start."
+    return
+  fi
+  preflight_ok "Embedding profile enabled: image=${EMBEDDING_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-1.8} model=${EMBEDDING_MODEL_ID:-BAAI/bge-small-en-v1.5}."
+  if [[ -z "${RAGFLOW_TEI_BASE_URL:-}" ]]; then
+    preflight_ok "RAGFlow will use compose-private TEI URL http://pska-embedding:80."
+  else
+    preflight_warn "RAGFLOW_TEI_BASE_URL overrides compose-private TEI URL: ${RAGFLOW_TEI_BASE_URL}."
+  fi
+  preflight_port "Embedding / TEI" "${EMBEDDING_BIND:-127.0.0.1}" "${EMBEDDING_HOST_PORT:-6380}"
+}
+
+cmd_preflight() {
+  load_env
+  PREFLIGHT_FAILURES=0
+  PREFLIGHT_WARNINGS=0
+  log "preflight for PSKA full compose (${ENV_FILE})"
+  preflight_docker
+  preflight_security
+  preflight_embedding
+  preflight_port "Hermes Gateway" "${HERMES_GATEWAY_BIND:-127.0.0.1}" "${HERMES_GATEWAY_PORT:-8642}"
+  preflight_port "Hermes WebUI" "${HERMES_WEBUI_BIND:-0.0.0.0}" "${HERMES_WEBUI_PORT:-8787}"
+  preflight_port "RAGFlow API" "127.0.0.1" "${RAGFLOW_HOST_PORT:-9380}"
+  preflight_port "RAGFlow Web HTTP" "127.0.0.1" "${RAGFLOW_WEB_HTTP_PORT:-8080}"
+  preflight_port "RAGFlow Web HTTPS" "127.0.0.1" "${RAGFLOW_WEB_HTTPS_PORT:-8443}"
+  preflight_port "RAGFlow MySQL" "127.0.0.1" "${RAGFLOW_MYSQL_PORT:-13306}"
+  preflight_port "RAGFlow Redis" "127.0.0.1" "${RAGFLOW_REDIS_PORT:-16379}"
+  preflight_port "RAGFlow MinIO" "127.0.0.1" "${RAGFLOW_MINIO_PORT:-19000}"
+  preflight_port "RAGFlow MinIO Console" "127.0.0.1" "${RAGFLOW_MINIO_CONSOLE_PORT:-19001}"
+  if [[ "${DOC_ENGINE:-elasticsearch}" == "opensearch" ]]; then
+    preflight_port "RAGFlow OpenSearch" "127.0.0.1" "${RAGFLOW_OS_PORT:-19201}"
+  else
+    preflight_port "RAGFlow Elasticsearch" "127.0.0.1" "${RAGFLOW_ES_PORT:-19200}"
+  fi
+  if [[ "${PREFLIGHT_FAILURES}" -gt 0 ]]; then
+    die "preflight failed with ${PREFLIGHT_FAILURES} failure(s) and ${PREFLIGHT_WARNINGS} warning(s)."
+  fi
+  log "preflight passed with ${PREFLIGHT_WARNINGS} warning(s)."
+}
+
 suite_compose() {
   local args=("--project-name" "${PSKA_FULL_PROJECT:-pska-full}" "--env-file" "${ENV_FILE}" "-f" "${SCRIPT_DIR}/docker-compose.yml")
   if [[ "${EMBEDDING_ENABLED:-1}" != "0" ]]; then
@@ -827,6 +1006,7 @@ cmd_smoke() {
 
 cmd="${1:-up}"
 case "${cmd:-up}" in
+  preflight) cmd_preflight ;;
   init) cmd_init ;;
   embedding-up) cmd_embedding_up ;;
   up) cmd_up ;;
@@ -839,8 +1019,9 @@ case "${cmd:-up}" in
   smoke) cmd_smoke "$@" ;;
   *)
     cat <<'USAGE'
-Usage: ./bootstrap.sh [init|embedding-up|ragflow-up|ragflow-model-sync|up|sidecars|status|logs|smoke|down]
+Usage: ./bootstrap.sh [preflight|init|embedding-up|ragflow-up|ragflow-model-sync|up|sidecars|status|logs|smoke|down]
 
+  preflight   Check Docker, credentials, embedding profile, and host ports without writing runtime files or starting containers.
   init        Clone/check repos and generate Hermes/PSKA config.
   embedding-up  Start the local embedding service only.
   ragflow-up  Start only RAGFlow so you can create the first API key.

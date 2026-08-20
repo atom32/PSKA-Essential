@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual demo-browser-verify demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual demo-browser-verify demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-preflight full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -91,6 +91,9 @@ alpha-compose-ps:
 
 alpha-compose-down:
 	cd deploy/alpha-compose && docker compose down
+
+full-compose-preflight:
+	cd deploy/full-compose && ./bootstrap.sh preflight
 
 full-compose-init:
 	cd deploy/full-compose && ./bootstrap.sh init

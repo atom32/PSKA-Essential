@@ -202,7 +202,18 @@ git remote。
 
 ## 5. 初始化并启动 RAGFlow
 
-先生成运行态配置并启动 embedding + RAGFlow：
+先做只读预检：
+
+```bash
+./bootstrap.sh preflight
+```
+
+预检不会 clone、不会写 runtime、不会启动容器。它会检查 Docker、WebUI/Gateway 基础安全、
+TEI embedding profile 和宿主端口占用。如果正在同一台开发机上运行本地 Infinity embedding、
+本机 RAGFlow 或 Hermes WebUI，默认端口 `6380/9380/8787` 可能会冲突；交付机通常应保持这些
+端口空闲，或在 `.env` 里改成新的 host port。
+
+预检通过后，生成运行态配置并启动 embedding + RAGFlow：
 
 ```bash
 ./bootstrap.sh ragflow-up

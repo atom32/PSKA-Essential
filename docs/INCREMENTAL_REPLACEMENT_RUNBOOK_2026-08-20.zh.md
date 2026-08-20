@@ -601,6 +601,22 @@ embedding 分层：
 - 交付时 embedding 是镜像服务，容器网络别名为 `pska-embedding`，默认模型为
   `BAAI/bge-small-en-v1.5`，宿主映射仍可用 `6380`。
 - 所以当前不需要把开发机强行切成容器 embedding；需要验证交付包时再启用 compose profile。
+- 已增加 full-compose 只读预检：
+
+  ```bash
+  ./bootstrap.sh preflight
+  make full-compose-preflight
+  ```
+
+  预检不 clone、不写 runtime、不启动容器，只检查 Docker、WebUI/Gateway 基础安全、
+  TEI embedding profile 和宿主端口。
+- 在当前开发机上用交付默认端口跑预检，正确报出 3 个阻断冲突：
+  - `6380`：已被本机 Infinity Embeddings 占用；
+  - `8787`：已被本机 Hermes WebUI 主线占用；
+  - `9380`：已被本机 RAGFlow stable API 占用。
+- 这意味着 full-compose 交付包应在干净交付机上启动；如果要在开发机上并行验证，需要先改
+  `.env` 里的 `EMBEDDING_HOST_PORT`、`HERMES_WEBUI_PORT`、`RAGFLOW_HOST_PORT` 等端口，
+  或停止对应开发服务。
 
 ## 切换门槛
 
