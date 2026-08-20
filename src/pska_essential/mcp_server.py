@@ -1582,8 +1582,8 @@ def main(argv: list[str] | None = None) -> int:
     env_parser.add_argument(
         "--transport",
         choices=("stdio", "sse", "streamable-http"),
-        default=os.getenv("PSKA_MCP_TRANSPORT", "stdio"),
-        help="MCP transport to run. Defaults to stdio for local Hermes CLI configs.",
+        default=os.getenv("PSKA_MCP_TRANSPORT", "streamable-http"),
+        help="MCP transport to run. Defaults to streamable-http; use --transport stdio only for isolated registry checks.",
     )
     env_parser.add_argument(
         "--host",
@@ -1593,7 +1593,7 @@ def main(argv: list[str] | None = None) -> int:
     env_parser.add_argument(
         "--port",
         type=int,
-        default=int(os.getenv("PSKA_MCP_PORT", "8000")),
+        default=int(os.getenv("PSKA_MCP_PORT", "8766")),
         help="Port for HTTP MCP transports.",
     )
     env_parser.add_argument(

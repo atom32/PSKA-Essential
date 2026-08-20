@@ -8,7 +8,7 @@ PSKA v1 不应有独立用户前端。用户主入口是 Hermes WebUI；PSKA 是
 
 当前仓库里的 `src/pska_essential/web/*` 是本地诊断页。它可以保留用于 Product API smoke test、fake-mode 后端能力验证和开发调试，但不能作为产品演示、日常工作台或 PSKA 独立平台来推进。
 
-之前生成的 `demo/browser/pska_webui_demo/*` 录屏素材展示的是本地诊断页，不是 Hermes WebUI 的 `pska-mini` extension。它只能作为后端能力素材，不能作为对用户展示的功能演示成片。
+之前生成的 `demo/browser/pska_webui_demo/*` 录屏素材展示的是本地诊断页，不是 Hermes WebUI 的 `pska-mini` extension。旧生成链路已经硬禁用；历史素材不能作为对用户展示的功能演示成片，也不能作为当前功能完成证据。
 
 ## 本机检查结果
 
@@ -109,10 +109,12 @@ Hermes Agent
 1. 打开 Hermes WebUI `http://127.0.0.1:8787`。
 2. 展示 Settings -> Extensions 中 `pska-mini` 已加载，sidecar health 指向 PSKA Product API。
 3. 在 composer chip 选择 PSKA scope。
-4. 发起 Hermes chat turn，确认 turn context 注入而不是独立 Ask 页面。
-5. 展示 Hermes 使用 PSKA MCP tools 或 `knowledge-retrieval` skill。
-6. 展示回答中的来源、工具调用、scope、memory attribution。
-7. 打开 PSKA Memory/Review projection，处理一个 review 或展示 apply-memory gate。
-8. 展示 Kanban `pska-review` 和 `PSKA Digest Runner` 任务投影。
+4. 在 chip 内触发 Jarvis Brief、Agentic Brief、Source Recall，展示回答前由 PSKA 组装来源、记忆、trace 和下一步动作。
+5. 发起 Hermes chat turn，确认 turn context 注入而不是独立 Ask 页面。
+6. 展示 Hermes 使用 PSKA MCP tools 或 `knowledge-retrieval` skill。
+7. 展示回答中的来源、工具调用、scope、memory attribution。
+8. 打开 PSKA Memory/Review projection，处理一个 review 或展示 apply-memory gate。
+9. 展示 Kanban `pska-review` 和 `PSKA Digest Runner` 任务投影。
+10. 展示 Eidolia 入口只作为 Hermes WebUI 内嵌创作工作区，PSKA 通过 Eidolia trace/source bridge 读取创作上下文。
 
-本地诊断页录屏可以作为附录素材，但不能放在主视频前半段冒充真实产品入口。
+本地诊断页录屏不再作为演示交付物；只能在明确标注为 legacy diagnostic smoke path 的内部排查中参考，不能放进主视频冒充真实产品入口。

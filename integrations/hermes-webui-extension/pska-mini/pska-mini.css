@@ -2,6 +2,8 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  min-width: 0;
+  flex: 0 0 auto;
 }
 
 .pska-mini-chip {
@@ -17,6 +19,17 @@
   font: inherit;
   font-size: 12px;
   cursor: pointer;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#pskaMiniLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pska-mini-chip.is-active {
@@ -627,5 +640,23 @@ main.main.showing-pska-mini > #mainPskaMini {
 @media (max-width: 900px) {
   .pska-mini-page-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .composer-left .pska-mini-wrap {
+    order: -1;
+    max-width: 72px;
+    flex: 0 0 72px;
+  }
+
+  .composer-left .pska-mini-chip {
+    width: 100%;
+    gap: 5px;
+    padding: 0 8px;
+  }
+
+  .pska-mini-dot {
+    flex: 0 0 7px;
   }
 }

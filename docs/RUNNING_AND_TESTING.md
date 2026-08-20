@@ -45,31 +45,47 @@ gate instead of applying memory automatically.
 
 ### 2. Hermes MCP Development
 
-Hermes runs independently and starts PSKA-Essential as a stdio MCP server.
+Hermes runs independently and connects to PSKA-Essential as a local HTTP MCP
+server.
 
 Use this mode to validate agent-facing tool discovery and workflow behavior.
 Hermes config should point only at PSKA-Essential MCP, not at RAGFlow or Graphiti
 directly.
 
-Example server env:
+Start PSKA MCP:
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+PYTHONPATH=src .venv/bin/python -m pska_essential \
+  --env-file .env.pska \
+  --transport streamable-http \
+  --host 127.0.0.1 \
+  --port 8766 \
+  --path /mcp
+```
+
+Example Hermes server config:
 
 ```yaml
 mcp_servers:
   pska-essential:
-    command: "python3"
-    args:
-      - "-m"
-      - "pska_essential"
-      - "--env-file"
-      - "/Users/xudawei/PSKA-Essential/.env.pska"
-    env:
-      PYTHONPATH: "/Users/xudawei/PSKA-Essential/src"
+    url: "http://127.0.0.1:8766/mcp"
+    enabled: true
+    timeout: 120
+    connect_timeout: 120
 ```
 
 Use `.env.pska` for explicit runtime configuration. For local fake development,
 put `PSKA_DEV_FAKE=1` and fake providers in that env file; for live validation,
 use RAGFlow/Graphiti values. Do not add RAGFlow or Graphiti MCP servers to the
 Hermes workflow.
+
+Stdio MCP is still supported for isolated registry checks:
+
+```bash
+PSKA_DEV_FAKE=1 PSKA_RETRIEVAL_PROVIDER=fake PSKA_MEMORY_PROVIDER=fake \
+  PSKA_REVIEW_DB=:memory: PYTHONPATH=src python3 -m pska_essential --list-tools
+```
 
 Hermes test:
 

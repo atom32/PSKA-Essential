@@ -3,13 +3,67 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from pska_essential.adapters.fake import FakeRetrievalAdapter
 from pska_essential.adapters.sqlite import SQLiteMemoryAdapter
-from pska_essential.contracts import MemoryFact, SourceRef
+from pska_essential.contracts import MemoryApplyResult, MemoryFact, SourceRef
 from pska_essential.memory_cards import get_memory_card, list_memory_cards
 from pska_essential.review_store import SQLiteReviewStore
 from pska_essential.workflow import WorkflowService, build_fake_service
+
+
+class _LineageDroppingMemoryAdapter:
+    backend_name = "lineage-dropping"
+    memory_capabilities = {
+        "search": True,
+        "list": True,
+        "get": True,
+        "apply": True,
+        "update": False,
+        "delete": False,
+    }
+
+    def __init__(self) -> None:
+        self.fact: MemoryFact | None = None
+
+    def apply(self, reviewed_patch: Any) -> MemoryApplyResult:
+        self.fact = MemoryFact(
+            fact_id="lineage-1",
+            text=reviewed_patch.text,
+            source_refs=[
+                SourceRef(
+                    adapter="gbrain",
+                    source_id="pska_review:rev-lineage",
+                    external_id="lineage-1",
+                    title="GBrain fact",
+                    metadata={"kind": "memory_fact"},
+                )
+            ],
+            metadata={"protocol_version": "test"},
+        )
+        return MemoryApplyResult(
+            applied=True,
+            target_id="lineage-1",
+            backend=self.backend_name,
+            message="remembered without PSKA envelope",
+        )
+
+    def search(self, query: str, scope: dict[str, Any], limit: int) -> list[MemoryFact]:
+        if self.fact is None:
+            return []
+        normalized = str(query or "").strip().lower()
+        if normalized and normalized not in self.fact.text.lower():
+            return []
+        return [self.fact][: max(0, int(limit))]
+
+    def list_facts(self, scope: dict[str, Any], limit: int, *, include_inactive: bool = False) -> list[MemoryFact]:
+        return [self.fact][: max(0, int(limit))] if self.fact is not None else []
+
+    def get_fact(self, fact_id: str, scope: dict[str, Any]) -> MemoryFact | None:
+        if self.fact is not None and self.fact.fact_id == fact_id:
+            return self.fact
+        return None
 
 
 class MemoryCardTests(unittest.TestCase):
@@ -113,6 +167,40 @@ class MemoryCardTests(unittest.TestCase):
         self.assertEqual(card["status"], "active")
         self.assertEqual(card["display_text"], "The user's editor is VS Code.")
         self.assertEqual(card["source_refs"][0]["adapter"], "conversation")
+
+    def test_pska_lineage_restores_memory_card_envelope_when_provider_drops_it(self):
+        service = WorkflowService(
+            FakeRetrievalAdapter(),
+            _LineageDroppingMemoryAdapter(),
+            SQLiteReviewStore(":memory:"),
+        )
+        source_ref = SourceRef(
+            adapter="ragflow",
+            dataset_id="finance-demo",
+            document_id="doc-finance-1",
+            chunk_id="chunk-1",
+            title="Finance source",
+        )
+        created = service.memory_change_from_conversation(
+            user_message="记住这个 PSKA 项目财报研究规则。",
+            operation="remember",
+            text="PSKA 项目财报研究要优先使用已审查财报来源。",
+            source_refs=[source_ref],
+        )
+
+        facts = service.memory_search("财报研究", {}, 10)
+        cards = list_memory_cards(service, limit=10)
+        card = cards["cards"][0]
+
+        self.assertEqual(facts[0].fact_id, created["memory_apply"]["target_id"])
+        self.assertEqual(facts[0].source_refs[0].adapter, "ragflow")
+        self.assertEqual(facts[0].metadata["memory_type"], "project_state")
+        self.assertEqual(facts[0].metadata["lineage_status"], "resolved")
+        self.assertEqual(card["memory_id"], "lineage-1")
+        self.assertEqual(card["source_refs"][0]["adapter"], "ragflow")
+        self.assertEqual(card["memory_type"], "project_state")
+        self.assertFalse(card["quality"]["needs_review"])
+        self.assertEqual(card["metadata"]["pska_lineage"]["status"], "resolved")
 
 
 if __name__ == "__main__":

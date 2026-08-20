@@ -70,6 +70,42 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(service.retrieval.backend_name, "ragflow")
         self.assertEqual(service.memory.backend_name, "graphiti")
 
+    def test_gbrain_memory_requires_http_mcp_url(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "company_graphrag_stub",
+            "PSKA_MEMORY_PROVIDER": "gbrain",
+            "GBRAIN_MCP_TOKEN": "test-token",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "GBrain memory is missing required env: GBRAIN_MCP_URL"):
+                build_service_from_env()
+
+    def test_gbrain_memory_requires_bearer_token(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "company_graphrag_stub",
+            "PSKA_MEMORY_PROVIDER": "gbrain",
+            "GBRAIN_MCP_URL": "http://127.0.0.1:33333/mcp",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "GBrain memory is missing required env"):
+                build_service_from_env()
+
+    def test_gbrain_memory_provider_builds_without_network_probe(self):
+        env = {
+            "PSKA_RETRIEVAL_PROVIDER": "company_graphrag_stub",
+            "PSKA_MEMORY_PROVIDER": "gbrain",
+            "GBRAIN_MCP_URL": "http://127.0.0.1:33333/mcp",
+            "GBRAIN_MCP_TOKEN": "test-token",
+            "PSKA_REVIEW_DB": ":memory:",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            service = build_service_from_env()
+
+        self.assertEqual(service.retrieval.backend_name, "company_graphrag_stub")
+        self.assertEqual(service.memory.backend_name, "gbrain")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1112,6 +1112,29 @@ def adapter_slots_contract() -> dict[str, Any]:
                 ),
             ],
         },
+        "brain_provider": {
+            "contract": "BrainProvider",
+            "purpose": "Attach external long-term brain substrates behind PSKA review, provenance, audit, and trace boundaries.",
+            "default_provider": "",
+            "providers": [
+                _provider(
+                    "gbrain_http_mcp",
+                    status="candidate",
+                    maturity="candidate",
+                    integration="optional_http_mcp_adapter",
+                    supports=["recall", "entity", "context_pack", "delta", "remember_after_review"],
+                    safety={
+                        "direct_hermes_mcp_allowed": False,
+                        "stdio_product_flow_allowed": False,
+                        "durable_memory": "review_gate_required",
+                        "provenance_required": True,
+                        "writes_memory_directly": False,
+                    },
+                    reason="GBrain source is tracked as a PSKA-Components candidate, but no governed PSKA adapter is wired yet.",
+                    install_hint="Expose GBrain over HTTP MCP, then wire it through a PSKA BrainProvider adapter instead of direct Hermes MCP.",
+                ),
+            ],
+        },
         "observability": {
             "contract": "ObservabilityPort",
             "purpose": "Export PSKA audit/trace/eval signals without replacing PSKA audit.",
@@ -1774,6 +1797,11 @@ def _adapter_slots_summary(slots: dict[str, Any]) -> dict[str, Any]:
             "contract": slot.get("contract"),
             "default_provider": slot.get("default_provider") or "",
             "available": [provider["name"] for provider in providers if provider.get("available")],
+            "candidate": [
+                provider["name"]
+                for provider in providers
+                if provider.get("status") == "candidate"
+            ],
             "planned": [
                 provider["name"]
                 for provider in providers

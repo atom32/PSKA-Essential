@@ -292,7 +292,7 @@ flowchart TB
 	  ACB --> SR
 	  ACB --> MEM
 	  ACB --> TR
-	```
+```
 
 下面是更偏实现视角的 component map：
 

@@ -55,6 +55,11 @@ class StartWorkspaceScriptTests(unittest.TestCase):
         self.assertIn("STALE %s", text)
         self.assertIn("stop_pska_api_port_processes", text)
         self.assertIn("PSKA Product API contract is current", text)
+        self.assertIn("RAGFLOW_TASK_EXECUTOR_AUTOSTART", text)
+        self.assertIn("ragflow_task_executor_running", text)
+        self.assertIn("start_ragflow_task_executor_launchd", text)
+        self.assertIn("RAGFlow task executor", text)
+        self.assertNotIn("/Users/xudawei/.local/bin", text)
 
 
 if __name__ == "__main__":

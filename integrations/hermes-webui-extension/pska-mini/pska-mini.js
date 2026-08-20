@@ -77,6 +77,7 @@
       mode: String(data.mode || "auto"),
       datasetIds: normalizeList(data.datasetIds || data.dataset_ids),
       documentIds: normalizeList(data.documentIds || data.document_ids),
+      sourceRootIds: normalizeList(data.sourceRootIds || data.source_root_ids || data.root_ids),
       maxTokens: boundedInt(data.maxTokens || data.max_tokens, 3000, 500, 12000)
     };
   }
@@ -162,6 +163,15 @@
           <button id="pskaMiniCreateDigestTask" type="button">创建摘要任务</button>
         </div>
 
+        <div class="pska-mini-section-head">
+          <strong>Agentic context</strong>
+        </div>
+        <div class="pska-mini-actions pska-mini-agentic-actions">
+          <button id="pskaMiniJarvisBrief" type="button">Jarvis Brief</button>
+          <button id="pskaMiniAgenticBrief" type="button">Agentic Brief</button>
+          <button id="pskaMiniSourceRecall" type="button">Source Recall</button>
+        </div>
+
         <details class="pska-mini-advanced">
           <summary>Advanced scope</summary>
           <label>Dataset IDs
@@ -169,6 +179,9 @@
           </label>
           <label>Document IDs
             <textarea id="pskaMiniDocumentIds" rows="2" placeholder="optional"></textarea>
+          </label>
+          <label>Source Root IDs
+            <textarea id="pskaMiniSourceRootIds" rows="2" placeholder="optional local source roots"></textarea>
           </label>
         </details>
 
@@ -194,6 +207,9 @@
     wrap.querySelector("#pskaMiniApplySuggestedScope").addEventListener("click", applySuggestedScope);
     wrap.querySelector("#pskaMiniSyncReviews").addEventListener("click", syncReviewBoard);
     wrap.querySelector("#pskaMiniCreateDigestTask").addEventListener("click", createDigestTask);
+    wrap.querySelector("#pskaMiniJarvisBrief").addEventListener("click", runJarvisBrief);
+    wrap.querySelector("#pskaMiniAgenticBrief").addEventListener("click", runAgenticBrief);
+    wrap.querySelector("#pskaMiniSourceRecall").addEventListener("click", runSourceRecall);
     wrap.querySelector("#pskaMiniEnabled").addEventListener("change", syncFromControls);
     wrap.querySelector("#pskaMiniMode").addEventListener("change", syncFromControls);
     wrap.querySelector("#pskaMiniMaxTokens").addEventListener("input", syncFromControls);
@@ -577,11 +593,13 @@
     const workspace = dashboard.workspace || {};
     const providers = workspace.providers || dashboard.health?.providers || {};
     const kb = workspace.kb || {};
+    const gbrain = gbrainComponent();
     container.innerHTML = `
       <div class="pska-mini-page-pills">
         <span class="pska-mini-pill ${dashboard.health?.ok ? "is-ok" : "is-bad"}"><b>API</b> ${dashboard.health?.ok ? "ready" : "missing"}</span>
         <span class="pska-mini-pill ${providers.memory ? "is-ok" : "is-warn"}"><b>Memory</b> ${escapeHtml(providers.memory || "unknown")}</span>
         <span class="pska-mini-pill ${kb.usable ? "is-ok" : "is-warn"}"><b>KB</b> ${escapeHtml(kb.usable ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready")}</span>
+        <span class="pska-mini-pill is-${escapeAttr(gbrainTone(gbrain))}"><b>GBrain</b> ${escapeHtml(gbrainStatusLabel(gbrain))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
@@ -743,16 +761,30 @@
   function renderStatus() {
     const container = document.getElementById("pskaMiniStatus");
     if (!container) return;
+    if (dashboard.loading && !dashboard.loadedAt && !dashboard.health && !dashboard.workspace) {
+      container.innerHTML = `
+        <div class="pska-mini-status-pills">
+          <span class="pska-mini-pill is-warn"><b>API</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>KB</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>Memory</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>GBrain</b> checking</span>
+        </div>
+        <div class="pska-mini-muted">Refreshing PSKA workspace status...</div>
+      `;
+      return;
+    }
     const workspace = dashboard.workspace || {};
     const kb = workspace.kb || {};
     const providers = workspace.providers || dashboard.health?.providers || {};
     const apiOk = Boolean(dashboard.health?.ok);
     const kbOk = Boolean(kb.usable);
     const memoryOk = Boolean(providers.memory) && !dashboard.diagnosticsError;
+    const gbrain = gbrainComponent();
     const statusItems = [
       ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad"],
       ["KB", kbOk ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready", kbOk ? "ok" : "warn"],
-      ["Memory", memoryOk ? providers.memory : "down", memoryOk ? "ok" : "bad"]
+      ["Memory", memoryOk ? providers.memory : "down", memoryOk ? "ok" : "bad"],
+      ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain)]
     ];
     container.innerHTML = `
       <div class="pska-mini-status-pills">
@@ -768,6 +800,22 @@
       ` : ""}
       ${dashboard.loadedAt ? `<div class="pska-mini-muted">Last refresh: ${escapeHtml(dashboard.loadedAt)}</div>` : ""}
     `;
+  }
+
+  function gbrainComponent() {
+    return dashboard.workspace?.components?.gbrain || null;
+  }
+
+  function gbrainStatusLabel(component) {
+    if (!component) return "not visible";
+    if (component.runtime?.participates_in_memory_search) return "active";
+    return String(component.mode || component.status || "candidate");
+  }
+
+  function gbrainTone(component) {
+    if (!component) return "bad";
+    if (component.runtime?.participates_in_memory_search) return "ok";
+    return "warn";
   }
 
   function renderDatasets() {
@@ -848,16 +896,25 @@
     const mode = document.getElementById("pskaMiniMode");
     const datasetIds = document.getElementById("pskaMiniDatasetIds");
     const documentIds = document.getElementById("pskaMiniDocumentIds");
+    const sourceRootIds = document.getElementById("pskaMiniSourceRootIds");
     const maxTokens = document.getElementById("pskaMiniMaxTokens");
     if (chip) chip.classList.toggle("is-active", state.enabled);
     if (label) {
-      const selected = state.datasetIds.length ? ` · ${state.datasetIds.length} KB` : "";
-      label.textContent = state.enabled ? `PSKA ${state.mode}${selected}` : `PSKA off${selected}`;
+      const selectedParts = [];
+      if (state.datasetIds.length) selectedParts.push(`${state.datasetIds.length} KB`);
+      if (state.sourceRootIds.length) selectedParts.push(`${state.sourceRootIds.length} source`);
+      const selected = selectedParts.length ? ` · ${selectedParts.join(" · ")}` : "";
+      if (isCompactComposer()) {
+        label.textContent = "PSKA";
+      } else {
+        label.textContent = state.enabled ? `PSKA ${state.mode}${selected}` : `PSKA off${selected}`;
+      }
     }
     if (enabled) enabled.checked = state.enabled;
     if (mode) mode.value = state.mode;
     if (datasetIds) datasetIds.value = state.datasetIds.join("\n");
     if (documentIds) documentIds.value = state.documentIds.join("\n");
+    if (sourceRootIds) sourceRootIds.value = state.sourceRootIds.join("\n");
     if (maxTokens) maxTokens.value = String(state.maxTokens);
     renderBridgeStatus();
   }
@@ -867,6 +924,7 @@
     state.mode = String(document.getElementById("pskaMiniMode")?.value || "auto");
     state.datasetIds = normalizeList(document.getElementById("pskaMiniDatasetIds")?.value || "");
     state.documentIds = normalizeList(document.getElementById("pskaMiniDocumentIds")?.value || "");
+    state.sourceRootIds = normalizeList(document.getElementById("pskaMiniSourceRootIds")?.value || "");
     state.maxTokens = boundedInt(document.getElementById("pskaMiniMaxTokens")?.value, 3000, 500, 12000);
     saveState();
     renderControls();
@@ -894,12 +952,21 @@
   function renderBridgeStatus() {
     const container = document.getElementById("pskaMiniBridgeStatus");
     if (!container) return;
-    const scope = state.datasetIds.length
-      ? `${state.datasetIds.length} selected knowledge base${state.datasetIds.length === 1 ? "" : "s"}`
-      : "auto dataset discovery";
+    const scopeParts = [];
+    if (state.datasetIds.length) {
+      scopeParts.push(`${state.datasetIds.length} selected knowledge base${state.datasetIds.length === 1 ? "" : "s"}`);
+    }
+    if (state.sourceRootIds.length) {
+      scopeParts.push(`${state.sourceRootIds.length} source root${state.sourceRootIds.length === 1 ? "" : "s"}`);
+    }
+    const scope = scopeParts.length ? scopeParts.join(" and ") : "auto dataset/source discovery";
     container.innerHTML = state.enabled
       ? `Enabled sends will load <code>${escapeHtml(SKILL_NAME)}</code> with ${escapeHtml(scope)}.`
       : `Turn PSKA on to force <code>${escapeHtml(SKILL_NAME)}</code> for the next send.`;
+  }
+
+  function isCompactComposer() {
+    return Boolean(window.matchMedia?.("(max-width: 520px)")?.matches);
   }
 
   function installSendBridge() {
@@ -999,6 +1066,7 @@
       mode: state.mode,
       dataset_ids: state.datasetIds,
       document_ids: state.documentIds,
+      source_root_ids: state.sourceRootIds,
       max_tokens: state.maxTokens,
       source: "hermes-webui.pska-mini-chip",
       hermes: currentHermesContext()
@@ -1015,6 +1083,20 @@
       "Operational rule: when PSKA is enabled from the chip, use PSKA-Essential MCP retrieval tools for knowledge-base evidence before answering. Treat Graphiti memory as optional; if memory diagnostics fail, keep retrieval working and say memory is unavailable only when it matters."
     ];
     return lines.join("\n");
+  }
+
+  function currentScopePayload() {
+    return {
+      dataset_ids: state.datasetIds,
+      document_ids: state.documentIds,
+      hermes: currentHermesContext()
+    };
+  }
+
+  function currentSourceScopePayload() {
+    return {
+      root_ids: state.sourceRootIds
+    };
   }
 
   function shouldInjectChatStart(path, opts) {
@@ -1124,8 +1206,17 @@
       getState: () => JSON.parse(JSON.stringify(state)),
       getTurnInstructions: buildRuntimeScopeBlock,
       refresh: refreshDashboard,
+      jarvisBrief: runJarvisBrief,
+      agenticBrief: runAgenticBrief,
+      sourceRecall: runSourceRecall,
       setEnabled(value) {
         state.enabled = Boolean(value);
+        saveState();
+        renderControls();
+      },
+      setSourceRootIds(value) {
+        state.sourceRootIds = normalizeList(value);
+        state.enabled = state.sourceRootIds.length > 0 || state.enabled;
         saveState();
         renderControls();
       }
@@ -1210,7 +1301,7 @@
     syncFromControls();
     const box = document.getElementById("pskaMiniPreviewBox");
     if (!box) return;
-    const message = String(document.getElementById("msg")?.value || "").trim() || "PSKA-mini preview";
+    const message = currentComposerMessage("PSKA-mini preview");
     box.hidden = false;
     box.textContent = "Loading turn context...";
     if ((state.mode === "project" || state.mode === "evidence-only") && !state.datasetIds.length) {
@@ -1251,6 +1342,81 @@
       ].join("\n");
     } catch (error) {
       box.textContent = `PSKA preview failed: ${errorText(error)}`;
+    }
+  }
+
+  async function runJarvisBrief() {
+    syncFromControls();
+    showPreviewText("Building Jarvis briefing...");
+    try {
+      const data = await pskaMiniFetchJson("/api/jarvis/briefing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          compact: true,
+          view: "webui",
+          scope: currentScopePayload(),
+          source_scope: currentSourceScopePayload(),
+          audit_limit: 12,
+          dataset_page_size: 20,
+          review_limit: 30,
+          workflow_limit: 30
+        }),
+        timeoutMs: 30000
+      });
+      showPreviewText(formatJarvisBrief(data.briefing || {}));
+    } catch (error) {
+      showPreviewText(`Jarvis briefing failed: ${errorText(error)}`);
+    }
+  }
+
+  async function runAgenticBrief() {
+    syncFromControls();
+    const question = currentComposerMessage("What should Hermes recall before answering about this PSKA workspace?");
+    showPreviewText("Building agentic context brief...");
+    try {
+      const data = await pskaMiniFetchJson("/api/agentic/context-brief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          compact: true,
+          view: "webui",
+          objective: "Prepare Hermes pre-answer context for the current WebUI turn.",
+          question,
+          project_hint: currentHermesContext().workspace || "",
+          scope: currentScopePayload(),
+          source_scope: currentSourceScopePayload(),
+          evidence_limit: 4,
+          source_limit: 4,
+          memory_limit: 4,
+          trace_limit: 8
+        }),
+        timeoutMs: 30000
+      });
+      showPreviewText(formatAgenticBrief(data.agentic_context_brief || {}));
+    } catch (error) {
+      showPreviewText(`Agentic brief failed: ${errorText(error)}`);
+    }
+  }
+
+  async function runSourceRecall() {
+    syncFromControls();
+    const query = currentComposerMessage("PSKA source recall");
+    showPreviewText("Running metadata-first source recall...");
+    try {
+      const data = await pskaMiniFetchJson("/api/sources/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          scope: currentSourceScopePayload(),
+          limit: 5
+        }),
+        timeoutMs: 20000
+      });
+      showPreviewText(formatSourceRecall(data.context_packets || [], data.count || 0));
+    } catch (error) {
+      showPreviewText(`Source recall failed: ${errorText(error)}`);
     }
   }
 
@@ -1536,6 +1702,7 @@
     const scope = {
       dataset_ids: state.datasetIds,
       document_ids: state.documentIds,
+      source_root_ids: state.sourceRootIds,
       hermes: context
     };
     return [
@@ -1550,6 +1717,70 @@
       JSON.stringify(scope, null, 2),
       "```"
     ].join("\n");
+  }
+
+  function formatJarvisBrief(briefing) {
+    const summary = briefing.summary || {};
+    const priorities = Array.isArray(briefing.priorities) ? briefing.priorities : [];
+    const actions = Array.isArray(briefing.next_actions) ? briefing.next_actions : [];
+    const lines = [
+      `Jarvis Brief · ${briefing.status || "unknown"}`,
+      `datasets: ${summary.workspace_status || "unknown"} · pending reviews: ${summary.pending_review_count || 0} · memory focus: ${summary.memory_focus_count || 0}`,
+      `source roots: ${summary.source_root_count || 0} · duplicates: ${summary.duplicate_group_count || 0} · broken links: ${summary.unresolved_link_count || 0}`,
+      "",
+      "Priorities:",
+      ...(priorities.length ? priorities.slice(0, 4).map((item, index) => `${index + 1}. ${item.title || item.code || item.action || "priority"} - ${item.message || item.detail || ""}`) : ["none"]),
+      "",
+      "Next actions:",
+      ...(actions.length ? actions.slice(0, 4).map((item, index) => `${index + 1}. ${item.label || item.action || "action"} (${item.tool || item.api || "PSKA"})`) : ["none"])
+    ];
+    return lines.join("\n");
+  }
+
+  function formatAgenticBrief(brief) {
+    const summary = brief.summary || {};
+    const recall = brief.recall || {};
+    const memory = brief.memory || {};
+    const trace = brief.trace || {};
+    const evidence = Array.isArray(recall.evidence_blocks) ? recall.evidence_blocks : [];
+    const sources = Array.isArray(recall.source_recall) ? recall.source_recall : [];
+    const memories = Array.isArray(memory.relevant_memories) ? memory.relevant_memories : [];
+    const actions = Array.isArray(brief.next_actions) ? brief.next_actions : [];
+    const lines = [
+      `Agentic Brief · ${brief.status || summary.status || "unknown"}`,
+      summary.lead || `Prepared ${evidence.length} evidence, ${sources.length} source, ${memories.length} memory, ${trace.signal_count || 0} trace signal(s).`,
+      "",
+      "Evidence:",
+      ...(evidence.length ? evidence.slice(0, 3).map((item, index) => `${index + 1}. ${item.title || item.context_id || "evidence"} - ${truncate(item.text || "", 220)}`) : ["none"]),
+      "",
+      "Source recall:",
+      ...(sources.length ? sources.slice(0, 3).map((item, index) => `${index + 1}. ${item.title || item.context_id || "source"} - ${truncate(item.text || "", 220)}`) : ["none"]),
+      "",
+      "Memory:",
+      ...(memories.length ? memories.slice(0, 3).map((item, index) => `${index + 1}. ${item.fact_id || "memory"} - ${truncate(item.text || "", 220)}`) : ["none"]),
+      "",
+      "Next actions:",
+      ...(actions.length ? actions.slice(0, 4).map((item, index) => `${index + 1}. ${item.label || item.action || "action"} (${item.tool || item.api || "PSKA"})`) : ["none"])
+    ];
+    return lines.join("\n");
+  }
+
+  function formatSourceRecall(packets, count) {
+    const items = Array.isArray(packets) ? packets : [];
+    if (!items.length) return `Source Recall · ${count || 0} result(s)\nNo registered source matched this query.`;
+    const lines = [
+      `Source Recall · ${count || items.length} result(s)`,
+      ...items.slice(0, 5).map((packet, index) => {
+        const ref = packet.source_ref || {};
+        const location = ref.path || ref.source_id || packet.context_id || "";
+        return `\n${index + 1}. ${packet.title || ref.title || location || "source"}\n${location}\n${truncate(packet.text || "", 360)}`;
+      })
+    ];
+    return lines.join("\n");
+  }
+
+  function currentComposerMessage(fallback) {
+    return String(document.getElementById("msg")?.value || "").trim() || fallback;
   }
 
   function showPreviewText(text) {

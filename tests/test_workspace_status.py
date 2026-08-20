@@ -218,6 +218,8 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["kb"]["blocked_dataset_count"], 0)
         self.assertEqual(status["kb"]["ready_dataset_ids"], ["demo"])
         self.assertEqual(status["kb"]["blocked_dataset_ids"], [])
+        self.assertEqual(status["components"]["gbrain"]["schema"], "pska.gbrain_component_status.v1")
+        self.assertFalse(status["components"]["gbrain"]["runtime"]["participates_in_memory_search"])
         self.assertEqual(status["next_actions"][0]["action"], "run_agentic_question")
         self.assertEqual(status["next_actions"][0]["tool"], "pska_agentic_question_start")
         self.assertEqual(status["next_actions"][0]["api"], "POST /api/ask")

@@ -10,6 +10,7 @@ from pska_essential.agentic_loop import run_agentic_question_with_readiness
 from pska_essential.audit import audit_event
 from pska_essential.capabilities import adapter_slots_contract, memory_capabilities
 from pska_essential.contracts import to_jsonable
+from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.kb_scope import (
     dataset_scope_has_resolution_errors,
@@ -45,6 +46,9 @@ def build_runtime_diagnostics(*, service: Any, kb_gateway_factory: KbGatewayFact
         "capabilities": {
             "memory": memory_capabilities(service.memory),
             "adapter_slots": adapter_slots_contract(),
+        },
+        "components": {
+            "gbrain": build_gbrain_component_status(),
         },
         "checks": checks,
     }
@@ -636,7 +640,23 @@ def _memory_check(service: Any) -> dict[str, Any]:
         return _ok("memory_provider", "Company GraphRAG memory stub is configured.", provider=provider)
     if provider in {"sqlite", "local", "local_sqlite"}:
         return _ok("memory_provider", "SQLite memory provider is configured.", provider=provider)
+    if provider == "gbrain":
+        if not os.getenv("GBRAIN_MCP_URL", "").strip():
+            return _error("memory_provider", "GBrain memory is missing required env: GBRAIN_MCP_URL")
+        if not _gbrain_auth_configured():
+            return _error(
+                "memory_provider",
+                "GBrain memory is missing required env: GBRAIN_REMOTE_TOKEN or GBRAIN_MCP_TOKEN or GBRAIN_BEARER_TOKEN",
+            )
+        return _ok("memory_provider", "GBrain HTTP MCP memory provider is configured.", provider=provider)
     return _warning("memory_provider", f"Memory provider is configured through an injected adapter: {provider}")
+
+
+def _gbrain_auth_configured() -> bool:
+    return any(
+        os.getenv(name, "").strip()
+        for name in ("GBRAIN_REMOTE_TOKEN", "GBRAIN_MCP_TOKEN", "GBRAIN_BEARER_TOKEN")
+    )
 
 
 def _memory_search_contract_check(service: Any) -> dict[str, Any]:

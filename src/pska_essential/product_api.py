@@ -45,6 +45,7 @@ from pska_essential.digest_jobs import enqueue_digest_job, list_digest_jobs, run
 from pska_essential.eidolia_import import import_eidolia_project_traces
 from pska_essential.env_file import preload_env_file
 from pska_essential.eval import run_eval
+from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
 from pska_essential.jarvis import build_jarvis_briefing
@@ -91,6 +92,7 @@ KbGatewayFactory = Callable[[], Any]
 PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/health"},
     {"method": "GET", "path": "/api/capabilities"},
+    {"method": "GET", "path": "/api/components/gbrain"},
     {"method": "GET", "path": "/api/alpha/readiness"},
     {"method": "GET", "path": "/api/alpha/trial-guide"},
     {"method": "GET", "path": "/api/alpha/recovery-plan"},
@@ -174,6 +176,7 @@ class ProductApiState:
     service: WorkflowService
     kb_gateway_factory: KbGatewayFactory
     static_dir: Path
+    static_ui_enabled: bool
 
 
 def build_server(
@@ -183,6 +186,7 @@ def build_server(
     service: WorkflowService | None = None,
     kb_gateway_factory: KbGatewayFactory = build_kb_gateway_from_env,
     static_dir: str | Path | None = None,
+    enable_static_ui: bool | None = None,
 ) -> ThreadingHTTPServer:
     resolved_service = service or build_service_from_env()
     # Build once at startup so missing KB provider configuration fails before serving.
@@ -191,6 +195,9 @@ def build_server(
         service=resolved_service,
         kb_gateway_factory=kb_gateway_factory,
         static_dir=Path(static_dir) if static_dir else Path(__file__).with_name("web"),
+        static_ui_enabled=_env_enabled("PSKA_ENABLE_LEGACY_DIAGNOSTIC_UI")
+        if enable_static_ui is None
+        else bool(enable_static_ui),
     )
     server = ThreadingHTTPServer((host, port), _handler_class(state))
     server.daemon_threads = True
@@ -283,6 +290,10 @@ def _handler_class(state: ProductApiState):
                         "product_api_contract": _product_api_contract(),
                     }
                 )
+                return
+
+            if method == "GET" and path == "/api/components/gbrain":
+                self._send_json({"ok": True, "component": build_gbrain_component_status()})
                 return
 
             if method == "GET" and path == "/api/migration/manifest":
@@ -855,6 +866,8 @@ def _handler_class(state: ProductApiState):
                     review_limit=int(payload.get("review_limit") or 50),
                     workflow_limit=int(payload.get("workflow_limit") or 50),
                 )
+                if _compact_response_requested(payload):
+                    briefing = _compact_jarvis_briefing(briefing)
                 self._send_json({"ok": True, "briefing": briefing})
                 return
 
@@ -877,6 +890,8 @@ def _handler_class(state: ProductApiState):
                     memory_limit=_bounded_int(payload.get("memory_limit"), default=5, minimum=0, maximum=20),
                     trace_limit=_bounded_int(payload.get("trace_limit"), default=8, minimum=0, maximum=30),
                 )
+                if _compact_response_requested(payload):
+                    brief = _compact_agentic_context_brief(brief)
                 self._send_json({"ok": True, "agentic_context_brief": brief})
                 return
 
@@ -1760,6 +1775,21 @@ def _handler_class(state: ProductApiState):
             return self.rfile.read(length) if length else b""
 
         def _serve_static(self, path: str) -> None:
+            if not state.static_ui_enabled:
+                self._send_json(
+                    {
+                        "ok": False,
+                        "error": {
+                            "code": "legacy_diagnostic_ui_disabled",
+                            "message": (
+                                "Legacy PSKA diagnostic UI is disabled. "
+                                "Use Hermes WebUI with the pska-mini extension."
+                            ),
+                        },
+                    },
+                    HTTPStatus.NOT_FOUND,
+                )
+                return
             if path in {"", "/"}:
                 target = state.static_dir / "index.html"
             else:
@@ -2349,6 +2379,67 @@ def _turn_context_summary(
     if warnings:
         parts.append(f"{len(warnings)} warning{'s' if len(warnings) != 1 else ''}")
     return "Assembled " + ", ".join(parts) + "."
+
+
+def _compact_response_requested(payload: dict[str, Any]) -> bool:
+    view = str(payload.get("view") or payload.get("response_view") or "").strip().lower()
+    return bool(payload.get("compact")) or view in {"compact", "webui", "extension"}
+
+
+def _compact_jarvis_briefing(briefing: dict[str, Any]) -> dict[str, Any]:
+    """Return the subset rendered by the Hermes WebUI extension preview."""
+
+    return {
+        "schema": briefing.get("schema"),
+        "briefing_id": briefing.get("briefing_id"),
+        "created_at": briefing.get("created_at"),
+        "status": briefing.get("status"),
+        "agent": briefing.get("agent"),
+        "scope": briefing.get("scope"),
+        "summary": briefing.get("summary") or {},
+        "priorities": list(briefing.get("priorities") or [])[:10],
+        "next_actions": list(briefing.get("next_actions") or [])[:12],
+        "data_flow": briefing.get("data_flow") or {},
+    }
+
+
+def _compact_agentic_context_brief(brief: dict[str, Any]) -> dict[str, Any]:
+    """Return a WebUI-safe Agentic Brief without embedded Jarvis internals."""
+
+    recall = brief.get("recall") or {}
+    memory = brief.get("memory") or {}
+    trace = brief.get("trace") or {}
+    return {
+        "schema": brief.get("schema"),
+        "brief_id": brief.get("brief_id"),
+        "run_id": brief.get("run_id"),
+        "created_at": brief.get("created_at"),
+        "status": brief.get("status"),
+        "objective": brief.get("objective"),
+        "question": brief.get("question"),
+        "project_hint": brief.get("project_hint"),
+        "scope": brief.get("scope"),
+        "source_scope": brief.get("source_scope"),
+        "summary": brief.get("summary") or {},
+        "recall": {
+            "kb_evidence": list(recall.get("kb_evidence") or [])[:8],
+            "source_recall": list(recall.get("source_recall") or [])[:8],
+        },
+        "memory": {
+            "relevant_memories": list(memory.get("relevant_memories") or [])[:8],
+            "memory_error": memory.get("memory_error"),
+        },
+        "trace": {
+            "signal_count": trace.get("signal_count", 0),
+            "signals": list(trace.get("signals") or [])[:8],
+            "warnings": trace.get("warnings") or [],
+        },
+        "next_actions": list(brief.get("next_actions") or [])[:12],
+        "agentic_roles": list(brief.get("agentic_roles") or [])[:8],
+        "limitations": brief.get("limitations") or [],
+        "warnings": brief.get("warnings") or [],
+        "data_flow": brief.get("data_flow") or {},
+    }
 
 
 def _env_enabled(name: str) -> bool:

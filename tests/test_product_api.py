@@ -196,6 +196,30 @@ class ProductApiStartupTests(unittest.TestCase):
             server = build_server(host="127.0.0.1", port=0, static_dir=static_dir)
             server.server_close()
 
+    def test_build_server_disables_legacy_static_ui_by_default(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            Path(static_dir, "index.html").write_text("<main>PSKA</main>", encoding="utf-8")
+            server = build_server(
+                host="127.0.0.1",
+                port=0,
+                service=build_fake_service(),
+                kb_gateway_factory=lambda: _FakeGateway(),
+                static_dir=static_dir,
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                url = f"http://127.0.0.1:{server.server_address[1]}/"
+                with self.assertRaises(HTTPError) as raised:
+                    urlopen(url, timeout=5)
+                self.assertEqual(raised.exception.code, 404)
+                payload = json.loads(raised.exception.read().decode("utf-8"))
+                self.assertEqual(payload["error"]["code"], "legacy_diagnostic_ui_disabled")
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
     def test_build_server_validates_kb_gateway_configuration(self):
         env = {"PSKA_KB_PROVIDER": "ragflow"}
         with tempfile.TemporaryDirectory() as static_dir, patch.dict(os.environ, env, clear=True):
@@ -223,6 +247,7 @@ class ProductApiTests(unittest.TestCase):
             service=self.service,
             kb_gateway_factory=lambda: self.gateway,
             static_dir=self.static_dir.name,
+            enable_static_ui=True,
         )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -254,6 +279,7 @@ class ProductApiTests(unittest.TestCase):
             (route["method"], route["path"])
             for route in capabilities["product_api_contract"]["required_routes"]
         }
+        self.assertIn(("GET", "/api/components/gbrain"), contract_routes)
         self.assertIn(("GET", "/api/alpha/readiness"), contract_routes)
         self.assertIn(("GET", "/api/alpha/trial-guide"), contract_routes)
         self.assertIn(("GET", "/api/alpha/recovery-plan"), contract_routes)
@@ -552,6 +578,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(adapter_slots["slots"]["extraction"]["contract"], "ExtractionPort")
         self.assertEqual(adapter_slots["slots"]["dedup"]["contract"], "DedupPort")
         self.assertEqual(adapter_slots["slots"]["thought_artifact"]["contract"], "ThoughtArtifactPort")
+        self.assertEqual(adapter_slots["slots"]["brain_provider"]["contract"], "BrainProvider")
+        gbrain_provider = _adapter_provider(adapter_slots, "brain_provider", "gbrain_http_mcp")
+        self.assertEqual(gbrain_provider["status"], "candidate")
+        self.assertFalse(gbrain_provider["safety"]["direct_hermes_mcp_allowed"])
+        self.assertFalse(gbrain_provider["safety"]["stdio_product_flow_allowed"])
+        self.assertIn("gbrain_http_mcp", adapter_slots["summary"]["brain_provider"]["candidate"])
         self.assertEqual(adapter_slots["slots"]["observability"]["contract"], "ObservabilityPort")
         self.assertIn("builtin_text", adapter_slots["summary"]["extraction"]["available"])
         self.assertIn("sqlite_fts5", adapter_slots["summary"]["search_index"]["available"])
@@ -2455,6 +2487,53 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("agentic_context.brief.build", actions)
         self.assertIn("memory.search", actions)
 
+    def test_webui_compact_brief_routes_omit_large_internal_layers(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-webui-compact",
+                text="Hermes WebUI extension needs compact PSKA brief payloads.",
+                source_refs=[SourceRef(adapter="conversation", source_id="msg-webui-compact", title="Conversation")],
+                metadata={"confidence": 0.91},
+            )
+        )
+
+        jarvis_payload = self._post_json(
+            "/api/jarvis/briefing",
+            {"compact": True, "view": "webui", "scope": {"dataset_ids": ["demo"]}},
+        )
+        jarvis = jarvis_payload["briefing"]
+        self.assertEqual(jarvis["schema"], "pska.jarvis_briefing.v1")
+        self.assertIn("summary", jarvis)
+        self.assertIn("priorities", jarvis)
+        self.assertIn("next_actions", jarvis)
+        self.assertNotIn("workspace_status", jarvis)
+        self.assertNotIn("memory_layer", jarvis)
+        self.assertNotIn("source_layer", jarvis)
+
+        agentic_payload = self._post_json(
+            "/api/agentic/context-brief",
+            {
+                "compact": True,
+                "view": "webui",
+                "objective": "Prepare compact context for Hermes WebUI.",
+                "question": "What should the WebUI recall?",
+                "scope": {"dataset_ids": ["demo"]},
+                "evidence_limit": 1,
+                "source_limit": 1,
+                "memory_limit": 2,
+                "trace_limit": 6,
+            },
+        )
+        brief = agentic_payload["agentic_context_brief"]
+        self.assertEqual(brief["schema"], "pska.agentic_context_brief.v1")
+        self.assertIn("summary", brief)
+        self.assertIn("recall", brief)
+        self.assertIn("memory", brief)
+        self.assertIn("trace", brief)
+        self.assertNotIn("jarvis", brief)
+        self.assertLess(len(json.dumps(jarvis_payload, ensure_ascii=False)), 20000)
+        self.assertLess(len(json.dumps(agentic_payload, ensure_ascii=False)), 80000)
+
     def test_workflow_open_does_not_export_until_explicit_export(self):
         asked = self._post_json(
             "/api/ask",
@@ -2896,6 +2975,8 @@ class ProductApiTests(unittest.TestCase):
         diagnostics = payload["diagnostics"]
         self.assertEqual(diagnostics["status"], "warning")
         self.assertEqual(diagnostics["workspace"]["workspace_id"], "default")
+        self.assertEqual(diagnostics["components"]["gbrain"]["schema"], "pska.gbrain_component_status.v1")
+        self.assertFalse(diagnostics["components"]["gbrain"]["runtime"]["participates_in_memory_search"])
         checks = {item["name"]: item for item in diagnostics["checks"]}
         self.assertEqual(checks["product_api"]["status"], "ok")
         self.assertEqual(checks["review_store"]["status"], "ok")
@@ -2905,6 +2986,18 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(checks["memory_provider"]["metadata"]["provider"], "fake")
         self.assertEqual(checks["memory_search_contract"]["metadata"]["provider"], "fake")
         self.assertFalse(checks["memory_search_contract"]["metadata"]["semantic_checked"])
+
+    def test_gbrain_component_route_reports_candidate_boundary(self):
+        payload = self._get_json("/api/components/gbrain")
+
+        self.assertTrue(payload["ok"])
+        component = payload["component"]
+        self.assertEqual(component["schema"], "pska.gbrain_component_status.v1")
+        self.assertEqual(component["kind"], "brain_provider")
+        self.assertEqual(component["runtime"]["pska_adapter"], "available_not_selected")
+        self.assertFalse(component["runtime"]["participates_in_memory_search"])
+        self.assertFalse(component["governance"]["direct_hermes_mcp_allowed"])
+        self.assertFalse(component["transport"]["stdio_product_flow_allowed"])
 
     def test_retrieval_probe_route_checks_ready_scope_and_writes_audit(self):
         probe = self._post_json(
@@ -3873,6 +3966,7 @@ class ProductApiFakeUploadLoopTests(unittest.TestCase):
             service=build_service_from_env(),
             kb_gateway_factory=build_kb_gateway_from_env,
             static_dir=self.static_dir.name,
+            enable_static_ui=True,
         )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()

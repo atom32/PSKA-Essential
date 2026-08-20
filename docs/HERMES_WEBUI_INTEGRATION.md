@@ -254,20 +254,27 @@ Verified local configuration shape:
 ```yaml
 mcp_servers:
   pska-essential:
-    command: "/Users/xudawei/.local/bin/uv"
-    args:
-      - run
-      - --project
-      - /Users/xudawei/PSKA-Essential
-      - --extra
-      - mcp
-      - pska-essential-mcp
-      - --env-file
-      - /Users/xudawei/PSKA-Essential/.env.pska
+    url: "http://127.0.0.1:8766/mcp"
     enabled: true
     timeout: 120
     connect_timeout: 120
 ```
+
+PSKA MCP should normally run as its own local HTTP service, separate from the
+PSKA Product API used by the WebUI extension sidecar:
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+PYTHONPATH=src .venv/bin/python -m pska_essential \
+  --env-file .env.pska \
+  --transport streamable-http \
+  --host 127.0.0.1 \
+  --port 8766 \
+  --path /mcp
+```
+
+Stdio MCP remains useful for isolated tool-registry development, but Hermes
+WebUI should not spawn PSKA MCP subprocesses during the main demo path.
 
 Current baseline, 2026-08-14: `pska_essential --list-tools` returns 109 PSKA
 MCP tools from PSKA's own `tool_registry()`. Older notes that mention 45, 49,
@@ -303,11 +310,14 @@ changing Hermes-WebUI core chat code. The chip can enable or disable PSKA for
 the next sends, fetch PSKA Product API status through the WebUI extension
 sidecar, present ready RAGFlow datasets as checkboxes, and attach a
 `PSKA-Mini Runtime Scope` block that forces the Hermes `knowledge-retrieval`
-skill for the turn.
+skill for the turn. It also exposes small WebUI-native controls for Jarvis
+briefing, agentic context brief, metadata-first source recall, PSKA Memory,
+review projection to Hermes Kanban, and the PSKA Digest Runner task.
 
 This is intentionally a small bridge rather than a second PSKA chat surface.
-It does not implement upload, Ask panels, Eidolia views, review queues, or
-RAGFlow/Graphiti direct browser calls.
+It does not implement upload, an independent PSKA Ask product surface, Eidolia
+views, or RAGFlow/Graphiti direct browser calls. Memory and review controls are
+thin Product API views/projections; PSKA remains the authority.
 
 Implementation caveat: the current upstream WebUI checkout does not expose an
 ephemeral hidden-turn-context hook, so the pure-extension bridge wraps

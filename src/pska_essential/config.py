@@ -4,6 +4,7 @@ import os
 
 from pska_essential.adapters.company_graphrag_stub import CompanyGraphRagStubAdapter
 from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
+from pska_essential.adapters.gbrain import GBrainHttpMemoryAdapter
 from pska_essential.adapters.graphiti import GraphitiMemoryAdapter
 from pska_essential.adapters.ragflow import RagflowRetrievalAdapter
 from pska_essential.adapters.sqlite import SQLiteMemoryAdapter
@@ -47,6 +48,19 @@ def build_service_from_env() -> WorkflowService:
             base_url=os.getenv("GRAPHITI_BASE_URL"),
             group_id=os.getenv("GRAPHITI_GROUP_ID", "pska-essential"),
             timeout=_positive_float_env("GRAPHITI_TIMEOUT", 120.0),
+        )
+    elif memory_provider == "gbrain":
+        _require_env("GBRAIN_MCP_URL", provider="GBrain memory")
+        token = _gbrain_token_from_env()
+        if not token:
+            raise ValueError(
+                "GBrain memory is missing required env: "
+                "GBRAIN_REMOTE_TOKEN or GBRAIN_MCP_TOKEN or GBRAIN_BEARER_TOKEN"
+            )
+        memory = GBrainHttpMemoryAdapter(
+            mcp_url=os.getenv("GBRAIN_MCP_URL", "").strip(),
+            token=token,
+            timeout=_positive_float_env("GBRAIN_TIMEOUT", 30.0),
         )
     elif memory_provider in {"company", "company_graphrag_stub"}:
         memory = company_stub
@@ -99,6 +113,14 @@ def _positive_float_env(name: str, default: float) -> float:
     if value <= 0:
         raise ValueError(f"{name} must be a positive number")
     return value
+
+
+def _gbrain_token_from_env() -> str:
+    for name in ("GBRAIN_REMOTE_TOKEN", "GBRAIN_MCP_TOKEN", "GBRAIN_BEARER_TOKEN"):
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 def _kb_provider_is_fake(dev_fake: bool) -> bool:

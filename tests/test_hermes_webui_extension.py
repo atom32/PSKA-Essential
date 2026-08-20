@@ -41,6 +41,26 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("pskaMiniApplySuggestedScope", script)
         self.assertIn("pskaMiniSyncReviews", script)
         self.assertIn("pskaMiniCreateDigestTask", script)
+        self.assertIn("pskaMiniJarvisBrief", script)
+        self.assertIn("pskaMiniAgenticBrief", script)
+        self.assertIn("pskaMiniSourceRecall", script)
+        self.assertIn("GBrain", script)
+        self.assertIn("gbrainComponent()", script)
+        self.assertIn("dashboard.workspace?.components?.gbrain", script)
+        self.assertIn('"/api/jarvis/briefing"', script)
+        self.assertIn('"/api/agentic/context-brief"', script)
+        self.assertIn("compact: true", script)
+        self.assertIn('view: "webui"', script)
+        self.assertIn("Refreshing PSKA workspace status", script)
+        self.assertIn("isCompactComposer()", script)
+        self.assertIn('"/api/sources/search"', script)
+        self.assertIn("currentScopePayload()", script)
+        self.assertIn("sourceRootIds", script)
+        self.assertIn("pskaMiniSourceRootIds", script)
+        self.assertIn("currentSourceScopePayload()", script)
+        self.assertIn("source_root_ids: state.sourceRootIds", script)
+        self.assertNotRegex(script, re.compile(r"source_scope:\s*\{\}"))
+        self.assertIn("formatAgenticBrief", script)
         self.assertIn("候选内容", script)
         self.assertIn("PSKA 是权威来源", script)
         self.assertIn('const REVIEW_BOARD_SLUG = "pska-review"', script)
@@ -72,6 +92,15 @@ class HermesWebuiExtensionTests(unittest.TestCase):
             "pska_agentic_question_start",
         ]:
             self.assertNotIn(forbidden, script)
+
+    def test_extension_css_handles_compact_mobile_composer(self):
+        css = (EXTENSION_DIR / "pska-mini.css").read_text(encoding="utf-8")
+
+        self.assertIn("@media (max-width: 520px)", css)
+        self.assertIn(".composer-left .pska-mini-wrap", css)
+        self.assertIn("order: -1", css)
+        self.assertIn("flex: 0 0 72px", css)
+        self.assertIn("#pskaMiniLabel", css)
 
     def test_sync_script_writes_webui_manifest_and_sidecar_consent(self):
         with tempfile.TemporaryDirectory() as tmp:

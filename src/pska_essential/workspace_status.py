@@ -5,6 +5,7 @@ from typing import Any
 
 from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.capabilities import memory_capabilities, memory_operation_for_proposal_kind
+from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.memory_candidate_quality import memory_candidate_quality_issue
 from pska_essential.memory_cards import list_memory_cards
@@ -93,6 +94,9 @@ def build_workspace_status(
         "governance": build_workspace_policy_from_env().to_dict(),
         "capabilities": {
             "memory": memory_caps,
+        },
+        "components": {
+            "gbrain": build_gbrain_component_status(),
         },
         "memory": {
             "cards": memory_cards,

@@ -46,7 +46,9 @@ def list_memory_cards(
         include_inactive=include_inactive,
         include_superseded=include_superseded,
     )
+    facts = [_enrich_fact_from_service_lineage(service, fact) for fact in facts]
     status_context = _status_context_facts(service.memory, runtime_scope, facts)
+    status_context = [_enrich_fact_from_service_lineage(service, fact) for fact in status_context]
     superseded_by = _superseded_by_map(status_context)
     cards = [
         _memory_card_from_fact(service, fact, runtime_scope=runtime_scope, superseded_by=superseded_by)
@@ -102,6 +104,7 @@ def get_memory_card(
     fact = _get_provider_fact(service.memory, selected_id, runtime_scope)
     if fact is None:
         raise MemoryCardError(f"memory card not found: {selected_id}")
+    fact = _enrich_fact_from_service_lineage(service, fact)
     related = _provider_facts(
         service.memory,
         runtime_scope,
@@ -110,6 +113,7 @@ def get_memory_card(
         include_inactive=True,
         include_superseded=True,
     )
+    related = [_enrich_fact_from_service_lineage(service, item) for item in related]
     card = _memory_card_from_fact(
         service,
         fact,
@@ -183,6 +187,7 @@ def _memory_card_from_fact(
     runtime_scope: dict[str, Any],
     superseded_by: dict[str, MemoryFact] | None = None,
 ) -> dict[str, Any]:
+    fact = _enrich_fact_from_service_lineage(service, fact)
     metadata = dict(fact.metadata or {})
     display_text = _display_text(fact)
     supersedes = _superseded_target_ids(metadata)
@@ -228,6 +233,17 @@ def _memory_card_from_fact(
         "metadata": to_jsonable(metadata),
         "next_actions": _card_next_actions(fact, status, quality),
     }
+
+
+def _enrich_fact_from_service_lineage(service: Any, fact: MemoryFact) -> MemoryFact:
+    enrich = getattr(service, "enrich_memory_fact_with_lineage", None)
+    if not callable(enrich):
+        return fact
+    try:
+        enriched = enrich(fact)
+    except Exception:
+        return fact
+    return enriched if isinstance(enriched, MemoryFact) else fact
 
 
 def _memory_card_status(

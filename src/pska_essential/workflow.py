@@ -56,6 +56,7 @@ from pska_essential.source_registry import SQLiteSourceRegistry, is_personal_sou
 
 
 SOURCE_PROMOTION_ORIGIN = "source_promotion"
+MEMORY_FACT_LINEAGE_SCHEMA = "pska.memory_fact_lineage.v1"
 MEMORY_CARD_TYPES = {
     "identity",
     "preference",
@@ -2040,13 +2041,18 @@ class WorkflowService:
         search_scope = _memory_runtime_scope(scope)
         requested_limit = max(0, int(limit))
         include_superseded = any(bool(search_scope.get(key)) for key in MEMORY_INCLUDE_SUPERSEDED_SCOPE_KEYS)
-        facts, raw_facts, superseded = _memory_search_view(
-            self.memory,
-            query,
-            search_scope,
-            requested_limit,
-            include_superseded=include_superseded,
-        )
+        normalized_query = str(query or "").strip()
+        if not normalized_query or requested_limit <= 0:
+            facts, raw_facts, superseded = [], [], []
+        else:
+            raw_limit = _memory_search_raw_limit(requested_limit)
+            raw_facts = _rank_memory_facts(self.memory.search(normalized_query, search_scope, raw_limit))
+            raw_facts = [self.enrich_memory_fact_with_lineage(fact) for fact in raw_facts]
+            facts, superseded = _resolve_memory_search_supersession(
+                raw_facts,
+                include_superseded=include_superseded,
+            )
+            facts = facts[:requested_limit]
         self.store.add_audit_event(
             audit_event(
                 "memory.search",
@@ -2067,6 +2073,25 @@ class WorkflowService:
             )
         )
         return facts
+
+    def memory_fact_lineage(self, memory_fact: MemoryFact | dict[str, Any] | str, limit: int = 100) -> dict[str, Any]:
+        fact_id = _memory_fact_lineage_id(memory_fact)
+        if not fact_id:
+            return {"schema": MEMORY_FACT_LINEAGE_SCHEMA, "status": "unresolved", "reason": "missing_fact_id"}
+        try:
+            lifecycle = self.memory_lifecycle(fact_id, limit=limit)
+        except Exception as exc:
+            return {
+                "schema": MEMORY_FACT_LINEAGE_SCHEMA,
+                "status": "unresolved",
+                "memory_fact_id": fact_id,
+                "reason": str(exc),
+            }
+        return _memory_fact_lineage_from_lifecycle(self.store, fact_id, lifecycle)
+
+    def enrich_memory_fact_with_lineage(self, fact: MemoryFact) -> MemoryFact:
+        lineage = self.memory_fact_lineage(fact)
+        return _enrich_memory_fact_with_lineage(fact, lineage)
 
     def memory_apply(self, review_id: str) -> MemoryApplyResult:
         existing = self.store.get_memory_apply(review_id)
@@ -2699,13 +2724,14 @@ class WorkflowService:
         runtime_scope = _memory_runtime_scope(scope or {})
         get_fact = getattr(self.memory, "get_fact", None)
         if callable(get_fact):
-            return get_fact(memory_id, runtime_scope)
+            fact = get_fact(memory_id, runtime_scope)
+            return self.enrich_memory_fact_with_lineage(fact) if fact is not None else None
         matches = [
             fact
             for fact in self.memory.search(memory_id, {**runtime_scope, "include_superseded_memory": True}, 10)
             if fact.fact_id == memory_id
         ]
-        return matches[0] if matches else None
+        return self.enrich_memory_fact_with_lineage(matches[0]) if matches else None
 
 
 def build_fake_service(db_path: str = ":memory:") -> WorkflowService:
@@ -3421,6 +3447,211 @@ def _memory_lifecycle_semantic_target_ids(metadata: dict[str, Any]) -> list[str]
     target_ids.extend(_string_list(metadata.get("semantic_target_ids")))
     target_ids.extend(_memory_fact_superseded_target_ids_from_metadata(metadata))
     return _unique_strings(target_ids)
+
+
+def _memory_fact_lineage_id(memory_fact: MemoryFact | dict[str, Any] | str) -> str:
+    if isinstance(memory_fact, MemoryFact):
+        return str(memory_fact.fact_id or "").strip()
+    if isinstance(memory_fact, dict):
+        for key in ("fact_id", "memory_id", "target_id", "id"):
+            value = str(memory_fact.get(key) or "").strip()
+            if value:
+                return value
+        return ""
+    return str(memory_fact or "").strip()
+
+
+def _memory_fact_lineage_from_lifecycle(
+    store: SQLiteReviewStore,
+    fact_id: str,
+    lifecycle: dict[str, Any],
+) -> dict[str, Any]:
+    events = list(lifecycle.get("events") or [])
+    fallback = {
+        "schema": MEMORY_FACT_LINEAGE_SCHEMA,
+        "status": "unresolved",
+        "memory_fact_id": fact_id,
+        "change_count": int(lifecycle.get("change_count") or 0),
+    }
+    for raw_event in reversed(events):
+        event = dict(raw_event or {})
+        action = str(event.get("action") or "").strip()
+        if action not in {"memory.apply", "memory.update", "memory.delete"}:
+            continue
+        lineage = _memory_fact_lineage_from_event(store, fact_id, event)
+        if lineage.get("status") == "resolved":
+            return lineage
+        fallback = lineage
+    return fallback
+
+
+def _memory_fact_lineage_from_event(
+    store: SQLiteReviewStore,
+    fact_id: str,
+    event: dict[str, Any],
+) -> dict[str, Any]:
+    event_metadata = dict(event.get("metadata") or {})
+    review_id = str(event.get("target_id") or event_metadata.get("review_id") or "").strip()
+    review_record = _memory_lineage_review_record(store, review_id)
+    proposal = dict(review_record.get("proposal") or {})
+    payload_key, memory_payload = _memory_lineage_payload_from_proposal(proposal)
+    payload_metadata = dict(memory_payload.get("metadata") or {})
+    proposal_metadata = dict(proposal.get("metadata") or {})
+    lineage_metadata: dict[str, Any] = {}
+    lineage_metadata.update(proposal_metadata)
+    lineage_metadata.update(payload_metadata)
+    for key in (
+        "run_id",
+        "proposal_id",
+        "proposal_kind",
+        "backend",
+        "layer",
+        "confidence",
+        "semantic_operation",
+        "memory_update_strategy",
+        "semantic_target_ids",
+        "source_count",
+    ):
+        value = event_metadata.get(key)
+        if _lineage_value_present(value):
+            lineage_metadata.setdefault(key, value)
+    proposal_id = str(
+        event_metadata.get("proposal_id")
+        or review_record.get("proposal_id")
+        or proposal.get("proposal_id")
+        or ""
+    ).strip()
+    run_id = str(event_metadata.get("run_id") or proposal.get("run_id") or "").strip()
+    source_refs = (
+        _lineage_source_refs(memory_payload.get("source_refs"))
+        or _lineage_source_refs(event_metadata.get("source_refs"))
+        or _lineage_source_refs(review_record.get("source_refs"))
+        or _lineage_source_refs(proposal.get("source_refs"))
+    )
+    if proposal_id:
+        lineage_metadata.setdefault("proposal_id", proposal_id)
+    if review_id:
+        lineage_metadata.setdefault("review_id", review_id)
+    if run_id:
+        lineage_metadata.setdefault("run_id", run_id)
+    if payload_key:
+        lineage_metadata.setdefault("proposal_kind", str(proposal.get("kind") or payload_key))
+    if source_refs:
+        lineage_metadata.setdefault("source_count", len(source_refs))
+    status = "resolved" if review_record or source_refs or lineage_metadata else "unresolved"
+    return {
+        "schema": MEMORY_FACT_LINEAGE_SCHEMA,
+        "status": status,
+        "memory_fact_id": fact_id,
+        "review_id": review_id,
+        "proposal_id": proposal_id,
+        "run_id": run_id,
+        "event_id": str(event.get("audit_event_id") or ""),
+        "event_action": str(event.get("action") or ""),
+        "source_count": len(source_refs),
+        "source_refs": to_jsonable(source_refs),
+        "metadata": to_jsonable(lineage_metadata),
+    }
+
+
+def _memory_lineage_review_record(store: SQLiteReviewStore, review_id: str) -> dict[str, Any]:
+    if not review_id:
+        return {}
+    try:
+        return dict(store.get_review_record(review_id) or {})
+    except Exception:
+        return {}
+
+
+def _memory_lineage_payload_from_proposal(proposal: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    for key in ("memory_patch", "memory_update", "memory_delete"):
+        payload = proposal.get(key)
+        if isinstance(payload, dict):
+            return key, payload
+    return "", {}
+
+
+def _enrich_memory_fact_with_lineage(fact: MemoryFact, lineage: dict[str, Any]) -> MemoryFact:
+    if not isinstance(lineage, dict) or lineage.get("status") != "resolved":
+        return fact
+    provider_metadata = dict(fact.metadata or {})
+    lineage_metadata = dict(lineage.get("metadata") or {})
+    metadata = dict(provider_metadata)
+    for key, value in lineage_metadata.items():
+        if _lineage_value_present(value) and not _lineage_value_present(metadata.get(key)):
+            metadata[key] = value
+    for key in ("review_id", "proposal_id", "run_id"):
+        value = str(lineage.get(key) or "").strip()
+        if value and not _lineage_value_present(metadata.get(key)):
+            metadata[key] = value
+    if str(metadata.get("lineage_status") or "").strip() in {"", "unresolved"}:
+        metadata["lineage_status"] = "resolved"
+    metadata.setdefault(
+        "pska_lineage",
+        {
+            "schema": MEMORY_FACT_LINEAGE_SCHEMA,
+            "status": "resolved",
+            "review_id": str(lineage.get("review_id") or ""),
+            "proposal_id": str(lineage.get("proposal_id") or ""),
+            "run_id": str(lineage.get("run_id") or ""),
+            "source_count": int(lineage.get("source_count") or 0),
+        },
+    )
+    source_refs = list(fact.source_refs or [])
+    lineage_source_refs = _lineage_source_refs(lineage.get("source_refs"))
+    if lineage_source_refs and _memory_fact_source_refs_need_lineage(source_refs):
+        source_refs = lineage_source_refs
+    source_refs = _unique_source_refs(source_refs)
+    if metadata == provider_metadata and source_refs == list(fact.source_refs or []):
+        return fact
+    return MemoryFact(
+        fact_id=fact.fact_id,
+        text=fact.text,
+        source_refs=source_refs,
+        valid_at=fact.valid_at,
+        invalid_at=fact.invalid_at,
+        metadata=metadata,
+    )
+
+
+def _lineage_source_refs(value: Any) -> list[SourceRef]:
+    refs: list[SourceRef] = []
+    for item in value or []:
+        if isinstance(item, SourceRef):
+            refs.append(item)
+        elif isinstance(item, dict):
+            try:
+                ref = SourceRef.from_dict(item)
+            except TypeError:
+                continue
+            if ref.metadata is None:
+                ref.metadata = {}
+            refs.append(ref)
+    return refs
+
+
+def _memory_fact_source_refs_need_lineage(source_refs: list[SourceRef]) -> bool:
+    if not source_refs:
+        return True
+    return all(_is_synthetic_memory_source_ref(ref) for ref in source_refs)
+
+
+def _is_synthetic_memory_source_ref(ref: SourceRef) -> bool:
+    metadata = dict(ref.metadata or {})
+    kind = str(metadata.get("kind") or "").strip()
+    if ref.adapter == "gbrain" and kind in {"memory_fact", "recall_result"}:
+        return True
+    return ref.adapter == "gbrain" and str(ref.title or "").strip() == "GBrain fact"
+
+
+def _lineage_value_present(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set, dict)):
+        return bool(value)
+    return True
 
 
 def _proposal_semantic_target_ids(proposal: Proposal) -> list[str]:
