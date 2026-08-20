@@ -571,6 +571,12 @@
   }
 
   async function onFirstRunClick(event) {
+    const exitButton = event.target?.closest?.("[data-pska-first-run-exit-notes]");
+    if (exitButton) {
+      event.preventDefault();
+      await markExitNotesDone();
+      return;
+    }
     const button = event.target?.closest?.("[data-pska-first-run-status]");
     if (!button) return;
     const itemId = button.getAttribute("data-pska-first-run-id") || "";
@@ -1150,6 +1156,7 @@
         <div>
           <h2>First-run checklist</h2>
           <p>${escapeHtml(firstRunSummary(session))}</p>
+          <button class="pska-mini-inline-btn pska-mini-first-run-exit-btn" data-pska-first-run-exit-notes="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark exit notes</button>
         </div>
         <div class="pska-mini-first-run-meter" title="${escapeAttr(firstRunDataFlowTitle(session))}">
           <strong>${escapeHtml(String(progress.done_count || 0))}/${escapeHtml(String(progress.total_count || 0))}</strong>
@@ -1545,6 +1552,11 @@
     await updateFirstRunItem("keep_writeback_locked", "done", note);
   }
 
+  async function markExitNotesDone() {
+    const note = firstRunExitNote();
+    await updateFirstRunItem("record_exit_notes", "done", note);
+  }
+
   async function markReviewQueueDone() {
     const note = reviewQueueInspectionNote();
     await updateFirstRunItem("review_memory_queue", "done", note);
@@ -1589,6 +1601,35 @@
       `GBrain ${gbrainStatusLabel(gbrain)}`,
       `alpha ${alphaStatusLabel(alpha)}`
     ].join(" · ");
+  }
+
+  function firstRunExitNote() {
+    const session = memoryPage.firstRunSession || {};
+    const progress = session.progress || {};
+    return [
+      "exit notes recorded",
+      `session ${session.status || "unknown"}`,
+      `readiness ${session.readiness_status || "unknown"}`,
+      `recovery ${session.recovery_status || "unknown"}`,
+      `required ${progress.required_done_count || 0}/${progress.required_count || 0}`,
+      firstRunExitConclusion(session)
+    ].filter(Boolean).join(" · ");
+  }
+
+  function firstRunExitConclusion(session) {
+    const progress = session.progress || {};
+    const requiredDone = Number(progress.required_done_count || 0);
+    const requiredCount = Number(progress.required_count || 0);
+    if (requiredCount > 0 && requiredDone < requiredCount) {
+      return "keep owner-only until required items close";
+    }
+    if (session.recovery_status && session.recovery_status !== "ready") {
+      return "repeat owner dogfood with recovery caution";
+    }
+    if (session.status === "ready_for_repetition") {
+      return "safe to repeat guided first run";
+    }
+    return "review notes before broader trial";
   }
 
   function recoveryConfirmationActionHtml() {

@@ -100,7 +100,7 @@ cd /Users/xudawei/PSKA-Essential
 - Recent Answer Proofs：查看最近 Hermes 回答实际观测到的 PSKA 工具调用、只读状态和资料范围；点开 `View Trace` 后，可以从该 proof 起草一条可编辑的记忆候选，并把 proof 作为来源带入 Review Queue；检查通过的只读 proof 也可以点 `Mark sourced Ask done` 记录首次试用进度。
 - Source Evidence：搜索已选资料源或导入的 ChatGPT 对话档案，读取原文，再起草带 `SourceRef` 的记忆候选。候选草稿必须人工改写后才能进入 Review Queue；起草后可以点 `Mark rehearsal done` 记录首次试用进度。
 - Review 页面：查看候选，接受、拒绝，或把已接受候选写入长期记忆；打开候选详情后可以点 `Mark review inspected` 记录首次试用进度。
-- First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注，其中包括一次 Source Evidence 到记忆候选的演练。
+- First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注，其中包括一次 Source Evidence 到记忆候选的演练；所有必选项检查后可点 `Mark exit notes` 保存退出总结。
 - Kanban 投影：把 PSKA 审核项同步到 Hermes 的 `pska-review` 看板。
 - Digest Runner：创建 Hermes Tasks 入口，用于摘要和消化任务。
 - LLM proof：可选地让 Hermes 真实回答一次，确认回答侧调用了 PSKA 工具、没有写入型动作，清理临时会话，并把回答侧 proof 写入 PSKA audit。

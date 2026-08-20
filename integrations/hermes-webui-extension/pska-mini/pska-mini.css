@@ -714,6 +714,10 @@ main.main.showing-pska-mini > #mainPskaMini {
   line-height: 1.35;
 }
 
+.pska-mini-first-run-exit-btn {
+  margin: 8px 0 0;
+}
+
 .pska-mini-first-run-meter {
   display: grid;
   justify-items: end;

@@ -264,6 +264,7 @@ async function runDesktop(context, checks, artifacts) {
     hasRecoveryButton: Boolean(document.querySelector("[data-pska-first-run-recovery-done]")),
     hasWritebackButton: Boolean(document.querySelector("[data-pska-first-run-writeback-locked]")),
     hasScopeButton: Boolean(document.querySelector("[data-pska-first-run-scope-done]")),
+    hasExitNotesButton: Boolean(document.querySelector("[data-pska-first-run-exit-notes]")),
     hasReviewViewButton: Boolean(document.querySelector('[data-pska-review-action="view"]')),
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
     fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 2000) || "",
@@ -287,6 +288,7 @@ async function runDesktop(context, checks, artifacts) {
       && memoryCheck.hasRecoveryButton
       && memoryCheck.hasWritebackButton
       && memoryCheck.hasScopeButton
+      && memoryCheck.hasExitNotesButton
       && /Recovery/iu.test(memoryCheck.scopeAction)
       && /Selected read-only scope/iu.test(memoryCheck.scopeAction)
       && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)
@@ -594,6 +596,33 @@ async function runDesktop(context, checks, artifacts) {
       detail: { skipped: "No answer proof recorded yet" },
     });
   }
+
+  await page.click("[data-pska-first-run-exit-notes]");
+  await page.waitForFunction(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Record exit notes/iu.test(node.innerText || ""));
+    const text = item?.innerText || "";
+    const note = item?.querySelector("textarea")?.value || "";
+    return /done/iu.test(text)
+      && /exit notes recorded/iu.test(note)
+      && /required\s+\d+\/\d+/iu.test(note);
+  }, { timeout: 15000 });
+  const exitNotesCheck = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Record exit notes/iu.test(node.innerText || ""));
+    return {
+      text: item?.innerText?.slice(0, 900) || "",
+      note: item?.querySelector("textarea")?.value || "",
+    };
+  });
+  assertCheck(checks, "First-run exit notes record readiness and repeat guidance", (
+    /done/iu.test(exitNotesCheck.text)
+      && /exit notes recorded/iu.test(exitNotesCheck.note)
+      && /readiness/iu.test(exitNotesCheck.note)
+      && /recovery/iu.test(exitNotesCheck.note)
+      && /required\s+\d+\/\d+/iu.test(exitNotesCheck.note)
+      && /repeat|owner-only|broader trial/iu.test(exitNotesCheck.note)
+  ), exitNotesCheck);
   artifacts.desktopMemoryPage = path.join(OUT_DIR, "desktop-memory-page.png");
   await page.screenshot({ path: artifacts.desktopMemoryPage, fullPage: false });
 

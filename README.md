@@ -915,6 +915,11 @@ and `Mark writeback locked`, and records backup/drill counts or writeback
 preflight locks against `confirm_recovery_plan` and `keep_writeback_locked`.
 These actions do not create backups, restore data, export providers, or enable
 native source writeback.
+M30h links first-run exit notes to the guided checklist: Hermes WebUI shows
+`Mark exit notes` in the checklist header and records readiness, recovery,
+required-item progress, and conservative repeat guidance against
+`record_exit_notes`. This does not change alpha readiness; it only captures the
+operator's final first-run summary.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

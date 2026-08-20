@@ -444,6 +444,12 @@ Hermes WebUI 读取 `GET /api/alpha/recovery-plan` 后，在 Memory 页状态区
 `keep_writeback_locked` 标成 done，并记录 writeback preflight 与首次试用仍被锁定的 native
 writeback 操作。两个动作都不创建备份、不恢复数据、不导出 provider，也不启用 source writeback。
 
+P2 的第四十四块已落地为 first-run exit notes：
+Hermes WebUI 在 first-run checklist header 显示 `Mark exit notes`。点击后把
+`record_exit_notes` 标成 done，并记录 readiness、recovery、required item progress 和保守的
+repeat guidance。这个动作不改变 alpha readiness，不把系统自动升级为 broader trial，只保存操作者
+对本次首次演练的退出总结。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。

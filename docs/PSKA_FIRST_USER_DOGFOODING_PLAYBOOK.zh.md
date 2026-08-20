@@ -619,6 +619,7 @@ creative/
   再用 `Draft Memory Candidate` 起草；必须改写成稳定记忆后再创建审核候选。
 - 起草后点 `Mark rehearsal done`，让 First-run checklist 把 `Rehearse source evidence to memory`
   标成 done，并自动记录这次证据来源备注。
+- 所有必选项检查完后，点 `Mark exit notes`，记录这轮是可重复、需谨慎重复，还是继续 owner-only。
 
 验证：
 
