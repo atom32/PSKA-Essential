@@ -25,6 +25,9 @@ RAGFLOW_NEXT_API="${RAGFLOW_NEXT_API:-http://127.0.0.1:9388}"
 RAGFLOW_NEXT_WEB="${RAGFLOW_NEXT_WEB:-http://127.0.0.1:9228}"
 RAGFLOW_NEXT_API_TOKEN="${RAGFLOW_NEXT_API_TOKEN:-${PSKA_V027_API_TOKEN:-}}"
 
+EMBEDDING_DEV_BASE_URL="${EMBEDDING_DEV_BASE_URL:-http://127.0.0.1:6380}"
+EMBEDDING_DEV_LABEL="${EMBEDDING_DEV_LABEL:-com.yuxi.infinity-emb}"
+
 HERMES_WEBUI_STABLE_URL="${HERMES_WEBUI_STABLE_URL:-http://127.0.0.1:8787}"
 HERMES_WEBUI_NEXT_URL="${HERMES_WEBUI_NEXT_URL:-http://127.0.0.1:8887}"
 HERMES_CONFIG_PATH="${HERMES_CONFIG_PATH:-${HERMES_HOME_EFFECTIVE}/config.yaml}"
@@ -142,6 +145,7 @@ print_status() {
   status_url "RAGFlow stable Web" "${RAGFLOW_STABLE_WEB}/"
   status_url "RAGFlow next API" "${RAGFLOW_NEXT_API}/api/v1/system/ping"
   status_url "RAGFlow next Web" "${RAGFLOW_NEXT_WEB}/"
+  status_url "Embedding dev" "${EMBEDDING_DEV_BASE_URL}/health"
   status_url "Hermes WebUI stable" "${HERMES_WEBUI_STABLE_URL}/health"
   status_url "Hermes WebUI next" "${HERMES_WEBUI_NEXT_URL}/health"
 
@@ -152,6 +156,7 @@ print_status() {
   status_label "com.pska.ragflow.next"
   status_label "com.pska.ragflow.web.next"
   status_label "com.pska.ragflow.task-executor.next"
+  status_label "${EMBEDDING_DEV_LABEL}"
   status_label "com.pska.hermes-webui"
   status_label "com.pska.hermes-webui.next"
 }

@@ -279,6 +279,7 @@ class ProductApiTests(unittest.TestCase):
             (route["method"], route["path"])
             for route in capabilities["product_api_contract"]["required_routes"]
         }
+        self.assertIn(("GET", "/api/components/embedding"), contract_routes)
         self.assertIn(("GET", "/api/components/gbrain"), contract_routes)
         self.assertIn(("GET", "/api/alpha/readiness"), contract_routes)
         self.assertIn(("GET", "/api/alpha/trial-guide"), contract_routes)
@@ -2989,6 +2990,8 @@ class ProductApiTests(unittest.TestCase):
         diagnostics = payload["diagnostics"]
         self.assertEqual(diagnostics["status"], "warning")
         self.assertEqual(diagnostics["workspace"]["workspace_id"], "default")
+        self.assertEqual(diagnostics["components"]["embedding"]["schema"], "pska.embedding_component_status.v1")
+        self.assertFalse(diagnostics["components"]["embedding"]["runtime"]["direct_pska_dependency"])
         self.assertEqual(diagnostics["components"]["gbrain"]["schema"], "pska.gbrain_component_status.v1")
         self.assertFalse(diagnostics["components"]["gbrain"]["runtime"]["participates_in_memory_search"])
         checks = {item["name"]: item for item in diagnostics["checks"]}
@@ -3012,6 +3015,18 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(component["runtime"]["participates_in_memory_search"])
         self.assertFalse(component["governance"]["direct_hermes_mcp_allowed"])
         self.assertFalse(component["transport"]["stdio_product_flow_allowed"])
+
+    def test_embedding_component_route_reports_ragflow_side_boundary(self):
+        payload = self._get_json("/api/components/embedding")
+
+        self.assertTrue(payload["ok"])
+        component = payload["component"]
+        self.assertEqual(component["schema"], "pska.embedding_component_status.v1")
+        self.assertEqual(component["kind"], "embedding_provider")
+        self.assertFalse(component["runtime"]["direct_pska_dependency"])
+        self.assertFalse(component["runtime"]["frontend_direct_access_allowed"])
+        self.assertFalse(component["runtime"]["hermes_direct_access_allowed"])
+        self.assertEqual(component["governance"]["allowed_flow"], "Hermes/WebUI -> PSKA -> RAGFlow -> embedding")
 
     def test_retrieval_probe_route_checks_ready_scope_and_writes_audit(self):
         probe = self._post_json(

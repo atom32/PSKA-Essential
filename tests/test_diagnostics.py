@@ -124,6 +124,8 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(checks["memory_provider"]["status"], "ok")
         self.assertEqual(checks["memory_provider"]["metadata"]["provider"], "sqlite")
         self.assertEqual(checks["memory_search_contract"]["status"], "ok")
+        self.assertEqual(diagnostics["components"]["embedding"]["schema"], "pska.embedding_component_status.v1")
+        self.assertFalse(diagnostics["components"]["embedding"]["runtime"]["direct_pska_dependency"])
         self.assertEqual(diagnostics["components"]["gbrain"]["schema"], "pska.gbrain_component_status.v1")
         self.assertEqual(diagnostics["components"]["gbrain"]["runtime"]["pska_adapter"], "available_not_selected")
         self.assertFalse(diagnostics["components"]["gbrain"]["runtime"]["participates_in_memory_search"])

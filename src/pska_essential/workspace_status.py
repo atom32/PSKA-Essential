@@ -5,6 +5,7 @@ from typing import Any
 
 from pska_essential.agentic_loop import list_resumable_agentic_questions
 from pska_essential.capabilities import memory_capabilities, memory_operation_for_proposal_kind
+from pska_essential.embedding_component import build_embedding_component_status
 from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
 from pska_essential.memory_candidate_quality import memory_candidate_quality_issue
@@ -96,6 +97,7 @@ def build_workspace_status(
             "memory": memory_caps,
         },
         "components": {
+            "embedding": build_embedding_component_status(),
             "gbrain": build_gbrain_component_status(),
         },
         "memory": {
@@ -160,6 +162,7 @@ def compact_workspace_status(
     cards = dict(memory.get("cards") or {})
     health = dict(memory.get("health") or {})
     components = dict(status.get("components") or {})
+    embedding = dict(components.get("embedding") or {})
     gbrain = dict(components.get("gbrain") or {})
 
     return {
@@ -173,6 +176,7 @@ def compact_workspace_status(
             "memory": _compact_memory_capabilities(memory_caps),
         },
         "components": {
+            "embedding": _compact_embedding(embedding),
             "gbrain": _compact_gbrain(gbrain),
         },
         "memory": {
@@ -282,6 +286,46 @@ def _compact_gbrain(gbrain: dict[str, Any]) -> dict[str, Any]:
             "participates_in_memory_search": bool(runtime.get("participates_in_memory_search")),
             "participates_in_agentic_context_brief": bool(runtime.get("participates_in_agentic_context_brief")),
             "participates_in_jarvis_briefing": bool(runtime.get("participates_in_jarvis_briefing")),
+        },
+    }
+
+
+def _compact_embedding(embedding: dict[str, Any]) -> dict[str, Any]:
+    runtime = dict(embedding.get("runtime") or {})
+    model = dict(embedding.get("model") or {})
+    endpoints = dict(embedding.get("endpoints") or {})
+    delivery = dict(embedding.get("delivery") or {})
+    local_dev = dict(embedding.get("local_dev") or {})
+    return {
+        "schema": embedding.get("schema"),
+        "name": embedding.get("name"),
+        "status": embedding.get("status"),
+        "mode": embedding.get("mode"),
+        "runtime": {
+            "product_flow_status": runtime.get("product_flow_status") or "",
+            "direct_pska_dependency": bool(runtime.get("direct_pska_dependency")),
+            "frontend_direct_access_allowed": bool(runtime.get("frontend_direct_access_allowed")),
+            "hermes_direct_access_allowed": bool(runtime.get("hermes_direct_access_allowed")),
+        },
+        "model": {
+            "configured": model.get("configured") or "",
+            "delivery_default": model.get("delivery_default") or "",
+            "local_dev_default": model.get("local_dev_default") or "",
+        },
+        "endpoints": {
+            "host_health_url": endpoints.get("host_health_url") or "",
+            "ragflow_expected_url": endpoints.get("ragflow_expected_url") or "",
+            "probed": bool(endpoints.get("probed")),
+        },
+        "delivery": {
+            "runtime": delivery.get("runtime") or "",
+            "enabled": bool(delivery.get("enabled")),
+            "image": delivery.get("image") or "",
+        },
+        "local_dev": {
+            "runtime": local_dev.get("runtime") or "",
+            "enabled_by_current_machine": bool(local_dev.get("enabled_by_current_machine")),
+            "launchd_label": local_dev.get("launchd_label") or "",
         },
     }
 

@@ -59,6 +59,32 @@ RAGFlow container
 
 因此 embedding 已经天然是 provider 形态。当前不要把开发机强行改成 TEI 镜像，除非要验证交付包。
 
+### Embedding 组件契约
+
+PSKA 当前把 embedding 作为 RAGFlow 侧组件建模，而不是 PSKA/Hermes/WebUI 的直接依赖。
+
+```text
+Hermes / WebUI
+  -> PSKA API / PSKA HTTP MCP
+  -> RAGFlow
+  -> embedding provider
+```
+
+已落地的只读状态：
+
+- `workspace_status.components.embedding.schema = pska.embedding_component_status.v1`
+- `GET /api/components/embedding`
+- `GET /api/runtime/diagnostics` 的 `components.embedding`
+- 开发机模式：`local_infinity_dev`
+- 交付模式：`tei_container_delivery`
+- 允许的调用路径：`Hermes/WebUI -> PSKA -> RAGFlow -> embedding`
+- 禁止的调用路径：`Hermes/WebUI -> embedding`
+
+本机开发环境可以继续用 `com.yuxi.infinity-emb` 和 `127.0.0.1:6380`。给别人部署时，
+`deploy/full-compose` 仍启动 TEI 镜像，RAGFlow 通过 Docker 私有网络访问
+`http://pska-embedding:80`。这两种形态共享同一个 PSKA component status，不再是两套互相
+看不见的说明。
+
 ## RAGFlow v0.27 旁路状态
 
 旁路目录：

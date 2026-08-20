@@ -45,6 +45,7 @@ from pska_essential.digest_jobs import enqueue_digest_job, list_digest_jobs, run
 from pska_essential.eidolia_import import import_eidolia_project_traces
 from pska_essential.env_file import preload_env_file
 from pska_essential.eval import run_eval
+from pska_essential.embedding_component import build_embedding_component_status
 from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import build_workspace_policy_from_env
 from pska_essential.ingest_loop import resume_ingest_loop, run_ingest_loop
@@ -92,6 +93,7 @@ KbGatewayFactory = Callable[[], Any]
 PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/health"},
     {"method": "GET", "path": "/api/capabilities"},
+    {"method": "GET", "path": "/api/components/embedding"},
     {"method": "GET", "path": "/api/components/gbrain"},
     {"method": "GET", "path": "/api/alpha/readiness"},
     {"method": "GET", "path": "/api/alpha/trial-guide"},
@@ -294,6 +296,10 @@ def _handler_class(state: ProductApiState):
 
             if method == "GET" and path == "/api/components/gbrain":
                 self._send_json({"ok": True, "component": build_gbrain_component_status()})
+                return
+
+            if method == "GET" and path == "/api/components/embedding":
+                self._send_json({"ok": True, "component": build_embedding_component_status()})
                 return
 
             if method == "GET" and path == "/api/migration/manifest":
