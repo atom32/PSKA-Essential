@@ -67,6 +67,7 @@ function summarize(json, text) {
   if (json.service) return `${json.service} ${json.product_api || ""}`.trim();
   if (json.datasets) return `datasets=${json.datasets.length}`;
   if (json.workspace_status) return `workspace_status keys=${Object.keys(json.workspace_status).length}`;
+  if (json.alpha_readiness) return `alpha=${json.alpha_readiness.status || "unknown"}`;
   if (json.diagnostics) return `diagnostics=${json.diagnostics.status || "ok"}`;
   if (json.probe) return `probe=${json.probe.status || "ok"} contexts=${json.probe.context_count || 0}`;
   if (json.turn_context) return `turn_context evidence=${(json.turn_context.evidence_blocks || []).length} memory=${(json.turn_context.memory_notes || []).length}`;
@@ -126,7 +127,11 @@ async function main() {
     (json, response) => response.ok && json?.id === "pska-mini" && json?.sidecar?.origin === "http://127.0.0.1:8765",
   );
   const jsAsset = await request("/extensions/pska-mini/pska-mini.js");
-  record("Extension JS loads and contains handlers", jsAsset.response.ok && jsAsset.text.includes("runJarvisBrief") && jsAsset.text.includes("createDigestTask"), {
+  record("Extension JS loads and contains handlers", jsAsset.response.ok
+    && jsAsset.text.includes("runJarvisBrief")
+    && jsAsset.text.includes("createDigestTask")
+    && jsAsset.text.includes("/api/alpha/readiness")
+    && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
     bytes: jsAsset.text.length,
   });
@@ -157,6 +162,12 @@ async function main() {
   );
   await testJson("Dashboard: runtime diagnostics", "/api/extensions/pska-mini/sidecar/api/runtime/diagnostics", {}, (json, response) =>
     response.ok && json?.diagnostics?.status !== "error",
+  );
+  await testJson("Dashboard: alpha readiness", "/api/extensions/pska-mini/sidecar/api/alpha/readiness", {}, (json, response) =>
+    response.ok
+      && json?.alpha_readiness?.status === "alpha_ready"
+      && json.alpha_readiness?.summary?.warn_count === 0
+      && json.alpha_readiness?.summary?.fail_count === 0,
   );
   await testJson("Hermes context: active profile", "/api/profile/active", {}, (json, response) => response.ok && (json?.profile || json?.name));
   await testJson("Hermes context: projects", "/api/projects", {}, (json, response) => response.ok && (Array.isArray(json?.projects) || Array.isArray(json)));

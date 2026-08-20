@@ -138,7 +138,8 @@ async function openMenuAndWait(page) {
     const text = document.querySelector("#pskaMiniStatus")?.innerText || "";
     return /API\s+ready/iu.test(text)
       && /KB\s+(\d+\/\d+|ready)/iu.test(text)
-      && /Embedding\s+(local|TEI|external)/iu.test(text);
+      && /Embedding\s+(local|TEI|external)/iu.test(text)
+      && /Alpha\s+alpha_ready/iu.test(text);
   }, { timeout: 20000 });
 }
 
@@ -185,7 +186,8 @@ async function runDesktop(context, checks, artifacts) {
     "Desktop menu visible and in viewport",
     menuCheck.visible
       && !Object.values(menuCheck.overflows).some(Boolean)
-      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText),
+      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText)
+      && /Alpha\s+alpha_ready/iu.test(menuCheck.statusText),
     menuCheck,
   );
   artifacts.desktopMenu = path.join(OUT_DIR, "desktop-menu.png");
@@ -216,6 +218,7 @@ async function runDesktop(context, checks, artifacts) {
     const countMatch = count.match(/(\d+)\s+shown/iu);
     return /API\s+ready/iu.test(status)
       && /Embedding\s+(local|TEI|external)/iu.test(status)
+      && /Alpha\s+alpha_ready/iu.test(status)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/Loading memory/iu.test(memoryText)
@@ -239,6 +242,7 @@ async function runDesktop(context, checks, artifacts) {
       && /PSKA Memory/iu.test(memoryCheck.title)
       && /governed memory and review queue/iu.test(memoryCheck.subtitle)
       && /Embedding\s+(local|TEI|external)/iu.test(memoryCheck.status)
+      && /Alpha\s+alpha_ready/iu.test(memoryCheck.status)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/SQLite memory/iu.test(memoryCheck.fullText)
@@ -334,7 +338,8 @@ async function runMobile(context, checks, artifacts) {
     "Mobile menu visible and in viewport",
     menuCheck.visible
       && !Object.values(menuCheck.overflows).some(Boolean)
-      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText),
+      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText)
+      && /Alpha\s+alpha_ready/iu.test(menuCheck.statusText),
     menuCheck,
   );
   artifacts.mobileMenu = path.join(OUT_DIR, "mobile-menu.png");

@@ -51,6 +51,7 @@
     hermesProfile: null,
     hermesProjects: null,
     hermesWorkspaces: null,
+    alphaReadiness: null,
     scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
@@ -595,6 +596,7 @@
     const kb = workspace.kb || {};
     const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
+    const alpha = alphaReadiness();
     container.innerHTML = `
       <div class="pska-mini-page-pills">
         <span class="pska-mini-pill ${dashboard.health?.ok ? "is-ok" : "is-bad"}"><b>API</b> ${dashboard.health?.ok ? "ready" : "missing"}</span>
@@ -602,6 +604,7 @@
         <span class="pska-mini-pill ${kb.usable ? "is-ok" : "is-warn"}"><b>KB</b> ${escapeHtml(kb.usable ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready")}</span>
         <span class="pska-mini-pill is-${escapeAttr(embeddingTone(embedding))}" title="${escapeAttr(embeddingTitle(embedding))}"><b>Embedding</b> ${escapeHtml(embeddingStatusLabel(embedding))}</span>
         <span class="pska-mini-pill is-${escapeAttr(gbrainTone(gbrain))}"><b>GBrain</b> ${escapeHtml(gbrainStatusLabel(gbrain))}</span>
+        <span class="pska-mini-pill is-${escapeAttr(alphaTone(alpha))}" title="${escapeAttr(alphaTitle(alpha))}"><b>Alpha</b> ${escapeHtml(alphaStatusLabel(alpha))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
@@ -723,6 +726,7 @@
       hermesProfile: fetchWebuiJson("/api/profile/active", { timeoutMs: 5000 }),
       hermesProjects: fetchWebuiJson("/api/projects", { timeoutMs: 5000 }),
       hermesWorkspaces: fetchWebuiJson("/api/workspaces", { timeoutMs: 5000 }),
+      alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 5000 }),
       diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 5000 })
     });
     const diagnosticsValue = valueOrNull(results.diagnostics);
@@ -735,6 +739,7 @@
       hermesProfile: valueOrNull(results.hermesProfile),
       hermesProjects: valueOrNull(results.hermesProjects),
       hermesWorkspaces: valueOrNull(results.hermesWorkspaces),
+      alphaReadiness: valueOrNull(results.alphaReadiness)?.alpha_readiness || null,
       scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
         ? errorText(results.diagnostics.reason)
@@ -771,6 +776,7 @@
           <span class="pska-mini-pill is-warn"><b>Memory</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Embedding</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>GBrain</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>Alpha</b> checking</span>
         </div>
         <div class="pska-mini-muted">Refreshing PSKA workspace status...</div>
       `;
@@ -784,12 +790,14 @@
     const memoryOk = Boolean(providers.memory) && !dashboard.diagnosticsError;
     const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
+    const alpha = alphaReadiness();
     const statusItems = [
       ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad", ""],
       ["KB", kbOk ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready", kbOk ? "ok" : "warn", ""],
       ["Memory", memoryOk ? providers.memory : "down", memoryOk ? "ok" : "bad", ""],
       ["Embedding", embeddingStatusLabel(embedding), embeddingTone(embedding), embeddingTitle(embedding)],
-      ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain), ""]
+      ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain), ""],
+      ["Alpha", alphaStatusLabel(alpha), alphaTone(alpha), alphaTitle(alpha)]
     ];
     container.innerHTML = `
       <div class="pska-mini-status-pills">
@@ -850,6 +858,34 @@
     if (!component) return "bad";
     if (component.runtime?.participates_in_memory_search) return "ok";
     return "warn";
+  }
+
+  function alphaReadiness() {
+    return dashboard.alphaReadiness || null;
+  }
+
+  function alphaStatusLabel(readiness) {
+    if (!readiness) return "not visible";
+    return String(readiness.status || "unknown");
+  }
+
+  function alphaTone(readiness) {
+    const status = String(readiness?.status || "");
+    if (status === "alpha_ready") return "ok";
+    if (status === "technical_alpha" || status === "technical_alpha_only") return "warn";
+    return "bad";
+  }
+
+  function alphaTitle(readiness) {
+    if (!readiness) return "Alpha readiness is not visible in PSKA Product API.";
+    const summary = readiness.summary || {};
+    const parts = [
+      readiness.audience || "",
+      `pass ${summary.pass_count || 0}/${summary.check_count || 0}`,
+      `warn ${summary.warn_count || 0}`,
+      `fail ${summary.fail_count || 0}`
+    ];
+    return parts.filter(Boolean).join(" · ");
   }
 
   function renderDatasets() {
