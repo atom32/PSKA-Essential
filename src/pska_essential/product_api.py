@@ -88,6 +88,7 @@ from pska_essential.search_index_evaluation import build_search_index_evaluation
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
 from pska_essential.trace_coverage import build_trace_coverage
+from pska_essential.wakeup import build_wakeup_plan
 from pska_essential.workflow import WorkflowError, WorkflowService
 from pska_essential.workspace_status import build_workspace_status, compact_workspace_status
 
@@ -112,6 +113,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/agentic/specialist-profiles"},
     {"method": "GET", "path": "/api/provider/jobs"},
     {"method": "GET", "path": "/api/jobs/health"},
+    {"method": "GET", "path": "/api/wakeup/plan"},
     {"method": "GET", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/turn-context"},
@@ -351,6 +353,22 @@ def _handler_class(state: ProductApiState):
                             now=str(query.get("now") or ""),
                             limit=_int_param(query.get("limit"), 50),
                             include_kb=_bool_param(query.get("include_kb"), True),
+                        ),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/wakeup/plan":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "wakeup_plan": build_wakeup_plan(
+                            state.service,
+                            api_base_url=str(query.get("api_base_url") or ""),
+                            interval_minutes=_int_param(query.get("interval_minutes"), 15),
+                            limit=_int_param(query.get("limit"), 20),
+                            label=str(query.get("label") or ""),
+                            check_loaded=_bool_param(query.get("check_loaded"), False),
                         ),
                     }
                 )

@@ -139,8 +139,10 @@ async function main() {
     && jsAsset.text.includes("/api/alpha/first-run-session")
     && jsAsset.text.includes("/api/hermes/answer-proofs")
     && jsAsset.text.includes("/api/jobs/health?include_kb=false")
+    && jsAsset.text.includes("/api/wakeup/plan")
     && jsAsset.text.includes("jobHealthStatusLabel")
     && jsAsset.text.includes("jobHealthCount")
+    && jsAsset.text.includes("wakeupStatusLabel")
     && jsAsset.text.includes("renderAnswerProofs")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
@@ -191,6 +193,14 @@ async function main() {
       && json.job_health?.data_flow?.read_only === true
       && json.job_health?.data_flow?.runs_jobs === false
       && json.job_health?.data_flow?.activates_due_jobs === false,
+  );
+  await testJson("Dashboard: wakeup plan", "/api/extensions/pska-mini/sidecar/api/wakeup/plan", {}, (json, response) =>
+    response.ok
+      && json?.wakeup_plan?.schema === "pska.wakeup_plan.v1"
+      && json.wakeup_plan?.data_flow?.read_only === true
+      && json.wakeup_plan?.data_flow?.calls_tick_endpoint === false
+      && json.wakeup_plan?.data_flow?.activates_due_jobs === false
+      && json.wakeup_plan?.data_flow?.runs_jobs === false,
   );
   await testJson("Dashboard: alpha readiness", "/api/extensions/pska-mini/sidecar/api/alpha/readiness", {}, (json, response) =>
     response.ok

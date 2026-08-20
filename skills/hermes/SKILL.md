@@ -145,7 +145,10 @@ candidate memory, review, and durable export.
 - For file organization work, run `pska_source_audit_run` for an immediate
   read-only check, queue ad-hoc checks with `pska_source_audit_job_enqueue`, or
   create wall-clock recurring checks with `pska_source_audit_schedule_create`.
-  Inspect jobs with `pska_source_audit_job_list`; when workspace/Jarvis says a
+  Use `pska_wakeup_plan` to inspect whether a local launchd/cron bridge is
+  configured for due ticks; it is read-only and must not be treated as
+  permission to install or load a scheduler. Inspect jobs with
+  `pska_source_audit_job_list`; when workspace/Jarvis says a
   scheduled audit is due, call `pska_source_audit_job_tick`, then run the queued
   job with `pska_source_audit_job_run`. Follow audit `next_actions` for
   duplicate review, unresolved links, unlinked notes, and source-route memory

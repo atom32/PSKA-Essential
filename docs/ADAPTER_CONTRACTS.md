@@ -305,13 +305,15 @@ enqueue(job) -> JobRecord
 tick(now, limit) -> TickResult
 run(job_id) -> JobResult
 health(limit) -> JobHealthReport
+wakeup_plan(interval_minutes, limit) -> WakeupPlan
 ```
 
 Provider slots:
 
 - `sqlite_jobs`: implemented job ledger and explicit tick.
 - `watchdog_tick`: implemented bounded authorized-root filesystem event trigger.
-- `system_cron_launchd`: planned external scheduler trigger.
+- `system_cron_launchd`: implemented scheduler plan/status and explicit
+  launchd/cron material generation for the same tick endpoint.
 - `temporal`: future durable execution backend for long-running jobs.
 
 Rules:
@@ -324,6 +326,10 @@ Rules:
   provider jobs. It groups digest, source audit, source extraction, and optional
   KB ingestion jobs, reports due/queued/failed/stale state, and returns explicit
   next actions without running jobs or activating due schedules.
+- `pska_wakeup_plan` is the implemented read-only wakeup bridge plan. It
+  inspects scheduled source audit jobs and local launchd plist state, returns
+  launchd/cron install material, and never installs a scheduler, calls tick,
+  runs jobs, scans source roots, or writes memory during the read.
 - Temporal is a backend for job durability, not the PSKA workflow contract.
 
 ### CloudSourcePort
@@ -431,6 +437,7 @@ The current public tool surface is:
 - `pska_source_audit_run`
 - `pska_source_audit_job_enqueue`
 - `pska_source_audit_schedule_create`
+- `pska_wakeup_plan`
 - `pska_source_audit_job_list`
 - `pska_source_audit_job_tick`
 - `pska_source_audit_job_run`
@@ -482,6 +489,7 @@ The current public tool surface is:
 - `pska_export_brief`
 - `pska_audit_list`
 - `pska_job_health`
+- `pska_wakeup_plan`
 - `pska_component_check`
 - `pska_retrieval_probe`
 - `pska_memory_probe`
@@ -617,6 +625,13 @@ jobs; scanning still requires running the explicit audit job.
 dashboard data for digest, source audit, source extraction, and optional KB
 ingestion jobs. It is read-only: it does not run jobs, does not activate due
 jobs, and does not write source files, source registry entries, or memory.
+`pska_wakeup_plan` and `GET /api/wakeup/plan` provide the Phase 5 local wakeup
+bridge status. The report shows whether the launchd plist exists/matches the
+expected tick command, returns a cron fallback line, and gives manual install
+commands. Reading it is safe: it does not install launchd, does not call
+`pska_source_audit_job_tick`, and does not run source audits. The scheduled
+trigger itself only promotes due waiting source audit jobs to queued metadata;
+the explicit job runner still performs the audit.
 `pska_source_extract_job_enqueue`, `pska_source_extract_job_list`, and
 `pska_source_extract_job_run` provide the PSKA-owned source extraction queue.
 Jobs run a selected extractor through `pska_source_scan`, update rebuildable

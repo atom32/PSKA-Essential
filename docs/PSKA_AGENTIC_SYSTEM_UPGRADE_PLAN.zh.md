@@ -418,6 +418,13 @@ ingestion 分组显示 due、queued、failed、stale、actionable 计数和下�
 它不会在读取时运行 job，不会自动 tick due schedule，不写源文件、source registry
 或 Memory；自动 tick 仍交给 launchd/cron 调用显式 endpoint。
 
+P5 的 local wakeup plan baseline 已落地：
+`GET /api/wakeup/plan` 与 `pska_wakeup_plan` 会只读检查 scheduled source audit
+jobs、due 数量、本机 launchd plist 是否存在/匹配，并生成 launchd plist preview、
+cron fallback line 与人工安装命令。读取 plan 不会安装 scheduler，不会调用 tick，
+不会运行 job，不扫描 source root，不写 Memory；显式 CLI `pska-essential-wakeup install`
+才会写 `~/Library/LaunchAgents`。
+
 新增 Product API / MCP：
 
 ```text
@@ -434,6 +441,7 @@ GET  /api/memory/{memory_id}/use-trace
 GET  /api/memory/{memory_id}/why-used
 GET  /api/memory/{memory_id}/timeline
 GET  /api/trace/query
+GET  /api/wakeup/plan
 POST /api/hermes/answer-proofs
 GET  /api/hermes/answer-proofs
 POST /api/agentic/context-brief
@@ -465,6 +473,7 @@ pska_memory_timeline
 pska_trace_query
 pska_trace_coverage
 pska_job_health
+pska_wakeup_plan
 pska_agentic_context_brief
 pska_agentic_context_brief_list
 pska_workflow_memory_attribution
@@ -605,7 +614,8 @@ Memory，也不允许 Hermes/agent 覆盖默认 provider。
 | --- | --- |
 | Now | SQLite job ledger + explicit tick |
 | Now | `watchdog` bounded watch-once 监听授权 root，生成 extract/audit jobs |
-| Mid | launchd/cron 调用 tick，不常驻也可用 |
+| Now | launchd/cron wakeup plan 生成 tick 调度材料，不默认常驻 |
+| Mid | 显式安装 launchd/cron 后自动调用 tick，不常驻 Hermes agent loop |
 | Later | Temporal 承载长时 digest、large extraction、multi-provider sync |
 
 Temporal 不应进入 Phase 1，因为当前 jobs 还没有复杂到需要 durable execution platform。
@@ -846,17 +856,22 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - Done: `pska_job_health` / `GET /api/jobs/health` 增加只读 job health
   dashboard data，覆盖 digest、source audit、source extraction 和 KB ingestion
   的 due/queued/failed/stale/actionable 状态。
+- Done: `pska_wakeup_plan` / `GET /api/wakeup/plan` 增加只读 local wakeup
+  bridge plan/status，生成 launchd/cron tick 调度材料但不自动安装或运行。
 - OpenTelemetry optional tracing。
 - Phoenix/Ragas/DeepEval eval adapters。
-- `watchdog` 或 launchd/cron 调用 source scan/audit tick。
+- 显式安装后的 launchd/cron 调用 source audit tick。
 - Done baseline: Source extraction/digest/source audit job health dashboard。
+- Done baseline: source audit due tick wakeup plan/status。
 
 验收：
 
 - Done baseline: ask/source/memory/writeback/eval/job 的 recent trace coverage
   可通过 SQLite audit id 检查；完整外部 trace export 仍属 optional tracing。
 - Done: Eval 可以覆盖 source recall、memory utility、why-used、writeback safety。
-- 到期 audit 不需要用户手动点 tick，但仍只处理授权 root。
+- Done baseline: 到期 audit 的本机 wakeup bridge 已有安装材料和状态检查；
+  真正启用仍需 operator 显式安装 launchd/cron，且 tick 仍只处理授权 root
+  的 scheduled source audit metadata。
 
 ### Phase 6: Cloud Connectors And Optional Temporal Graph Memory
 

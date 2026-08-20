@@ -62,6 +62,7 @@
     hermesWorkspaces: null,
     alphaReadiness: null,
     jobHealth: null,
+    wakeupPlan: null,
     scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
@@ -763,6 +764,7 @@
     const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
     const jobs = jobHealth();
+    const wakeup = wakeupPlan();
     const alpha = alphaReadiness();
     container.innerHTML = `
       <div class="pska-mini-page-pills">
@@ -772,11 +774,13 @@
         <span class="pska-mini-pill is-${escapeAttr(embeddingTone(embedding))}" title="${escapeAttr(embeddingTitle(embedding))}"><b>Embedding</b> ${escapeHtml(embeddingStatusLabel(embedding))}</span>
         <span class="pska-mini-pill is-${escapeAttr(gbrainTone(gbrain))}"><b>GBrain</b> ${escapeHtml(gbrainStatusLabel(gbrain))}</span>
         <span class="pska-mini-pill is-${escapeAttr(jobHealthTone(jobs))}" title="${escapeAttr(jobHealthTitle(jobs))}"><b>Jobs</b> ${escapeHtml(jobHealthStatusLabel(jobs))}</span>
+        <span class="pska-mini-pill is-${escapeAttr(wakeupTone(wakeup))}" title="${escapeAttr(wakeupTitle(wakeup))}"><b>Wakeup</b> ${escapeHtml(wakeupStatusLabel(wakeup))}</span>
         <span class="pska-mini-pill is-${escapeAttr(alphaTone(alpha))}" title="${escapeAttr(alphaTitle(alpha))}"><b>Alpha</b> ${escapeHtml(alphaStatusLabel(alpha))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
       ${jobHealthWarning(jobs)}
+      ${wakeupWarning(wakeup)}
       ${memoryPage.error ? `<div class="pska-mini-warning">${escapeHtml(memoryPage.error)}</div>` : ""}
     `;
     const statusSelect = document.getElementById("pskaMiniReviewStatus");
@@ -1138,6 +1142,7 @@
       hermesProjects: fetchWebuiJson("/api/projects", { timeoutMs: 5000 }),
       hermesWorkspaces: fetchWebuiJson("/api/workspaces", { timeoutMs: 5000 }),
       jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: 5000 }),
+      wakeupPlan: pskaMiniFetchJson("/api/wakeup/plan", { timeoutMs: 5000 }),
       alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 5000 }),
       diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 5000 })
     });
@@ -1152,6 +1157,7 @@
       hermesProjects: valueOrNull(results.hermesProjects),
       hermesWorkspaces: valueOrNull(results.hermesWorkspaces),
       jobHealth: valueOrNull(results.jobHealth)?.job_health || null,
+      wakeupPlan: valueOrNull(results.wakeupPlan)?.wakeup_plan || null,
       alphaReadiness: valueOrNull(results.alphaReadiness)?.alpha_readiness || null,
       scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
@@ -1190,6 +1196,7 @@
           <span class="pska-mini-pill is-warn"><b>Embedding</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>GBrain</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Jobs</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>Wakeup</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Alpha</b> checking</span>
         </div>
         <div class="pska-mini-muted">Refreshing PSKA workspace status...</div>
@@ -1205,6 +1212,7 @@
     const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
     const jobs = jobHealth();
+    const wakeup = wakeupPlan();
     const alpha = alphaReadiness();
     const statusItems = [
       ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad", ""],
@@ -1213,6 +1221,7 @@
       ["Embedding", embeddingStatusLabel(embedding), embeddingTone(embedding), embeddingTitle(embedding)],
       ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain), ""],
       ["Jobs", jobHealthStatusLabel(jobs), jobHealthTone(jobs), jobHealthTitle(jobs)],
+      ["Wakeup", wakeupStatusLabel(wakeup), wakeupTone(wakeup), wakeupTitle(wakeup)],
       ["Alpha", alphaStatusLabel(alpha), alphaTone(alpha), alphaTitle(alpha)]
     ];
     container.innerHTML = `
@@ -1225,6 +1234,7 @@
       </div>
       ${dashboard.diagnosticsError ? `<div class="pska-mini-warning">Runtime diagnostics: ${escapeHtml(dashboard.diagnosticsError)}</div>` : ""}
       ${jobHealthWarning(jobs)}
+      ${wakeupWarning(wakeup)}
       ${Object.keys(dashboard.errors).length ? `
         <div class="pska-mini-warning">${Object.entries(dashboard.errors).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join("<br>")}</div>
       ` : ""}
@@ -1286,7 +1296,13 @@
     const summary = health.summary || {};
     const total = jobHealthCount(summary, "job");
     if (health.status === "empty") return "empty";
-    if (health.status === "needs_attention") return `${jobHealthCount(summary, "failed")} failed`;
+    if (health.status === "needs_attention") {
+      const failed = jobHealthCount(summary, "failed");
+      const stale = jobHealthCount(summary, "stale");
+      if (failed) return `${failed} failed`;
+      if (stale) return `${stale} stale`;
+      return "attention";
+    }
     if (health.status === "action_required") {
       const due = jobHealthCount(summary, "due");
       const active = jobHealthCount(summary, "running") + jobHealthCount(summary, "processing");
@@ -1322,12 +1338,59 @@
   function jobHealthWarning(health) {
     if (!health) return "";
     if (!["needs_attention", "action_required"].includes(String(health.status || ""))) return "";
-    const groups = Object.entries(health.groups || {})
-      .filter(([, group]) => group?.status && group.status !== "ok" && group.status !== "empty")
+    const rawGroups = Array.isArray(health.groups) ? health.groups : Object.values(health.groups || {});
+    const groups = rawGroups
+      .filter((group) => group?.status && group.status !== "ok" && group.status !== "empty")
       .slice(0, 3)
-      .map(([key, group]) => `${key}: ${group.status}`);
+      .map((group) => `${group.id || group.label || "jobs"}: ${group.status}`);
     if (!groups.length) return "";
     return `<div class="pska-mini-warning">Job health: ${escapeHtml(groups.join(" · "))}</div>`;
+  }
+
+  function wakeupPlan() {
+    return dashboard.wakeupPlan || null;
+  }
+
+  function wakeupStatusLabel(plan) {
+    if (!plan) return "not visible";
+    const status = String(plan.status || "");
+    if (status === "active") return "active";
+    if (status === "configured") return "configured";
+    if (status === "configured_not_loaded") return "not loaded";
+    if (status === "install_required") return "setup";
+    if (status === "idle") return "idle";
+    if (status === "drift") return "drift";
+    if (status === "cron_or_external_required") return "external";
+    return status || "unknown";
+  }
+
+  function wakeupTone(plan) {
+    const status = String(plan?.status || "");
+    if (!plan) return "bad";
+    if (status === "active" || status === "configured" || status === "idle") return "ok";
+    if (status === "install_required" || status === "configured_not_loaded" || status === "cron_or_external_required") return "warn";
+    return "bad";
+  }
+
+  function wakeupTitle(plan) {
+    if (!plan) return "PSKA wakeup plan is not visible in Product API.";
+    const summary = plan.summary || {};
+    return [
+      String(plan.status || "unknown"),
+      `${summary.scheduled_source_audit_count || 0} scheduled`,
+      `${summary.due_source_audit_count || 0} due`,
+      summary.next_due_at ? `next ${summary.next_due_at}` : "",
+      plan.launchd?.label || ""
+    ].filter(Boolean).join(" · ");
+  }
+
+  function wakeupWarning(plan) {
+    if (!plan) return "";
+    const status = String(plan.status || "");
+    if (!["install_required", "configured_not_loaded", "drift", "cron_or_external_required"].includes(status)) return "";
+    const action = Array.isArray(plan.next_actions) ? plan.next_actions[0] : null;
+    const label = action?.label || wakeupStatusLabel(plan);
+    return `<div class="pska-mini-warning">Wakeup: ${escapeHtml(label)}. ${escapeHtml(plan.launchd?.install_command || "")}</div>`;
   }
 
   function alphaReadiness() {

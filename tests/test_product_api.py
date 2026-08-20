@@ -293,6 +293,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/reviews/merge-candidates"), contract_routes)
         self.assertIn(("GET", "/api/provider/jobs"), contract_routes)
         self.assertIn(("GET", "/api/jobs/health"), contract_routes)
+        self.assertIn(("GET", "/api/wakeup/plan"), contract_routes)
         self.assertIn(("POST", "/api/jarvis/briefing"), contract_routes)
         self.assertIn(("GET", "/api/hermes/answer-proofs"), contract_routes)
         self.assertIn(("POST", "/api/hermes/answer-proofs"), contract_routes)
@@ -362,7 +363,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m34_search_index_evaluation")
+        self.assertEqual(source_layer["status"], "m35_wakeup_plan")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
@@ -373,6 +374,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_source_audit_run", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_enqueue", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_schedule_create", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_wakeup_plan", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_list", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_run", source_layer["mcp_tools"]["implemented"])
@@ -422,7 +424,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(tantivy_search["maturity"], "evaluated_candidate")
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m36_job_health")
+        self.assertEqual(assistant_layer["status"], "m37_wakeup_plan")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_agentic_context_brief", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief_list", assistant_layer["mcp_tools"]["implemented"])
@@ -439,6 +441,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_duplicate_group_mark", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_cleanup_propose", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_tick", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_wakeup_plan", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_audit_job_run", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_extract_job_run", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_watch_once", assistant_layer["mcp_tools"]["implemented"])
@@ -500,6 +503,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_job_health"]["activates_due_jobs"])
         self.assertFalse(tool_policy["pska_job_health"]["writes_source_files"])
         self.assertFalse(tool_policy["pska_job_health"]["writes_memory_directly"])
+        self.assertEqual(tool_policy["pska_wakeup_plan"]["access"], "read")
+        self.assertTrue(tool_policy["pska_wakeup_plan"]["reads_job_ledger"])
+        self.assertTrue(tool_policy["pska_wakeup_plan"]["generates_scheduler_config"])
+        self.assertFalse(tool_policy["pska_wakeup_plan"]["installs_scheduler"])
+        self.assertFalse(tool_policy["pska_wakeup_plan"]["calls_tick_endpoint"])
+        self.assertFalse(tool_policy["pska_wakeup_plan"]["activates_due_jobs"])
+        self.assertFalse(tool_policy["pska_wakeup_plan"]["runs_jobs"])
+        self.assertFalse(tool_policy["pska_wakeup_plan"]["writes_launch_agent"])
         self.assertEqual(
             tool_policy["pska_eval_run"]["supported_suites"],
             ["smoke", "product_acceptance", "governed_context"],
@@ -3084,6 +3095,8 @@ class ProductApiTests(unittest.TestCase):
         jobs = payload["provider_jobs"]
         health_payload = self._get_json("/api/jobs/health?include_kb=true")
         health = health_payload["job_health"]
+        wakeup_payload = self._get_json("/api/wakeup/plan?interval_minutes=15&limit=20")
+        wakeup = wakeup_payload["wakeup_plan"]
 
         self.assertTrue(payload["ok"])
         self.assertEqual(jobs["schema"], "pska.provider_jobs.v1")
@@ -3098,6 +3111,13 @@ class ProductApiTests(unittest.TestCase):
         groups = {group["id"]: group for group in health["groups"]}
         self.assertEqual(groups["kb_ingestion"]["status"], "action_required")
         self.assertEqual(groups["kb_ingestion"]["counts"]["processing"], 2)
+        self.assertTrue(wakeup_payload["ok"])
+        self.assertEqual(wakeup["schema"], "pska.wakeup_plan.v1")
+        self.assertTrue(wakeup["data_flow"]["read_only"])
+        self.assertFalse(wakeup["data_flow"]["calls_tick_endpoint"])
+        self.assertFalse(wakeup["data_flow"]["activates_due_jobs"])
+        self.assertFalse(wakeup["data_flow"]["runs_jobs"])
+        self.assertEqual(wakeup["target"]["api"], "POST /api/sources/audit-jobs/tick")
 
     def test_parse_documents_route_uses_product_api_boundary(self):
         parsed = self._post_json(

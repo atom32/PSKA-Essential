@@ -653,6 +653,22 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "writes_memory_directly": False,
         "embedding_required": False,
     },
+    "pska_wakeup_plan": {
+        "category": "jobs",
+        "access": "read",
+        "durable": False,
+        "reads_job_ledger": True,
+        "generates_scheduler_config": True,
+        "installs_scheduler": False,
+        "calls_tick_endpoint": False,
+        "runs_jobs": False,
+        "activates_due_jobs": False,
+        "writes_launch_agent": False,
+        "writes_source_files": False,
+        "writes_source_registry": False,
+        "writes_memory_directly": False,
+        "embedding_required": False,
+    },
     "pska_policy_get": {"category": "policy", "access": "read", "durable": False},
     "pska_capabilities_get": {"category": "policy", "access": "read", "durable": False},
     "pska_workspace_status": {"category": "status", "access": "read", "durable": False},
@@ -831,7 +847,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m34_search_index_evaluation",
+        "status": "m35_wakeup_plan",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -854,6 +870,7 @@ def source_layer_contract() -> dict[str, Any]:
                 "pska_source_audit_run",
                 "pska_source_audit_job_enqueue",
                 "pska_source_audit_schedule_create",
+                "pska_wakeup_plan",
                 "pska_source_audit_job_list",
                 "pska_source_audit_job_tick",
                 "pska_source_audit_job_run",
@@ -920,7 +937,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m36_job_health",
+        "status": "m37_wakeup_plan",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -942,6 +959,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_duplicate_cleanup_propose",
                 "pska_source_audit_job_enqueue",
                 "pska_source_audit_schedule_create",
+                "pska_wakeup_plan",
                 "pska_source_audit_job_list",
                 "pska_source_audit_job_tick",
                 "pska_source_audit_job_run",
@@ -1272,10 +1290,10 @@ def adapter_slots_contract() -> dict[str, Any]:
                 ),
                 _provider(
                     "system_cron_launchd",
-                    status="planned",
-                    maturity="planned",
+                    status="available",
+                    maturity="implemented",
                     integration="external_scheduler",
-                    supports=["periodic_tick"],
+                    supports=["periodic_tick_plan", "launchd_plist_generation", "cron_line_generation", "manual_install"],
                 ),
                 _python_provider(
                     "temporal",

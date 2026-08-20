@@ -71,6 +71,7 @@ EXPECTED_TOOLS = {
     "pska_eidolia_memory_review_create",
     "pska_trace_query",
     "pska_trace_coverage",
+    "pska_wakeup_plan",
     "pska_eidolia_project_trace_import",
     "pska_policy_get",
     "pska_capabilities_get",
@@ -137,7 +138,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m36_job_health")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m37_wakeup_plan")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -149,6 +150,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_search_index_evaluation", capabilities["source_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_coverage", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_job_health", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_wakeup_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         evaluation = tools["pska_search_index_evaluation"]()
         self.assertEqual(evaluation["schema"], "pska.search_index_evaluation.v1")
         self.assertEqual(evaluation["current_default"], "sqlite_fts5")
@@ -168,6 +170,12 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(job_health["schema"], "pska.job_health.v1")
         self.assertTrue(job_health["data_flow"]["read_only"])
         self.assertFalse(job_health["data_flow"]["runs_jobs"])
+        wakeup = tools["pska_wakeup_plan"](interval_minutes=15, limit=20)
+        self.assertEqual(wakeup["schema"], "pska.wakeup_plan.v1")
+        self.assertTrue(wakeup["data_flow"]["read_only"])
+        self.assertFalse(wakeup["data_flow"]["calls_tick_endpoint"])
+        self.assertFalse(wakeup["data_flow"]["activates_due_jobs"])
+        self.assertFalse(wakeup["data_flow"]["runs_jobs"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -498,6 +506,14 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_job_health"]["activates_due_jobs"])
         self.assertFalse(policy["pska_job_health"]["writes_source_files"])
         self.assertFalse(policy["pska_job_health"]["writes_memory_directly"])
+        self.assertEqual(policy["pska_wakeup_plan"]["access"], "read")
+        self.assertTrue(policy["pska_wakeup_plan"]["reads_job_ledger"])
+        self.assertTrue(policy["pska_wakeup_plan"]["generates_scheduler_config"])
+        self.assertFalse(policy["pska_wakeup_plan"]["installs_scheduler"])
+        self.assertFalse(policy["pska_wakeup_plan"]["calls_tick_endpoint"])
+        self.assertFalse(policy["pska_wakeup_plan"]["activates_due_jobs"])
+        self.assertFalse(policy["pska_wakeup_plan"]["runs_jobs"])
+        self.assertFalse(policy["pska_wakeup_plan"]["writes_launch_agent"])
         self.assertEqual(
             policy["pska_eval_run"]["supported_suites"],
             ["smoke", "product_acceptance", "governed_context"],

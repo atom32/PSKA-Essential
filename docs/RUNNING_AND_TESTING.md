@@ -57,6 +57,17 @@ For job health dashboard data, call Product API `GET /api/jobs/health` or MCP
 `pska_job_health()`. It groups digest, source audit, source extraction, and KB
 ingestion jobs, reports due/queued/failed/stale state, and returns explicit
 next actions without running jobs or activating due schedules.
+For local wakeup status, call Product API `GET /api/wakeup/plan` or MCP
+`pska_wakeup_plan()`. The report is read-only: it checks scheduled source audit
+jobs and launchd/cron material, but it does not install a scheduler, call tick,
+run jobs, scan source roots, or write memory. To explicitly generate or install
+the macOS launchd bridge, use:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pska_essential.wakeup --env-file .env.pska status
+PYTHONPATH=src .venv/bin/python -m pska_essential.wakeup print-plist
+PYTHONPATH=src .venv/bin/python -m pska_essential.wakeup install
+```
 
 ### 2. Hermes MCP Development
 
