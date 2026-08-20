@@ -70,6 +70,7 @@ EXPECTED_TOOLS = {
     "pska_eidolia_context_read",
     "pska_eidolia_memory_review_create",
     "pska_trace_query",
+    "pska_trace_coverage",
     "pska_eidolia_project_trace_import",
     "pska_policy_get",
     "pska_capabilities_get",
@@ -135,7 +136,7 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(set(tools), EXPECTED_TOOLS)
         capabilities = tools["pska_capabilities_get"]()
         self.assertEqual(set(capabilities["tool_policy"]["tools"]), EXPECTED_TOOLS)
-        self.assertEqual(capabilities["assistant_layer"]["status"], "m33_specialist_tool_profiles")
+        self.assertEqual(capabilities["assistant_layer"]["status"], "m35_trace_coverage")
         self.assertIn("pska_alpha_readiness", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -145,6 +146,7 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_agentic_context_brief_list", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_specialist_profiles", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_search_index_evaluation", capabilities["source_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_trace_coverage", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         evaluation = tools["pska_search_index_evaluation"]()
         self.assertEqual(evaluation["schema"], "pska.search_index_evaluation.v1")
         self.assertEqual(evaluation["current_default"], "sqlite_fts5")
@@ -153,6 +155,11 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(evaluation["data_flow"]["writes_source_registry"])
         self.assertFalse(evaluation["data_flow"]["writes_memory_directly"])
         self.assertFalse(evaluation["data_flow"]["creates_index"])
+        coverage = tools["pska_trace_coverage"](limit=20)
+        self.assertEqual(coverage["schema"], "pska.trace_coverage.v1")
+        self.assertTrue(coverage["data_flow"]["read_only"])
+        self.assertFalse(coverage["data_flow"]["writes_source_files"])
+        self.assertFalse(coverage["data_flow"]["writes_memory_directly"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -471,6 +478,12 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_search_index_evaluation"]["writes_source_registry"])
         self.assertFalse(policy["pska_search_index_evaluation"]["writes_memory_directly"])
         self.assertFalse(policy["pska_search_index_evaluation"]["creates_index"])
+        self.assertEqual(policy["pska_trace_coverage"]["access"], "read")
+        self.assertTrue(policy["pska_trace_coverage"]["audit_backed"])
+        self.assertFalse(policy["pska_trace_coverage"]["writes_source_files"])
+        self.assertFalse(policy["pska_trace_coverage"]["writes_source_registry"])
+        self.assertFalse(policy["pska_trace_coverage"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_trace_coverage"]["exports_external_trace"])
         self.assertEqual(
             policy["pska_eval_run"]["supported_suites"],
             ["smoke", "product_acceptance", "governed_context"],

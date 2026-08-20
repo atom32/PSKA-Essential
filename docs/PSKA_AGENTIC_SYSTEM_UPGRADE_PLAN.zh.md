@@ -404,6 +404,13 @@ PSKA 工具调用、是否只读、对应 dataset/source root 范围和检查结
 Hermes WebUI extension 已能从某条 proof 起草可编辑的 Memory Review 候选，并把
 `SourceRef(adapter="hermes_answer_proof")` 附到候选上；未改写的 proof 草稿不会直接提交。
 
+P5 的第一块 trace coverage 已落地：
+`GET /api/observability/trace-coverage` 与 `pska_trace_coverage` 从 SQLite audit
+只读生成覆盖报告，按 ask、source/retrieval、memory、governed writeback、eval
+和 background jobs 分组检查最近操作是否有可恢复的 PSKA trace id。它不新建
+trace store，不导出外部 trace，不写源文件，不写 durable memory；OpenTelemetry
+和 Phoenix 仍作为后续可选 exporter。
+
 新增 Product API / MCP：
 
 ```text
@@ -490,6 +497,7 @@ Trace event: generated_from / cited_source / promoted_to_memory / superseded
 pska_eidolia_context_read              # Done: payload -> SourceRef(adapter="eidolia")
 pska_eidolia_memory_review_create      # Done: thought/artifact -> governed Memory Card review
 pska_trace_query                       # Done: audit/review/source/memory/Eidolia derived trace
+pska_trace_coverage                    # Done: recent audit coverage by PSKA category
 pska_eidolia_project_trace_import      # Done: explicit project files -> SourceRef/audit trace
 ```
 
@@ -607,6 +615,8 @@ Eval: 定期验证 retrieval/memory/source/writeback 质量
 优先新增：
 
 - `pska_trace_id` 贯穿 Product API、MCP、workflow、source read、memory search。
+- Done: `pska_trace_coverage` 以 SQLite audit id 作为 PSKA trace id，提供
+  ask/source/memory/writeback/eval/job 的最近覆盖率报告。
 - `memory.use` audit/action。
 - source extraction failure metrics。
 - duplicate proposal acceptance/rejection metrics。
@@ -818,6 +828,10 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
   覆盖 no-embedding source recall、source-route Memory utility、
   audit-backed why-used 和 read-only source writeback refusal；不使用 live KB，
   不写 live Memory provider，不污染 live source registry。
+- Done: `pska_trace_coverage` / `GET /api/observability/trace-coverage`
+  增加只读 trace 覆盖报告，按 ask、source/retrieval、memory、governed
+  writeback、eval 和 background jobs 分组显示最近 audit 样本、trace ids、
+  缺失动作和建议 probe。
 - OpenTelemetry optional tracing。
 - Phoenix/Ragas/DeepEval eval adapters。
 - `watchdog` 或 launchd/cron 调用 source scan/audit tick。
@@ -825,7 +839,8 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 
 验收：
 
-- 每次 ask/source/memory/writeback 都有 trace id。
+- Done baseline: ask/source/memory/writeback/eval/job 的 recent trace coverage
+  可通过 SQLite audit id 检查；完整外部 trace export 仍属 optional tracing。
 - Done: Eval 可以覆盖 source recall、memory utility、why-used、writeback safety。
 - 到期 audit 不需要用户手动点 tick，但仍只处理授权 root。
 

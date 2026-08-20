@@ -278,6 +278,7 @@ Rules:
 ```python
 emit_trace(event) -> None
 emit_metric(metric) -> None
+trace_coverage(limit) -> TraceCoverageReport
 ```
 
 Provider slots:
@@ -291,6 +292,9 @@ Provider slots:
 Rules:
 
 - Audit remains the user-facing governance ledger.
+- `pska_trace_coverage` is the implemented read-only baseline over SQLite
+  audit. It reports recent trace coverage for Ask, source/retrieval, memory,
+  governed writeback, eval, and background jobs without exporting traces.
 - Observability adapters may export traces and metrics, but cannot become the
   authoritative memory/source/review store.
 
@@ -460,6 +464,7 @@ The current public tool surface is:
 - `pska_memory_health_scan`
 - `pska_memory_use_trace`
 - `pska_memory_why_used`
+- `pska_trace_coverage`
 - `pska_workflow_memory_attribution`
 - `pska_workflow_memory_suggestions`
 - `pska_memory_apply`

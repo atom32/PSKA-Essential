@@ -502,6 +502,19 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "embedding_required": False,
         "generates_answer_text": False,
     },
+    "pska_trace_coverage": {
+        "category": "trace",
+        "access": "read",
+        "durable": False,
+        "audit_backed": True,
+        "writes_source_files": False,
+        "writes_source_registry": False,
+        "writes_memory_directly": False,
+        "creates_review": False,
+        "exports_external_trace": False,
+        "embedding_required": False,
+        "generates_answer_text": False,
+    },
     "pska_memory_change_from_conversation": {
         "category": "memory",
         "access": "write",
@@ -895,7 +908,7 @@ def source_layer_contract() -> dict[str, Any]:
 def assistant_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.assistant_layer.v1",
-        "status": "m33_specialist_tool_profiles",
+        "status": "m35_trace_coverage",
         "primary_agent": "Hermes",
         "role": "compose PSKA status, source audits, memory/review cues, and next actions for agent orchestration",
         "mcp_tools": {
@@ -947,6 +960,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_eidolia_context_read",
                 "pska_eidolia_memory_review_create",
                 "pska_trace_query",
+                "pska_trace_coverage",
                 "pska_eidolia_project_trace_import",
             ],
             "planned": [

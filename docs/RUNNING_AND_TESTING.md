@@ -48,6 +48,11 @@ recall, source-route memory retrieval, why-used traceability, and read-only
 writeback refusal in an isolated fake service. The bare CLI form does not
 require live provider env; Product API/MCP invocation records only the outer
 `eval.run` result on the caller service.
+To inspect whether recent governed operations are recoverable from PSKA audit
+traces, call Product API `GET /api/observability/trace-coverage?limit=200` or
+MCP `pska_trace_coverage(limit=200)`. The report is read-only and summarizes
+Ask, source/retrieval, memory, governed writeback, eval, and background-job
+coverage using SQLite audit ids as PSKA trace ids.
 
 ### 2. Hermes MCP Development
 

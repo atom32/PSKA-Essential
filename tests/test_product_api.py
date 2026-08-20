@@ -350,6 +350,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("GET", "/api/memory/{memory_id}/use-trace"), contract_routes)
         self.assertIn(("GET", "/api/memory/{memory_id}/why-used"), contract_routes)
         self.assertIn(("GET", "/api/trace/query"), contract_routes)
+        self.assertIn(("GET", "/api/observability/trace-coverage"), contract_routes)
         self.assertIn(("GET", "/api/workflows/{run_id}/memory-attribution"), contract_routes)
         self.assertIn(("GET", "/api/workflows/{run_id}/memory-suggestions"), contract_routes)
         self.assertIn(("POST", "/api/turn-context"), contract_routes)
@@ -420,7 +421,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(tantivy_search["maturity"], "evaluated_candidate")
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
-        self.assertEqual(assistant_layer["status"], "m33_specialist_tool_profiles")
+        self.assertEqual(assistant_layer["status"], "m35_trace_coverage")
         self.assertEqual(assistant_layer["primary_agent"], "Hermes")
         self.assertIn("pska_agentic_context_brief", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief_list", assistant_layer["mcp_tools"]["implemented"])
@@ -451,6 +452,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_eidolia_context_read", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_memory_review_create", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_query", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_trace_coverage", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_eidolia_project_trace_import", assistant_layer["mcp_tools"]["implemented"])
         tool_policy = capabilities["capabilities"]["tool_policy"]["tools"]
         self.assertEqual(tool_policy["pska_alpha_readiness"]["category"], "status")
@@ -484,6 +486,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_source_registry"])
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_memory_directly"])
         self.assertFalse(tool_policy["pska_search_index_evaluation"]["creates_index"])
+        self.assertEqual(tool_policy["pska_trace_coverage"]["access"], "read")
+        self.assertTrue(tool_policy["pska_trace_coverage"]["audit_backed"])
+        self.assertFalse(tool_policy["pska_trace_coverage"]["writes_source_files"])
+        self.assertFalse(tool_policy["pska_trace_coverage"]["writes_source_registry"])
+        self.assertFalse(tool_policy["pska_trace_coverage"]["writes_memory_directly"])
+        self.assertFalse(tool_policy["pska_trace_coverage"]["exports_external_trace"])
         self.assertEqual(
             tool_policy["pska_eval_run"]["supported_suites"],
             ["smoke", "product_acceptance", "governed_context"],
@@ -1078,6 +1086,7 @@ class ProductApiTests(unittest.TestCase):
                     "memory_scope": "project",
                 },
             )
+            trace_coverage = self._get_json("/api/observability/trace-coverage?limit=200")
             sidecar_entries = [
                 json.loads(line)
                 for line in (root_path / ".pska" / "annotations.jsonl").read_text(encoding="utf-8").splitlines()
@@ -1220,6 +1229,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("source.extraction_job.run", actions)
         self.assertIn("source.obsidian_moc.propose", actions)
         self.assertIn("source.obsidian_moc.apply", actions)
+        coverage = trace_coverage["trace_coverage"]
+        self.assertEqual(coverage["schema"], "pska.trace_coverage.v1")
+        self.assertFalse(coverage["data_flow"]["writes_source_files"])
+        self.assertFalse(coverage["data_flow"]["writes_memory_directly"])
+        coverage_categories = {category["id"]: category for category in coverage["categories"]}
+        self.assertEqual(coverage_categories["source"]["status"], "covered")
+        self.assertEqual(coverage_categories["writeback"]["status"], "covered")
+        self.assertEqual(coverage_categories["job"]["status"], "covered")
 
     def test_product_api_image_phash_duplicate_mode_reports_optional_dependency_state(self):
         with tempfile.TemporaryDirectory() as temp_dir:

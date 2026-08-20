@@ -86,6 +86,7 @@ from pska_essential.source_extraction_jobs import (
 from pska_essential.search_index_evaluation import build_search_index_evaluation
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
+from pska_essential.trace_coverage import build_trace_coverage
 from pska_essential.workflow import WorkflowError, WorkflowService
 from pska_essential.workspace_status import build_workspace_status, compact_workspace_status
 
@@ -169,6 +170,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/memory/{memory_id}/why-used"},
     {"method": "GET", "path": "/api/memory/{memory_id}/timeline"},
     {"method": "GET", "path": "/api/trace/query"},
+    {"method": "GET", "path": "/api/observability/trace-coverage"},
     {"method": "POST", "path": "/api/memory/search"},
     {"method": "POST", "path": "/api/memory/conversation-change"},
     {"method": "POST", "path": "/api/memory/conversation-candidates"},
@@ -1700,6 +1702,18 @@ def _handler_class(state: ProductApiState):
                     limit=_int_param(query.get("limit"), 50),
                 )
                 self._send_json({"ok": True, **result})
+                return
+
+            if method == "GET" and path == "/api/observability/trace-coverage":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "trace_coverage": build_trace_coverage(
+                            state.service,
+                            limit=_int_param(query.get("limit"), 200),
+                        ),
+                    }
+                )
                 return
 
             raise ApiError(f"route not found: {method} {path}", HTTPStatus.NOT_FOUND)
