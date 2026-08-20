@@ -8,6 +8,7 @@
   const DIGEST_TASK_NAME = "PSKA Digest Runner";
   const DIGEST_TASK_MARKER = "PSKA-Mini Digest Runner";
   const ANSWER_PROOF_DRAFT_PREFIX = "请先改写这份 Answer Proof 草稿";
+  const SOURCE_EVIDENCE_DRAFT_PREFIX = "请先把这条资料证据改写成一条稳定记忆";
   const PANEL_NAME = "pska-mini";
   const MAIN_PANEL_ID = "mainPskaMini";
   const BUILTIN_MAIN_CLASSES = [
@@ -42,6 +43,10 @@
     answerProofDetail: null,
     answerProofTrace: null,
     answerProofLoadingId: "",
+    sourceSearchQuery: "PSKA",
+    sourceSearchResults: [],
+    sourceSearchDetail: null,
+    sourceSearchLoadingKey: "",
     memoryDraftSourceRefs: [],
     memoryDraftSourceLabel: "",
     chatgptImportResult: null,
@@ -326,6 +331,19 @@
             <div class="pska-mini-answer-proof-list" id="pskaMiniAnswerProofs"></div>
             <div class="pska-mini-answer-proof-detail" id="pskaMiniAnswerProofDetail"></div>
           </section>
+          <section class="pska-mini-source-evidence">
+            <div class="pska-mini-page-section-head">
+              <h2>Source Evidence</h2>
+              <span id="pskaMiniSourceEvidenceCount"></span>
+            </div>
+            <div class="pska-mini-page-search">
+              <input id="pskaMiniSourceEvidenceQuery" type="search" value="PSKA" placeholder="Search selected source archives">
+              <button class="pska-mini-page-btn" id="pskaMiniSourceEvidenceSearch" type="button">Search</button>
+            </div>
+            <div class="pska-mini-source-scope" id="pskaMiniSourceEvidenceScope"></div>
+            <div class="pska-mini-source-evidence-list" id="pskaMiniSourceEvidenceResults"></div>
+            <div class="pska-mini-source-evidence-detail" id="pskaMiniSourceEvidenceDetail"></div>
+          </section>
           <div class="pska-mini-page-grid">
             <section class="pska-mini-page-section">
               <div class="pska-mini-page-section-head">
@@ -386,10 +404,17 @@
     main.appendChild(panel);
     panel.querySelector("#pskaMiniPageRefresh").addEventListener("click", refreshMemoryPage);
     panel.querySelector("#pskaMiniMemorySearch").addEventListener("click", runMemoryPageSearch);
+    panel.querySelector("#pskaMiniSourceEvidenceSearch").addEventListener("click", runSourceEvidenceSearch);
     panel.querySelector("#pskaMiniMemoryQuery").addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
         runMemoryPageSearch();
+      }
+    });
+    panel.querySelector("#pskaMiniSourceEvidenceQuery").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        runSourceEvidenceSearch();
       }
     });
     panel.querySelector("#pskaMiniReviewStatus").addEventListener("change", () => {
@@ -399,6 +424,8 @@
     panel.querySelector("#pskaMiniFirstRun").addEventListener("click", onFirstRunClick);
     panel.querySelector("#pskaMiniAnswerProofs").addEventListener("click", onAnswerProofClick);
     panel.querySelector("#pskaMiniAnswerProofDetail").addEventListener("click", onAnswerProofDetailClick);
+    panel.querySelector("#pskaMiniSourceEvidenceResults").addEventListener("click", onSourceEvidenceClick);
+    panel.querySelector("#pskaMiniSourceEvidenceDetail").addEventListener("click", onSourceEvidenceClick);
     panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
     panel.querySelector("#pskaMiniClearMemoryDraftSource").addEventListener("click", clearMemoryDraftSource);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
@@ -465,6 +492,7 @@
         loadFirstRunSession(),
         loadAnswerProofs(),
         loadMemoryPageReviews(),
+        runSourceEvidenceSearch({ silentEmpty: true, skipIfNoScope: true }),
         runMemoryPageSearch({ silentEmpty: true })
       ]);
       memoryPage = { ...memoryPage, loading: false, loadedAt: new Date().toLocaleTimeString(), message: "Loaded." };
@@ -599,6 +627,100 @@
     renderMemoryPage();
   }
 
+  async function runSourceEvidenceSearch(options = {}) {
+    const input = document.getElementById("pskaMiniSourceEvidenceQuery");
+    const query = String(input?.value || memoryPage.sourceSearchQuery || "").trim();
+    memoryPage.sourceSearchQuery = query;
+    if (!query) {
+      memoryPage = {
+        ...memoryPage,
+        sourceSearchResults: [],
+        sourceSearchDetail: null,
+        message: options.silentEmpty ? memoryPage.message : "Enter a source evidence search query.",
+        error: ""
+      };
+      renderMemoryPage();
+      return;
+    }
+    if (options.skipIfNoScope && !state.sourceRootIds.length) {
+      renderMemoryPage();
+      return;
+    }
+    const scope = state.sourceRootIds.length ? currentSourceScopePayload() : {};
+    memoryPage = { ...memoryPage, loading: true, message: "Searching source evidence...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson("/api/sources/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, scope, limit: 8 }),
+        timeoutMs: 20000
+      });
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        sourceSearchResults: Array.isArray(data.context_packets) ? data.context_packets : [],
+        sourceSearchDetail: null,
+        loadedAt: new Date().toLocaleTimeString(),
+        message: `Found ${data.count || 0} source evidence packet(s).`,
+        error: ""
+      };
+    } catch (error) {
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        sourceSearchResults: [],
+        sourceSearchDetail: null,
+        error: errorText(error),
+        message: ""
+      };
+    }
+    renderMemoryPage();
+  }
+
+  async function onSourceEvidenceClick(event) {
+    const button = event.target?.closest?.("[data-pska-source-evidence-action]");
+    if (!button) return;
+    const action = button.getAttribute("data-pska-source-evidence-action") || "";
+    const index = boundedInt(button.getAttribute("data-pska-source-evidence-index"), -1, -1, 10000);
+    if (action === "read") {
+      await loadSourceEvidenceDetail(index);
+    } else if (action === "draft") {
+      draftMemoryCandidateFromSourceEvidence(index);
+    } else if (action === "draft-detail") {
+      draftMemoryCandidateFromSourceEvidenceDetail();
+    }
+  }
+
+  async function loadSourceEvidenceDetail(index) {
+    const packet = memoryPage.sourceSearchResults[index] || null;
+    if (!packet?.source_ref) return;
+    const loadingKey = sourceEvidenceKey(packet, index);
+    memoryPage = { ...memoryPage, sourceSearchLoadingKey: loadingKey, message: "Reading source evidence...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson("/api/sources/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_ref: packet.source_ref }),
+        timeoutMs: 20000
+      });
+      memoryPage = {
+        ...memoryPage,
+        sourceSearchLoadingKey: "",
+        sourceSearchDetail: {
+          packet,
+          source: data.source || null
+        },
+        message: `Loaded source evidence ${sourceEvidenceTitle(packet)}.`,
+        error: ""
+      };
+    } catch (error) {
+      memoryPage = { ...memoryPage, sourceSearchLoadingKey: "", error: errorText(error), message: "" };
+    }
+    renderMemoryPage();
+  }
+
   async function loadMemoryPageReviews() {
     const status = memoryPage.reviewStatus === "all" ? "" : `status=${encodeURIComponent(memoryPage.reviewStatus)}&`;
     const data = await pskaMiniFetchJson(`/api/reviews?${status}limit=50`, { timeoutMs: 15000 });
@@ -620,6 +742,11 @@
     }
     if (isUneditedAnswerProofDraft(draft)) {
       memoryPage = { ...memoryPage, error: "Edit the proof draft into a durable memory before creating a review candidate.", message: "" };
+      renderMemoryPage();
+      return;
+    }
+    if (isUneditedSourceEvidenceDraft(draft)) {
+      memoryPage = { ...memoryPage, error: "Edit the source evidence into a durable memory before creating a review candidate.", message: "" };
       renderMemoryPage();
       return;
     }
@@ -784,6 +911,36 @@
     draftBox.focus();
   }
 
+  function draftMemoryCandidateFromSourceEvidence(index) {
+    const packet = memoryPage.sourceSearchResults[index] || null;
+    if (!packet?.source_ref) return;
+    applySourceEvidenceMemoryDraft(packet, null);
+  }
+
+  function draftMemoryCandidateFromSourceEvidenceDetail() {
+    const detail = memoryPage.sourceSearchDetail || null;
+    const packet = detail?.packet || null;
+    if (!packet?.source_ref) return;
+    applySourceEvidenceMemoryDraft(packet, detail.source || null);
+  }
+
+  function applySourceEvidenceMemoryDraft(packet, source) {
+    const draftBox = document.getElementById("pskaMiniMemoryDraft");
+    const createBox = document.getElementById("pskaMiniMemoryCreate");
+    if (!draftBox) return;
+    draftBox.value = buildSourceEvidenceMemoryDraft(packet, source);
+    if (createBox) createBox.open = true;
+    memoryPage = {
+      ...memoryPage,
+      memoryDraftSourceRefs: [source?.source_ref || packet.source_ref],
+      memoryDraftSourceLabel: `source evidence ${sourceEvidenceTitle(packet, source)}`,
+      message: "Drafted memory candidate from source evidence. Edit it before creating review.",
+      error: ""
+    };
+    renderMemoryPage();
+    draftBox.focus();
+  }
+
   function clearMemoryDraftSource() {
     memoryPage = { ...memoryPage, memoryDraftSourceRefs: [], memoryDraftSourceLabel: "", message: "Memory draft source cleared.", error: "" };
     renderMemoryPage();
@@ -876,6 +1033,8 @@
     renderFirstRunSession();
     renderAnswerProofs();
     renderAnswerProofDetail();
+    renderSourceEvidenceSearch();
+    renderSourceEvidenceDetail();
     renderMemoryDraftSource();
     renderChatgptImportResult();
     renderChatgptConversationImportResult();
@@ -1126,6 +1285,79 @@
     `;
   }
 
+  function renderSourceEvidenceSearch() {
+    const count = document.getElementById("pskaMiniSourceEvidenceCount");
+    const roots = state.sourceRootIds || [];
+    if (count) count.textContent = `${memoryPage.sourceSearchResults.length} shown · ${roots.length || "all"} root${roots.length === 1 ? "" : "s"}`;
+    const scope = document.getElementById("pskaMiniSourceEvidenceScope");
+    if (scope) {
+      scope.innerHTML = roots.length
+        ? `Scope: ${roots.slice(0, 4).map((rootId) => `<code>${escapeHtml(shortId(rootId, 16))}</code>`).join(" ")}${roots.length > 4 ? ` <span>+${escapeHtml(String(roots.length - 4))}</span>` : ""}`
+        : "Scope: all registered source archives";
+    }
+    const queryInput = document.getElementById("pskaMiniSourceEvidenceQuery");
+    if (queryInput && document.activeElement !== queryInput) queryInput.value = memoryPage.sourceSearchQuery || "";
+    const container = document.getElementById("pskaMiniSourceEvidenceResults");
+    if (!container) return;
+    if (memoryPage.loading && !memoryPage.sourceSearchResults.length) {
+      container.innerHTML = `<div class="pska-mini-empty">Searching source evidence...</div>`;
+      return;
+    }
+    if (!memoryPage.sourceSearchResults.length) {
+      container.innerHTML = `<div class="pska-mini-empty">Search imported archives or selected source roots for evidence before creating memory.</div>`;
+      return;
+    }
+    container.innerHTML = memoryPage.sourceSearchResults.map((packet, index) => {
+      const loadingKey = sourceEvidenceKey(packet, index);
+      const loading = memoryPage.sourceSearchLoadingKey === loadingKey;
+      const ref = packet.source_ref || {};
+      return `
+        <article class="pska-mini-source-evidence-card">
+          <div class="pska-mini-source-evidence-card-head">
+            <strong>${escapeHtml(sourceEvidenceTitle(packet))}</strong>
+            <span>${escapeHtml(sourceEvidenceMeta(packet))}</span>
+          </div>
+          <p>${escapeHtml(truncate(packet.text || "", 280))}</p>
+          <code>${escapeHtml([ref.adapter, ref.path || ref.document_id || ref.source_id].filter(Boolean).join(" · ") || "source")}</code>
+          <div class="pska-mini-source-evidence-actions">
+            <button class="pska-mini-page-btn" data-pska-source-evidence-action="read" data-pska-source-evidence-index="${escapeAttr(String(index))}" type="button" ${loading ? "disabled" : ""}>${loading ? "Reading" : "Read"}</button>
+            <button class="pska-mini-page-btn" data-pska-source-evidence-action="draft" data-pska-source-evidence-index="${escapeAttr(String(index))}" type="button">Draft Memory Candidate</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderSourceEvidenceDetail() {
+    const container = document.getElementById("pskaMiniSourceEvidenceDetail");
+    if (!container) return;
+    const detail = memoryPage.sourceSearchDetail;
+    if (!detail) {
+      container.innerHTML = `<div class="pska-mini-empty">Read a source evidence packet to inspect the full source text and attach it to a memory candidate.</div>`;
+      return;
+    }
+    const packet = detail.packet || {};
+    const source = detail.source || {};
+    const ref = source.source_ref || packet.source_ref || {};
+    const text = source.text || packet.text || "";
+    container.innerHTML = `
+      <div class="pska-mini-page-section-head">
+        <h2>Source Evidence Detail</h2>
+        <code>${escapeHtml(shortId(ref.source_id || ref.document_id || packet.context_id || "", 18))}</code>
+      </div>
+      <div class="pska-mini-source-evidence-detail-grid">
+        <span>Title</span><strong>${escapeHtml(sourceEvidenceTitle(packet, source))}</strong>
+        <span>Adapter</span><strong>${escapeHtml(ref.adapter || "")}</strong>
+        <span>Path</span><strong>${escapeHtml(ref.path || ref.document_id || ref.source_id || "")}</strong>
+        <span>Score</span><strong>${escapeHtml(sourceEvidenceScore(packet))}</strong>
+      </div>
+      <pre>${escapeHtml(truncate(text, 2600))}</pre>
+      <div class="pska-mini-source-evidence-actions">
+        <button class="pska-mini-page-btn" data-pska-source-evidence-action="draft-detail" type="button">Draft Memory Candidate</button>
+      </div>
+    `;
+  }
+
   function renderMemoryDraftSource() {
     const container = document.getElementById("pskaMiniMemoryDraftSource");
     if (!container) return;
@@ -1204,6 +1436,29 @@
     return lines.join("\n");
   }
 
+  function buildSourceEvidenceMemoryDraft(packet, source) {
+    const ref = source?.source_ref || packet?.source_ref || {};
+    const text = String(source?.text || packet?.text || "").trim();
+    const lines = [
+      `${SOURCE_EVIDENCE_DRAFT_PREFIX}，再创建审核候选。`,
+      "",
+      `资料标题：${sourceEvidenceTitle(packet, source)}`,
+      `资料位置：${[ref.adapter, ref.path || ref.document_id || ref.source_id].filter(Boolean).join(" / ") || "未记录"}`,
+      "",
+      "建议记忆：",
+      "- ",
+      "",
+      "适用范围：",
+      "- ",
+      "",
+      "未来影响：",
+      "- ",
+      "",
+      `证据摘录：${truncate(text || "未记录文本", 520)}`
+    ];
+    return lines.join("\n");
+  }
+
   function answerProofSourceRef(proof, trace) {
     const proofId = String(proof.proof_id || "");
     const summary = proof.tool_summary || {};
@@ -1235,6 +1490,31 @@
 
   function isUneditedAnswerProofDraft(value) {
     return String(value || "").trim().startsWith(ANSWER_PROOF_DRAFT_PREFIX);
+  }
+
+  function isUneditedSourceEvidenceDraft(value) {
+    return String(value || "").trim().startsWith(SOURCE_EVIDENCE_DRAFT_PREFIX);
+  }
+
+  function sourceEvidenceTitle(packet, source) {
+    const ref = source?.source_ref || packet?.source_ref || {};
+    return String(source?.metadata?.title || packet?.title || ref.title || ref.path || ref.document_id || ref.source_id || packet?.context_id || "source evidence");
+  }
+
+  function sourceEvidenceMeta(packet) {
+    const ref = packet?.source_ref || {};
+    return [sourceEvidenceScore(packet), ref.adapter || "", ref.metadata?.root_label || ""].filter(Boolean).join(" · ");
+  }
+
+  function sourceEvidenceScore(packet) {
+    const score = Number(packet?.score || 0);
+    if (!Number.isFinite(score) || score <= 0) return "score n/a";
+    return `score ${score.toFixed(2)}`;
+  }
+
+  function sourceEvidenceKey(packet, index) {
+    const ref = packet?.source_ref || {};
+    return [index, packet?.context_id, ref.adapter, ref.document_id, ref.chunk_id, ref.source_id, ref.path].filter((item) => item !== undefined && item !== null).join(":");
   }
 
   function renderReviewList() {

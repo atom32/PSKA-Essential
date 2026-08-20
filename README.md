@@ -841,6 +841,11 @@ export, write durable memory, or create reviews; stable claims must still be
 promoted later through governed memory review. Re-importing into the same
 archive folder removes only stale PSKA-managed import files with PSKA markers;
 unmarked user files in that folder are left untouched.
+Hermes WebUI `pska-mini` surfaces a Source Evidence workbench on the PSKA
+Memory page: it searches selected source roots through `/api/sources/search`,
+reads full evidence through `/api/sources/read`, and can draft an editable
+Review candidate with the original `SourceRef` attached. The draft still must
+be rewritten by the user before it can enter the Review Queue.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.

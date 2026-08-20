@@ -84,6 +84,7 @@ Memory Page 可从 PSKA 菜单进入
 Memory Page 状态、搜索结果、审核队列可见
 Memory Page Recent Answer Proofs 区块可见且不处于 loading
 Answer Proof Detail 可通过 `View Trace` 展开，并显示 trace entries、checks 和完成的 PSKA 工具
+Source Evidence 可搜索选中资料源、读取全文，并把证据起草为带来源的记忆候选
 Memory Page 搜索、View、创建临时候选、拒绝临时候选路径已手动验证
 手机 PSKA chip 可见
 手机 PSKA chip 不与发送按钮重叠

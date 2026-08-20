@@ -287,6 +287,63 @@ async function runDesktop(context, checks, artifacts) {
     memoryCheck,
   );
 
+  await page.fill("#pskaMiniSourceEvidenceQuery", "Northstar Robotics");
+  await page.click("#pskaMiniSourceEvidenceSearch");
+  await page.waitForFunction(() => {
+    const count = document.querySelector("#pskaMiniSourceEvidenceCount")?.innerText || "";
+    const results = document.querySelector("#pskaMiniSourceEvidenceResults")?.innerText || "";
+    const countMatch = count.match(/(\d+)\s+shown/iu);
+    return countMatch && Number(countMatch[1]) > 0 && /Northstar|Robotics|Finance/iu.test(results);
+  }, { timeout: 30000 });
+  const sourceEvidenceSearch = await page.evaluate(() => ({
+    count: document.querySelector("#pskaMiniSourceEvidenceCount")?.innerText || "",
+    scope: document.querySelector("#pskaMiniSourceEvidenceScope")?.innerText || "",
+    results: document.querySelector("#pskaMiniSourceEvidenceResults")?.innerText?.slice(0, 1200) || "",
+    hasRead: Boolean(document.querySelector('[data-pska-source-evidence-action="read"]')),
+    hasDraft: Boolean(document.querySelector('[data-pska-source-evidence-action="draft"]')),
+  }));
+  assertCheck(checks, "Source Evidence search returns selected source results", (
+    /\d+\s+shown/iu.test(sourceEvidenceSearch.count)
+      && /Scope:/iu.test(sourceEvidenceSearch.scope)
+      && /Northstar|Robotics|Finance/iu.test(sourceEvidenceSearch.results)
+      && sourceEvidenceSearch.hasRead
+      && sourceEvidenceSearch.hasDraft
+  ), sourceEvidenceSearch);
+
+  await page.click('[data-pska-source-evidence-action="read"]');
+  await page.waitForFunction(() => {
+    const detail = document.querySelector("#pskaMiniSourceEvidenceDetail")?.innerText || "";
+    return /Source Evidence Detail/iu.test(detail) && /Northstar|Robotics|Finance/iu.test(detail);
+  }, { timeout: 20000 });
+  const sourceEvidenceDetail = await pageText(page, "#pskaMiniSourceEvidenceDetail");
+  assertCheck(checks, "Source Evidence detail reads full source through PSKA", (
+    /Source Evidence Detail/iu.test(sourceEvidenceDetail)
+      && /Adapter/iu.test(sourceEvidenceDetail)
+      && /Path/iu.test(sourceEvidenceDetail)
+      && /Northstar|Robotics|Finance/iu.test(sourceEvidenceDetail)
+  ), {
+    text: sourceEvidenceDetail.slice(0, 1200),
+  });
+
+  await page.click('[data-pska-source-evidence-action="draft-detail"]');
+  await page.waitForFunction(() => {
+    const draft = document.querySelector("#pskaMiniMemoryDraft")?.value || "";
+    const source = document.querySelector("#pskaMiniMemoryDraftSource")?.innerText || "";
+    return /请先把这条资料证据改写成一条稳定记忆/iu.test(draft) && /source evidence/iu.test(source);
+  }, { timeout: 10000 });
+  const sourceEvidenceDraft = await page.evaluate(() => ({
+    draft: document.querySelector("#pskaMiniMemoryDraft")?.value?.slice(0, 1000) || "",
+    source: document.querySelector("#pskaMiniMemoryDraftSource")?.innerText || "",
+  }));
+  assertCheck(checks, "Source Evidence can draft a sourced memory candidate", (
+    /请先把这条资料证据改写成一条稳定记忆/iu.test(sourceEvidenceDraft.draft)
+      && /资料标题/iu.test(sourceEvidenceDraft.draft)
+      && /证据摘录/iu.test(sourceEvidenceDraft.draft)
+      && /source evidence/iu.test(sourceEvidenceDraft.source)
+  ), sourceEvidenceDraft);
+  artifacts.desktopSourceEvidence = path.join(OUT_DIR, "desktop-source-evidence.png");
+  await page.screenshot({ path: artifacts.desktopSourceEvidence, fullPage: false });
+
   if (memoryCheck.hasAnswerProofButton) {
     await page.click("[data-pska-answer-proof-id]");
     await page.waitForFunction(() => {

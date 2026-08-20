@@ -96,6 +96,7 @@ cd /Users/xudawei/PSKA-Essential
 - Source Recall：不用 embedding，按本地文件元数据和全文索引召回资料。
 - Memory 页面：搜索长期记忆，创建记忆候选。
 - Recent Answer Proofs：查看最近 Hermes 回答实际观测到的 PSKA 工具调用、只读状态和资料范围；点开 `View Trace` 后，可以从该 proof 起草一条可编辑的记忆候选，并把 proof 作为来源带入 Review Queue。
+- Source Evidence：搜索已选资料源或导入的 ChatGPT 对话档案，读取原文，再起草带 `SourceRef` 的记忆候选。候选草稿必须人工改写后才能进入 Review Queue。
 - Review 页面：查看候选，接受、拒绝，或把已接受候选写入长期记忆。
 - First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注。
 - Kanban 投影：把 PSKA 审核项同步到 Hermes 的 `pska-review` 看板。
@@ -527,7 +528,8 @@ curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
 它会写入 PSKA 管理的 markdown 档案、生成 `PSKA_IMPORT_MANIFEST.json` 和
 `PSKA_IMPORT_REPORT.md`、注册只读资料源并建立本地检索。重复导入同一 archive
 目录时，只清理带 PSKA 导入标记的旧会话、report 和 manifest，不删除无标记用户文件。
-然后按项目、时间、人物、主题提取候选卡。候选要去重、检查质量、进入 Review。只有确认后的内容才写入长期记忆。
+然后在 Hermes WebUI 的 PSKA Memory 页面打开 Source Evidence，按项目、时间、人物、主题搜索原文证据，
+读取全文后起草候选卡。候选要人工改写、去重、检查质量、进入 Review。只有确认后的内容才写入长期记忆。
 
 ## 15. 命令速查
 

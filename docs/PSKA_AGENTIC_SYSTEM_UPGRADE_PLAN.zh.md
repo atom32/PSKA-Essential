@@ -403,6 +403,12 @@ read-only local source root。它不修改原始导出，不直接写 GBrain/SQL
 目录时会先清理带 PSKA 标记的旧导入产物，避免旧会话被 source scan 误索引，同时保留无标记用户文件；
 后续只能先 source search/read，再把被确认的稳定事实走 governed memory review。
 
+P2 的第三十七块已落地为 WebUI Source Evidence workbench：
+Hermes WebUI `pska-mini` 的 PSKA Memory 页面可以在当前选中的 source roots 内搜索原始证据，
+通过 `/api/sources/read` 读取全文，再把证据起草为带 `SourceRef` 的 Memory Review candidate。
+草稿保留“需要人工改写”的前缀，未改写前不会进入 Review Queue；这使 ChatGPT 完整对话导入后的筛选、
+证据定位、候选记忆创建形成一条可 dogfooding 的闭环。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。
@@ -992,6 +998,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Add operator notes to alpha first-run checklist items for rehearsal evidence.
 - [x] Add ChatGPT memory summary import into governed Review candidates with private-by-default handling.
 - [x] Add ChatGPT full conversation export import as a governed source archive without writing memory.
+- [x] Add WebUI Source Evidence search/read/draft workbench for source-backed memory candidates.
 
 ### P3 Backlog
 

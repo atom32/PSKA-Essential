@@ -439,7 +439,8 @@ main.main.showing-pska-mini > #mainPskaMini {
   background: rgba(127, 127, 127, 0.04);
 }
 
-.pska-mini-answer-proofs {
+.pska-mini-answer-proofs,
+.pska-mini-source-evidence {
   min-width: 0;
   margin-bottom: 16px;
   padding: 14px;
@@ -448,12 +449,14 @@ main.main.showing-pska-mini > #mainPskaMini {
   background: rgba(127, 127, 127, 0.04);
 }
 
-.pska-mini-answer-proof-list {
+.pska-mini-answer-proof-list,
+.pska-mini-source-evidence-list {
   display: grid;
   gap: 8px;
 }
 
-.pska-mini-answer-proof-card {
+.pska-mini-answer-proof-card,
+.pska-mini-source-evidence-card {
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--border, rgba(127, 127, 127, 0.22));
@@ -470,7 +473,8 @@ main.main.showing-pska-mini > #mainPskaMini {
 }
 
 .pska-mini-answer-proof-card-head,
-.pska-mini-answer-proof-meta {
+.pska-mini-answer-proof-meta,
+.pska-mini-source-evidence-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -479,11 +483,13 @@ main.main.showing-pska-mini > #mainPskaMini {
   min-width: 0;
 }
 
-.pska-mini-answer-proof-card-head {
+.pska-mini-answer-proof-card-head,
+.pska-mini-source-evidence-card-head {
   margin-bottom: 6px;
 }
 
-.pska-mini-answer-proof-card-head strong {
+.pska-mini-answer-proof-card-head strong,
+.pska-mini-source-evidence-card-head strong {
   min-width: 0;
   overflow: hidden;
   font-size: 12px;
@@ -493,7 +499,9 @@ main.main.showing-pska-mini > #mainPskaMini {
 
 .pska-mini-answer-proof-card-head span,
 .pska-mini-answer-proof-meta span,
-.pska-mini-answer-proof-card code {
+.pska-mini-answer-proof-card code,
+.pska-mini-source-evidence-card-head span,
+.pska-mini-source-evidence-card code {
   min-width: 0;
   overflow: hidden;
   color: var(--muted, #777);
@@ -502,35 +510,43 @@ main.main.showing-pska-mini > #mainPskaMini {
   white-space: nowrap;
 }
 
-.pska-mini-answer-proof-card p {
+.pska-mini-answer-proof-card p,
+.pska-mini-source-evidence-card p {
   margin: 0 0 8px;
   font-size: 12px;
   line-height: 1.45;
 }
 
-.pska-mini-answer-proof-card code {
+.pska-mini-answer-proof-card code,
+.pska-mini-source-evidence-card code {
   display: block;
   margin-top: 7px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-.pska-mini-answer-proof-actions {
+.pska-mini-answer-proof-actions,
+.pska-mini-source-evidence-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 6px;
   margin-top: 8px;
 }
 
-.pska-mini-answer-proof-actions .pska-mini-page-btn {
+.pska-mini-answer-proof-actions .pska-mini-page-btn,
+.pska-mini-source-evidence-actions .pska-mini-page-btn {
   min-height: 26px;
   padding: 0 8px;
   font-size: 11px;
 }
 
-.pska-mini-answer-proof-detail {
+.pska-mini-answer-proof-detail,
+.pska-mini-source-evidence-detail {
   margin-top: 10px;
 }
 
-.pska-mini-answer-proof-detail-grid {
+.pska-mini-answer-proof-detail-grid,
+.pska-mini-source-evidence-detail-grid {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
   gap: 6px 10px;
@@ -541,17 +557,55 @@ main.main.showing-pska-mini > #mainPskaMini {
   background: var(--bg, transparent);
 }
 
-.pska-mini-answer-proof-detail-grid span {
+.pska-mini-answer-proof-detail-grid span,
+.pska-mini-source-evidence-detail-grid span {
   color: var(--muted, #777);
   font-size: 11px;
 }
 
-.pska-mini-answer-proof-detail-grid strong {
+.pska-mini-answer-proof-detail-grid strong,
+.pska-mini-source-evidence-detail-grid strong {
   min-width: 0;
   overflow: hidden;
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pska-mini-source-scope {
+  margin: -2px 0 10px;
+  color: var(--muted, #777);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.pska-mini-source-scope code {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.pska-mini-source-evidence-list {
+  max-height: min(280px, 34vh);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.pska-mini-source-evidence-detail pre {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--code-bg, rgba(127, 127, 127, 0.1));
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .pska-mini-answer-proof-detail-block {

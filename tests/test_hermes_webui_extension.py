@@ -107,6 +107,15 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("renderChatgptConversationImportResult", script)
         self.assertIn("addSourceRootToScope(rootId)", script)
         self.assertIn("Report:", script)
+        self.assertIn("pskaMiniSourceEvidenceQuery", script)
+        self.assertIn("runSourceEvidenceSearch", script)
+        self.assertIn("loadSourceEvidenceDetail", script)
+        self.assertIn("draftMemoryCandidateFromSourceEvidence", script)
+        self.assertIn("SOURCE_EVIDENCE_DRAFT_PREFIX", script)
+        self.assertIn("isUneditedSourceEvidenceDraft", script)
+        self.assertIn('"/api/sources/search"', script)
+        self.assertIn('"/api/sources/read"', script)
+        self.assertIn("currentSourceScopePayload()", script)
         self.assertNotIn("HermesChatStartHooks", script)
         self.assertNotIn("context_provider", script)
         self.assertNotRegex(script, re.compile(r'fetch\(["\']/api/pska/'))
@@ -134,6 +143,9 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("order: -1", css)
         self.assertIn("flex: 0 0 72px", css)
         self.assertIn("#pskaMiniLabel", css)
+        self.assertIn(".pska-mini-source-evidence", css)
+        self.assertIn(".pska-mini-source-evidence-list", css)
+        self.assertIn(".pska-mini-source-evidence-detail pre", css)
 
     def test_sync_script_writes_webui_manifest_and_sidecar_consent(self):
         with tempfile.TemporaryDirectory() as tmp:

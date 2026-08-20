@@ -308,7 +308,9 @@ curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
 - 重复导入同一 archive 目录时，只清理带 PSKA 导入标记的旧会话、report 和 manifest，不删除无标记用户文件。
 - 后续先用 source search/read 找证据，再挑选稳定事实进入记忆审核。
 
-导入后先打开 Hermes WebUI 的 PSKA Memory 页面，看 Review Queue。只把稳定身份、长期项目、
+导入后先打开 Hermes WebUI 的 PSKA Memory 页面，用 Source Evidence 搜原始对话证据，
+点 Read 看全文，再点 Draft Memory Candidate 生成带来源的候选草稿。草稿必须先改写成稳定记忆，
+再进入 Review Queue。只把稳定身份、长期项目、
 工作习惯、明确偏好和保护边界 apply 到长期记忆；长篇人生回忆先留在 private source archive。
 
 ## 4. 每天怎么用
