@@ -15,6 +15,16 @@ ROOT = Path(__file__).resolve().parents[1]
 DEMO_DIR = ROOT / "demo" / "browser" / "hermes_pska_extension_demo"
 DIST_DIR = DEMO_DIR / "dist"
 BASE_NAME = "hermes_pska_extension_demo"
+DEFAULT_MIN_DURATION_SECONDS = 30.0
+MIN_DURATION_BY_BASENAME = {
+    "hermes_pska_extension_demo_long": 180.0,
+    "hermes_pska_finance_case_demo": 120.0,
+    "hermes_pska_webnovel_case_demo": 120.0,
+}
+MIN_DURATION_BY_CASE = {
+    "finance_report_research": 120.0,
+    "webnovel_author": 120.0,
+}
 
 
 def main() -> int:
@@ -23,8 +33,14 @@ def main() -> int:
     parser.add_argument("--require-video", action="store_true")
     parser.add_argument("--basename", default=BASE_NAME)
     parser.add_argument("--case", default="")
-    parser.add_argument("--min-duration", type=float, default=30.0)
+    parser.add_argument(
+        "--min-duration",
+        type=float,
+        default=None,
+        help="Add a duration floor. Known demo floors still apply: 30s core, 180s long core, 120s business cases.",
+    )
     args = parser.parse_args()
+    min_duration = resolve_min_duration(args)
 
     demo_dir = args.demo_dir.resolve()
     dist_dir = demo_dir / "dist"
@@ -54,7 +70,8 @@ def main() -> int:
     ]
     if args.require_video:
         require_files(media_files, checks)
-        duration = verify_video(media_files[0], args.min_duration, checks)
+        checks.append(f"duration threshold: {min_duration:.1f}s")
+        duration = verify_video(media_files[0], min_duration, checks)
         verify_srt(media_files[1], duration, checks)
         verify_manifest(media_files[3], checks, expected_case=args.case or None)
     else:
@@ -65,6 +82,19 @@ def main() -> int:
     for check in checks:
         print(f"- {check}")
     return 0
+
+
+def resolve_min_duration(args: argparse.Namespace) -> float:
+    candidates = [DEFAULT_MIN_DURATION_SECONDS]
+    basename = str(args.basename or "")
+    if basename in MIN_DURATION_BY_BASENAME:
+        candidates.append(MIN_DURATION_BY_BASENAME[basename])
+    case_id = str(args.case or "")
+    if case_id in MIN_DURATION_BY_CASE:
+        candidates.append(MIN_DURATION_BY_CASE[case_id])
+    if args.min_duration is not None:
+        candidates.append(float(args.min_duration))
+    return max(candidates)
 
 
 def require_files(paths: list[Path], checks: list[str]) -> None:

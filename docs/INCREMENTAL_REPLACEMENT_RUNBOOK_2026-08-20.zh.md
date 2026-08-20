@@ -729,6 +729,9 @@ python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case fina
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webnovel_author --basename hermes_pska_webnovel_case_demo --min-duration 120
 ```
 
+验证器本身已内置最低时长门槛：核心短版 `30s`，核心长版 `180s`，财报和网文业务 case
+`120s`。因此漏写或误写较低的 `--min-duration` 时，已知业务 case 不会退回到 30 秒通过。
+
 本机视频验证结果：
 
 - core demo：`60.9s`，`1280x720`，无音轨，10 段字幕。

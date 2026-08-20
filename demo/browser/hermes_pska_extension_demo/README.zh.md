@@ -132,6 +132,10 @@ python3 scripts/verify_hermes_extension_demo_pack.py \
   --min-duration 180
 ```
 
+验证器已内置已知素材的最低时长门槛：核心短版 `30s`，核心长版 `180s`，
+财报和网文业务 case `120s`。显式 `--min-duration` 只能提高门槛，不能降低这些已知素材的最低要求；
+下面命令保留显式参数，是为了让验收口径在文档里一眼可见。
+
 检查业务 case：
 
 ```bash
