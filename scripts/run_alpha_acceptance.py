@@ -37,6 +37,7 @@ def main() -> int:
     parser.add_argument("--include-webui-contract", action="store_true")
     parser.add_argument("--include-webui-visual", action="store_true")
     parser.add_argument("--include-webui-turn-bridge", action="store_true")
+    parser.add_argument("--include-webui-llm-proof", action="store_true")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
 
@@ -165,6 +166,22 @@ def main() -> int:
                 f"ok={turn_bridge.get('ok')} forced_context_count={captured.get('forced_context_count')}",
                 output_dir=turn_bridge.get("output_dir") or "",
                 message_length=captured.get("message_length") or 0,
+            )
+        )
+
+    if args.include_webui_llm_proof:
+        llm_timeout = max(args.timeout, int(os.getenv("PSKA_LLM_PROOF_ACCEPTANCE_TIMEOUT", "300")))
+        llm_proof = _run_node_json(["node", "scripts/test_pska_webui_llm_proof.cjs"], env=env, timeout=llm_timeout)
+        _write_json(out_dir / "webui_extension_llm_proof.json", llm_proof)
+        artifacts["webui_extension_llm_proof"] = str(out_dir / "webui_extension_llm_proof.json")
+        checks.append(
+            _check(
+                "webui_extension_llm_proof",
+                bool(llm_proof.get("ok")),
+                f"ok={llm_proof.get('ok')}",
+                output_dir=llm_proof.get("output_dir") or "",
+                session_id=llm_proof.get("session_id") or "",
+                kept_session=bool(llm_proof.get("kept_session")),
             )
         )
 

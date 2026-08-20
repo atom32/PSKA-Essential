@@ -119,7 +119,7 @@ closed_loop.probe   ok
 闭环输出：
 
 ```text
-run_id                  = run_4299dd00aa6e42cd89b212d0e05a205c
+run_id                  = run_80ff717b913e405c8f1ed74e67b41f05
 memory_count            = 1
 retrieval_context_count = 2
 closed_loop_contexts    = 4
@@ -227,6 +227,49 @@ visible user turn remains clean
 
 这证明 `pska-mini` 不是只在面板里展示状态；当用户在 Hermes WebUI 里真实发送问题时，extension 会把 PSKA skill、dataset scope、source root scope 注入到 Hermes 的 `message` 字段，同时聊天窗口仍只显示用户原始问题。
 
+真实 LLM 回答侧 proof：
+
+```bash
+NODE_PATH=/tmp/pska-playwright/node_modules \
+PSKA_PLAYWRIGHT_MODULE=playwright-core \
+PSKA_PLAYWRIGHT_CHANNEL=chrome \
+HERMES_WEBUI_PASSWORD=****** \
+make webui-extension-llm-proof
+```
+
+结果：
+
+```text
+ok = true
+session_id = 01e886e311b4
+kept_session = false
+message_length = 10462
+answer_length = 1633
+```
+
+回答侧实际完成的 PSKA 工具调用：
+
+```text
+mcp__pska_essential__pska_source_search
+mcp__pska_essential__pska_retrieval_probe
+mcp__pska_essential__pska_workspace_status
+mcp__pska_essential__pska_source_read
+mcp__pska_essential__pska_memory_search
+```
+
+该 proof 还确认：
+
+```text
+LLM stream completed without terminal error
+Answer-side turn stayed read-only
+write_like_events = 0
+Final answer is substantive and source-oriented
+Visible user turn remains clean
+Temporary WebUI session cleanup OK
+```
+
+这条 proof 会真实调用模型，因此不放进默认 `alpha-acceptance-webui`；需要展示 Hermes Agent 确实使用 PSKA 时再显式运行。
+
 ## 记忆治理状态
 
 当前 GBrain Memory Card：
@@ -317,6 +360,11 @@ NODE_PATH=/tmp/pska-playwright/node_modules \
   PSKA_PLAYWRIGHT_CHANNEL=chrome \
   HERMES_WEBUI_PASSWORD=****** \
   make webui-extension-turn-bridge
+NODE_PATH=/tmp/pska-playwright/node_modules \
+  PSKA_PLAYWRIGHT_MODULE=playwright-core \
+  PSKA_PLAYWRIGHT_CHANNEL=chrome \
+  HERMES_WEBUI_PASSWORD=****** \
+  make webui-extension-llm-proof
 PSKA_COMPONENT_CONNECTIVITY_ONLY=1 \
   PYTHONPATH=src .venv/bin/python -m pska_essential.component_check --env-file .env.pska
 ```
@@ -328,6 +376,7 @@ unittest                472 tests OK
 webui-extension-contract 35/35 OK
 webui-extension-visual   OK
 webui-extension-turn-bridge OK
+webui-extension-llm-proof optional OK
 live-connectivity-check  OK
 full-component-proof     OK
 ```
