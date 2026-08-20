@@ -260,6 +260,7 @@ async function runDesktop(context, checks, artifacts) {
     firstRun: document.querySelector("#pskaMiniFirstRun")?.innerText?.slice(0, 1200) || "",
     answerProofs: document.querySelector("#pskaMiniAnswerProofs")?.innerText?.slice(0, 1200) || "",
     hasAnswerProofButton: Boolean(document.querySelector("[data-pska-answer-proof-id]")),
+    hasRuntimeButton: Boolean(document.querySelector("[data-pska-first-run-runtime-done]")),
     hasScopeButton: Boolean(document.querySelector("[data-pska-first-run-scope-done]")),
     hasReviewViewButton: Boolean(document.querySelector('[data-pska-review-action="view"]')),
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
@@ -280,6 +281,7 @@ async function runDesktop(context, checks, artifacts) {
       && /First-run checklist/iu.test(memoryCheck.firstRun)
       && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
       && /Rehearse source evidence to memory/iu.test(memoryCheck.firstRun)
+      && memoryCheck.hasRuntimeButton
       && memoryCheck.hasScopeButton
       && /Selected read-only scope/iu.test(memoryCheck.scopeAction)
       && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)
@@ -293,6 +295,32 @@ async function runDesktop(context, checks, artifacts) {
       && !/Loading reviews/iu.test(memoryCheck.firstReview),
     memoryCheck,
   );
+
+  await page.click("[data-pska-first-run-runtime-done]");
+  await page.waitForFunction(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Confirm runtime and providers/iu.test(node.innerText || ""));
+    const text = item?.innerText || "";
+    const note = item?.querySelector("textarea")?.value || "";
+    return /done\s+·\s+required/iu.test(text)
+      && /runtime\/provider confirmed/iu.test(note)
+      && /API ready/iu.test(note);
+  }, { timeout: 15000 });
+  const runtimeCheck = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Confirm runtime and providers/iu.test(node.innerText || ""));
+    return {
+      text: item?.innerText?.slice(0, 900) || "",
+      note: item?.querySelector("textarea")?.value || "",
+    };
+  });
+  assertCheck(checks, "Runtime status marks first-run runtime confirmation done with provider note", (
+    /done\s+·\s+required/iu.test(runtimeCheck.text)
+      && /runtime\/provider confirmed/iu.test(runtimeCheck.note)
+      && /API ready/iu.test(runtimeCheck.note)
+      && /memory/iu.test(runtimeCheck.note)
+      && /embedding/iu.test(runtimeCheck.note)
+  ), runtimeCheck);
 
   await page.click("[data-pska-first-run-scope-done]");
   await page.waitForFunction(() => {

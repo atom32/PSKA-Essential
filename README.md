@@ -904,6 +904,11 @@ browser-selected scope contains dataset, document, or source-root ids, Hermes
 WebUI shows `Mark scope selected` in the Memory page status area and records the
 selected counts and short ids against `select_read_only_scope`. This does not
 register roots, parse datasets, scan files, or change provider state.
+M30f links visible runtime/provider status to the first-run checklist: when the
+PSKA API is ready, Hermes WebUI shows `Mark runtime confirmed` in the Memory
+page status area and records API, memory, KB, embedding, GBrain, and alpha
+status against `confirm_runtime`. This is an operator confirmation only; it
+does not start services, change providers, or run diagnostics again.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

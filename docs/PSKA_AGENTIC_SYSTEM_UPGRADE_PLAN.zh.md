@@ -432,6 +432,11 @@ Hermes WebUI 只在浏览器当前已显式选择 dataset、document 或 source 
 `Mark scope selected`。点击后把 `select_read_only_scope` 标成 done，并把 scope 数量和短 id 写入
 operator note。这个动作不注册 source root，不 parse dataset，不扫描文件，也不改变 provider state。
 
+P2 的第四十二块已落地为 first-run runtime/provider proof：
+Hermes WebUI 在 PSKA API ready 时，于 Memory 页状态区显示 `Mark runtime confirmed`。
+点击后把 `confirm_runtime` 标成 done，并把 API、memory、KB、embedding、GBrain 与 alpha 状态写入
+operator note。这个动作只记录人工确认，不启动服务，不更换 provider，也不重新运行 diagnostics。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。

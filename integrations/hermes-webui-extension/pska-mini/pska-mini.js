@@ -605,6 +605,12 @@
   }
 
   async function onMemoryPageStatusClick(event) {
+    const runtimeButton = event.target?.closest?.("[data-pska-first-run-runtime-done]");
+    if (runtimeButton) {
+      event.preventDefault();
+      await markRuntimeConfirmedDone();
+      return;
+    }
     const button = event.target?.closest?.("[data-pska-first-run-scope-done]");
     if (!button) return;
     event.preventDefault();
@@ -1100,6 +1106,7 @@
         <span class="pska-mini-pill is-${escapeAttr(alphaTone(alpha))}" title="${escapeAttr(alphaTitle(alpha))}"><b>Alpha</b> ${escapeHtml(alphaStatusLabel(alpha))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
+      ${runtimeConfirmationActionHtml()}
       ${selectedScopeActionHtml()}
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
       ${jobHealthWarning(jobs)}
@@ -1504,6 +1511,11 @@
     await updateFirstRunItem("run_sourced_ask", "done", note);
   }
 
+  async function markRuntimeConfirmedDone() {
+    const note = runtimeConfirmationNote();
+    await updateFirstRunItem("confirm_runtime", "done", note);
+  }
+
   async function markSelectedScopeDone() {
     const note = selectedScopeNote();
     await updateFirstRunItem("select_read_only_scope", "done", note);
@@ -1512,6 +1524,47 @@
   async function markReviewQueueDone() {
     const note = reviewQueueInspectionNote();
     await updateFirstRunItem("review_memory_queue", "done", note);
+  }
+
+  function runtimeConfirmationActionHtml() {
+    if (!dashboard.health?.ok) return "";
+    return `
+      <div class="pska-mini-page-actions">
+        <span>${escapeHtml(runtimeConfirmationSummary())}</span>
+        <button class="pska-mini-inline-btn" data-pska-first-run-runtime-done="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark runtime confirmed</button>
+      </div>
+    `;
+  }
+
+  function runtimeConfirmationSummary() {
+    const workspace = dashboard.workspace || {};
+    const providers = workspace.providers || dashboard.health?.providers || {};
+    const kb = workspace.kb || {};
+    return [
+      "Runtime providers",
+      `Memory ${providers.memory || "unknown"}`,
+      `KB ${kb.usable ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready"}`,
+      `Embedding ${embeddingStatusLabel(embeddingComponent())}`,
+      `GBrain ${gbrainStatusLabel(gbrainComponent())}`
+    ].join(" · ");
+  }
+
+  function runtimeConfirmationNote() {
+    const workspace = dashboard.workspace || {};
+    const providers = workspace.providers || dashboard.health?.providers || {};
+    const kb = workspace.kb || {};
+    const embedding = embeddingComponent();
+    const gbrain = gbrainComponent();
+    const alpha = alphaReadiness();
+    return [
+      "runtime/provider confirmed",
+      dashboard.health?.ok ? "API ready" : "API missing",
+      `memory ${providers.memory || "unknown"}`,
+      `KB ${kb.usable ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready"}`,
+      `embedding ${embeddingStatusLabel(embedding)}`,
+      `GBrain ${gbrainStatusLabel(gbrain)}`,
+      `alpha ${alphaStatusLabel(alpha)}`
+    ].join(" · ");
   }
 
   function selectedScopeActionHtml() {
