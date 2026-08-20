@@ -80,7 +80,8 @@ cd /Users/xudawei/PSKA-Essential
 ```
 
 然后进入 Hermes WebUI。打开 PSKA 面板后，应该能看到 health/status、dataset 选择、scope 设置、Jarvis Brief、Agentic Brief、Source Recall、Memory/Review 等入口。
-进入 PSKA Memory 主页面后，还能看到 alpha readiness、First-run checklist 和 Recent Answer Proofs；清单只记录人工试用进度，不会自动扫描文件、创建备份、写源文件或写长期记忆。
+进入 PSKA Memory 主页面后，还能看到 alpha readiness、First-run checklist、Recent Answer Proofs
+和 Source Evidence；清单只记录人工试用进度，不会自动扫描文件、创建备份、写源文件或写长期记忆。
 
 ## 3. Hermes WebUI 里的基本操作
 
@@ -98,7 +99,7 @@ cd /Users/xudawei/PSKA-Essential
 - Recent Answer Proofs：查看最近 Hermes 回答实际观测到的 PSKA 工具调用、只读状态和资料范围；点开 `View Trace` 后，可以从该 proof 起草一条可编辑的记忆候选，并把 proof 作为来源带入 Review Queue。
 - Source Evidence：搜索已选资料源或导入的 ChatGPT 对话档案，读取原文，再起草带 `SourceRef` 的记忆候选。候选草稿必须人工改写后才能进入 Review Queue。
 - Review 页面：查看候选，接受、拒绝，或把已接受候选写入长期记忆。
-- First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注。
+- First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注，其中包括一次 Source Evidence 到记忆候选的演练。
 - Kanban 投影：把 PSKA 审核项同步到 Hermes 的 `pska-review` 看板。
 - Digest Runner：创建 Hermes Tasks 入口，用于摘要和消化任务。
 - LLM proof：可选地让 Hermes 真实回答一次，确认回答侧调用了 PSKA 工具、没有写入型动作，清理临时会话，并把回答侧 proof 写入 PSKA audit。

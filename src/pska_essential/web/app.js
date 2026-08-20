@@ -1957,7 +1957,7 @@ function alphaFirstRunPanel(session) {
     ]);
   }
   if (!session) return el("div", { className: "alpha-first-run-panel empty-list" }, t("empty.noAlphaFirstRunSession"));
-  const checklist = (session.checklist || []).slice(0, 7);
+  const checklist = (session.checklist || []).slice(0, 10);
   const progress = session.progress || {};
   return el("div", { className: "alpha-first-run-panel" }, [
     el("div", { className: "alpha-recovery-header" }, [

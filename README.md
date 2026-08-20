@@ -794,8 +794,8 @@ M29 adds `pska_alpha_first_run_session`,
 `pska_alpha_first_run_item_update`, `GET /api/alpha/first-run-session`, and
 `POST /api/alpha/first-run-session/items/{item_id}`. It persists the guided
 alpha first-run checklist in the PSKA local ledger so an operator can mark
-runtime checks, read-only source scope, sourced Ask, memory review, and
-writeback-lock checks as done or skipped. It writes only checklist state and
+runtime checks, read-only source scope, sourced Ask, Source Evidence-to-memory
+rehearsal, memory review, and writeback-lock checks as done or skipped. It writes only checklist state and
 audit events; it does not execute the underlying trial step, scan source
 folders, write source files, create backups, restore data, or apply durable
 memory.
@@ -882,6 +882,11 @@ item now has an operator note field for confirmation evidence, anomalies, and
 retrospective notes. Saving a note uses the same
 `pska_alpha_first_run_item_update` / first-run session route and still writes
 only PSKA checklist/audit state, not user source files or durable memory.
+M30b adds a required first-run rehearsal item for Source Evidence-to-memory:
+operators must search/read source evidence, draft one source-backed memory
+candidate, and verify it still requires human rewrite and Review before durable
+memory apply. This is checklist-only state; the item update does not run source
+search, create reviews, or write memory.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

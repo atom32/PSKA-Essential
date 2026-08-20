@@ -245,6 +245,7 @@ async function runDesktop(context, checks, artifacts) {
       && alphaReadyVisible
       && /First-run checklist/iu.test(firstRunText)
       && /Confirm runtime and providers/iu.test(firstRunText)
+      && /Rehearse source evidence to memory/iu.test(firstRunText)
       && !/Loading answer proofs/iu.test(answerProofText)
       && countMatch
       && Number(countMatch[1]) > 0
@@ -275,6 +276,7 @@ async function runDesktop(context, checks, artifacts) {
       && (/Alpha\s+alpha_ready/iu.test(memoryCheck.status) || /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun))
       && /First-run checklist/iu.test(memoryCheck.firstRun)
       && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
+      && /Rehearse source evidence to memory/iu.test(memoryCheck.firstRun)
       && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)
       && /recovery/iu.test(memoryCheck.firstRun)
       && memoryCheck.answerProofs

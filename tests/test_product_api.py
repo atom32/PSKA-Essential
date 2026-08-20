@@ -2710,7 +2710,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(updated["data_flow"]["writes_source_files"])
         self.assertFalse(updated["data_flow"]["writes_memory_directly"])
         self.assertFalse(updated["data_flow"]["executes_trial_step"])
-        item = {row["item_id"]: row for row in reloaded["checklist"]}["confirm_runtime"]
+        items = {row["item_id"]: row for row in reloaded["checklist"]}
+        self.assertIn("rehearse_source_evidence_memory", items)
+        self.assertEqual(items["rehearse_source_evidence_memory"]["tool"], "pska_source_search")
+        self.assertEqual(items["rehearse_source_evidence_memory"]["view"], "memory")
+        self.assertEqual(items["rehearse_source_evidence_memory"]["api"], "POST /api/sources/search")
+        self.assertEqual(session["progress"]["total_count"], 8)
+        self.assertEqual(session["progress"]["required_count"], 7)
+        item = items["confirm_runtime"]
         self.assertEqual(item["status"], "done")
         self.assertEqual(item["note"], "runtime checked")
         actions = [event.action for event in self.service.store.list_audit_events()]
@@ -4044,6 +4051,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn('function updateAlphaFirstRunItem', script)
         self.assertIn('function alphaFirstRunPanel', script)
         self.assertIn('function alphaChecklistNoteInput', script)
+        self.assertIn('slice(0, 10)', script)
         self.assertIn('body: { status, note }', script)
         self.assertIn('人工确认依据、异常或复盘备注', script)
         self.assertIn('保存备注', script)

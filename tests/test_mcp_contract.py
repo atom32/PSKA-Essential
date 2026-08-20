@@ -973,6 +973,12 @@ class McpContractTests(unittest.TestCase):
         item = {row["item_id"]: row for row in updated["checklist"]}["confirm_runtime"]
         self.assertEqual(session["schema"], "pska.alpha_first_run_session.v1")
         self.assertEqual(updated["status"], "in_progress")
+        items = {row["item_id"]: row for row in updated["checklist"]}
+        self.assertIn("rehearse_source_evidence_memory", items)
+        self.assertEqual(items["rehearse_source_evidence_memory"]["tool"], "pska_source_search")
+        self.assertEqual(items["rehearse_source_evidence_memory"]["view"], "memory")
+        self.assertEqual(session["progress"]["total_count"], 8)
+        self.assertEqual(session["progress"]["required_count"], 7)
         self.assertEqual(item["status"], "done")
         self.assertEqual(item["note"], "diagnostics checked")
         self.assertTrue(updated["data_flow"]["writes_checklist_state"])

@@ -611,12 +611,15 @@ creative/
 - 只 apply 真正有长期价值的。
 - 如果候选来自一次 Hermes 回答，先在 Recent Answer Proofs 点开 `View Trace`，
   再用 `Draft Memory Candidate` 起草；必须改写成稳定记忆后再创建审核候选。
+- 如果候选来自本地资料或 ChatGPT 完整对话档案，先在 Source Evidence 里 search/read，
+  再用 `Draft Memory Candidate` 起草；必须改写成稳定记忆后再创建审核候选。
+- 在 First-run checklist 里把 `Rehearse source evidence to memory` 标成 done，并写一句备注说明证据来源。
 
 验证：
 
 - Memory health 仍然是 0 issue。
 - 新记忆有 type、scope、behavior_delta 和 source_refs。
-- 来自回答的候选可以 trace 回对应 answer proof。
+- 来自回答的候选可以 trace 回对应 answer proof；来自资料的候选可以 trace 回对应 SourceRef。
 
 ### 第 5 天：接入创作
 

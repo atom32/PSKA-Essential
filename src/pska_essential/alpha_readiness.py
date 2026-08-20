@@ -526,9 +526,18 @@ def _first_run_checklist(
             required=True,
         ),
         _first_run_item(
+            "rehearse_source_evidence_memory",
+            "Rehearse source evidence to memory",
+            "Use Source Evidence search/read to draft one source-backed memory candidate, then rewrite it before Review.",
+            "pska_source_search",
+            "POST /api/sources/search",
+            "memory",
+            required=True,
+        ),
+        _first_run_item(
             "review_memory_queue",
             "Inspect Memory Review queue",
-            "Verify durable memory remains review/apply governed.",
+            "Verify the source-backed candidate remains review/apply governed.",
             "pska_memory_review_queue",
             "GET /api/memory/review-queue",
             "review",
@@ -558,6 +567,7 @@ def _first_run_checklist(
         items[2]["status"] = "blocked"
     if phase_status.get("first_read_only_run") == "blocked":
         items[3]["status"] = "blocked"
+        items[4]["status"] = "blocked"
     if recovery_plan.get("status") != "ready":
         items[1]["status"] = "needs_attention"
     for item in items:
