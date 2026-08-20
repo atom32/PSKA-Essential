@@ -192,7 +192,9 @@ registers that archive as a read-only local source root, and makes it searchable
 through `/api/sources/search`. The archive includes
 `PSKA_IMPORT_MANIFEST.json` and `PSKA_IMPORT_REPORT.md` for later inspection. It
 does not edit the original export, write durable memory, create reviews, or
-require embeddings.
+require embeddings. Re-importing into the same archive folder removes only
+previous PSKA-managed import files with PSKA markers and leaves unmarked user
+files untouched.
 
 Live RAGFlow mode uses the same Product API command after setting providers
 explicitly. The current local dogfood path uses GBrain memory over HTTP MCP:

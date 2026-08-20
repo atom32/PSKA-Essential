@@ -513,6 +513,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_source_recall_eval"]["embedding_required"])
         self.assertTrue(tool_policy["pska_chatgpt_conversations_import"]["writes_normalized_archive_files"])
         self.assertTrue(tool_policy["pska_chatgpt_conversations_import"]["writes_import_report_files"])
+        self.assertTrue(tool_policy["pska_chatgpt_conversations_import"]["removes_stale_managed_archive_files"])
         self.assertTrue(tool_policy["pska_chatgpt_conversations_import"]["writes_source_registry"])
         self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["writes_original_export_files"])
         self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["writes_memory_directly"])
@@ -686,6 +687,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(source_layer["chatgpt_conversations_import"]["mcp"], "pska_chatgpt_conversations_import")
         self.assertFalse(source_layer["chatgpt_conversations_import"]["writes_original_export_files"])
         self.assertTrue(source_layer["chatgpt_conversations_import"]["writes_import_report_files"])
+        self.assertTrue(source_layer["chatgpt_conversations_import"]["removes_stale_managed_archive_files"])
         self.assertFalse(source_layer["chatgpt_conversations_import"]["writes_memory_directly"])
         self.assertFalse(source_layer["chatgpt_conversations_import"]["creates_review"])
         lineage = capabilities["capabilities"]["memory"]["lineage"]

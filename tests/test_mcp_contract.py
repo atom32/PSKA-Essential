@@ -527,6 +527,7 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_source_recall_eval"]["embedding_required"])
         self.assertTrue(policy["pska_chatgpt_conversations_import"]["writes_normalized_archive_files"])
         self.assertTrue(policy["pska_chatgpt_conversations_import"]["writes_import_report_files"])
+        self.assertTrue(policy["pska_chatgpt_conversations_import"]["removes_stale_managed_archive_files"])
         self.assertTrue(policy["pska_chatgpt_conversations_import"]["writes_source_registry"])
         self.assertFalse(policy["pska_chatgpt_conversations_import"]["writes_original_export_files"])
         self.assertFalse(policy["pska_chatgpt_conversations_import"]["writes_memory_directly"])

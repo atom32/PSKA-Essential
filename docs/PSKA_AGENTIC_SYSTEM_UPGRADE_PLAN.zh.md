@@ -399,8 +399,9 @@ P2 的第三十六块已落地为 ChatGPT conversations source archive import：
 zip 或包含该文件的文件夹规范化为 PSKA 管理的 markdown 资料档案，并注册为
 read-only local source root。它不修改原始导出，不直接写 GBrain/SQLite memory，
 不创建 Review，不需要 embedding；每个 archive 会生成 `PSKA_IMPORT_MANIFEST.json`
-和 `PSKA_IMPORT_REPORT.md` 作为可持久回查的导入证据；后续只能先 source
-search/read，再把被确认的稳定事实走 governed memory review。
+和 `PSKA_IMPORT_REPORT.md` 作为可持久回查的导入证据；重复导入同一 archive
+目录时会先清理带 PSKA 标记的旧导入产物，避免旧会话被 source scan 误索引，同时保留无标记用户文件；
+后续只能先 source search/read，再把被确认的稳定事实走 governed memory review。
 
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、

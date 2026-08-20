@@ -21,6 +21,8 @@ MAX_MESSAGE_CHARS = 30_000
 MAX_CONVERSATION_CHARS = 200_000
 MANIFEST_FILENAME = "PSKA_IMPORT_MANIFEST.json"
 REPORT_FILENAME = "PSKA_IMPORT_REPORT.md"
+CONVERSATION_MARKER = "<!-- PSKA:CHATGPT-CONVERSATION-IMPORT -->"
+REPORT_MARKER = "<!-- PSKA:CHATGPT-CONVERSATION-ARCHIVE-REPORT -->"
 
 
 class ChatGPTConversationsImportError(ValueError):
@@ -54,6 +56,7 @@ def import_chatgpt_conversations(
     import_id = f"cgconv_{export_hash[:16]}"
     archive_dir = _resolve_output_dir(output_dir, import_id=import_id)
     archive_dir.mkdir(parents=True, exist_ok=True)
+    cleanup = _remove_stale_managed_archive_files(archive_dir)
 
     label = source_label.strip() or "ChatGPT conversation archive"
     written: list[dict[str, Any]] = []
@@ -120,6 +123,7 @@ def import_chatgpt_conversations(
             warning_count=warning_count,
             root=root,
             scan_requested=scan,
+            cleanup=cleanup,
         )
     if scan and written and root:
         scan_result = service.source_scan(
@@ -147,6 +151,7 @@ def import_chatgpt_conversations(
             "file_listing_truncated": len(written) > 20,
             "manifest_path": (import_report or {}).get("manifest_path", ""),
             "report_path": (import_report or {}).get("report_path", ""),
+            "cleanup": cleanup,
         },
         "summary": {
             "conversation_count": len(conversations),
@@ -164,6 +169,7 @@ def import_chatgpt_conversations(
             "writes_original_export_files": False,
             "writes_normalized_archive_files": bool(written),
             "writes_import_report_files": bool(import_report),
+            "removes_stale_managed_archive_files": bool(cleanup["removed_count"]),
             "writes_source_registry": bool(scan_result),
             "writes_memory_directly": False,
             "creates_review": False,
@@ -182,6 +188,7 @@ def import_chatgpt_conversations(
             output_dir=str(archive_dir),
             manifest_path=(import_report or {}).get("manifest_path", ""),
             report_path=(import_report or {}).get("report_path", ""),
+            removed_stale_file_count=cleanup["removed_count"],
             conversation_count=result["summary"]["conversation_count"],
             imported_conversation_count=result["summary"]["imported_conversation_count"],
             skipped_conversation_count=result["summary"]["skipped_conversation_count"],
@@ -190,6 +197,7 @@ def import_chatgpt_conversations(
             writes_original_export_files=False,
             writes_normalized_archive_files=bool(written),
             writes_import_report_files=bool(import_report),
+            removes_stale_managed_archive_files=bool(cleanup["removed_count"]),
             writes_source_registry=bool(scan_result),
             writes_memory_directly=False,
             creates_review=False,
@@ -255,6 +263,41 @@ def _resolve_output_dir(output_dir: str, *, import_id: str) -> Path:
     if not base.is_absolute():
         base = Path.cwd() / base
     return base.resolve()
+
+
+def _remove_stale_managed_archive_files(archive_dir: Path) -> dict[str, Any]:
+    removed: list[str] = []
+    for path in sorted(archive_dir.iterdir(), key=lambda item: item.name):
+        if not path.is_file():
+            continue
+        if _is_managed_archive_file(path):
+            path.unlink()
+            removed.append(path.name)
+    return {
+        "removed_count": len(removed),
+        "removed_files": removed[:20],
+        "removed_listing_truncated": len(removed) > 20,
+    }
+
+
+def _is_managed_archive_file(path: Path) -> bool:
+    if path.name == MANIFEST_FILENAME:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return False
+        return payload.get("schema") == CHATGPT_CONVERSATIONS_ARCHIVE_MANIFEST_SCHEMA
+    if path.name == REPORT_FILENAME:
+        try:
+            return REPORT_MARKER in path.read_text(encoding="utf-8", errors="ignore")[:4096]
+        except OSError:
+            return False
+    if re.fullmatch(r"conversation-\d{4}-.+\.md", path.name):
+        try:
+            return CONVERSATION_MARKER in path.read_text(encoding="utf-8", errors="ignore")[:4096]
+        except OSError:
+            return False
+    return False
 
 
 def _normalize_conversation(conversation: dict[str, Any], *, index: int) -> dict[str, Any]:
@@ -383,7 +426,7 @@ def _render_conversation_markdown(
     lines = [
         f"# {conversation['title']}",
         "",
-        "<!-- PSKA:CHATGPT-CONVERSATION-IMPORT -->",
+        CONVERSATION_MARKER,
         "",
         f"- Import ID: `{import_id}`",
         f"- Source label: {source_label}",
@@ -430,6 +473,7 @@ def _write_import_report(
     warning_count: int,
     root: dict[str, Any] | None,
     scan_requested: bool,
+    cleanup: dict[str, Any],
 ) -> dict[str, str]:
     manifest_path = archive_dir / MANIFEST_FILENAME
     report_path = archive_dir / REPORT_FILENAME
@@ -447,6 +491,7 @@ def _write_import_report(
         warning_count=warning_count,
         root=root,
         scan_requested=scan_requested,
+        cleanup=cleanup,
     )
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report_path.write_text(_render_import_report_markdown(manifest), encoding="utf-8")
@@ -473,6 +518,7 @@ def _build_archive_manifest(
     warning_count: int,
     root: dict[str, Any] | None,
     scan_requested: bool,
+    cleanup: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "schema": CHATGPT_CONVERSATIONS_ARCHIVE_MANIFEST_SCHEMA,
@@ -501,6 +547,7 @@ def _build_archive_manifest(
         },
         "root": _manifest_root(root),
         "scan_requested": bool(scan_requested),
+        "cleanup": cleanup,
         "conversation_files": written[:1000],
         "conversation_file_listing_truncated": len(written) > 1000,
         "skipped": skipped[:1000],
@@ -509,6 +556,7 @@ def _build_archive_manifest(
             "writes_original_export_files": False,
             "writes_normalized_archive_files": True,
             "writes_import_report_files": True,
+            "removes_stale_managed_archive_files": bool(cleanup.get("removed_count")),
             "writes_source_registry": bool(root),
             "writes_memory_directly": False,
             "creates_review": False,
@@ -535,7 +583,7 @@ def _render_import_report_markdown(manifest: dict[str, Any]) -> str:
     lines = [
         "# PSKA ChatGPT Conversation Import Report",
         "",
-        "<!-- PSKA:CHATGPT-CONVERSATION-ARCHIVE-REPORT -->",
+        REPORT_MARKER,
         "",
         f"- Import ID: `{manifest['import_id']}`",
         f"- Source label: {manifest['source']['label']}",
@@ -553,6 +601,7 @@ def _render_import_report_markdown(manifest: dict[str, Any]) -> str:
         f"- Conversations skipped: {summary['skipped_conversation_count']}",
         f"- Messages imported: {summary['message_count']}",
         f"- Warnings: {summary['warning_count']}",
+        f"- Stale PSKA-managed files removed before import: {manifest.get('cleanup', {}).get('removed_count', 0)}",
         "",
         "## Data Flow",
         "",

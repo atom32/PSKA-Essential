@@ -838,7 +838,9 @@ scans it through the no-embedding source registry. Each archive also gets
 `PSKA_IMPORT_MANIFEST.json` and `PSKA_IMPORT_REPORT.md` so the import remains
 inspectable later through source search/read. It does not edit the original
 export, write durable memory, or create reviews; stable claims must still be
-promoted later through governed memory review.
+promoted later through governed memory review. Re-importing into the same
+archive folder removes only stale PSKA-managed import files with PSKA markers;
+unmarked user files in that folder are left untouched.
 `pska_memory_probe` checks whether the configured memory backend can search
 through the PSKA memory contract; it rejects fake memory by default for live
 component verification and records a `memory.probe` audit event.

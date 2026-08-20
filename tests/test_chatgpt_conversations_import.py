@@ -146,6 +146,46 @@ class ChatGPTConversationsImportTests(unittest.TestCase):
         self.assertTrue(result["archive"]["manifest_path"].endswith("PSKA_IMPORT_MANIFEST.json"))
         self.assertTrue(result["data_flow"]["writes_import_report_files"])
 
+    def test_reimport_removes_only_stale_pska_managed_archive_files(self):
+        service = build_fake_service()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            export_path = Path(temp_dir) / "conversations.json"
+            output_dir = Path(temp_dir) / "archive"
+            export_path.write_text(json.dumps(_chatgpt_export_payload(), ensure_ascii=False), encoding="utf-8")
+
+            first = import_chatgpt_conversations(
+                service,
+                export_path=str(export_path),
+                output_dir=str(output_dir),
+                source_label="ChatGPT reimport demo",
+                conversation_limit=0,
+                scan=False,
+            )
+            user_note = output_dir / "conversation-9999-user-note.md"
+            user_note.write_text("# User note\n\nNo PSKA import marker here.\n", encoding="utf-8")
+
+            second = import_chatgpt_conversations(
+                service,
+                export_path=str(export_path),
+                output_dir=str(output_dir),
+                source_label="ChatGPT reimport demo",
+                conversation_limit=1,
+                scan=False,
+            )
+            files = sorted(path.name for path in output_dir.iterdir() if path.is_file())
+            manifest = json.loads(Path(second["archive"]["manifest_path"]).read_text(encoding="utf-8"))
+
+        self.assertEqual(first["archive"]["file_count"], 2)
+        self.assertEqual(second["archive"]["file_count"], 1)
+        self.assertEqual(second["archive"]["cleanup"]["removed_count"], 4)
+        self.assertTrue(second["data_flow"]["removes_stale_managed_archive_files"])
+        self.assertIn("conversation-9999-user-note.md", files)
+        self.assertFalse(any("eidolia-writing-continuation" in name for name in files))
+        self.assertEqual(manifest["summary"]["imported_conversation_count"], 1)
+        self.assertEqual(manifest["cleanup"]["removed_count"], 4)
+        self.assertTrue(manifest["data_flow"]["removes_stale_managed_archive_files"])
+        self.assertFalse(manifest["data_flow"]["writes_source_registry"])
+
 
 if __name__ == "__main__":
     unittest.main()
