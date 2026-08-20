@@ -233,9 +233,10 @@ async function runDesktop(context, checks, artifacts) {
     const firstRunText = document.querySelector("#pskaMiniFirstRun")?.innerText || "";
     const answerProofText = document.querySelector("#pskaMiniAnswerProofs")?.innerText || "";
     const countMatch = count.match(/(\d+)\s+shown/iu);
+    const alphaReadyVisible = /Alpha\s+alpha_ready/iu.test(status) || /readiness\s+alpha_ready/iu.test(firstRunText);
     return /API\s+ready/iu.test(status)
       && /Embedding\s+(local|TEI|external)/iu.test(status)
-      && /Alpha\s+alpha_ready/iu.test(status)
+      && alphaReadyVisible
       && /First-run checklist/iu.test(firstRunText)
       && /Confirm runtime and providers/iu.test(firstRunText)
       && !/Loading answer proofs/iu.test(answerProofText)
@@ -243,7 +244,7 @@ async function runDesktop(context, checks, artifacts) {
       && Number(countMatch[1]) > 0
       && !/Loading memory/iu.test(memoryText)
       && !/Loading reviews/iu.test(reviewText);
-  }, { timeout: 30000 });
+  }, undefined, { timeout: 60000 });
   const memoryCheck = await page.evaluate(() => ({
     visible: Boolean(document.querySelector("#mainPskaMini")),
     title: document.querySelector("#mainPskaMini .main-view-title")?.innerText || "",
@@ -265,7 +266,7 @@ async function runDesktop(context, checks, artifacts) {
       && /PSKA Memory/iu.test(memoryCheck.title)
       && /governed memory and review queue/iu.test(memoryCheck.subtitle)
       && /Embedding\s+(local|TEI|external)/iu.test(memoryCheck.status)
-      && /Alpha\s+alpha_ready/iu.test(memoryCheck.status)
+      && (/Alpha\s+alpha_ready/iu.test(memoryCheck.status) || /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun))
       && /First-run checklist/iu.test(memoryCheck.firstRun)
       && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
       && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)

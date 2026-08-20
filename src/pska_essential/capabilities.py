@@ -113,6 +113,19 @@ TOOL_POLICY: dict[str, dict[str, Any]] = {
         "ranking": "sqlite_fts5_bm25_title_path_boost",
         "snippet_metadata": True,
     },
+    "pska_search_index_evaluation": {
+        "category": "source",
+        "access": "read",
+        "durable": False,
+        "writes_source_files": False,
+        "writes_source_registry": False,
+        "writes_memory_directly": False,
+        "creates_index": False,
+        "runs_external_service": False,
+        "embedding_required": False,
+        "evaluates_optional_adapters": True,
+        "default_provider": "sqlite_fts5",
+    },
     "pska_source_neighbors": {
         "category": "source",
         "access": "read",
@@ -788,7 +801,7 @@ def memory_inflow_contract() -> dict[str, Any]:
 def source_layer_contract() -> dict[str, Any]:
     return {
         "schema": "pska.source_layer.v1",
-        "status": "m21_image_phash_duplicates",
+        "status": "m34_search_index_evaluation",
         "source_kinds": ["local_folder", "obsidian_vault"],
         "default_permission_mode": "read_only",
         "permission_modes": ["read_only", "sidecar_write", "native_write", "managed"],
@@ -801,6 +814,7 @@ def source_layer_contract() -> dict[str, Any]:
                 "pska_source_root_register",
                 "pska_source_scan",
                 "pska_source_search",
+                "pska_search_index_evaluation",
                 "pska_source_read",
                 "pska_source_neighbors",
                 "pska_duplicate_report",
@@ -905,6 +919,7 @@ def assistant_layer_contract() -> dict[str, Any]:
                 "pska_source_extract_job_list",
                 "pska_source_extract_job_run",
                 "pska_source_watch_once",
+                "pska_search_index_evaluation",
                 "pska_obsidian_moc_propose",
                 "pska_obsidian_moc_apply",
                 "pska_memory_card_list",
@@ -1016,8 +1031,8 @@ def adapter_slots_contract() -> dict[str, Any]:
                     "tantivy",
                     module="tantivy",
                     extra="search-tantivy",
-                    maturity="planned",
-                    supports=["large_local_full_text_index"],
+                    maturity="evaluated_candidate",
+                    supports=["large_local_full_text_index", "local_first_candidate"],
                 ),
                 _service_provider(
                     "meilisearch",
@@ -1735,7 +1750,7 @@ def _python_provider(
     safety: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     available = importlib.util.find_spec(module) is not None
-    return _provider(
+    payload = _provider(
         name,
         status="available" if available else "unavailable",
         maturity=maturity,
@@ -1745,6 +1760,9 @@ def _python_provider(
         reason="" if available else f"Python module `{module}` is not installed.",
         install_hint=f"Install PSKA optional extra `{extra}`.",
     )
+    payload["optional_extra"] = extra
+    payload["python_module"] = module
+    return payload
 
 
 def _cli_provider(

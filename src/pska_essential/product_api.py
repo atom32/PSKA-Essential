@@ -83,6 +83,7 @@ from pska_essential.source_extraction_jobs import (
     list_source_extraction_jobs,
     run_source_extraction_job,
 )
+from pska_essential.search_index_evaluation import build_search_index_evaluation
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
 from pska_essential.workflow import WorkflowError, WorkflowService
@@ -133,6 +134,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/roots"},
     {"method": "POST", "path": "/api/sources/roots/{root_id}/scan"},
     {"method": "POST", "path": "/api/sources/search"},
+    {"method": "GET", "path": "/api/sources/search-index/evaluation"},
     {"method": "POST", "path": "/api/sources/neighbors"},
     {"method": "POST", "path": "/api/sources/duplicates"},
     {"method": "POST", "path": "/api/sources/duplicate-review"},
@@ -1088,6 +1090,15 @@ def _handler_class(state: ProductApiState):
                         "ok": True,
                         "context_packets": to_jsonable(packets),
                         "count": len(packets),
+                    }
+                )
+                return
+
+            if method == "GET" and path == "/api/sources/search-index/evaluation":
+                self._send_json(
+                    {
+                        "ok": True,
+                        "evaluation": build_search_index_evaluation(state.service),
                     }
                 )
                 return

@@ -199,7 +199,8 @@ search(query, scope, filters, limit) -> list[ContextPacket]
 Provider slots:
 
 - `sqlite_fts5`: implemented default local-first BM25 index.
-- `tantivy`: planned local high-performance full-text adapter.
+- `tantivy`: evaluated optional local high-performance full-text adapter
+  candidate, installable with `search-tantivy`, not the default provider.
 - `meilisearch`: planned service adapter for typo tolerant/server search.
 - `recoll`: planned desktop-search adapter/reference.
 
@@ -207,6 +208,8 @@ Rules:
 
 - Search results must return PSKA `ContextPacket` and `SourceRef`.
 - Search adapters must honor source scope and permission filters.
+- Candidate adapters must pass parity for scope, filters, snippets, match
+  reasons, rebuild, and rollback before replacing `sqlite_fts5`.
 - Embedding indexes remain optional caches, not a prerequisite for local source
   retrieval.
 

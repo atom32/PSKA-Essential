@@ -318,6 +318,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/sources/roots"), contract_routes)
         self.assertIn(("POST", "/api/sources/roots/{root_id}/scan"), contract_routes)
         self.assertIn(("POST", "/api/sources/search"), contract_routes)
+        self.assertIn(("GET", "/api/sources/search-index/evaluation"), contract_routes)
         self.assertIn(("POST", "/api/sources/neighbors"), contract_routes)
         self.assertIn(("POST", "/api/sources/duplicates"), contract_routes)
         self.assertIn(("POST", "/api/sources/duplicate-review"), contract_routes)
@@ -359,8 +360,9 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(capabilities["capabilities"]["memory"]["operations"]["delete"]["supported"])
         source_layer = capabilities["capabilities"]["source_layer"]
         self.assertEqual(source_layer["schema"], "pska.source_layer.v1")
-        self.assertEqual(source_layer["status"], "m21_image_phash_duplicates")
+        self.assertEqual(source_layer["status"], "m34_search_index_evaluation")
         self.assertIn("pska_source_search", source_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_search_index_evaluation", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_source_neighbors", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_report", source_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_duplicate_review_list", source_layer["mcp_tools"]["implemented"])
@@ -408,6 +410,14 @@ class ProductApiTests(unittest.TestCase):
         )
         self.assertIn("title_path_boost", sqlite_search["supports"])
         self.assertIn("like_fallback", sqlite_search["supports"])
+        tantivy_search = next(
+            provider
+            for provider in capabilities["capabilities"]["adapter_slots"]["slots"]["search_index"]["providers"]
+            if provider["name"] == "tantivy"
+        )
+        self.assertEqual(tantivy_search["optional_extra"], "search-tantivy")
+        self.assertEqual(tantivy_search["python_module"], "tantivy")
+        self.assertEqual(tantivy_search["maturity"], "evaluated_candidate")
         assistant_layer = capabilities["capabilities"]["assistant_layer"]
         self.assertEqual(assistant_layer["schema"], "pska.assistant_layer.v1")
         self.assertEqual(assistant_layer["status"], "m33_specialist_tool_profiles")
@@ -416,6 +426,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn("pska_agentic_context_brief_list", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_specialist_profiles", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_hermes_answer_proofs", assistant_layer["mcp_tools"]["implemented"])
+        self.assertIn("pska_search_index_evaluation", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_readiness", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_trial_guide", assistant_layer["mcp_tools"]["implemented"])
         self.assertIn("pska_alpha_recovery_plan", assistant_layer["mcp_tools"]["implemented"])
@@ -467,6 +478,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_alpha_first_run_item_update"]["executes_trial_step"])
         self.assertEqual(tool_policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
         self.assertTrue(tool_policy["pska_source_search"]["snippet_metadata"])
+        self.assertEqual(tool_policy["pska_search_index_evaluation"]["access"], "read")
+        self.assertEqual(tool_policy["pska_search_index_evaluation"]["default_provider"], "sqlite_fts5")
+        self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_source_files"])
+        self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_source_registry"])
+        self.assertFalse(tool_policy["pska_search_index_evaluation"]["writes_memory_directly"])
+        self.assertFalse(tool_policy["pska_search_index_evaluation"]["creates_index"])
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_source_files"], "write_target_dependent")
         self.assertEqual(tool_policy["pska_source_tag_apply"]["writes_sidecar"], "write_target_dependent")
         self.assertIn(
@@ -881,6 +898,7 @@ class ProductApiTests(unittest.TestCase):
                 "/api/sources/search",
                 {"query": "Hermes personal source", "scope": {"root_ids": [registered["root"]["root_id"]]}},
             )
+            search_index_evaluation = self._get_json("/api/sources/search-index/evaluation")
             architecture_packet = next(
                 packet
                 for packet in searched["context_packets"]
@@ -1071,6 +1089,19 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(scanned["scan"]["counts"]["indexed"], 6)
         self.assertEqual(scanned["scan"]["extraction"]["extractor"], "auto")
         self.assertGreaterEqual(searched["count"], 1)
+        evaluation = search_index_evaluation["evaluation"]
+        self.assertEqual(evaluation["schema"], "pska.search_index_evaluation.v1")
+        self.assertEqual(evaluation["current_default"], "sqlite_fts5")
+        self.assertEqual(evaluation["recommendation"]["recommended_action"], "keep_sqlite_fts5_default")
+        self.assertEqual(evaluation["recommendation"]["decision"], "defer_adapter_activation")
+        self.assertFalse(evaluation["data_flow"]["writes_source_files"])
+        self.assertFalse(evaluation["data_flow"]["writes_source_registry"])
+        self.assertFalse(evaluation["data_flow"]["writes_memory_directly"])
+        self.assertFalse(evaluation["data_flow"]["creates_index"])
+        self.assertFalse(evaluation["data_flow"]["embedding_required"])
+        self.assertGreaterEqual(evaluation["source_index_stats"]["active_object_count"], 6)
+        self.assertGreaterEqual(evaluation["source_index_stats"]["indexed_section_count"], 6)
+        self.assertIn("tantivy", {provider["name"] for provider in evaluation["provider_matrix"]})
         self.assertIn("match_reason", architecture_packet["metadata"])
         self.assertIn("rank_boost", architecture_packet["metadata"])
         self.assertIn("snippet_plain", architecture_packet["metadata"])

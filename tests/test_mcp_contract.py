@@ -39,6 +39,7 @@ EXPECTED_TOOLS = {
     "pska_source_root_register",
     "pska_source_scan",
     "pska_source_search",
+    "pska_search_index_evaluation",
     "pska_source_neighbors",
     "pska_duplicate_report",
     "pska_duplicate_review_list",
@@ -143,6 +144,15 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_agentic_context_brief", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_context_brief_list", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_agentic_specialist_profiles", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_search_index_evaluation", capabilities["source_layer"]["mcp_tools"]["implemented"])
+        evaluation = tools["pska_search_index_evaluation"]()
+        self.assertEqual(evaluation["schema"], "pska.search_index_evaluation.v1")
+        self.assertEqual(evaluation["current_default"], "sqlite_fts5")
+        self.assertEqual(evaluation["recommendation"]["recommended_action"], "keep_sqlite_fts5_default")
+        self.assertFalse(evaluation["data_flow"]["writes_source_files"])
+        self.assertFalse(evaluation["data_flow"]["writes_source_registry"])
+        self.assertFalse(evaluation["data_flow"]["writes_memory_directly"])
+        self.assertFalse(evaluation["data_flow"]["creates_index"])
 
     def test_runtime_diagnostics_tool_reports_checks_without_memory_search_audit(self):
         service = build_fake_service()
@@ -455,6 +465,12 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_duplicate_cleanup_propose"]["apply_supported"])
         self.assertEqual(policy["pska_source_search"]["ranking"], "sqlite_fts5_bm25_title_path_boost")
         self.assertTrue(policy["pska_source_search"]["snippet_metadata"])
+        self.assertEqual(policy["pska_search_index_evaluation"]["access"], "read")
+        self.assertEqual(policy["pska_search_index_evaluation"]["default_provider"], "sqlite_fts5")
+        self.assertFalse(policy["pska_search_index_evaluation"]["writes_source_files"])
+        self.assertFalse(policy["pska_search_index_evaluation"]["writes_source_registry"])
+        self.assertFalse(policy["pska_search_index_evaluation"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_search_index_evaluation"]["creates_index"])
         self.assertFalse(policy["pska_source_collection_create"]["writes_source_files"])
         self.assertTrue(policy["pska_source_collection_create"]["writes_source_registry"])
         self.assertFalse(policy["pska_source_collection_resolve"]["embedding_required"])

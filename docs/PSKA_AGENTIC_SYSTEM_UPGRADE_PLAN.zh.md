@@ -141,7 +141,7 @@ flowchart TD
 | Office/PDF conversion | 不完整 | MarkItDown、Docling、Apache Tika | `ExtractionPort`、parse status、section coords | Phase 1 接 MarkItDown，Docling 做高级 PDF |
 | OCR | 未做 | Docling OCR、OCRmyPDF、Tika OCR pipeline | OCR job 状态、失败暴露、SourceRef page coords | Phase 2 |
 | Local lexical search | SQLite FTS5 | SQLite FTS5 | ranking envelope、scope、filters | 继续作为默认 |
-| Strong local search | 未做 | Tantivy、Meilisearch、Recoll/Xapian | `SearchIndexPort`、adapter selection | Phase 3 评估 |
+| Strong local search | 已评估候选 | Tantivy、Meilisearch、Recoll/Xapian | `SearchIndexPort`、adapter selection | 保持 SQLite FTS5 默认，待规模/质量瓶颈再接 |
 | Exact duplicate | 已做 | SQLite hash | duplicate report contract | 保留 |
 | Approx duplicate | 未做 | fclones、Czkawka、dupeGuru、rmlint | `DedupPort`、dry-run proposal、destructive review | Phase 1/2 接 fclones dry-run |
 | Obsidian MOC | 已做 marker block | Obsidian Local REST API、Omnisearch 参考 | vault SourceRef、permission、MOC apply | 保留本地文件写回；REST API 可选 |
@@ -573,6 +573,13 @@ PSKA 永远只公开 report/proposal，删除/移动/硬链接必须是后续 de
 
 embedding 仍作为 cache/enhancement，不进入本地 source 第一版前提。
 
+2026-08-21 P3-Search 更新：新增只读 `pska_search_index_evaluation` 与
+`GET /api/sources/search-index/evaluation`。该报告读取现有 source registry
+规模、optional `search-tantivy`/`tantivy` 安装状态和 SearchIndexPort provider
+matrix，并给出 activation gates。结论保持 `sqlite_fts5` 为默认 provider；
+Tantivy 只是已评估候选，不创建索引、不写 source registry、不写源文件、不写
+Memory，也不允许 Hermes/agent 覆盖默认 provider。
+
 ### 7.9 Jobs And Wakeup
 
 当前 SQLite job ledger 可以覆盖开发机和单用户场景。升级路线：
@@ -887,7 +894,7 @@ Docling 版本为 2.119.0。`make live-docling-smoke PYTHON=.venv/bin/python`
 - [x] Obsidian markdown comment native write proposal/apply.
 - [x] Source collections.
 - [x] FTS ranking improvements.
-- [ ] Evaluate Tantivy adapter.
+- [x] Evaluate Tantivy adapter.
 
 ### P4 Backlog
 

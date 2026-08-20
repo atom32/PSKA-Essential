@@ -71,6 +71,7 @@ from pska_essential.source_extraction_jobs import (
     list_source_extraction_jobs,
     run_source_extraction_job,
 )
+from pska_essential.search_index_evaluation import build_search_index_evaluation
 from pska_essential.source_watch import watch_source_once
 from pska_essential.trace_query import build_trace_query
 from pska_essential.workspace_status import build_workspace_status, compact_workspace_status
@@ -142,6 +143,9 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         filters: dict[str, Any] | None = None,
     ):
         return to_jsonable(service.source_search(query, scope or {}, limit=limit, filters=filters or {}))
+
+    def pska_search_index_evaluation():
+        return build_search_index_evaluation(service)
 
     def pska_source_neighbors(
         source_ref: dict[str, Any],
@@ -1421,6 +1425,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_root_register": pska_source_root_register,
         "pska_source_scan": pska_source_scan,
         "pska_source_search": pska_source_search,
+        "pska_search_index_evaluation": pska_search_index_evaluation,
         "pska_source_neighbors": pska_source_neighbors,
         "pska_duplicate_report": pska_duplicate_report,
         "pska_duplicate_review_list": pska_duplicate_review_list,
