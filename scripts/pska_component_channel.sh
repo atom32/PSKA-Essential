@@ -167,6 +167,69 @@ status_mcp_url() {
   fi
 }
 
+env_file_value() {
+  local key="$1"
+  [[ -f "$PSKA_ENV_FILE" ]] || return 0
+  awk -v key="$key" '
+    BEGIN { value = "" }
+    {
+      line = $0
+      sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+      if (line !~ ("^" key "=")) next
+      sub(("^" key "="), "", line)
+      sub(/[[:space:]]+#.*$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line ~ /^".*"$/ || line ~ /^\047.*\047$/) {
+        line = substr(line, 2, length(line) - 2)
+      }
+      value = line
+    }
+    END { print value }
+  ' "$PSKA_ENV_FILE"
+}
+
+selected_memory_provider() {
+  local value json
+  if command -v python3 >/dev/null 2>&1; then
+    json="$(curl -fsS --max-time "${HTTP_PROBE_TIMEOUT:-5}" "${PSKA_API_BASE_URL}/api/workspace/status?compact=1&view=channel&next_action_limit=0" 2>/dev/null || true)"
+    if [[ -n "$json" ]]; then
+      value="$(printf '%s' "$json" | python3 -c '
+import json
+import sys
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(0)
+print(((payload.get("workspace_status") or {}).get("providers") or {}).get("memory") or "")
+' 2>/dev/null || true)"
+    fi
+  fi
+  value="${value:-${PSKA_MEMORY_PROVIDER:-}}"
+  if [[ -z "$value" ]]; then
+    value="$(env_file_value "PSKA_MEMORY_PROVIDER")"
+  fi
+  printf '%s' "$value"
+}
+
+status_graphiti_optional() {
+  local url="${GRAPHITI_BASE_URL}/healthcheck"
+  local memory_provider
+  memory_provider="$(selected_memory_provider)"
+  if http_ok "$url"; then
+    if [[ "$memory_provider" == "graphiti" ]]; then
+      printf '  OK   %-24s %s\n' "Graphiti" "$url"
+    else
+      printf '  OK   %-24s %s\n' "Graphiti optional" "$url"
+    fi
+    return 0
+  fi
+  if [[ "$memory_provider" == "graphiti" ]]; then
+    printf '  MISS %-24s %s\n' "Graphiti" "$url"
+  else
+    printf '  OFF  %-24s %s (not selected)\n' "Graphiti optional" "$url"
+  fi
+}
+
 status_label() {
   local label="$1"
   if label_loaded "$label"; then
@@ -236,7 +299,7 @@ print_status() {
   status_url "Eidolia" "${EIDOLIA_BASE_URL}${EIDOLIA_HEALTH_PATH}"
 
   log "optional/side-by-side HTTP endpoints"
-  status_url "Graphiti optional" "${GRAPHITI_BASE_URL}/healthcheck"
+  status_graphiti_optional
   status_url "RAGFlow next API" "${RAGFLOW_NEXT_API}/api/v1/system/ping"
   status_url "RAGFlow next Web" "${RAGFLOW_NEXT_WEB}/"
   status_url "Hermes WebUI next" "${HERMES_WEBUI_NEXT_URL}/health"
