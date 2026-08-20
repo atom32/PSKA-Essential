@@ -429,6 +429,22 @@ main.main.showing-pska-mini > #mainPskaMini {
   line-height: 1.4;
 }
 
+.pska-mini-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.24));
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.04);
+  color: var(--muted, #777);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .pska-mini-first-run {
   display: grid;
   gap: 10px;

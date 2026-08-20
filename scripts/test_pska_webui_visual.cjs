@@ -260,11 +260,13 @@ async function runDesktop(context, checks, artifacts) {
     firstRun: document.querySelector("#pskaMiniFirstRun")?.innerText?.slice(0, 1200) || "",
     answerProofs: document.querySelector("#pskaMiniAnswerProofs")?.innerText?.slice(0, 1200) || "",
     hasAnswerProofButton: Boolean(document.querySelector("[data-pska-answer-proof-id]")),
+    hasScopeButton: Boolean(document.querySelector("[data-pska-first-run-scope-done]")),
     hasReviewViewButton: Boolean(document.querySelector('[data-pska-review-action="view"]')),
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
     fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 2000) || "",
     firstMemory: document.querySelector("#pskaMiniMemoryResults")?.innerText?.slice(0, 400) || "",
     firstReview: document.querySelector("#pskaMiniReviewList")?.innerText?.slice(0, 400) || "",
+    scopeAction: document.querySelector("#pskaMiniPageStatus")?.innerText?.slice(0, 800) || "",
   }));
   const countMatch = memoryCheck.count.match(/(\d+)\s+shown/iu);
   assertCheck(
@@ -278,6 +280,8 @@ async function runDesktop(context, checks, artifacts) {
       && /First-run checklist/iu.test(memoryCheck.firstRun)
       && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
       && /Rehearse source evidence to memory/iu.test(memoryCheck.firstRun)
+      && memoryCheck.hasScopeButton
+      && /Selected read-only scope/iu.test(memoryCheck.scopeAction)
       && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)
       && /recovery/iu.test(memoryCheck.firstRun)
       && memoryCheck.answerProofs
@@ -289,6 +293,31 @@ async function runDesktop(context, checks, artifacts) {
       && !/Loading reviews/iu.test(memoryCheck.firstReview),
     memoryCheck,
   );
+
+  await page.click("[data-pska-first-run-scope-done]");
+  await page.waitForFunction(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Select one read-only scope/iu.test(node.innerText || ""));
+    const text = item?.innerText || "";
+    const note = item?.querySelector("textarea")?.value || "";
+    return /done\s+·\s+required/iu.test(text)
+      && /selected read-only scope/iu.test(note)
+      && !/1\s+source roots/iu.test(note);
+  }, { timeout: 15000 });
+  const scopeCheck = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
+    const item = items.find((node) => /Select one read-only scope/iu.test(node.innerText || ""));
+    return {
+      text: item?.innerText?.slice(0, 900) || "",
+      note: item?.querySelector("textarea")?.value || "",
+    };
+  });
+  assertCheck(checks, "Selected scope marks first-run read-only scope done with scope note", (
+    /done\s+·\s+required/iu.test(scopeCheck.text)
+      && /selected read-only scope/iu.test(scopeCheck.note)
+      && !/1\s+source roots/iu.test(scopeCheck.note)
+      && /KB|source root|document/iu.test(scopeCheck.note)
+  ), scopeCheck);
 
   if (memoryCheck.hasReviewViewButton) {
     await page.click('[data-pska-review-action="view"]');

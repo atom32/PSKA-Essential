@@ -899,6 +899,11 @@ operator opens a Review Detail, Hermes WebUI shows `Mark review inspected` and
 records the review id, candidate kind, status, and source-ref count against
 `review_memory_queue`. This still does not accept, reject, apply, or write
 memory; it only records that the queue was inspected.
+M30e links explicit WebUI scope selection to the first-run checklist: when the
+browser-selected scope contains dataset, document, or source-root ids, Hermes
+WebUI shows `Mark scope selected` in the Memory page status area and records the
+selected counts and short ids against `select_read_only_scope`. This does not
+register roots, parse datasets, scan files, or change provider state.
 M31 makes agentic intervention concrete: Hermes/WebUI can request a one-shot
 Agentic Context Brief before answering or acting. The brief starts a transient
 workflow, retrieves bounded evidence, searches local source indexes, searches

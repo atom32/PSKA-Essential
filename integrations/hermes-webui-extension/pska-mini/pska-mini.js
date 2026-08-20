@@ -403,6 +403,7 @@
     `;
     main.appendChild(panel);
     panel.querySelector("#pskaMiniPageRefresh").addEventListener("click", refreshMemoryPage);
+    panel.querySelector("#pskaMiniPageStatus").addEventListener("click", onMemoryPageStatusClick);
     panel.querySelector("#pskaMiniMemorySearch").addEventListener("click", runMemoryPageSearch);
     panel.querySelector("#pskaMiniSourceEvidenceSearch").addEventListener("click", runSourceEvidenceSearch);
     panel.querySelector("#pskaMiniMemoryQuery").addEventListener("keydown", (event) => {
@@ -601,6 +602,13 @@
       toast(`PSKA first-run update failed: ${errorText(error)}`, "error");
     }
     renderMemoryPage();
+  }
+
+  async function onMemoryPageStatusClick(event) {
+    const button = event.target?.closest?.("[data-pska-first-run-scope-done]");
+    if (!button) return;
+    event.preventDefault();
+    await markSelectedScopeDone();
   }
 
   async function runMemoryPageSearch(options = {}) {
@@ -1092,6 +1100,7 @@
         <span class="pska-mini-pill is-${escapeAttr(alphaTone(alpha))}" title="${escapeAttr(alphaTitle(alpha))}"><b>Alpha</b> ${escapeHtml(alphaStatusLabel(alpha))}</span>
         ${memoryPage.loadedAt ? `<span class="pska-mini-pill"><b>Loaded</b> ${escapeHtml(memoryPage.loadedAt)}</span>` : ""}
       </div>
+      ${selectedScopeActionHtml()}
       ${memoryPage.message ? `<div class="pska-mini-page-note">${escapeHtml(memoryPage.message)}</div>` : ""}
       ${jobHealthWarning(jobs)}
       ${wakeupWarning(wakeup)}
@@ -1495,9 +1504,56 @@
     await updateFirstRunItem("run_sourced_ask", "done", note);
   }
 
+  async function markSelectedScopeDone() {
+    const note = selectedScopeNote();
+    await updateFirstRunItem("select_read_only_scope", "done", note);
+  }
+
   async function markReviewQueueDone() {
     const note = reviewQueueInspectionNote();
     await updateFirstRunItem("review_memory_queue", "done", note);
+  }
+
+  function selectedScopeActionHtml() {
+    if (!hasExplicitScope()) return "";
+    return `
+      <div class="pska-mini-page-actions">
+        <span>${escapeHtml(selectedScopeSummary())}</span>
+        <button class="pska-mini-inline-btn" data-pska-first-run-scope-done="1" type="button" ${memoryPage.firstRunSavingItem ? "disabled" : ""}>Mark scope selected</button>
+      </div>
+    `;
+  }
+
+  function hasExplicitScope() {
+    return Boolean(state.datasetIds.length || state.documentIds.length || state.sourceRootIds.length);
+  }
+
+  function selectedScopeSummary() {
+    return [
+      "Selected read-only scope",
+      state.datasetIds.length ? countLabel(state.datasetIds.length, "KB") : "",
+      state.documentIds.length ? countLabel(state.documentIds.length, "document") : "",
+      state.sourceRootIds.length ? countLabel(state.sourceRootIds.length, "source root") : ""
+    ].filter(Boolean).join(" · ");
+  }
+
+  function countLabel(count, label) {
+    return `${count} ${label}${count === 1 || label === "KB" ? "" : "s"}`;
+  }
+
+  function selectedScopeNote() {
+    return [
+      "selected read-only scope",
+      state.datasetIds.length ? scopeListNote("KB", state.datasetIds) : "",
+      state.documentIds.length ? scopeListNote("document", state.documentIds) : "",
+      state.sourceRootIds.length ? scopeListNote("source root", state.sourceRootIds) : ""
+    ].filter(Boolean).join(" · ");
+  }
+
+  function scopeListNote(label, values) {
+    const list = (values || []).slice(0, 3).map((value) => shortId(value, 12)).filter(Boolean).join(" / ");
+    const extra = values.length > 3 ? ` +${values.length - 3}` : "";
+    return `${countLabel(values.length, label)}${list ? ` ${list}${extra}` : extra}`;
   }
 
   function sourcedAskNote() {

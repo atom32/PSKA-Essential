@@ -88,8 +88,8 @@ cd /Users/xudawei/PSKA-Essential
 `pska-mini` 扩展目前提供：
 
 - composer chip：在输入框附近启用或关闭 PSKA。
-- dataset/document scope：选择本轮问题使用哪个知识库和文档范围。
-- Source Root IDs：指定本地资料文件夹范围。
+- dataset/document scope：选择本轮问题使用哪个知识库和文档范围；显式选择后可在 Memory 页点 `Mark scope selected` 记录首次试用进度。
+- Source Root IDs：指定本地资料文件夹范围；显式选择后同样可记录为首次只读范围。
 - Preview：预览本轮会注入的 PSKA 上下文。
 - 真实发问桥接：在 Hermes WebUI 里发送问题时，把已选资料范围带入本轮请求，同时聊天窗口仍只显示用户原始问题。
 - Jarvis Brief：查看当前工作区的摘要、问题、待办和建议动作。

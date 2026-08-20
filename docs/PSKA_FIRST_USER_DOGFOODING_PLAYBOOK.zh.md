@@ -570,6 +570,7 @@ creative/
 - 建 `daily`、`decisions`、`projects/pska`。
 - 写今天的 daily。
 - 写一条 PSKA 项目状态。
+- 在 Hermes WebUI 里选中这个小范围，进入 Memory 页点 `Mark scope selected`。
 
 验证：
 

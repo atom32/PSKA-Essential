@@ -427,6 +427,11 @@ Hermes WebUI 在 Review Queue 中打开一条 Review Detail 后，显示 `Mark r
 点击后把 `review_memory_queue` 标成 done，并把 review id、候选类型、状态和 source-ref 数量写入
 operator note。这个动作只记录检查证据，不 accept/reject/apply，也不写 durable memory。
 
+P2 的第四十一块已落地为 first-run selected scope proof：
+Hermes WebUI 只在浏览器当前已显式选择 dataset、document 或 source root scope 时，在 Memory 页状态区显示
+`Mark scope selected`。点击后把 `select_read_only_scope` 标成 done，并把 scope 数量和短 id 写入
+operator note。这个动作不注册 source root，不 parse dataset，不扫描文件，也不改变 provider state。
+
 P4 的第一块 trace query 也已落地为跨对象派生视图：
 `GET /api/trace/query` 与 `pska_trace_query` 可以按 review_id、proposal_id、
 memory_id、target_type/target_id、action 或 SourceRef 查询 audit/review 轨迹。
