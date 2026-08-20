@@ -297,13 +297,25 @@ async function main() {
   await testJson("Memory Page: review list pending", "/api/extensions/pska-mini/sidecar/api/reviews?status=pending&limit=50", {}, (json, response) =>
     response.ok && Array.isArray(json?.reviews || json?.items || json?.review_candidates || []),
   );
-  await testJson("Memory Page: recent answer proofs", "/api/extensions/pska-mini/sidecar/api/hermes/answer-proofs?limit=5", {}, (json, response) =>
+  const recentProofs = await testJson("Memory Page: recent answer proofs", "/api/extensions/pska-mini/sidecar/api/hermes/answer-proofs?limit=5", {}, (json, response) =>
     response.ok
       && json?.schema === "pska.hermes_answer_proof_list.v1"
       && Array.isArray(json?.proofs)
       && json?.data_flow?.writes_memory_directly === false
       && json?.data_flow?.writes_source_files === false,
   );
+  const firstProofId = recentProofs.json?.proofs?.[0]?.proof_id || "";
+  if (firstProofId) {
+    await testJson("Memory Page: answer proof trace query", `/api/extensions/pska-mini/sidecar/api/trace/query?target_type=hermes_turn&target_id=${encodeURIComponent(firstProofId)}&limit=10`, {}, (json, response) =>
+      response.ok
+        && json?.schema === "pska.trace_query.v1"
+        && json?.status === "found"
+        && Array.isArray(json?.entries)
+        && json.entries.some((entry) => entry?.evidence?.action === "hermes.answer_proof"),
+    );
+  } else {
+    record("Memory Page: answer proof trace query", true, { skipped: "No answer proof recorded yet" });
+  }
 
   const created = await testJson("Memory Page: create review candidate", "/api/extensions/pska-mini/sidecar/api/memory/conversation-change", {
     method: "POST",

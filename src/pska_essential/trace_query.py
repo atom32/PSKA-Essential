@@ -41,7 +41,7 @@ def build_trace_query(
     events = service.store.list_audit_events(
         action=query["action"] or None,
         descending=True,
-        limit=max(requested_limit * 4, requested_limit, 50) if requested_limit else None,
+        limit=_audit_scan_limit(requested_limit, query, normalized_ref) if requested_limit else None,
     )
     entries = [_entry_from_event(event) for event in events if _event_matches(event, query, normalized_ref)]
     review_entries = _review_entries(service, query, normalized_ref)
@@ -314,6 +314,15 @@ def _dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(key)
         result.append(entry)
     return result
+
+
+def _audit_scan_limit(requested_limit: int, query: dict[str, Any], source_ref: SourceRef | None) -> int:
+    base_limit = max(requested_limit * 4, requested_limit, 50)
+    if query.get("action"):
+        return base_limit
+    if source_ref is not None or query.get("target_id") or query.get("review_id") or query.get("proposal_id") or query.get("memory_id"):
+        return max(base_limit, 1000)
+    return base_limit
 
 
 def _query_target_id(query: dict[str, Any], source_ref: SourceRef | None) -> str:

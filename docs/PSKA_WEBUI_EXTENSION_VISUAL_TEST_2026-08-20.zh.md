@@ -83,6 +83,7 @@ Source Recall 按钮可返回可见结果
 Memory Page 可从 PSKA 菜单进入
 Memory Page 状态、搜索结果、审核队列可见
 Memory Page Recent Answer Proofs 区块可见且不处于 loading
+Answer Proof Detail 可通过 `View Trace` 展开，并显示 trace entries、checks 和完成的 PSKA 工具
 Memory Page 搜索、View、创建临时候选、拒绝临时候选路径已手动验证
 手机 PSKA chip 可见
 手机 PSKA chip 不与发送按钮重叠
@@ -106,6 +107,7 @@ Memory Page 搜索、View、创建临时候选、拒绝临时候选路径已手�
 桌面按钮结果
 Memory Page
 Recent Answer Proofs
+Answer Proof Detail
 手机 chip
 手机菜单
 关键 bounding box 断言
@@ -143,6 +145,7 @@ Desktop menu visible and in viewport
 Desktop Source Recall returns visible results
 Memory page visible with memory and review data
 Recent Answer Proofs visible inside Memory page
+Answer proof detail shows trace and tools
 Mobile PSKA chip visible and not overlapping send
 Mobile menu visible and in viewport
 ```

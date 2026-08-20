@@ -236,6 +236,7 @@ async function runDesktop(context, checks, artifacts) {
     status: document.querySelector("#pskaMiniPageStatus")?.innerText || "",
     firstRun: document.querySelector("#pskaMiniFirstRun")?.innerText?.slice(0, 1200) || "",
     answerProofs: document.querySelector("#pskaMiniAnswerProofs")?.innerText?.slice(0, 1200) || "",
+    hasAnswerProofButton: Boolean(document.querySelector("[data-pska-answer-proof-id]")),
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
     fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 2000) || "",
     firstMemory: document.querySelector("#pskaMiniMemoryResults")?.innerText?.slice(0, 400) || "",
@@ -263,6 +264,29 @@ async function runDesktop(context, checks, artifacts) {
       && !/Loading reviews/iu.test(memoryCheck.firstReview),
     memoryCheck,
   );
+
+  if (memoryCheck.hasAnswerProofButton) {
+    await page.click("[data-pska-answer-proof-id]");
+    await page.waitForFunction(() => {
+      const detail = document.querySelector("#pskaMiniAnswerProofDetail")?.innerText || "";
+      return /Answer Proof Detail/iu.test(detail) && /Completed PSKA tools/iu.test(detail) && /Trace entries/iu.test(detail);
+    }, { timeout: 20000 });
+    const proofDetail = await pageText(page, "#pskaMiniAnswerProofDetail");
+    assertCheck(checks, "Answer proof detail shows trace and tools", (
+      /Answer Proof Detail/iu.test(proofDetail)
+        && /Completed PSKA tools/iu.test(proofDetail)
+        && /Trace entries/iu.test(proofDetail)
+        && /hermes\.answer_proof|answer proof|trace/iu.test(proofDetail)
+    ), {
+      text: proofDetail.slice(0, 1200),
+    });
+  } else {
+    checks.push({
+      name: "Answer proof detail shows trace and tools",
+      ok: true,
+      detail: { skipped: "No answer proof recorded yet" },
+    });
+  }
   artifacts.desktopMemoryPage = path.join(OUT_DIR, "desktop-memory-page.png");
   await page.screenshot({ path: artifacts.desktopMemoryPage, fullPage: false });
 

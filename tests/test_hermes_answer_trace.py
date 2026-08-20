@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import unittest
 
+from pska_essential.audit import audit_event
 from pska_essential.hermes_answer_trace import list_hermes_answer_proofs, record_hermes_answer_proof
 from pska_essential.trace_query import build_trace_query
 from pska_essential.workflow import build_fake_service
@@ -118,6 +119,30 @@ class HermesAnswerTraceTests(unittest.TestCase):
         proof = recorded["proof"]
         self.assertEqual(proof["tool_summary"]["completed_pska_tools"], ["pska_source_search"])
         self.assertFalse(proof["data_flow"]["stores_full_question"])
+
+    def test_trace_query_finds_older_answer_proof_by_target_id(self):
+        service = build_fake_service()
+        recorded = record_hermes_answer_proof(
+            service,
+            session_id="sess-old",
+            answer_preview="older proof",
+            proof_summary={"tool_names": ["pska_source_search"], "completed_pska_tools": ["pska_source_search"]},
+        )
+        proof_id = recorded["proof"]["proof_id"]
+        for index in range(80):
+            service.store.add_audit_event(audit_event("trace.noise", "noise", f"noise-{index}"))
+
+        trace = build_trace_query(
+            service,
+            target_type="hermes_turn",
+            target_id=proof_id,
+            limit=5,
+            audit=False,
+        )
+
+        self.assertEqual(trace["status"], "found")
+        self.assertEqual(trace["entry_count"], 1)
+        self.assertEqual(trace["entries"][0]["evidence"]["action"], "hermes.answer_proof")
 
 
 if __name__ == "__main__":

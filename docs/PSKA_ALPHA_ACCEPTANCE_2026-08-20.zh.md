@@ -152,8 +152,8 @@ HERMES_WEBUI_PASSWORD=****** make webui-extension-contract
 结果：
 
 ```text
-total  = 36
-passed = 36
+total  = 37
+passed = 37
 failed = 0
 ```
 
@@ -178,6 +178,7 @@ Agentic Brief
 Source Recall
 Memory search/review candidate/reject
 Recent Answer Proofs
+Answer Proof trace drill-down
 Kanban projection
 Digest task
 chat bridge skill dependency
@@ -202,6 +203,7 @@ desktop menu visible and in viewport
 desktop Source Recall returns visible results
 Memory page visible with memory and review data
 Recent Answer Proofs visible and not loading
+Answer proof detail shows trace and tools
 mobile PSKA chip visible and not overlapping send
 mobile menu visible and in viewport
 console warnings/errors = 0

@@ -38,6 +38,9 @@
     facts: [],
     reviews: [],
     answerProofs: [],
+    answerProofDetail: null,
+    answerProofTrace: null,
+    answerProofLoadingId: "",
     reviewStatus: "pending",
     detail: null,
     firstRunSession: null,
@@ -311,6 +314,7 @@
               <span id="pskaMiniAnswerProofCount"></span>
             </div>
             <div class="pska-mini-answer-proof-list" id="pskaMiniAnswerProofs"></div>
+            <div class="pska-mini-answer-proof-detail" id="pskaMiniAnswerProofDetail"></div>
           </section>
           <div class="pska-mini-page-grid">
             <section class="pska-mini-page-section">
@@ -362,6 +366,7 @@
       loadMemoryPageReviews();
     });
     panel.querySelector("#pskaMiniFirstRun").addEventListener("click", onFirstRunClick);
+    panel.querySelector("#pskaMiniAnswerProofs").addEventListener("click", onAnswerProofClick);
     panel.querySelector("#pskaMiniReviewList").addEventListener("click", onReviewListClick);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
     renderMemoryPage();
@@ -451,6 +456,37 @@
       answerProofs: Array.isArray(data.proofs) ? data.proofs : [],
       loadedAt: new Date().toLocaleTimeString()
     };
+    renderMemoryPage();
+  }
+
+  async function onAnswerProofClick(event) {
+    const button = event.target?.closest?.("[data-pska-answer-proof-id]");
+    if (!button) return;
+    const proofId = button.getAttribute("data-pska-answer-proof-id") || "";
+    if (!proofId) return;
+    await loadAnswerProofDetail(proofId);
+  }
+
+  async function loadAnswerProofDetail(proofId) {
+    memoryPage = { ...memoryPage, answerProofLoadingId: proofId, message: `Loading answer proof ${shortId(proofId, 12)}...`, error: "" };
+    renderMemoryPage();
+    try {
+      const [proofData, traceData] = await Promise.all([
+        pskaMiniFetchJson(`/api/hermes/answer-proofs?proof_id=${encodeURIComponent(proofId)}&limit=1`, { timeoutMs: 15000 }),
+        pskaMiniFetchJson(`/api/trace/query?target_type=hermes_turn&target_id=${encodeURIComponent(proofId)}&limit=10`, { timeoutMs: 15000 })
+      ]);
+      const proof = Array.isArray(proofData.proofs) ? proofData.proofs[0] : null;
+      memoryPage = {
+        ...memoryPage,
+        answerProofLoadingId: "",
+        answerProofDetail: proof || null,
+        answerProofTrace: traceData || null,
+        message: proof ? `Answer proof ${shortId(proofId, 12)} loaded.` : `Answer proof ${shortId(proofId, 12)} not found.`,
+        error: ""
+      };
+    } catch (error) {
+      memoryPage = { ...memoryPage, answerProofLoadingId: "", error: errorText(error), message: "" };
+    }
     renderMemoryPage();
   }
 
@@ -658,6 +694,7 @@
     renderMemoryPageStatus();
     renderFirstRunSession();
     renderAnswerProofs();
+    renderAnswerProofDetail();
     renderMemoryResults();
     renderReviewList();
     renderReviewDetail();
@@ -826,6 +863,7 @@
       const sourceRootCount = Array.isArray(scope.source_root_ids) ? scope.source_root_ids.length : 0;
       const failedCount = Number(proof.check_summary?.failed_check_count || 0);
       const answerLength = Number(proof.answer?.length || 0);
+      const loading = memoryPage.answerProofLoadingId === proofId;
       return `
         <article class="pska-mini-answer-proof-card ${proof.read_only ? "is-read-only" : "is-write-like"}">
           <div class="pska-mini-answer-proof-card-head">
@@ -840,9 +878,51 @@
             <span>${escapeHtml(String(failedCount))} failed check</span>
           </div>
           <code>${escapeHtml(tools.map((tool) => lastNameSegment(tool)).join(" · ") || "no completed PSKA tools")}</code>
+          <div class="pska-mini-answer-proof-actions">
+            <button class="pska-mini-page-btn" data-pska-answer-proof-id="${escapeAttr(proofId)}" type="button" ${loading ? "disabled" : ""}>${loading ? "Loading" : "View Trace"}</button>
+          </div>
         </article>
       `;
     }).join("");
+  }
+
+  function renderAnswerProofDetail() {
+    const container = document.getElementById("pskaMiniAnswerProofDetail");
+    if (!container) return;
+    const proof = memoryPage.answerProofDetail;
+    const trace = memoryPage.answerProofTrace || {};
+    if (!proof) {
+      container.innerHTML = `<div class="pska-mini-empty">Select an answer proof to inspect its observed tools, checks, and trace entries.</div>`;
+      return;
+    }
+    const summary = proof.tool_summary || {};
+    const checks = Array.isArray(proof.checks) ? proof.checks : [];
+    const entries = Array.isArray(trace.entries) ? trace.entries : [];
+    const tools = Array.isArray(summary.completed_pska_tools) ? summary.completed_pska_tools : [];
+    container.innerHTML = `
+      <div class="pska-mini-page-section-head">
+        <h2>Answer Proof Detail</h2>
+        <code>${escapeHtml(proof.proof_id || "")}</code>
+      </div>
+      <div class="pska-mini-answer-proof-detail-grid">
+        <span>Read only</span><strong>${escapeHtml(String(Boolean(proof.read_only)))}</strong>
+        <span>Stored text</span><strong>${escapeHtml(proof.data_flow?.stores_full_answer ? "full answer" : "preview + hash")}</strong>
+        <span>Answer</span><strong>${escapeHtml(String(proof.answer?.length || 0))} chars</strong>
+        <span>Trace</span><strong>${escapeHtml(trace.status || "unknown")} · ${escapeHtml(String(trace.entry_count || 0))} entries</strong>
+      </div>
+      <div class="pska-mini-answer-proof-detail-block">
+        <strong>Completed PSKA tools</strong>
+        <p>${escapeHtml(tools.map((tool) => lastNameSegment(tool)).join(" · ") || "none")}</p>
+      </div>
+      <div class="pska-mini-answer-proof-detail-block">
+        <strong>Checks</strong>
+        <ul>${checks.slice(0, 8).map((check) => `<li>${escapeHtml(check.ok ? "OK" : "FAIL")} · ${escapeHtml(check.name || "")}</li>`).join("") || "<li>No checks recorded.</li>"}</ul>
+      </div>
+      <div class="pska-mini-answer-proof-detail-block">
+        <strong>Trace entries</strong>
+        <ul>${entries.slice(0, 6).map((entry) => `<li>${escapeHtml(entry.title || entry.entry_type || "trace")} · ${escapeHtml(entry.occurred_at || "")}</li>`).join("") || "<li>No trace entries.</li>"}</ul>
+      </div>
+    `;
   }
 
   function renderReviewList() {

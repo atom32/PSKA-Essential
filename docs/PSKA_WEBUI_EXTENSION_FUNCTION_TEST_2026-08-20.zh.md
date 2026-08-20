@@ -87,8 +87,8 @@ Agentic Brief compact response: 41950 bytes
 当前脚本继续扩展后重新运行：
 
 ```text
-total=36
-passed=36
+total=37
+passed=37
 failed=0
 ```
 
@@ -122,6 +122,7 @@ Button: Source Recall
 Memory Page: search
 Memory Page: review list pending
 Memory Page: recent answer proofs
+Memory Page: answer proof trace query
 Memory Page: create review candidate
 Memory Page: review detail
 Memory Page: reject temporary candidate

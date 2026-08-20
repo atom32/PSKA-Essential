@@ -21,7 +21,8 @@ It provides:
   extension sidecar
 - a retrieval probe for quick RAGFlow path verification
 - a Recent Answer Proofs block that reads PSKA `hermes.answer_proof`
-  audit records and shows the observed answer-side tool use
+  audit records, shows observed answer-side tool use, and opens trace-backed
+  proof details through `View Trace`
 - a per-turn bridge that loads the Hermes `knowledge-retrieval` skill and
   attaches a `PSKA-Mini Runtime Scope` block to the next chat start request
 - a read-only PSKA Review projection into Hermes Kanban board `pska-review`

@@ -514,6 +514,75 @@ main.main.showing-pska-mini > #mainPskaMini {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+.pska-mini-answer-proof-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.pska-mini-answer-proof-actions .pska-mini-page-btn {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.pska-mini-answer-proof-detail {
+  margin-top: 10px;
+}
+
+.pska-mini-answer-proof-detail-grid {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 6px 10px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.22));
+  border-radius: 7px;
+  background: var(--bg, transparent);
+}
+
+.pska-mini-answer-proof-detail-grid span {
+  color: var(--muted, #777);
+  font-size: 11px;
+}
+
+.pska-mini-answer-proof-detail-grid strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pska-mini-answer-proof-detail-block {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.18));
+  border-radius: 7px;
+  background: var(--bg, transparent);
+}
+
+.pska-mini-answer-proof-detail-block strong {
+  font-size: 12px;
+}
+
+.pska-mini-answer-proof-detail-block p,
+.pska-mini-answer-proof-detail-block ul {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pska-mini-answer-proof-detail-block ul {
+  padding-left: 18px;
+}
+
+.pska-mini-answer-proof-detail-block li {
+  margin: 2px 0;
+}
+
 .pska-mini-first-run-head {
   display: flex;
   align-items: center;
