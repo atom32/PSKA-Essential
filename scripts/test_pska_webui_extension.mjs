@@ -72,6 +72,7 @@ function summarize(json, text) {
     const progress = json.alpha_first_run_session.progress || {};
     return `first_run=${json.alpha_first_run_session.status || "unknown"} done=${progress.done_count || 0}/${progress.total_count || 0}`;
   }
+  if (json.proofs) return `answer_proofs=${json.proofs.length}`;
   if (json.diagnostics) return `diagnostics=${json.diagnostics.status || "ok"}`;
   if (json.probe) return `probe=${json.probe.status || "ok"} contexts=${json.probe.context_count || 0}`;
   if (json.turn_context) return `turn_context evidence=${(json.turn_context.evidence_blocks || []).length} memory=${(json.turn_context.memory_notes || []).length}`;
@@ -136,6 +137,8 @@ async function main() {
     && jsAsset.text.includes("createDigestTask")
     && jsAsset.text.includes("/api/alpha/readiness")
     && jsAsset.text.includes("/api/alpha/first-run-session")
+    && jsAsset.text.includes("/api/hermes/answer-proofs")
+    && jsAsset.text.includes("renderAnswerProofs")
     && jsAsset.text.includes("alphaStatusLabel"), {
     status: jsAsset.response.status,
     bytes: jsAsset.text.length,
@@ -293,6 +296,13 @@ async function main() {
 
   await testJson("Memory Page: review list pending", "/api/extensions/pska-mini/sidecar/api/reviews?status=pending&limit=50", {}, (json, response) =>
     response.ok && Array.isArray(json?.reviews || json?.items || json?.review_candidates || []),
+  );
+  await testJson("Memory Page: recent answer proofs", "/api/extensions/pska-mini/sidecar/api/hermes/answer-proofs?limit=5", {}, (json, response) =>
+    response.ok
+      && json?.schema === "pska.hermes_answer_proof_list.v1"
+      && Array.isArray(json?.proofs)
+      && json?.data_flow?.writes_memory_directly === false
+      && json?.data_flow?.writes_source_files === false,
   );
 
   const created = await testJson("Memory Page: create review candidate", "/api/extensions/pska-mini/sidecar/api/memory/conversation-change", {

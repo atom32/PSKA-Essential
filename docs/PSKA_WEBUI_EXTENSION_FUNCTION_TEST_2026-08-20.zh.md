@@ -84,11 +84,11 @@ Agentic Brief compact response: 41950 bytes
 
 ## 最终测试结果
 
-修复后重新运行：
+当前脚本继续扩展后重新运行：
 
 ```text
-total=29
-passed=29
+total=36
+passed=36
 failed=0
 ```
 
@@ -99,11 +99,17 @@ WebUI login
 WebUI root page loads
 Extension manifest loads
 Extension JS loads and contains handlers
+Extension JS uses provider-neutral memory labels
+Extension JS keeps chat bridge injection and display sanitizer
 Extension CSS loads
 Sidecar health through WebUI
 Dashboard: workspace status
+Dashboard: embedding component
 Dashboard: KB datasets
 Dashboard: runtime diagnostics
+Dashboard: alpha readiness
+Alpha: first-run session
+Alpha: first-run item update
 Hermes context: active profile
 Hermes context: projects
 Hermes context: workspaces
@@ -115,6 +121,7 @@ Button: Agentic Brief
 Button: Source Recall
 Memory Page: search
 Memory Page: review list pending
+Memory Page: recent answer proofs
 Memory Page: create review candidate
 Memory Page: review detail
 Memory Page: reject temporary candidate

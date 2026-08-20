@@ -216,12 +216,14 @@ async function runDesktop(context, checks, artifacts) {
     const memoryText = document.querySelector("#pskaMiniMemoryResults")?.innerText || "";
     const reviewText = document.querySelector("#pskaMiniReviewList")?.innerText || "";
     const firstRunText = document.querySelector("#pskaMiniFirstRun")?.innerText || "";
+    const answerProofText = document.querySelector("#pskaMiniAnswerProofs")?.innerText || "";
     const countMatch = count.match(/(\d+)\s+shown/iu);
     return /API\s+ready/iu.test(status)
       && /Embedding\s+(local|TEI|external)/iu.test(status)
       && /Alpha\s+alpha_ready/iu.test(status)
       && /First-run checklist/iu.test(firstRunText)
       && /Confirm runtime and providers/iu.test(firstRunText)
+      && !/Loading answer proofs/iu.test(answerProofText)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/Loading memory/iu.test(memoryText)
@@ -233,6 +235,7 @@ async function runDesktop(context, checks, artifacts) {
     subtitle: document.querySelector("#mainPskaMini .pska-mini-page-sub")?.innerText || "",
     status: document.querySelector("#pskaMiniPageStatus")?.innerText || "",
     firstRun: document.querySelector("#pskaMiniFirstRun")?.innerText?.slice(0, 1200) || "",
+    answerProofs: document.querySelector("#pskaMiniAnswerProofs")?.innerText?.slice(0, 1200) || "",
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
     fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 2000) || "",
     firstMemory: document.querySelector("#pskaMiniMemoryResults")?.innerText?.slice(0, 400) || "",
@@ -251,6 +254,8 @@ async function runDesktop(context, checks, artifacts) {
       && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
       && /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun)
       && /recovery/iu.test(memoryCheck.firstRun)
+      && memoryCheck.answerProofs
+      && !/Loading answer proofs/iu.test(memoryCheck.answerProofs)
       && countMatch
       && Number(countMatch[1]) > 0
       && !/SQLite memory/iu.test(memoryCheck.fullText)

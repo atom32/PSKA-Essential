@@ -439,6 +439,81 @@ main.main.showing-pska-mini > #mainPskaMini {
   background: rgba(127, 127, 127, 0.04);
 }
 
+.pska-mini-answer-proofs {
+  min-width: 0;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.26));
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.04);
+}
+
+.pska-mini-answer-proof-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pska-mini-answer-proof-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.22));
+  border-radius: 7px;
+  background: var(--bg, transparent);
+}
+
+.pska-mini-answer-proof-card.is-read-only {
+  border-color: rgba(28, 137, 78, 0.38);
+}
+
+.pska-mini-answer-proof-card.is-write-like {
+  border-color: rgba(175, 122, 20, 0.48);
+}
+
+.pska-mini-answer-proof-card-head,
+.pska-mini-answer-proof-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.pska-mini-answer-proof-card-head {
+  margin-bottom: 6px;
+}
+
+.pska-mini-answer-proof-card-head strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pska-mini-answer-proof-card-head span,
+.pska-mini-answer-proof-meta span,
+.pska-mini-answer-proof-card code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted, #777);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pska-mini-answer-proof-card p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pska-mini-answer-proof-card code {
+  display: block;
+  margin-top: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .pska-mini-first-run-head {
   display: flex;
   align-items: center;

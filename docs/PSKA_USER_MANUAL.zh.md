@@ -80,7 +80,7 @@ cd /Users/xudawei/PSKA-Essential
 ```
 
 然后进入 Hermes WebUI。打开 PSKA 面板后，应该能看到 health/status、dataset 选择、scope 设置、Jarvis Brief、Agentic Brief、Source Recall、Memory/Review 等入口。
-进入 PSKA Memory 主页面后，还能看到 alpha readiness 和 First-run checklist；清单只记录人工试用进度，不会自动扫描文件、创建备份、写源文件或写长期记忆。
+进入 PSKA Memory 主页面后，还能看到 alpha readiness、First-run checklist 和 Recent Answer Proofs；清单只记录人工试用进度，不会自动扫描文件、创建备份、写源文件或写长期记忆。
 
 ## 3. Hermes WebUI 里的基本操作
 
@@ -95,6 +95,7 @@ cd /Users/xudawei/PSKA-Essential
 - Agentic Brief：让 PSKA 在回答前整理证据、来源、记忆和历史轨迹。
 - Source Recall：不用 embedding，按本地文件元数据和全文索引召回资料。
 - Memory 页面：搜索长期记忆，创建记忆候选。
+- Recent Answer Proofs：查看最近 Hermes 回答实际观测到的 PSKA 工具调用、只读状态和资料范围。
 - Review 页面：查看候选，接受、拒绝，或把已接受候选写入长期记忆。
 - First-run checklist：记录首次 dogfooding/alpha 试用的人工确认状态和备注。
 - Kanban 投影：把 PSKA 审核项同步到 Hermes 的 `pska-review` 看板。
@@ -466,6 +467,7 @@ Next actions: 8
 - Agentic Context Brief 汇总证据、来源、记忆和 trace。
 - Memory health 检查。
 - Review Queue 查看候选质量、重复候选和待处理项。
+- Recent Answer Proofs 在 Hermes extension 主页面展示最近回答侧工具调用 proof。
 - Alpha readiness 与 First-run checklist 可在 Hermes extension 主页面查看和更新。
 - Hermes Kanban `pska-review` 投影。
 - Hermes Tasks `PSKA Digest Runner` 入口。

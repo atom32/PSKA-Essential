@@ -37,6 +37,7 @@
     query: "PSKA",
     facts: [],
     reviews: [],
+    answerProofs: [],
     reviewStatus: "pending",
     detail: null,
     firstRunSession: null,
@@ -304,6 +305,13 @@
         <div class="main-view-content pska-mini-page-content">
           <section class="pska-mini-page-status" id="pskaMiniPageStatus"></section>
           <section class="pska-mini-first-run" id="pskaMiniFirstRun"></section>
+          <section class="pska-mini-answer-proofs">
+            <div class="pska-mini-page-section-head">
+              <h2>Recent Answer Proofs</h2>
+              <span id="pskaMiniAnswerProofCount"></span>
+            </div>
+            <div class="pska-mini-answer-proof-list" id="pskaMiniAnswerProofs"></div>
+          </section>
           <div class="pska-mini-page-grid">
             <section class="pska-mini-page-section">
               <div class="pska-mini-page-section-head">
@@ -412,7 +420,13 @@
     memoryPage = { ...memoryPage, loading: true, error: "", message: "Loading PSKA memory..." };
     renderMemoryPage();
     try {
-      await Promise.all([refreshDashboard(), loadFirstRunSession(), loadMemoryPageReviews(), runMemoryPageSearch({ silentEmpty: true })]);
+      await Promise.all([
+        refreshDashboard(),
+        loadFirstRunSession(),
+        loadAnswerProofs(),
+        loadMemoryPageReviews(),
+        runMemoryPageSearch({ silentEmpty: true })
+      ]);
       memoryPage = { ...memoryPage, loading: false, loadedAt: new Date().toLocaleTimeString(), message: "Loaded." };
     } catch (error) {
       memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
@@ -425,6 +439,16 @@
     memoryPage = {
       ...memoryPage,
       firstRunSession: data.alpha_first_run_session || null,
+      loadedAt: new Date().toLocaleTimeString()
+    };
+    renderMemoryPage();
+  }
+
+  async function loadAnswerProofs() {
+    const data = await pskaMiniFetchJson("/api/hermes/answer-proofs?limit=5", { timeoutMs: 15000 });
+    memoryPage = {
+      ...memoryPage,
+      answerProofs: Array.isArray(data.proofs) ? data.proofs : [],
       loadedAt: new Date().toLocaleTimeString()
     };
     renderMemoryPage();
@@ -633,6 +657,7 @@
   function renderMemoryPage() {
     renderMemoryPageStatus();
     renderFirstRunSession();
+    renderAnswerProofs();
     renderMemoryResults();
     renderReviewList();
     renderReviewDetail();
@@ -774,6 +799,47 @@
           </div>
           <p>${escapeHtml(fact.text || fact.display_text || "")}</p>
           <small>${escapeHtml(memorySourceLabel(fact))}</small>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderAnswerProofs() {
+    const count = document.getElementById("pskaMiniAnswerProofCount");
+    if (count) count.textContent = `${memoryPage.answerProofs.length} shown`;
+    const container = document.getElementById("pskaMiniAnswerProofs");
+    if (!container) return;
+    if (memoryPage.loading && !memoryPage.answerProofs.length) {
+      container.innerHTML = `<div class="pska-mini-empty">Loading answer proofs...</div>`;
+      return;
+    }
+    if (!memoryPage.answerProofs.length) {
+      container.innerHTML = `<div class="pska-mini-empty">No Hermes answer proofs recorded yet.</div>`;
+      return;
+    }
+    container.innerHTML = memoryPage.answerProofs.map((proof) => {
+      const proofId = String(proof.proof_id || "");
+      const summary = proof.tool_summary || {};
+      const scope = proof.scope || {};
+      const tools = Array.isArray(summary.completed_pska_tools) ? summary.completed_pska_tools : [];
+      const datasetCount = Array.isArray(scope.dataset_ids) ? scope.dataset_ids.length : 0;
+      const sourceRootCount = Array.isArray(scope.source_root_ids) ? scope.source_root_ids.length : 0;
+      const failedCount = Number(proof.check_summary?.failed_check_count || 0);
+      const answerLength = Number(proof.answer?.length || 0);
+      return `
+        <article class="pska-mini-answer-proof-card ${proof.read_only ? "is-read-only" : "is-write-like"}">
+          <div class="pska-mini-answer-proof-card-head">
+            <strong>${escapeHtml(shortId(proofId, 12) || "answer proof")}</strong>
+            <span>${escapeHtml(proof.read_only ? "read-only" : "write-like")} · ${escapeHtml(String(tools.length))} PSKA tools</span>
+          </div>
+          <p>${escapeHtml(truncate(proof.answer?.preview || proof.question?.preview || "No preview", 220))}</p>
+          <div class="pska-mini-answer-proof-meta">
+            <span>${escapeHtml(datasetCount)} KB</span>
+            <span>${escapeHtml(sourceRootCount)} source root</span>
+            <span>${escapeHtml(String(answerLength))} chars</span>
+            <span>${escapeHtml(String(failedCount))} failed check</span>
+          </div>
+          <code>${escapeHtml(tools.map((tool) => lastNameSegment(tool)).join(" · ") || "no completed PSKA tools")}</code>
         </article>
       `;
     }).join("");
@@ -2018,8 +2084,8 @@
     return String(value || "").split(/\r?\n/)[0] || "";
   }
 
-  function shortId(value) {
-    return String(value || "").slice(0, 8);
+  function shortId(value, maxLength = 8) {
+    return String(value || "").slice(0, maxLength);
   }
 
   function fingerprint(value) {
@@ -2031,6 +2097,12 @@
     const text = String(path || "").replace(/\/+$/g, "");
     if (!text) return "";
     const parts = text.split(/[\\/]/);
+    return parts[parts.length - 1] || text;
+  }
+
+  function lastNameSegment(value) {
+    const text = String(value || "");
+    const parts = text.split("__");
     return parts[parts.length - 1] || text;
   }
 
