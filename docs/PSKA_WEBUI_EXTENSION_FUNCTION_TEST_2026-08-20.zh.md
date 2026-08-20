@@ -87,8 +87,8 @@ Agentic Brief compact response: 41950 bytes
 修复后重新运行：
 
 ```text
-total=28
-passed=28
+total=29
+passed=29
 failed=0
 ```
 
@@ -120,6 +120,7 @@ Memory Page: review detail
 Memory Page: reject temporary candidate
 Kanban: list/create PSKA board
 Kanban: create one projected task
+Kanban: archive temporary projected task
 Digest Task: list Hermes tasks
 Digest Task: create or find
 Chat bridge dependency: skill content
@@ -140,7 +141,8 @@ Active memory ids: 2-11
 
 测试没有写入长期记忆。
 
-Kanban 测试中创建的三张 `PSKA test projection ...` 临时任务已通过 WebUI `PATCH /api/kanban/tasks/<id>` 归档。复核 `pska-review` 看板默认视图后，可见任务中已无测试投影卡片。
+Kanban 测试中创建的 `PSKA test projection ...` 临时任务现在由测试脚本自动通过
+WebUI `/api/kanban/tasks/<id>/patch` 归档。复核 `pska-review` 看板默认视图后，可见任务中已无测试投影卡片。
 
 ## 仍需注意
 

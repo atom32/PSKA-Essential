@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume demo-browser-verify demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual demo-browser-verify demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -61,6 +61,12 @@ live-ingest-loop:
 
 live-ingest-loop-resume:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.ingest_loop_resume $(ENV_FILE_ARG)
+
+webui-extension-contract:
+	node scripts/test_pska_webui_extension.mjs
+
+webui-extension-visual:
+	node scripts/test_pska_webui_visual.cjs
 
 demo-browser-verify:
 	$(PYTHON) scripts/verify_browser_demo_pack.py

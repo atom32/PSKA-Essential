@@ -278,7 +278,7 @@ async function main() {
   const reviewPayload = reviews.json;
   const firstReview = (reviewPayload?.reviews || reviewPayload?.items || reviewPayload?.review_candidates || [])[0];
   if (firstReview) {
-    await testJson("Kanban: create one projected task", "/api/kanban/tasks", {
+    const projection = await testJson("Kanban: create one projected task", "/api/kanban/tasks", {
       method: "POST",
       body: {
         title: `PSKA test projection ${firstReview.review_id || firstReview.id || "review"}`,
@@ -289,8 +289,22 @@ async function main() {
         idempotency_key: `pska-webui-extension-test:${firstReview.review_id || firstReview.id || "unknown"}`,
       },
     }, (json, response) => response.ok && (json?.task || json?.ok !== false));
+    const taskId = projection.json?.task?.id || projection.json?.task?.task_id || "";
+    if (taskId) {
+      await testJson("Kanban: archive temporary projected task", `/api/kanban/tasks/${encodeURIComponent(taskId)}/patch`, {
+        method: "POST",
+        body: {
+          board: "pska-review",
+          status: "archived",
+          reason: "Archive temporary PSKA WebUI extension contract test projection",
+        },
+      }, (json, response) => response.ok && (json?.task || json?.ok !== false));
+    } else {
+      record("Kanban: archive temporary projected task", false, { reason: "No task id from projection response" });
+    }
   } else {
     record("Kanban: create one projected task", true, { skipped: "No review returned for projection test" });
+    record("Kanban: archive temporary projected task", true, { skipped: "No review returned for projection test" });
   }
 
   const crons = await testJson("Digest Task: list Hermes tasks", "/api/crons", {}, (json, response) => response.ok && Array.isArray(json?.jobs));

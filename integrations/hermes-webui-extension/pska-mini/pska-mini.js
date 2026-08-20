@@ -1846,18 +1846,15 @@
     const target = String(path || "").startsWith("/") ? path : `/${path || ""}`;
     const headers = { ...(options.headers || {}) };
     const timeoutMs = Number(options.timeoutMs || 15000);
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
     addCsrfHeader(target, options, headers);
     const fetchOptions = { ...options };
     delete fetchOptions.timeoutMs;
     try {
-      const response = await fetch(target, {
+      const response = await requestWithTimeout(target, {
         ...fetchOptions,
         credentials: "same-origin",
-        headers,
-        signal: controller.signal
-      });
+        headers
+      }, timeoutMs);
       const text = await response.text();
       let data = {};
       try {
@@ -1867,8 +1864,8 @@
       }
       if (!response.ok || data.ok === false) throw new Error(errorMessage(data, response.statusText));
       return data;
-    } finally {
-      window.clearTimeout(timer);
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -1876,17 +1873,57 @@
     const target = `${PSKA_API_BASE}${String(path || "").startsWith("/") ? "" : "/"}${path || ""}`;
     const headers = { ...(options.headers || {}) };
     const timeoutMs = Number(options.timeoutMs || 15000);
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
     addCsrfHeader(target, options, headers);
     const fetchOptions = { ...options };
     delete fetchOptions.timeoutMs;
-    return fetch(target, {
+    return requestWithTimeout(target, {
       ...fetchOptions,
       credentials: "same-origin",
-      headers,
-      signal: controller.signal
-    }).finally(() => window.clearTimeout(timer));
+      headers
+    }, timeoutMs);
+  }
+
+  function requestWithTimeout(target, options = {}, timeoutMs = 15000) {
+    if (typeof window.fetch === "function") {
+      const controller = typeof AbortController === "function" ? new AbortController() : null;
+      const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
+      const fetchOptions = { ...options };
+      if (controller) fetchOptions.signal = controller.signal;
+      return window.fetch(target, fetchOptions).finally(() => {
+        if (timer) window.clearTimeout(timer);
+      });
+    }
+    return xhrRequest(target, options, timeoutMs);
+  }
+
+  function xhrRequest(target, options = {}, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const method = String(options.method || "GET").toUpperCase();
+      xhr.open(method, target, true);
+      xhr.withCredentials = true;
+      xhr.timeout = timeoutMs;
+      const headers = options.headers || {};
+      Object.entries(headers).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        xhr.setRequestHeader(key, String(value));
+      });
+      xhr.onload = () => {
+        resolve({
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          statusText: xhr.statusText || String(xhr.status),
+          text: () => Promise.resolve(xhr.responseText || "")
+        });
+      };
+      xhr.onerror = () => reject(new Error("request failed"));
+      xhr.ontimeout = () => {
+        const error = new Error("request timed out");
+        error.name = "AbortError";
+        reject(error);
+      };
+      xhr.send(options.body === undefined ? null : options.body);
+    });
   }
 
   function addCsrfHeader(target, options = {}, headers = {}) {

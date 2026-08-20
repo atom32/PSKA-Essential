@@ -89,11 +89,15 @@ Memory Page 搜索、View、创建临时候选、拒绝临时候选路径已手�
 手机 PSKA 菜单不越界
 ```
 
-## 仍需注意
+## 命令行回归脚本
 
-本轮浏览器级测试已经覆盖真实页面、真实点击、真实截图和控制台检查，但还不是独立 CI Playwright 测试。PSKA 仓库当前没有 `playwright` 或 `@playwright/test` 依赖。
+已新增可重复运行的视觉 smoke：
 
-如果要进入长期回归，建议下一步增加一个可命令行运行的视觉测试包，至少覆盖：
+```text
+/Users/xudawei/PSKA-Essential/scripts/test_pska_webui_visual.cjs
+```
+
+它覆盖：
 
 ```text
 登录/会话复用
@@ -102,5 +106,50 @@ Memory Page 搜索、View、创建临时候选、拒绝临时候选路径已手�
 Memory Page
 手机 chip
 手机菜单
-截图 diff 或关键 bounding box 断言
+关键 bounding box 断言
+控制台 warning/error 检查
+截图和 visual-results.json 输出
+```
+
+运行方式：
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+HERMES_WEBUI_PASSWORD=****** \
+NODE_PATH=/tmp/pska-playwright/node_modules \
+PSKA_PLAYWRIGHT_MODULE=playwright-core \
+PSKA_PLAYWRIGHT_CHANNEL=chrome \
+make webui-extension-visual
+```
+
+脚本默认把截图写到 `/tmp/pska-webui-visual-*`，不会自动污染仓库。如需归档，可显式设置
+`PSKA_VISUAL_OUT`。
+
+本轮已在 promoted `8787` 主线端口运行通过：
+
+```text
+output_dir=/tmp/pska-webui-visual-promoted-8787-20260820-212115
+ok=true
+checks=7/7
+console warnings/errors=0
+```
+
+覆盖结果包括：
+
+```text
+Desktop menu visible and in viewport
+Desktop Source Recall returns visible results
+Memory page visible with memory and review data
+Mobile PSKA chip visible and not overlapping send
+Mobile menu visible and in viewport
+```
+
+PSKA 仓库仍不直接引入 `playwright` 或 `@playwright/test` 依赖。需要本地视觉回归时，在仓库外准备
+Playwright：
+
+```bash
+mkdir -p /tmp/pska-playwright
+cd /tmp/pska-playwright
+npm init -y >/dev/null
+npm install playwright-core
 ```
