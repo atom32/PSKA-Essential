@@ -224,8 +224,10 @@ async function runDesktop(context, checks, artifacts) {
   const memoryCheck = await page.evaluate(() => ({
     visible: Boolean(document.querySelector("#mainPskaMini")),
     title: document.querySelector("#mainPskaMini .main-view-title")?.innerText || "",
+    subtitle: document.querySelector("#mainPskaMini .pska-mini-page-sub")?.innerText || "",
     status: document.querySelector("#pskaMiniPageStatus")?.innerText || "",
     count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
+    fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 2000) || "",
     firstMemory: document.querySelector("#pskaMiniMemoryResults")?.innerText?.slice(0, 400) || "",
     firstReview: document.querySelector("#pskaMiniReviewList")?.innerText?.slice(0, 400) || "",
   }));
@@ -235,9 +237,11 @@ async function runDesktop(context, checks, artifacts) {
     "Memory page visible with memory and review data",
     memoryCheck.visible
       && /PSKA Memory/iu.test(memoryCheck.title)
+      && /governed memory and review queue/iu.test(memoryCheck.subtitle)
       && /Embedding\s+(local|TEI|external)/iu.test(memoryCheck.status)
       && countMatch
       && Number(countMatch[1]) > 0
+      && !/SQLite memory/iu.test(memoryCheck.fullText)
       && !/Loading memory/iu.test(memoryCheck.firstMemory)
       && !/Loading reviews/iu.test(memoryCheck.firstReview),
     memoryCheck,

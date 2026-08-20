@@ -291,7 +291,7 @@
       <div class="main-view-header pska-mini-page-header">
         <div>
           <div class="main-view-title">PSKA Memory</div>
-          <div class="pska-mini-page-sub">PSKA SQLite memory and review queue</div>
+          <div class="pska-mini-page-sub">PSKA governed memory and review queue</div>
         </div>
         <div class="main-view-actions">
           <button class="pska-mini-page-btn" id="pskaMiniPageRefresh" type="button">Refresh</button>
@@ -368,7 +368,7 @@
     const sub = document.getElementById("appTitlebarSub");
     if (title) title.textContent = "PSKA Memory";
     if (sub) {
-      sub.textContent = "SQLite memory / review queue";
+      sub.textContent = "Governed memory / review queue";
       sub.hidden = false;
     }
   }
@@ -1744,7 +1744,7 @@
       "",
       "Use PSKA-Essential MCP tools to inspect provider jobs and digest jobs.",
       "Run only queued or ready digest work. Do not write durable memory directly; leave candidates in PSKA Review unless the user has explicitly approved applying them.",
-      "If Graphiti is unavailable, keep RAGFlow evidence and SQLite memory/review paths working and report the degraded memory backend briefly.",
+      "If a memory backend is unavailable, keep RAGFlow evidence and PSKA review paths working and report the degraded memory backend briefly.",
       "",
       "Runtime scope:",
       "```json",

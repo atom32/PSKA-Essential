@@ -130,6 +130,13 @@ async function main() {
     status: jsAsset.response.status,
     bytes: jsAsset.text.length,
   });
+  record("Extension JS uses provider-neutral memory labels", jsAsset.response.ok
+    && jsAsset.text.includes("PSKA governed memory and review queue")
+    && jsAsset.text.includes("Governed memory / review queue")
+    && !/SQLite memory/iu.test(jsAsset.text), {
+    status: jsAsset.response.status,
+    bytes: jsAsset.text.length,
+  });
   const cssAsset = await request("/extensions/pska-mini/pska-mini.css");
   record("Extension CSS loads", cssAsset.response.ok && cssAsset.text.includes(".pska-mini-chip"), {
     status: cssAsset.response.status,
