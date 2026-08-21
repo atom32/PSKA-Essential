@@ -25,6 +25,7 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "ChatGPT memory summary import creates governed Review candidates",
             "ChatGPT conversation archive import creates Source Root",
             "ChatGPT conversation archive does not write durable memory",
+            "ChatGPT import controls visible on Memory page",
             "make product-boundary-contract",
             "make live-product-boundary-contract",
             "WebUI manifest: pska-mini -> http://127.0.0.1:8765",
@@ -40,7 +41,7 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "live-product-boundary-contract OK",
             "alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK",
             "alpha-acceptance-demo     OK, demo_video_pack OK, 4/4 videos",
-            "unittest                  526 tests OK",
+            "unittest                  527 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):

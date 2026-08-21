@@ -178,6 +178,27 @@ class HermesWebuiExtensionTests(unittest.TestCase):
             with self.subTest(term=term):
                 self.assertIn(term, script)
 
+    def test_visual_smoke_exercises_chatgpt_import_controls(self):
+        script = (ROOT / "scripts" / "test_pska_webui_visual.cjs").read_text(encoding="utf-8")
+
+        required = [
+            "ChatGPT import controls visible on Memory page",
+            "desktop-chatgpt-imports.png",
+            "#pskaMiniChatgptImport",
+            "#pskaMiniChatgptMemorySummary",
+            "#pskaMiniChatgptIncludePrivate",
+            "#pskaMiniImportChatgptMemory",
+            "#pskaMiniChatgptConversationImport",
+            "#pskaMiniChatgptConversationPath",
+            "#pskaMiniChatgptConversationOutput",
+            "#pskaMiniChatgptConversationLimit",
+            "#pskaMiniImportChatgptConversations",
+            "horizontallyOverflowing.length === 0",
+        ]
+        for term in required:
+            with self.subTest(term=term):
+                self.assertIn(term, script)
+
     def test_extension_css_handles_compact_mobile_composer(self):
         css = (EXTENSION_DIR / "pska-mini.css").read_text(encoding="utf-8")
 

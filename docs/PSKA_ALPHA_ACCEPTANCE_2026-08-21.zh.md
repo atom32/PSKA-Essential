@@ -65,7 +65,7 @@ dataset_id = 07f35e1a9b9411f197ff8391030412c0
 闭环输出摘要：
 
 ```text
-run_id                  = run_8a95645741b1463d85a11f527604d02b
+run_id                  = run_6208249edb4f429abc4e53ca3bacd346
 retrieval_context_count = 1
 closed_loop_contexts    = 4
 closed_loop_sources     = 9
@@ -149,6 +149,7 @@ desktop menu visible and in viewport
 desktop Source Recall returns visible results
 desktop Agentic Brief shows specialist profiles
 Memory page visible with memory and review data
+ChatGPT import controls visible on Memory page
 Source Evidence search/read/draft works through PSKA
 Answer Proof detail shows trace and tools
 First-run checklist reaches ready-for-repetition 8/8
@@ -351,7 +352,7 @@ live-product-boundary-contract OK
 alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK
 alpha-acceptance-demo     OK, demo_video_pack OK, 4/4 videos
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  526 tests OK
+unittest                  527 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

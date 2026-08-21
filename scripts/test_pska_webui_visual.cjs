@@ -303,6 +303,94 @@ async function runDesktop(context, checks, artifacts) {
     memoryCheck,
   );
 
+  await page.locator("#pskaMiniChatgptImport").scrollIntoViewIfNeeded();
+  await page.click("#pskaMiniChatgptImport > summary");
+  await page.click("#pskaMiniChatgptConversationImport > summary");
+  await page.waitForFunction(() => {
+    const visible = (selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    return visible("#pskaMiniChatgptMemorySummary")
+      && visible("#pskaMiniChatgptIncludePrivate")
+      && visible("#pskaMiniImportChatgptMemory")
+      && visible("#pskaMiniChatgptConversationPath")
+      && visible("#pskaMiniChatgptConversationOutput")
+      && visible("#pskaMiniChatgptConversationLimit")
+      && visible("#pskaMiniImportChatgptConversations");
+  }, { timeout: 10000 });
+  const chatgptImportUi = await page.evaluate(() => {
+    const rectPayload = (selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return {
+        top: Math.round(rect.top),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        left: Math.round(rect.left),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+    };
+    const visible = (selector) => {
+      const rect = rectPayload(selector);
+      return Boolean(rect && rect.width > 0 && rect.height > 0);
+    };
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const selectors = [
+      "#pskaMiniChatgptImport",
+      "#pskaMiniChatgptMemorySummary",
+      "#pskaMiniChatgptIncludePrivate",
+      "#pskaMiniImportChatgptMemory",
+      "#pskaMiniChatgptConversationImport",
+      "#pskaMiniChatgptConversationPath",
+      "#pskaMiniChatgptConversationOutput",
+      "#pskaMiniChatgptConversationLimit",
+      "#pskaMiniImportChatgptConversations",
+    ];
+    const rects = Object.fromEntries(selectors.map((selector) => [selector, rectPayload(selector)]));
+    const horizontallyOverflowing = selectors.filter((selector) => {
+      const rect = rects[selector];
+      return !rect || rect.left < 0 || rect.right > viewport.width;
+    });
+    return {
+      summaryText: [
+        document.querySelector("#pskaMiniChatgptImport > summary")?.innerText || "",
+        document.querySelector("#pskaMiniChatgptConversationImport > summary")?.innerText || "",
+      ].join("\n"),
+      memoryPlaceholder: document.querySelector("#pskaMiniChatgptMemorySummary")?.getAttribute("placeholder") || "",
+      pathPlaceholder: document.querySelector("#pskaMiniChatgptConversationPath")?.getAttribute("placeholder") || "",
+      outputPlaceholder: document.querySelector("#pskaMiniChatgptConversationOutput")?.getAttribute("placeholder") || "",
+      limitValue: document.querySelector("#pskaMiniChatgptConversationLimit")?.value || "",
+      importButton: document.querySelector("#pskaMiniImportChatgptMemory")?.innerText || "",
+      importArchiveButton: document.querySelector("#pskaMiniImportChatgptConversations")?.innerText || "",
+      includePrivateVisible: visible("#pskaMiniChatgptIncludePrivate"),
+      memoryResultEmpty: (document.querySelector("#pskaMiniChatgptImportResult")?.innerText || "").trim() === "",
+      archiveResultEmpty: (document.querySelector("#pskaMiniChatgptConversationImportResult")?.innerText || "").trim() === "",
+      rects,
+      horizontallyOverflowing,
+    };
+  });
+  assertCheck(checks, "ChatGPT import controls visible on Memory page", (
+    /Import ChatGPT memory summary/iu.test(chatgptImportUi.summaryText)
+      && /Import ChatGPT conversation archive/iu.test(chatgptImportUi.summaryText)
+      && /memory summary/iu.test(chatgptImportUi.memoryPlaceholder)
+      && /conversations\.json|export zip/iu.test(chatgptImportUi.pathPlaceholder)
+      && /archive output folder/iu.test(chatgptImportUi.outputPlaceholder)
+      && chatgptImportUi.limitValue === "100"
+      && /Import/iu.test(chatgptImportUi.importButton)
+      && /Import archive/iu.test(chatgptImportUi.importArchiveButton)
+      && chatgptImportUi.includePrivateVisible
+      && chatgptImportUi.memoryResultEmpty
+      && chatgptImportUi.archiveResultEmpty
+      && chatgptImportUi.horizontallyOverflowing.length === 0
+  ), chatgptImportUi);
+  artifacts.desktopChatgptImports = path.join(OUT_DIR, "desktop-chatgpt-imports.png");
+  await page.screenshot({ path: artifacts.desktopChatgptImports, fullPage: false });
+
   await page.click("[data-pska-first-run-runtime-done]");
   await page.waitForFunction(() => {
     const items = Array.from(document.querySelectorAll(".pska-mini-first-run-item"));
