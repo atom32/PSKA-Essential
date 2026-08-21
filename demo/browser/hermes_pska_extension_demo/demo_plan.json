@@ -1,7 +1,7 @@
 {
   "schema": "pska.hermes_extension_demo_plan.v1",
-  "title": "Hermes WebUI PSKA Extension Demo",
-  "subtitle": "PSKA as glue layer, governance layer, and Hermes extension",
+  "title": "对话工作台里的个人知识助手演示",
+  "subtitle": "知识助手作为胶水层、治理层和对话工作台扩展",
   "output_basename": "hermes_pska_extension_demo",
   "tts": "none",
   "entrypoint": "Hermes WebUI",
@@ -9,53 +9,53 @@
   "scenes": [
     {
       "id": "webui_entry",
-      "title": "Hermes WebUI 是主入口",
-      "components": ["Hermes WebUI", "pska-mini extension"]
+      "title": "对话工作台是主入口",
+      "components": ["对话工作台", "知识助手入口"]
     },
     {
       "id": "extension_status",
-      "title": "PSKA extension 连接 sidecar",
-      "components": ["extension sidecar proxy", "PSKA Product API"]
+      "title": "知识助手连接状态",
+      "components": ["工作台代理", "知识助手服务"]
     },
     {
       "id": "scope_selection",
       "title": "选择本轮知识范围",
-      "components": ["PSKA runtime scope", "RAGFlow dataset metadata", "SQLite memory"]
+      "components": ["本轮资料范围", "资料库信息", "受控记忆"]
     },
     {
       "id": "jarvis_brief",
-      "title": "Jarvis Briefing",
-      "components": ["pska_jarvis_briefing", "workspace status", "source audit", "memory review queue"]
+      "title": "开始前总览",
+      "components": ["工作区状态", "资料检查", "记忆审核队列"]
     },
     {
       "id": "agentic_brief",
-      "title": "Agentic Context Brief",
-      "components": ["pska_agentic_context_brief", "evidence", "source recall", "memory", "trace"]
+      "title": "回答前整理",
+      "components": ["资料", "记忆", "记录", "下一步建议"]
     },
     {
       "id": "source_recall",
-      "title": "无 embedding Source Recall",
-      "components": ["pska_source_search", "metadata-first RAG"]
+      "title": "按文件信息找资料",
+      "components": ["资料搜索", "标题路径正文检索"]
     },
     {
       "id": "chat_injection",
-      "title": "发起 Hermes chat turn",
-      "components": ["Hermes chat", "knowledge-retrieval skill", "PSKA-Mini Runtime Scope"]
+      "title": "发起一次正式回答",
+      "components": ["对话消息", "资料范围", "知识助手工具"]
     },
     {
       "id": "memory_review",
-      "title": "PSKA Memory / Review",
-      "components": ["PSKA memory", "review queue", "apply-memory gate"]
+      "title": "待确认记忆",
+      "components": ["受控记忆", "审核队列", "写入审核门"]
     },
     {
       "id": "projection_tasks",
-      "title": "投影到 Kanban 和 Tasks",
-      "components": ["Hermes Kanban", "Hermes Tasks", "PSKA Digest Runner"]
+      "title": "同步到任务列表",
+      "components": ["任务列表", "审核投影", "整理任务"]
     },
     {
       "id": "eidolia_bridge",
-      "title": "Eidolia 内嵌创作入口",
-      "components": ["Eidolia extension", "Eidolia source/trace bridge"]
+      "title": "创作画布生成草稿",
+      "components": ["创作画布", "想法", "产物", "来源记录"]
     }
   ]
 }

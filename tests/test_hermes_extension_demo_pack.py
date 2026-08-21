@@ -91,6 +91,14 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
             "1\n00:00:00,000 --> 00:00:01,000\n回答前整理会把资料和记忆放在一起。\n",
         )
 
+    def test_feature_matrix_covers_all_demo_scenes(self):
+        checks = []
+        self.verifier.verify_feature_matrix(
+            ROOT / "demo" / "browser" / "hermes_pska_extension_demo" / "FEATURE_EVIDENCE_MATRIX.zh.md",
+            checks,
+        )
+        self.assertIn("feature matrix: 10 scenes covered in plain Chinese", checks)
+
 
 if __name__ == "__main__":
     unittest.main()

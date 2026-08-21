@@ -31,6 +31,18 @@ DEMO_VIDEO_PACKS = [
     {"basename": "hermes_pska_finance_case_demo", "case": "finance_report_research"},
     {"basename": "hermes_pska_webnovel_case_demo", "case": "webnovel_author"},
 ]
+FEATURE_MATRIX_TERMS = [
+    "对话工作台入口",
+    "连接状态",
+    "资料范围",
+    "开始前总览",
+    "回答前整理",
+    "按文件信息找资料",
+    "对话回答",
+    "待确认记忆",
+    "同步任务",
+    "创作画布",
+]
 
 
 def main() -> int:
@@ -63,6 +75,7 @@ def main() -> int:
     ]
     require_files(required, checks)
     verify_plan(demo_dir / "demo_plan.json", checks)
+    verify_feature_matrix(demo_dir / "FEATURE_EVIDENCE_MATRIX.zh.md", checks)
     verify_recorder(ROOT / "scripts" / "record_hermes_pska_extension_demo.cjs", checks)
     if args.case and not (args.require_video or args.all_videos):
         verify_case_fixture(demo_dir, args.case, checks)
@@ -161,6 +174,15 @@ def verify_plan(path: Path, checks: list[str]) -> None:
     if str(payload.get("tts") or "").lower() != "none":
         raise SystemExit(f"{path} must disable TTS")
     checks.append("demo_plan.json: Hermes entrypoint, 10 scenes, no TTS")
+
+
+def verify_feature_matrix(path: Path, checks: list[str]) -> None:
+    text = path.read_text(encoding="utf-8")
+    missing = [term for term in FEATURE_MATRIX_TERMS if term not in text]
+    if missing:
+        raise SystemExit(f"{path} missing feature matrix scene terms: {', '.join(missing)}")
+    verify_no_english_terms(path, text, "feature evidence matrix")
+    checks.append("feature matrix: 10 scenes covered in plain Chinese")
 
 
 def verify_recorder(path: Path, checks: list[str]) -> None:
@@ -298,10 +320,14 @@ def verify_srt(path: Path, video_duration: float, checks: list[str]) -> None:
 
 
 def verify_plain_chinese_subtitles(path: Path, text: str) -> None:
+    verify_no_english_terms(path, text, "subtitles")
+
+
+def verify_no_english_terms(path: Path, text: str, label: str) -> None:
     offenders = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9_-]*", text)))
     if offenders:
         raise SystemExit(
-            f"{path} subtitles must avoid English/technical terms for TTS/user clarity: "
+            f"{path} {label} must avoid English/technical terms for TTS/user clarity: "
             + ", ".join(offenders[:20])
         )
 

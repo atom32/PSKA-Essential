@@ -1,30 +1,30 @@
-# Feature Evidence Matrix
+# 功能证据矩阵
 
-| 镜头 | 用户看到什么 | 证明的组件 | 关键边界 |
+| 镜头 | 用户看到什么 | 证明的能力 | 关键边界 |
 | --- | --- | --- | --- |
-| WebUI entry | Hermes WebUI chat 与 `pska-mini` chip | Hermes WebUI + extension loader | PSKA 没有独立产品前端 |
-| Extension status | API/KB/Memory 状态、sidecar 连接 | WebUI extension sidecar + PSKA Product API | 浏览器不直连 provider |
-| Scope selection | dataset/document/mode/max tokens | PSKA turn scope | scope 显式，不默默扩大 |
-| Jarvis Brief | workspace/source/memory/review/next actions | `POST /api/jarvis/briefing` / `pska_jarvis_briefing` | briefing 不生成答案、不写记忆 |
-| Agentic Brief | evidence/source/memory/trace/actions | `POST /api/agentic/context-brief` / `pska_agentic_context_brief` | 回答前上下文装配，不替代 Hermes |
-| Source Recall | `PSKA Hermes Extension Architecture` 等本地 source search 结果 | `POST /api/sources/roots` + scan + `POST /api/sources/search` / `pska_source_search` | metadata-first，无 embedding 必需 |
-| Chat Injection | Hermes chat 发送普通问题 | `knowledge-retrieval` skill + PSKA runtime scope | 不走独立 Ask 页面 |
-| Memory Review | Memory / Review Queue 页面 | PSKA memory/search/review/apply routes | durable memory 需要治理 |
-| Projection | Kanban `pska-review` 与 Digest Runner | Hermes Kanban/Tasks + PSKA authority | Hermes 是工作视图，PSKA 是权威源 |
-| Eidolia Bridge | Eidolia rail + iframe workspace | Eidolia WebUI extension + PSKA Eidolia trace/source bridge | Eidolia 是创作区，不是 PSKA 前端 |
+| 对话工作台入口 | 用户仍然在原来的对话工作台聊天，旁边有知识助手入口 | 主工作台加载扩展入口 | 知识助手没有另起独立前端 |
+| 连接状态 | 小面板显示资料、记忆、任务和运行状态已经连接 | 浏览器通过工作台代理访问知识助手服务 | 浏览器不直接连接底层资料库或记忆库 |
+| 资料范围 | 用户选择本轮要看的资料、文件夹和上下文长度 | 每一轮回答都有显式范围 | 系统不会偷偷扩大到全盘文件 |
+| 开始前总览 | 面板汇总工作区状态、待确认记忆和下一步动作 | 回答前可先做工作区检查 | 总览只读，不生成答案、不写记忆 |
+| 回答前整理 | 系统把相关资料、已有记忆、操作记录和建议放到一起 | 智能体可以在回答前拿到受控上下文 | 它只装配上下文，不替代对话助手 |
+| 按文件信息找资料 | 本地资料文件夹命中《个人知识助手与对话工作台架构》等中文资料 | 无需语义向量也能按标题、路径和正文找资料 | 资料找回不写源文件、不写长期记忆 |
+| 对话回答 | 用户在对话框里直接发问，助手带着本轮资料范围回答 | 对话回合可以接入知识助手工具 | 不跳到独立问答页 |
+| 待确认记忆 | 记忆页展示可搜索记忆、候选内容和审核队列 | 长期记忆需要审核和来源 | 候选内容不能绕过用户确认直接写入 |
+| 同步任务 | 审核和整理动作同步到任务列表 | 日常治理可以变成后续任务 | 工作台是任务视图，知识助手是权威来源 |
+| 创作画布 | 创作画布在工作台内打开，展示想法、来源和草稿 | 创作过程可以连接资料、记忆和记录 | 创作画布是创作区，不是知识助手前端 |
 
-## Agentic 介入点
+## 智能体介入点
 
-这条 demo 不是机械执行脚本。需要展示的 agentic 介入点有三类：
+这条演示不是机械执行脚本。需要展示的智能体介入点有三类：
 
-- **回答前上下文装配**：Agentic Brief 把 evidence、source recall、memory、trace 组合成可给 Hermes 使用的 brief。
-- **对话时工具入口**：Hermes chat turn 通过 `PSKA-Mini Runtime Scope` 强制进入 `knowledge-retrieval` skill 和 PSKA MCP 工具路径。
-- **日常治理入口**：review、memory apply、digest task 和 Kanban projection 都是 agent 可以接手的操作点，但 durable write 仍受 PSKA gate 约束。
+- **回答前整理**：把资料、记忆、记录和下一步建议组合成可用上下文。
+- **对话时工具入口**：普通对话可以带着本轮资料范围使用知识助手工具。
+- **日常治理入口**：审核、记忆确认、整理任务和任务同步都可以由智能体辅助，但长期写入仍受知识助手审核门约束。
 
 ## 不作为完成证据的东西
 
-- 只录 legacy diagnostic UI。
+- 只录历史诊断页。
 - 只展示静态架构图。
-- 只生成无浏览器操作的 slide video。
-- 只跑 Product API curl，不打开 Hermes WebUI。
-- 只展示 source search，不展示 chat turn scope 注入。
+- 只生成无浏览器操作的静态幻灯片视频。
+- 只跑接口命令，不打开对话工作台。
+- 只展示资料搜索，不展示对话回合中的资料范围。
