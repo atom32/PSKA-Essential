@@ -33,15 +33,17 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "--include-live-product-boundary-contract",
             "product_boundary_contract.mode = repository_and_live",
             "--include-demo-videos",
+            "--include-eidolia-bridge",
             "make alpha-acceptance-demo",
             "demo_video_pack PASS status=ok videos=4/4",
+            "eidolia_bridge PASS status=ok review=reject",
             "make demo-browser-verify-videos",
             "10 ordered plain Chinese subtitles",
             "product-boundary-contract OK",
             "live-product-boundary-contract OK",
             "alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK",
-            "alpha-acceptance-demo     OK, demo_video_pack OK, 4/4 videos",
-            "unittest                  527 tests OK",
+            "alpha-acceptance-demo     OK, demo_video_pack OK, eidolia_bridge OK, 4/4 videos",
+            "unittest                  528 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):

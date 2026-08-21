@@ -65,7 +65,7 @@ dataset_id = 07f35e1a9b9411f197ff8391030412c0
 闭环输出摘要：
 
 ```text
-run_id                  = run_6208249edb4f429abc4e53ca3bacd346
+run_id                  = run_b67d47b33fdf4de099bc24c4d5889a1f
 retrieval_context_count = 1
 closed_loop_contexts    = 4
 closed_loop_sources     = 9
@@ -184,19 +184,21 @@ HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-demo ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
-该入口在 `alpha-acceptance-webui` 的基础上追加 `--include-demo-videos`，因此一次运行会同时确认：
+该入口在 `alpha-acceptance-webui` 的基础上追加 `--include-demo-videos` 和 `--include-eidolia-bridge`，因此一次运行会同时确认：
 
 ```text
 真实 Hermes MCP HTTP 边界
 真实 WebUI extension 和 sidecar consent
 WebUI 扩展契约、视觉布局、发问注入链路
 四套浏览器演示视频、无音频、十段纯中文字幕
+Eidolia thought/artifact 进入 PSKA SourceRef 和 Review，而不写长期记忆
 ```
 
 artifact 中会多出：
 
 ```text
 demo_video_pack PASS status=ok videos=4/4
+eidolia_bridge PASS status=ok review=reject
 ```
 
 ## 演示视频证据
@@ -321,7 +323,7 @@ HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
-演示前总闸，额外把四套录制视频和纯中文字幕纳入同一个 alpha acceptance artifact：
+演示前总闸，额外把四套录制视频、纯中文字幕和 Eidolia-to-PSKA bridge proof 纳入同一个 alpha acceptance artifact：
 
 ```bash
 NODE_PATH=/tmp/pska-playwright/node_modules \
@@ -350,9 +352,9 @@ alpha-acceptance          OK
 product-boundary-contract OK
 live-product-boundary-contract OK
 alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK
-alpha-acceptance-demo     OK, demo_video_pack OK, 4/4 videos
+alpha-acceptance-demo     OK, demo_video_pack OK, eidolia_bridge OK, 4/4 videos
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  527 tests OK
+unittest                  528 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

@@ -170,6 +170,75 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
 
         self.assertEqual(module._demo_video_count(["unknown.mp4: 1.0s"]), 0)
 
+    def test_eidolia_bridge_rejects_temporary_review_after_trace(self):
+        module = _load_script_module()
+        calls = []
+        old_post = module._api_post_json
+        old_get = module._api_get_json
+
+        def fake_post(api_base_url, path, payload):
+            calls.append(("POST", path, payload))
+            if path == "/api/eidolia/context/read":
+                return {
+                    "ok": True,
+                    "context": {
+                        "schema": "pska.eidolia_context.v1",
+                        "source_ref": {"adapter": "eidolia", "metadata": {"node_type": "thought"}},
+                        "data_flow": {
+                            "writes_memory_directly": False,
+                            "writes_source_files": False,
+                        },
+                    },
+                }
+            if path == "/api/eidolia/memory-reviews":
+                return {
+                    "ok": True,
+                    "review": {"review_id": "rev-eidolia-alpha", "status": "pending"},
+                    "memory_apply": None,
+                    "memory_card": {"source_origin": "eidolia"},
+                    "governance": {"writes_memory_directly": False},
+                }
+            if path == "/api/reviews/rev-eidolia-alpha/decision":
+                return {"ok": True, "decision": {"decision": "reject"}}
+            raise AssertionError(path)
+
+        def fake_get(url):
+            calls.append(("GET", url, {}))
+            self.assertIn("review_id=rev-eidolia-alpha", url)
+            return {
+                "ok": True,
+                "schema": "pska.trace_query.v1",
+                "status": "found",
+                "data_flow": {"writes_memory_directly": False},
+            }
+
+        try:
+            module._api_post_json = fake_post
+            module._api_get_json = fake_get
+
+            result = module._run_eidolia_bridge("http://127.0.0.1:8765")
+        finally:
+            module._api_post_json = old_post
+            module._api_get_json = old_get
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["review_id"], "rev-eidolia-alpha")
+        self.assertEqual(result["review_status"], "reject")
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertFalse(result["data_flow"]["writes_source_files"])
+        self.assertTrue(result["data_flow"]["creates_review"])
+        self.assertTrue(result["data_flow"]["rejects_temporary_review"])
+        self.assertEqual(
+            [call[1] for call in calls],
+            [
+                "/api/eidolia/context/read",
+                "/api/eidolia/memory-reviews",
+                "http://127.0.0.1:8765/api/trace/query?review_id=rev-eidolia-alpha&limit=20",
+                "/api/reviews/rev-eidolia-alpha/decision",
+            ],
+        )
+
 
 def _restore_env(name: str, value: str | None) -> None:
     if value is None:

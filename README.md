@@ -157,7 +157,8 @@ make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
 For the full demo-before-showing gate, including the four generated browser
-demo videos and plain Chinese subtitle checks, run:
+demo videos, plain Chinese subtitle checks, and a live Eidolia-to-PSKA bridge
+proof, run:
 
 ```bash
 NODE_PATH=/tmp/pska-playwright/node_modules \

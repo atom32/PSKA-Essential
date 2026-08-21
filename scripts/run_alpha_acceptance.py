@@ -17,7 +17,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,7 @@ def main() -> int:
     parser.add_argument("--include-webui-turn-bridge", action="store_true")
     parser.add_argument("--include-webui-llm-proof", action="store_true")
     parser.add_argument("--include-demo-videos", action="store_true")
+    parser.add_argument("--include-eidolia-bridge", action="store_true")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
 
@@ -243,6 +245,20 @@ def main() -> int:
             )
         )
 
+    if args.include_eidolia_bridge:
+        eidolia_bridge = _run_eidolia_bridge(api_base)
+        _write_json(out_dir / "eidolia_bridge.json", eidolia_bridge)
+        artifacts["eidolia_bridge"] = str(out_dir / "eidolia_bridge.json")
+        checks.append(
+            _check(
+                "eidolia_bridge",
+                bool(eidolia_bridge.get("ok")),
+                f"status={eidolia_bridge.get('status')} review={eidolia_bridge.get('review_status')}",
+                steps=eidolia_bridge.get("steps") or [],
+                review_id=eidolia_bridge.get("review_id") or "",
+            )
+        )
+
     summary = {
         "schema": "pska.alpha_acceptance_run.v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -265,6 +281,18 @@ def _api_get_json(url: str) -> dict[str, Any]:
         return json.loads(response.read().decode("utf-8"))
 
 
+def _api_post_json(api_base_url: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = Request(
+        f"{api_base_url.rstrip('/')}{path}",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
 def _run_component_check(*, env: dict[str, str], env_file: str, extra_env: dict[str, str], timeout: int) -> dict[str, Any]:
     selected_env = env.copy()
     selected_env.update(extra_env)
@@ -280,6 +308,127 @@ def _run_component_check(*, env: dict[str, str], env_file: str, extra_env: dict[
 
 def _run_node_json(command: list[str], *, env: dict[str, str], timeout: int) -> dict[str, Any]:
     return _run_json(command, env=env, timeout=timeout)
+
+
+def _run_eidolia_bridge(api_base_url: str) -> dict[str, Any]:
+    marker = f"pska-alpha-eidolia-{uuid4().hex[:10]}"
+    project_id = f"pska-alpha-acceptance-{marker}"
+    node_id = "thought-eidolia-bridge-proof"
+    context_payload = {
+        "project_id": project_id,
+        "node_id": node_id,
+        "node_type": "thought",
+        "title": "Eidolia bridge alpha proof",
+        "text": (
+            "Eidolia thought and artifact nodes should enter PSKA as sourced context, "
+            "and durable memory must stay governed by Review."
+        ),
+        "canvas_path": f"eidolia://{project_id}/canvas-workspace.json#{node_id}",
+        "role": "decision",
+        "metadata": {
+            "origin": "alpha_acceptance_eidolia_bridge",
+            "temporary": True,
+            "marker": marker,
+        },
+    }
+    review_payload = {
+        **context_payload,
+        "text": "Eidolia keeps thought and artifact as the user-visible canvas primitives.",
+        "behavior_delta": "When discussing Eidolia architecture, keep thought/artifact as canvas primitives.",
+        "memory_type": "project_state",
+        "memory_scope": "project",
+        "reason": "Temporary alpha acceptance proof for Eidolia governed memory bridge.",
+        "scope": {"origin": "alpha_acceptance_eidolia_bridge", "marker": marker},
+    }
+    steps: list[dict[str, Any]] = []
+    context: dict[str, Any] = {}
+    created: dict[str, Any] = {}
+    trace: dict[str, Any] = {}
+    cleanup: dict[str, Any] = {}
+    review_id = ""
+    error = ""
+    try:
+        context = _api_post_json(api_base_url, "/api/eidolia/context/read", context_payload)
+        context_body = context.get("context") or {}
+        steps.append(_eidolia_step(
+            "context_read",
+            context.get("ok") is True
+            and context_body.get("schema") == "pska.eidolia_context.v1"
+            and ((context_body.get("source_ref") or {}).get("adapter") == "eidolia")
+            and (context_body.get("data_flow") or {}).get("writes_memory_directly") is False
+            and (context_body.get("data_flow") or {}).get("writes_source_files") is False,
+            "Eidolia node normalized to a source-safe SourceRef.",
+        ))
+
+        created = _api_post_json(api_base_url, "/api/eidolia/memory-reviews", review_payload)
+        review_id = str(((created.get("review") or {}).get("review_id")) or "")
+        steps.append(_eidolia_step(
+            "memory_review_create",
+            created.get("ok") is True
+            and bool(review_id)
+            and ((created.get("review") or {}).get("status") == "pending")
+            and created.get("memory_apply") is None
+            and ((created.get("memory_card") or {}).get("source_origin") == "eidolia")
+            and (created.get("governance") or {}).get("writes_memory_directly") is False,
+            "Eidolia memory candidate created as pending Review without durable write.",
+        ))
+
+        if review_id:
+            trace = _api_get_json(f"{api_base_url.rstrip('/')}/api/trace/query?review_id={review_id}&limit=20")
+            steps.append(_eidolia_step(
+                "trace_query",
+                trace.get("ok") is True
+                and trace.get("schema") == "pska.trace_query.v1"
+                and trace.get("status") == "found"
+                and (trace.get("data_flow") or {}).get("writes_memory_directly") is False,
+                "Trace query found Eidolia Review lineage without writes.",
+            ))
+    except Exception as exc:  # pragma: no cover - exercised by live acceptance.
+        error = str(exc)
+        steps.append(_eidolia_step("exception", False, error))
+    finally:
+        if review_id:
+            try:
+                cleanup = _api_post_json(
+                    api_base_url,
+                    f"/api/reviews/{review_id}/decision",
+                    {
+                        "decision": "reject",
+                        "reason": "Reject temporary alpha acceptance Eidolia bridge proof.",
+                    },
+                )
+                steps.append(_eidolia_step(
+                    "cleanup_reject_review",
+                    cleanup.get("ok") is True
+                    and ((cleanup.get("decision") or {}).get("decision") == "reject"),
+                    "Temporary Eidolia Review rejected after proof.",
+                ))
+            except Exception as exc:  # pragma: no cover - exercised by live acceptance.
+                steps.append(_eidolia_step("cleanup_reject_review", False, str(exc)))
+
+    ok = bool(steps) and all(bool(step.get("ok")) for step in steps) and not error
+    return {
+        "schema": "pska.alpha_eidolia_bridge_acceptance.v1",
+        "ok": ok,
+        "status": "ok" if ok else "failed",
+        "project_id": project_id,
+        "node_id": node_id,
+        "review_id": review_id,
+        "review_status": ((cleanup.get("decision") or {}).get("decision")) or ((created.get("review") or {}).get("status")) or "",
+        "steps": steps,
+        "context": context,
+        "created": created,
+        "trace": trace,
+        "cleanup": cleanup,
+        "error": error,
+        "data_flow": {
+            "writes_memory_directly": False,
+            "writes_source_files": False,
+            "creates_review": True,
+            "rejects_temporary_review": bool(review_id),
+            "embedding_required": False,
+        },
+    }
 
 
 def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]:
@@ -472,6 +621,10 @@ def _demo_video_count(checks: list[str]) -> int:
             if line.startswith(f"{basename}.mp4:"):
                 seen.add(basename)
     return len(seen)
+
+
+def _eidolia_step(name: str, ok: bool, message: str) -> dict[str, Any]:
+    return {"name": name, "ok": bool(ok), "message": message}
 
 
 def _check(name: str, ok: bool, message: str, **metadata: Any) -> dict[str, Any]:
