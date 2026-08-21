@@ -25,12 +25,19 @@ MIN_DURATION_BY_CASE = {
     "finance_report_research": 120.0,
     "webnovel_author": 120.0,
 }
+DEMO_VIDEO_PACKS = [
+    {"basename": BASE_NAME, "case": ""},
+    {"basename": "hermes_pska_extension_demo_long", "case": ""},
+    {"basename": "hermes_pska_finance_case_demo", "case": "finance_report_research"},
+    {"basename": "hermes_pska_webnovel_case_demo", "case": "webnovel_author"},
+]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--demo-dir", type=Path, default=DEMO_DIR)
     parser.add_argument("--require-video", action="store_true")
+    parser.add_argument("--all-videos", action="store_true", help="Verify every known generated demo video pack.")
     parser.add_argument("--basename", default=BASE_NAME)
     parser.add_argument("--case", default="")
     parser.add_argument(
@@ -40,7 +47,6 @@ def main() -> int:
         help="Add a duration floor. Known demo floors still apply: 30s core, 180s long core, 120s business cases.",
     )
     args = parser.parse_args()
-    min_duration = resolve_min_duration(args)
 
     demo_dir = args.demo_dir.resolve()
     dist_dir = demo_dir / "dist"
@@ -58,23 +64,31 @@ def main() -> int:
     require_files(required, checks)
     verify_plan(demo_dir / "demo_plan.json", checks)
     verify_recorder(ROOT / "scripts" / "record_hermes_pska_extension_demo.cjs", checks)
-    if args.case:
+    if args.case and not (args.require_video or args.all_videos):
         verify_case_fixture(demo_dir, args.case, checks)
     verify_legacy_demo_disabled(checks)
 
-    media_files = [
-        dist_dir / f"{args.basename}.mp4",
-        dist_dir / f"{args.basename}.zh.srt",
-        dist_dir / f"{args.basename}_storyboard.zh.md",
-        dist_dir / f"{args.basename}_manifest.json",
-    ]
-    if args.require_video:
-        require_files(media_files, checks)
-        checks.append(f"duration threshold: {min_duration:.1f}s")
-        duration = verify_video(media_files[0], min_duration, checks)
-        verify_srt(media_files[1], duration, checks)
-        verify_manifest(media_files[3], checks, expected_case=args.case or None)
+    if args.all_videos:
+        for pack in DEMO_VIDEO_PACKS:
+            verify_media_pack(
+                demo_dir,
+                dist_dir,
+                basename=pack["basename"],
+                case_id=pack["case"],
+                min_duration_arg=args.min_duration,
+                checks=checks,
+            )
+    elif args.require_video:
+        verify_media_pack(
+            demo_dir,
+            dist_dir,
+            basename=args.basename,
+            case_id=args.case,
+            min_duration_arg=args.min_duration,
+            checks=checks,
+        )
     else:
+        media_files = media_files_for(dist_dir, args.basename)
         existing = [path for path in media_files if path.exists()]
         checks.append(f"media optional in this mode: {len(existing)}/{len(media_files)} present")
 
@@ -95,6 +109,37 @@ def resolve_min_duration(args: argparse.Namespace) -> float:
     if args.min_duration is not None:
         candidates.append(float(args.min_duration))
     return max(candidates)
+
+
+def media_files_for(dist_dir: Path, basename: str) -> list[Path]:
+    return [
+        dist_dir / f"{basename}.mp4",
+        dist_dir / f"{basename}.zh.srt",
+        dist_dir / f"{basename}_storyboard.zh.md",
+        dist_dir / f"{basename}_manifest.json",
+    ]
+
+
+def verify_media_pack(
+    demo_dir: Path,
+    dist_dir: Path,
+    *,
+    basename: str,
+    case_id: str,
+    min_duration_arg: float | None,
+    checks: list[str],
+) -> None:
+    if case_id:
+        verify_case_fixture(demo_dir, case_id, checks)
+    media_files = media_files_for(dist_dir, basename)
+    min_duration = resolve_min_duration(
+        argparse.Namespace(basename=basename, case=case_id, min_duration=min_duration_arg)
+    )
+    require_files(media_files, checks)
+    checks.append(f"{basename}: duration threshold: {min_duration:.1f}s")
+    duration = verify_video(media_files[0], min_duration, checks)
+    verify_srt(media_files[1], duration, checks)
+    verify_manifest(media_files[3], checks, expected_case=case_id or None)
 
 
 def require_files(paths: list[Path], checks: list[str]) -> None:

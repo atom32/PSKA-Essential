@@ -66,6 +66,18 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         )
         self.assertEqual(self.verifier.resolve_min_duration(args), 150.0)
 
+    def test_all_video_packs_cover_expected_assets(self):
+        packs = self.verifier.DEMO_VIDEO_PACKS
+        self.assertEqual(
+            [(pack["basename"], pack["case"]) for pack in packs],
+            [
+                ("hermes_pska_extension_demo", ""),
+                ("hermes_pska_extension_demo_long", ""),
+                ("hermes_pska_finance_case_demo", "finance_report_research"),
+                ("hermes_pska_webnovel_case_demo", "webnovel_author"),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

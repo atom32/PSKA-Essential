@@ -123,6 +123,12 @@ python3 scripts/verify_hermes_extension_demo_pack.py
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video
 ```
 
+一次检查全部已知视频：
+
+```bash
+make demo-browser-verify-videos
+```
+
 检查长版：
 
 ```bash

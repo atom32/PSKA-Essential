@@ -723,7 +723,9 @@ scripts/pska_component_channel.sh promote-ragflow-next --no-restart-pska
 ```bash
 python3 scripts/verify_hermes_extension_demo_pack.py
 make demo-browser-verify
+make demo-browser-verify-videos
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video
+python3 scripts/verify_hermes_extension_demo_pack.py --all-videos
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --basename hermes_pska_extension_demo_long --min-duration 180
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case finance_report_research --basename hermes_pska_finance_case_demo --min-duration 120
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webnovel_author --basename hermes_pska_webnovel_case_demo --min-duration 120
