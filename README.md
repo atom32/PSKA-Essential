@@ -35,7 +35,7 @@ must be visible to users and agents.
 
 Read these first when deciding how to use or extend the project:
 
-- [PSKA Alpha Acceptance 2026-08-20](docs/PSKA_ALPHA_ACCEPTANCE_2026-08-20.zh.md):
+- [PSKA Alpha Acceptance 2026-08-21](docs/PSKA_ALPHA_ACCEPTANCE_2026-08-21.zh.md):
   current local dogfood acceptance snapshot, including `alpha_ready`,
   full-component proof, Hermes WebUI extension checks, memory governance state,
   and locked optional boundaries.
