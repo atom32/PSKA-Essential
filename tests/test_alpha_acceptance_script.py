@@ -148,6 +148,28 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
             ["one", "two"],
         )
 
+    def test_demo_video_count_counts_known_video_lines_once(self):
+        module = _load_script_module()
+
+        self.assertEqual(
+            module._demo_video_count(
+                [
+                    "hermes_pska_extension_demo.mp4: 88.9s, 1280x720, no audio",
+                    "hermes_pska_extension_demo.zh.srt: 10 ordered subtitle blocks",
+                    "hermes_pska_extension_demo_long.mp4: 200.8s, 1280x720, no audio",
+                    "hermes_pska_extension_demo_long.mp4: duplicate line",
+                    "hermes_pska_finance_case_demo.mp4: 123.4s, 1280x720, no audio",
+                    "hermes_pska_webnovel_case_demo.mp4: 133.5s, 1280x720, no audio",
+                ]
+            ),
+            4,
+        )
+
+    def test_demo_video_count_ignores_unknown_media(self):
+        module = _load_script_module()
+
+        self.assertEqual(module._demo_video_count(["unknown.mp4: 1.0s"]), 0)
+
 
 def _restore_env(name: str, value: str | None) -> None:
     if value is None:

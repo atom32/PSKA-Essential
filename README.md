@@ -145,8 +145,8 @@ extension state:
 make live-product-boundary-contract
 ```
 
-For a demo-before-showing check that also covers Hermes WebUI extension
-contract and browser-level visual smoke, run:
+For a WebUI demo preflight that covers the Hermes WebUI extension contract and
+browser-level visual smoke, run:
 
 ```bash
 NODE_PATH=/tmp/pska-playwright/node_modules \
@@ -154,6 +154,17 @@ PSKA_PLAYWRIGHT_MODULE=playwright-core \
 PSKA_PLAYWRIGHT_CHANNEL=chrome \
 HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
+```
+
+For the full demo-before-showing gate, including the four generated browser
+demo videos and plain Chinese subtitle checks, run:
+
+```bash
+NODE_PATH=/tmp/pska-playwright/node_modules \
+PSKA_PLAYWRIGHT_MODULE=playwright-core \
+PSKA_PLAYWRIGHT_CHANNEL=chrome \
+HERMES_WEBUI_PASSWORD=****** \
+make alpha-acceptance-demo ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
 Run the full local Hermes workspace stack:

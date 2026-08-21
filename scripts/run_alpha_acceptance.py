@@ -23,6 +23,12 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_API_BASE_URL = "http://127.0.0.1:8765"
 DEFAULT_QUESTION = "Summarize the selected PSKA alpha demo scope with cited evidence and next actions."
+DEMO_VIDEO_BASENAMES = [
+    "hermes_pska_extension_demo",
+    "hermes_pska_extension_demo_long",
+    "hermes_pska_finance_case_demo",
+    "hermes_pska_webnovel_case_demo",
+]
 
 
 def main() -> int:
@@ -43,6 +49,7 @@ def main() -> int:
     parser.add_argument("--include-webui-visual", action="store_true")
     parser.add_argument("--include-webui-turn-bridge", action="store_true")
     parser.add_argument("--include-webui-llm-proof", action="store_true")
+    parser.add_argument("--include-demo-videos", action="store_true")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
 
@@ -219,6 +226,23 @@ def main() -> int:
             )
         )
 
+    if args.include_demo_videos:
+        demo_timeout = max(args.timeout, int(os.getenv("PSKA_DEMO_VIDEO_ACCEPTANCE_TIMEOUT", "240")))
+        demo_videos = _run_demo_video_pack(env=env, timeout=demo_timeout)
+        _write_json(out_dir / "demo_video_pack.json", demo_videos)
+        artifacts["demo_video_pack"] = str(out_dir / "demo_video_pack.json")
+        checks.append(
+            _check(
+                "demo_video_pack",
+                bool(demo_videos.get("ok")),
+                (
+                    f"status={demo_videos.get('status')} "
+                    f"videos={demo_videos.get('video_count')}/{demo_videos.get('expected_video_count')}"
+                ),
+                checks=demo_videos.get("checks") or [],
+            )
+        )
+
     summary = {
         "schema": "pska.alpha_acceptance_run.v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -256,6 +280,33 @@ def _run_component_check(*, env: dict[str, str], env_file: str, extra_env: dict[
 
 def _run_node_json(command: list[str], *, env: dict[str, str], timeout: int) -> dict[str, Any]:
     return _run_json(command, env=env, timeout=timeout)
+
+
+def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]:
+    command = [sys.executable, "scripts/verify_hermes_extension_demo_pack.py", "--all-videos"]
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
+    checks = _boundary_check_lines(result.stdout)
+    video_count = _demo_video_count(checks)
+    expected_video_count = len(DEMO_VIDEO_BASENAMES)
+    ok = result.returncode == 0 and video_count == expected_video_count
+    return {
+        "ok": ok,
+        "status": "ok" if ok else "failed",
+        "command": command,
+        "returncode": result.returncode,
+        "video_count": video_count,
+        "expected_video_count": expected_video_count,
+        "checks": checks,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    }
 
 
 def _run_product_boundary_contract(
@@ -412,6 +463,15 @@ def _boundary_check_lines(stdout: str) -> list[str]:
         for line in str(stdout or "").splitlines()
         if line.startswith("- ")
     ]
+
+
+def _demo_video_count(checks: list[str]) -> int:
+    seen = set()
+    for line in checks:
+        for basename in DEMO_VIDEO_BASENAMES:
+            if line.startswith(f"{basename}.mp4:"):
+                seen.add(basename)
+    return len(seen)
 
 
 def _check(name: str, ok: bool, message: str, **metadata: Any) -> dict[str, Any]:
