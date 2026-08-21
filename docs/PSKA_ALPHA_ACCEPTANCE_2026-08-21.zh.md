@@ -65,7 +65,7 @@ dataset_id = 07f35e1a9b9411f197ff8391030412c0
 闭环输出摘要：
 
 ```text
-run_id                  = run_ece259989a6d41408d1774be860ba8d7
+run_id                  = run_8a95645741b1463d85a11f527604d02b
 retrieval_context_count = 1
 closed_loop_contexts    = 4
 closed_loop_sources     = 9
@@ -103,7 +103,7 @@ make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 
 ```text
 Status: ok
-webui_extension_contract    PASS passed=41/41
+webui_extension_contract    PASS passed=46/46
 webui_extension_visual      PASS ok=True
 webui_extension_turn_bridge PASS ok=True forced_context_count=1
 ```
@@ -132,6 +132,11 @@ Jarvis Brief
 Agentic Brief
 Source Recall
 Memory search/review/proof/trace
+ChatGPT memory summary import creates governed Review candidates
+ChatGPT temporary memory Review cleanup
+ChatGPT conversation archive import creates Source Root
+ChatGPT conversation archive source search
+ChatGPT conversation archive does not write durable memory
 Kanban projection
 Digest task
 chat bridge skill dependency
@@ -343,10 +348,10 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 alpha-acceptance          OK
 product-boundary-contract OK
 live-product-boundary-contract OK
-alpha-acceptance-webui    OK, 41/41 contract, visual OK, turn bridge OK
+alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK
 alpha-acceptance-demo     OK, demo_video_pack OK, 4/4 videos
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  525 tests OK
+unittest                  526 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

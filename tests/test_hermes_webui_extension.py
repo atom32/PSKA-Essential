@@ -158,6 +158,26 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         ]:
             self.assertNotIn(forbidden, script)
 
+    def test_live_contract_exercises_chatgpt_import_paths(self):
+        script = (ROOT / "scripts" / "test_pska_webui_extension.mjs").read_text(encoding="utf-8")
+
+        required = [
+            "ChatGPT import: memory summary creates governed reviews",
+            "ChatGPT import: reject temporary memory reviews",
+            "ChatGPT import: conversation archive creates source root",
+            "ChatGPT import: conversation archive source search",
+            "ChatGPT import: conversation archive leaves memory untouched",
+            "/api/extensions/pska-mini/sidecar/api/memory/chatgpt-summary/import",
+            "/api/extensions/pska-mini/sidecar/api/sources/chatgpt-conversations/import",
+            "/api/extensions/pska-mini/sidecar/api/reviews/batch-decision",
+            "writeChatgptConversationFixture",
+            "flow.writes_memory_directly === false",
+            "flow.creates_review === false",
+        ]
+        for term in required:
+            with self.subTest(term=term):
+                self.assertIn(term, script)
+
     def test_extension_css_handles_compact_mobile_composer(self):
         css = (EXTENSION_DIR / "pska-mini.css").read_text(encoding="utf-8")
 

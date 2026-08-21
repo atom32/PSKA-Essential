@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+import fs from "node:fs";
+import os from "node:os";
+import pathModule from "node:path";
+
 const WEBUI = process.env.HERMES_WEBUI_URL || "http://127.0.0.1:8787";
 const PASSWORD = process.env.HERMES_WEBUI_PASSWORD || process.env.PSKA_WEBUI_TEST_PASSWORD || "";
 const DATASET_ID = process.env.PSKA_TEST_DATASET_ID || "07f35e1a9b9411f197ff8391030412c0";
@@ -65,6 +69,14 @@ function summarize(json, text) {
   if (!json || typeof json !== "object") return String(text || "").slice(0, 180);
   if (json.error) return json.error;
   if (json.service) return `${json.service} ${json.product_api || ""}`.trim();
+  if (json.chatgpt_memory_summary_import) {
+    const summary = json.chatgpt_memory_summary_import.summary || {};
+    return `chatgpt_memory_reviews=${summary.created_count || 0} private_skipped=${summary.skipped_private_count || 0}`;
+  }
+  if (json.chatgpt_conversations_import) {
+    const summary = json.chatgpt_conversations_import.summary || {};
+    return `chatgpt_archive_conversations=${summary.imported_conversation_count || 0}`;
+  }
   if (json.datasets) return `datasets=${json.datasets.length}`;
   if (json.workspace_status) return `workspace_status keys=${Object.keys(json.workspace_status).length}`;
   if (json.alpha_readiness) return `alpha=${json.alpha_readiness.status || "unknown"}`;
@@ -88,6 +100,38 @@ function summarize(json, text) {
   if (json.boards) return `boards=${json.boards.length}`;
   if (json.board || json.task || json.job) return "created_or_found";
   return Object.keys(json).slice(0, 8).join(",");
+}
+
+function chatgptMemoryReviewIds(payload) {
+  const created = payload?.chatgpt_memory_summary_import?.candidate_result?.created || [];
+  return created.map((item) => String(item?.review_id || "").trim()).filter(Boolean);
+}
+
+function writeChatgptConversationFixture(marker) {
+  const root = pathModule.join(os.tmpdir(), "pska-webui-extension-chatgpt-import-contract");
+  const outputDir = pathModule.join(root, "archive");
+  const exportPath = pathModule.join(root, "conversations.json");
+  fs.mkdirSync(root, { recursive: true });
+  const payload = [
+    {
+      id: "conv-pska-webui-contract",
+      title: "PSKA WebUI ChatGPT archive contract",
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: `This ChatGPT archive fixture contains ${marker} and should become PSKA source archive material.`,
+        },
+        {
+          id: "msg-assistant-1",
+          role: "assistant",
+          content: "Only reviewed claims from this archive should become durable Memory Cards.",
+        },
+      ],
+    },
+  ];
+  fs.writeFileSync(exportPath, JSON.stringify(payload, null, 2), "utf8");
+  return { exportPath, outputDir };
 }
 
 function extractCsrf(html) {
@@ -346,6 +390,123 @@ async function main() {
     method: "POST",
     body: { query: "PSKA", scope: {}, limit: 20 },
   }, (json, response) => response.ok && Array.isArray(json?.memory_facts));
+
+  const memoryMarker = `PSKA WebUI ChatGPT memory contract marker ${Date.now()}`;
+  const privateDetail = `private live contract detail ${Date.now()}`;
+  const chatgptMemoryImport = await testJson(
+    "ChatGPT import: memory summary creates governed reviews",
+    "/api/extensions/pska-mini/sidecar/api/memory/chatgpt-summary/import",
+    {
+      method: "POST",
+      body: {
+        source_label: "PSKA WebUI contract ChatGPT memory summary",
+        candidate_limit: 6,
+        include_private: false,
+        text: [
+          `用户长期项目 PSKA 的目标之一是构建有来源、有审核的外挂智能。${memoryMarker}。`,
+          `用户有一段与家庭和亲密经历有关的私密资料：${privateDetail}。默认不应进入长期记忆。`,
+          "你叫徐大为，长期研究认知智能、自然语言处理、知识图谱和个人知识管理。",
+        ].join("\n\n"),
+      },
+    },
+    (json, response) => {
+      const result = json?.chatgpt_memory_summary_import || {};
+      const summary = result.summary || {};
+      const flow = result.data_flow || {};
+      const serialized = JSON.stringify(result);
+      return response.ok
+        && result.schema === "pska.chatgpt_memory_summary_import.v1"
+        && summary.created_count >= 1
+        && summary.skipped_private_count >= 1
+        && summary.privacy_boundary_created === true
+        && flow.creates_review === true
+        && flow.writes_memory_directly === false
+        && flow.writes_source_files === false
+        && flow.stores_full_import_text === false
+        && !serialized.includes(privateDetail);
+    },
+  );
+  const chatgptReviewIds = chatgptMemoryReviewIds(chatgptMemoryImport.json);
+  if (chatgptReviewIds.length) {
+    await testJson("ChatGPT import: reject temporary memory reviews", "/api/extensions/pska-mini/sidecar/api/reviews/batch-decision", {
+      method: "POST",
+      body: {
+        review_ids: chatgptReviewIds,
+        decision: "reject",
+        reason: "Reject temporary ChatGPT memory import contract test reviews",
+      },
+    }, (json, response) =>
+      response.ok
+        && json?.schema === "pska.review_decide_batch.v1"
+        && json?.decision === "reject"
+        && json?.decided_count === chatgptReviewIds.length
+        && json?.data_flow?.writes_memory_directly === false,
+    );
+  } else {
+    record("ChatGPT import: reject temporary memory reviews", false, { reason: "No review ids returned from import" });
+  }
+
+  const archiveMarker = `PSKA WebUI ChatGPT archive marker ${Date.now()}`;
+  const archiveFixture = writeChatgptConversationFixture(archiveMarker);
+  const chatgptArchiveImport = await testJson(
+    "ChatGPT import: conversation archive creates source root",
+    "/api/extensions/pska-mini/sidecar/api/sources/chatgpt-conversations/import",
+    {
+      method: "POST",
+      body: {
+        export_path: archiveFixture.exportPath,
+        output_dir: archiveFixture.outputDir,
+        source_label: "PSKA WebUI contract ChatGPT conversation archive",
+        conversation_limit: 0,
+        scan: true,
+        scan_max_bytes: 1000000,
+      },
+    },
+    (json, response) => {
+      const result = json?.chatgpt_conversations_import || {};
+      const flow = result.data_flow || {};
+      return response.ok
+        && result.schema === "pska.chatgpt_conversations_import.v1"
+        && result.status === "imported"
+        && result.summary?.imported_conversation_count === 1
+        && result.root?.root_id
+        && result.archive?.manifest_path
+        && result.archive?.report_path
+        && flow.writes_original_export_files === false
+        && flow.writes_normalized_archive_files === true
+        && flow.writes_import_report_files === true
+        && flow.writes_source_registry === true
+        && flow.writes_memory_directly === false
+        && flow.creates_review === false
+        && flow.embedding_required === false;
+    },
+  );
+  const chatgptArchiveRootId = String(chatgptArchiveImport.json?.chatgpt_conversations_import?.root?.root_id || "").trim();
+  if (chatgptArchiveRootId) {
+    await testJson("ChatGPT import: conversation archive source search", "/api/extensions/pska-mini/sidecar/api/sources/search", {
+      method: "POST",
+      body: {
+        query: archiveMarker,
+        scope: { root_ids: [chatgptArchiveRootId] },
+        limit: 5,
+      },
+    }, (json, response) =>
+      response.ok
+        && Array.isArray(json?.context_packets)
+        && JSON.stringify(json.context_packets).includes(archiveMarker),
+    );
+    await testJson("ChatGPT import: conversation archive leaves memory untouched", "/api/extensions/pska-mini/sidecar/api/memory/search", {
+      method: "POST",
+      body: { query: archiveMarker, scope: {}, limit: 10 },
+    }, (json, response) =>
+      response.ok
+        && Array.isArray(json?.memory_facts)
+        && !JSON.stringify(json.memory_facts).includes(archiveMarker),
+    );
+  } else {
+    record("ChatGPT import: conversation archive source search", false, { reason: "No source root id returned from archive import" });
+    record("ChatGPT import: conversation archive leaves memory untouched", false, { reason: "No source root id returned from archive import" });
+  }
 
   await testJson("Memory Page: review list pending", "/api/extensions/pska-mini/sidecar/api/reviews?status=pending&limit=50", {}, (json, response) =>
     response.ok && Array.isArray(json?.reviews || json?.items || json?.review_candidates || []),
