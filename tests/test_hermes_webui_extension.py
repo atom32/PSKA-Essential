@@ -45,6 +45,7 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("pskaMiniAgenticBrief", script)
         self.assertIn("Specialists:", script)
         self.assertIn("recommended_profiles", script)
+        self.assertIn("DASHBOARD_REQUEST_TIMEOUT_MS = 30000", script)
         self.assertIn("pskaMiniSourceRecall", script)
         self.assertIn("buildForcedSkillMessage", script)
         self.assertIn("stripForcedSkillEnvelope", script)

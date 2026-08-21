@@ -156,9 +156,9 @@ HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
-For the full demo-before-showing gate, including the four generated browser
-demo videos, plain Chinese subtitle checks, and a live Eidolia-to-PSKA bridge
-proof, run:
+For the full demo-before-showing gate, including the read-only recovery
+boundary proof, four generated browser demo videos, plain Chinese subtitle
+checks, and a live Eidolia-to-PSKA bridge proof, run:
 
 ```bash
 NODE_PATH=/tmp/pska-playwright/node_modules \

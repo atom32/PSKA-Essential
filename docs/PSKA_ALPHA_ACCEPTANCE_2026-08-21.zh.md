@@ -184,12 +184,13 @@ HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-demo ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
-该入口在 `alpha-acceptance-webui` 的基础上追加 `--include-demo-videos` 和 `--include-eidolia-bridge`，因此一次运行会同时确认：
+该入口在 `alpha-acceptance-webui` 的基础上追加 `--include-demo-videos` 和 `--include-eidolia-bridge`，并继承 `--include-recovery-boundary`，因此一次运行会同时确认：
 
 ```text
 真实 Hermes MCP HTTP 边界
 真实 WebUI extension 和 sidecar consent
 WebUI 扩展契约、视觉布局、发问注入链路
+恢复计划只读、备份/恢复演练项可见、native source writeback 仍锁定
 四套浏览器演示视频、无音频、十段纯中文字幕
 Eidolia thought/artifact 进入 PSKA SourceRef 和 Review，而不写长期记忆
 ```
@@ -197,6 +198,7 @@ Eidolia thought/artifact 进入 PSKA SourceRef 和 Review，而不写长期记�
 artifact 中会多出：
 
 ```text
+recovery_boundary PASS status=ok recovery=needs_rehearsal
 demo_video_pack PASS status=ok videos=4/4
 eidolia_bridge PASS status=ok review=reject
 ```
@@ -351,10 +353,10 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 alpha-acceptance          OK
 product-boundary-contract OK
 live-product-boundary-contract OK
-alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK
-alpha-acceptance-demo     OK, demo_video_pack OK, eidolia_bridge OK, 4/4 videos
+alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK
+alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 4/4 videos
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  528 tests OK
+unittest                  529 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

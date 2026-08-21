@@ -239,6 +239,64 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
             ],
         )
 
+    def test_recovery_boundary_proves_read_only_backup_and_writeback_lock(self):
+        module = _load_script_module()
+        old_get = module._api_get_json
+
+        def fake_get(url):
+            self.assertEqual(url, "http://127.0.0.1:8765/api/alpha/recovery-plan")
+            return {
+                "ok": True,
+                "alpha_recovery_plan": {
+                    "schema": "pska.alpha_recovery_plan.v1",
+                    "status": "needs_rehearsal",
+                    "backup_items": [
+                        {"item_id": "review_store"},
+                        {"item_id": "source_registry"},
+                        {"item_id": "user_source_roots"},
+                        {"item_id": "kb_provider"},
+                    ],
+                    "restore_drills": [
+                        {"drill_id": "copy_pska_local_state"},
+                        {"drill_id": "restore_pska_local_state"},
+                        {"drill_id": "provider_restore_boundary"},
+                        {"drill_id": "native_writeback_rollback"},
+                    ],
+                    "writeback_preflight": [
+                        {"operation": "sidecar_annotation", "allowed_first_trial": True},
+                        {"operation": "obsidian_frontmatter_tags", "allowed_first_trial": False},
+                        {"operation": "obsidian_markdown_comment", "allowed_first_trial": False},
+                        {"operation": "obsidian_moc", "allowed_first_trial": False},
+                    ],
+                    "next_actions": [
+                        {"action": "verify_source_writeback_backup"},
+                    ],
+                    "data_flow": {
+                        "read_only": True,
+                        "creates_backup": False,
+                        "restores_data": False,
+                        "writes_source_files": False,
+                        "writes_memory_directly": False,
+                        "executes_provider_export": False,
+                    },
+                },
+            }
+
+        try:
+            module._api_get_json = fake_get
+            result = module._run_recovery_boundary("http://127.0.0.1:8765")
+        finally:
+            module._api_get_json = old_get
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["recovery_status"], "needs_rehearsal")
+        self.assertEqual(result["backup_item_count"], 4)
+        self.assertEqual(result["restore_drill_count"], 4)
+        self.assertIn("obsidian_moc", result["blocked_native_writeback_operations"])
+        self.assertFalse(result["data_flow"]["creates_backup"])
+        self.assertFalse(result["data_flow"]["restores_data"])
+
 
 def _restore_env(name: str, value: str | None) -> None:
     if value is None:

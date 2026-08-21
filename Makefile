@@ -33,10 +33,10 @@ alpha-acceptance:
 	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG)
 
 alpha-acceptance-webui:
-	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG) --include-live-product-boundary-contract --include-webui-contract --include-webui-visual --include-webui-turn-bridge
+	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG) --include-live-product-boundary-contract --include-webui-contract --include-webui-visual --include-webui-turn-bridge --include-recovery-boundary
 
 alpha-acceptance-demo:
-	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG) --include-live-product-boundary-contract --include-webui-contract --include-webui-visual --include-webui-turn-bridge --include-demo-videos --include-eidolia-bridge --timeout $${PSKA_ALPHA_DEMO_TIMEOUT:-240}
+	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG) --include-live-product-boundary-contract --include-webui-contract --include-webui-visual --include-webui-turn-bridge --include-recovery-boundary --include-demo-videos --include-eidolia-bridge --timeout $${PSKA_ALPHA_DEMO_TIMEOUT:-240}
 
 live-component-check:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.component_check $(ENV_FILE_ARG)

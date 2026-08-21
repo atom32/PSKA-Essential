@@ -11,6 +11,7 @@
   const SOURCE_EVIDENCE_DRAFT_PREFIX = "请先把这条资料证据改写成一条稳定记忆";
   const PANEL_NAME = "pska-mini";
   const MAIN_PANEL_ID = "mainPskaMini";
+  const DASHBOARD_REQUEST_TIMEOUT_MS = 30000;
   const BUILTIN_MAIN_CLASSES = [
     "showing-settings",
     "showing-skills",
@@ -1908,19 +1909,19 @@
     dashboard = { ...dashboard, loading: true, errors: {} };
     renderDashboard();
     const results = await settleObject({
-      health: pskaMiniFetchJson("/api/health"),
-      workspace: pskaMiniFetchJson("/api/workspace/status?compact=1&view=webui&next_action_limit=8"),
-      datasets: pskaMiniFetchJson("/api/kb/datasets"),
+      health: pskaMiniFetchJson("/api/health", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      workspace: pskaMiniFetchJson("/api/workspace/status?compact=1&view=webui&next_action_limit=8", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      datasets: pskaMiniFetchJson("/api/kb/datasets", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
       hermesProfile: fetchWebuiJson("/api/profile/active", { timeoutMs: 5000 }),
       hermesProjects: fetchWebuiJson("/api/projects", { timeoutMs: 5000 }),
       hermesWorkspaces: fetchWebuiJson("/api/workspaces", { timeoutMs: 5000 }),
-      jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: 10000 }),
-      wakeupPlan: pskaMiniFetchJson("/api/wakeup/plan", { timeoutMs: 10000 }),
-      observabilityMetrics: pskaMiniFetchJson("/api/observability/metrics?limit=300", { timeoutMs: 10000 }),
-      sourceRecallEval: pskaMiniFetchJson("/api/sources/recall-eval?mode=fixture&limit=5", { timeoutMs: 10000 }),
-      alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: 10000 }),
-      alphaRecoveryPlan: pskaMiniFetchJson("/api/alpha/recovery-plan", { timeoutMs: 10000 }),
-      diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: 10000 })
+      jobHealth: pskaMiniFetchJson("/api/jobs/health?include_kb=false", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      wakeupPlan: pskaMiniFetchJson("/api/wakeup/plan", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      observabilityMetrics: pskaMiniFetchJson("/api/observability/metrics?limit=300", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      sourceRecallEval: pskaMiniFetchJson("/api/sources/recall-eval?mode=fixture&limit=5", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      alphaReadiness: pskaMiniFetchJson("/api/alpha/readiness", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      alphaRecoveryPlan: pskaMiniFetchJson("/api/alpha/recovery-plan", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS }),
+      diagnostics: pskaMiniFetchJson("/api/runtime/diagnostics", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS })
     });
     const diagnosticsValue = valueOrNull(results.diagnostics);
     const nextDashboard = {

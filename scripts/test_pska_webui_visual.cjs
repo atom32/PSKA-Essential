@@ -134,7 +134,6 @@ async function waitForExtension(page, options = {}) {
 async function openMenuAndWait(page) {
   await page.click("#pskaMiniChip");
   await page.waitForSelector("#pskaMiniMenu", { state: "visible", timeout: 10000 });
-  await page.evaluate(() => window.PSKAMini?.refresh?.()).catch(() => {});
   try {
     await page.waitForFunction(() => {
       const text = document.querySelector("#pskaMiniStatus")?.innerText || "";
@@ -227,31 +226,43 @@ async function runDesktop(context, checks, artifacts) {
     text: agenticBriefText.slice(0, 900),
   });
 
-  await page.click("#pskaMiniClose");
-  await page.waitForSelector("#pskaMiniMenu", { state: "hidden", timeout: 10000 });
-  await page.click("#pskaMiniRailButton");
+  await page.click("#pskaMiniOpenMemoryPage");
   await page.waitForSelector("#mainPskaMini", { state: "visible", timeout: 10000 });
-  await page.waitForFunction(() => {
-    const status = document.querySelector("#pskaMiniPageStatus")?.innerText || "";
-    const count = document.querySelector("#pskaMiniMemoryCount")?.innerText || "";
-    const memoryText = document.querySelector("#pskaMiniMemoryResults")?.innerText || "";
-    const reviewText = document.querySelector("#pskaMiniReviewList")?.innerText || "";
-    const firstRunText = document.querySelector("#pskaMiniFirstRun")?.innerText || "";
-    const answerProofText = document.querySelector("#pskaMiniAnswerProofs")?.innerText || "";
-    const countMatch = count.match(/(\d+)\s+shown/iu);
-    const alphaReadyVisible = /Alpha\s+alpha_ready/iu.test(status) || /readiness\s+alpha_ready/iu.test(firstRunText);
-    return /API\s+ready/iu.test(status)
-      && /Embedding\s+(local|TEI|external)/iu.test(status)
-      && alphaReadyVisible
-      && /First-run checklist/iu.test(firstRunText)
-      && /Confirm runtime and providers/iu.test(firstRunText)
-      && /Rehearse source evidence to memory/iu.test(firstRunText)
-      && !/Loading answer proofs/iu.test(answerProofText)
-      && countMatch
-      && Number(countMatch[1]) > 0
-      && !/Loading memory/iu.test(memoryText)
-      && !/Loading reviews/iu.test(reviewText);
-  }, undefined, { timeout: 60000 });
+  try {
+    await page.waitForFunction(() => {
+      const status = document.querySelector("#pskaMiniPageStatus")?.innerText || "";
+      const count = document.querySelector("#pskaMiniMemoryCount")?.innerText || "";
+      const memoryText = document.querySelector("#pskaMiniMemoryResults")?.innerText || "";
+      const reviewText = document.querySelector("#pskaMiniReviewList")?.innerText || "";
+      const firstRunText = document.querySelector("#pskaMiniFirstRun")?.innerText || "";
+      const answerProofText = document.querySelector("#pskaMiniAnswerProofs")?.innerText || "";
+      const countMatch = count.match(/(\d+)\s+shown/iu);
+      const alphaReadyVisible = /Alpha\s+alpha_ready/iu.test(status) || /readiness\s+alpha_ready/iu.test(firstRunText);
+      return /API\s+ready/iu.test(status)
+        && /Embedding\s+(local|TEI|external)/iu.test(status)
+        && alphaReadyVisible
+        && /First-run checklist/iu.test(firstRunText)
+        && /Confirm runtime and providers/iu.test(firstRunText)
+        && /Rehearse source evidence to memory/iu.test(firstRunText)
+        && !/Loading answer proofs/iu.test(answerProofText)
+        && countMatch
+        && Number(countMatch[1]) > 0
+        && !/Loading memory/iu.test(memoryText)
+        && !/Loading reviews/iu.test(reviewText);
+    }, undefined, { timeout: 60000 });
+  } catch (error) {
+    const stateAtTimeout = await page.evaluate(() => ({
+      title: document.querySelector("#mainPskaMini .main-view-title")?.innerText || "",
+      status: document.querySelector("#pskaMiniPageStatus")?.innerText || "",
+      count: document.querySelector("#pskaMiniMemoryCount")?.innerText || "",
+      firstRun: document.querySelector("#pskaMiniFirstRun")?.innerText?.slice(0, 900) || "",
+      memory: document.querySelector("#pskaMiniMemoryResults")?.innerText?.slice(0, 500) || "",
+      reviews: document.querySelector("#pskaMiniReviewList")?.innerText?.slice(0, 500) || "",
+      answerProofs: document.querySelector("#pskaMiniAnswerProofs")?.innerText?.slice(0, 500) || "",
+      fullText: document.querySelector("#mainPskaMini")?.innerText?.slice(0, 1200) || "",
+    })).catch(() => ({}));
+    throw new Error(`${error.message}\nMemory page state at timeout:\n${JSON.stringify(stateAtTimeout, null, 2)}`);
+  }
   const memoryCheck = await page.evaluate(() => ({
     visible: Boolean(document.querySelector("#mainPskaMini")),
     title: document.querySelector("#mainPskaMini .main-view-title")?.innerText || "",

@@ -52,6 +52,7 @@ def main() -> int:
     parser.add_argument("--include-webui-llm-proof", action="store_true")
     parser.add_argument("--include-demo-videos", action="store_true")
     parser.add_argument("--include-eidolia-bridge", action="store_true")
+    parser.add_argument("--include-recovery-boundary", action="store_true")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
 
@@ -259,6 +260,27 @@ def main() -> int:
             )
         )
 
+    if args.include_recovery_boundary:
+        recovery_boundary = _run_recovery_boundary(api_base)
+        _write_json(out_dir / "recovery_boundary.json", recovery_boundary)
+        artifacts["recovery_boundary"] = str(out_dir / "recovery_boundary.json")
+        checks.append(
+            _check(
+                "recovery_boundary",
+                bool(recovery_boundary.get("ok")),
+                (
+                    f"status={recovery_boundary.get('status')} "
+                    f"recovery={recovery_boundary.get('recovery_status')}"
+                ),
+                steps=recovery_boundary.get("steps") or [],
+                backup_item_count=recovery_boundary.get("backup_item_count") or 0,
+                restore_drill_count=recovery_boundary.get("restore_drill_count") or 0,
+                blocked_native_writeback_operations=(
+                    recovery_boundary.get("blocked_native_writeback_operations") or []
+                ),
+            )
+        )
+
     summary = {
         "schema": "pska.alpha_acceptance_run.v1",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -428,6 +450,89 @@ def _run_eidolia_bridge(api_base_url: str) -> dict[str, Any]:
             "rejects_temporary_review": bool(review_id),
             "embedding_required": False,
         },
+    }
+
+
+def _run_recovery_boundary(api_base_url: str) -> dict[str, Any]:
+    payload = _api_get_json(f"{api_base_url.rstrip('/')}/api/alpha/recovery-plan")
+    plan = payload.get("alpha_recovery_plan") or {}
+    backup_items = plan.get("backup_items") or []
+    restore_drills = plan.get("restore_drills") or []
+    writeback_preflight = plan.get("writeback_preflight") or []
+    data_flow = plan.get("data_flow") or {}
+    item_ids = {str(item.get("item_id") or "") for item in backup_items}
+    drill_ids = {str(drill.get("drill_id") or "") for drill in restore_drills}
+    blocked_native_ops = [
+        str(item.get("operation") or "")
+        for item in writeback_preflight
+        if str(item.get("operation") or "") != "sidecar_annotation"
+        and item.get("allowed_first_trial") is False
+    ]
+    next_actions = {
+        str(action.get("action") or "")
+        for action in plan.get("next_actions") or []
+    }
+    required_flow = {
+        "read_only": True,
+        "creates_backup": False,
+        "restores_data": False,
+        "writes_source_files": False,
+        "writes_memory_directly": False,
+        "executes_provider_export": False,
+    }
+    flow_ok = all(data_flow.get(name) is expected for name, expected in required_flow.items())
+    required_items = {"review_store", "source_registry", "user_source_roots", "kb_provider"}
+    required_drills = {
+        "copy_pska_local_state",
+        "restore_pska_local_state",
+        "provider_restore_boundary",
+        "native_writeback_rollback",
+    }
+    steps = [
+        _recovery_step(
+            "schema",
+            payload.get("ok") is True and plan.get("schema") == "pska.alpha_recovery_plan.v1",
+            "Recovery plan route returns the alpha recovery schema.",
+        ),
+        _recovery_step(
+            "read_only_data_flow",
+            flow_ok,
+            "Recovery plan is read-only and does not create backups, restore data, export providers, write sources, or write memory.",
+        ),
+        _recovery_step(
+            "backup_items",
+            required_items.issubset(item_ids),
+            "PSKA ledgers, source roots, and provider-owned KB state are named as backup boundaries.",
+        ),
+        _recovery_step(
+            "restore_drills",
+            required_drills.issubset(drill_ids),
+            "Local restore, provider restore, and native writeback rollback drills are listed.",
+        ),
+        _recovery_step(
+            "native_writeback_locked",
+            len(blocked_native_ops) >= 3
+            and "verify_source_writeback_backup" in next_actions,
+            "Native tag/comment/MOC writeback remains locked until backup is verified.",
+        ),
+        _recovery_step(
+            "status_is_operator_gate",
+            str(plan.get("status") or "") in {"ready", "needs_rehearsal"},
+            "Recovery status is an operator gate, not an automatic writeback unlock.",
+        ),
+    ]
+    ok = bool(steps) and all(bool(step.get("ok")) for step in steps)
+    return {
+        "schema": "pska.alpha_recovery_boundary_acceptance.v1",
+        "ok": ok,
+        "status": "ok" if ok else "failed",
+        "recovery_status": str(plan.get("status") or ""),
+        "backup_item_count": len(backup_items),
+        "restore_drill_count": len(restore_drills),
+        "blocked_native_writeback_operations": blocked_native_ops,
+        "steps": steps,
+        "plan": plan,
+        "data_flow": data_flow,
     }
 
 
@@ -624,6 +729,10 @@ def _demo_video_count(checks: list[str]) -> int:
 
 
 def _eidolia_step(name: str, ok: bool, message: str) -> dict[str, Any]:
+    return {"name": name, "ok": bool(ok), "message": message}
+
+
+def _recovery_step(name: str, ok: bool, message: str) -> dict[str, Any]:
     return {"name": name, "ok": bool(ok), "message": message}
 
 
