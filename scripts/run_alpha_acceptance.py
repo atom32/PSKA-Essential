@@ -33,6 +33,7 @@ def main() -> int:
     parser.add_argument("--dataset-ids", default=os.getenv("PSKA_ALPHA_ACCEPTANCE_DATASET_IDS", ""))
     parser.add_argument("--question", default=os.getenv("PSKA_ALPHA_ACCEPTANCE_QUESTION", DEFAULT_QUESTION))
     parser.add_argument("--out-dir", type=Path)
+    parser.add_argument("--skip-product-boundary-contract", action="store_true")
     parser.add_argument("--skip-full-proof", action="store_true")
     parser.add_argument("--include-webui-contract", action="store_true")
     parser.add_argument("--include-webui-visual", action="store_true")
@@ -48,6 +49,28 @@ def main() -> int:
 
     env = os.environ.copy()
     env["PYTHONPATH"] = _pythonpath(env)
+
+    if args.skip_product_boundary_contract:
+        checks.append(
+            _check(
+                "product_boundary_contract",
+                True,
+                "skipped by --skip-product-boundary-contract",
+                skipped=True,
+            )
+        )
+    else:
+        boundary = _run_product_boundary_contract(env=env, timeout=args.timeout)
+        _write_json(out_dir / "product_boundary_contract.json", boundary)
+        artifacts["product_boundary_contract"] = str(out_dir / "product_boundary_contract.json")
+        checks.append(
+            _check(
+                "product_boundary_contract",
+                bool(boundary.get("ok")),
+                f"status={boundary.get('status')}",
+                checks=boundary.get("checks") or [],
+            )
+        )
 
     api_base = args.api_base_url.rstrip("/")
     alpha = _api_get_json(f"{api_base}/api/alpha/readiness")
@@ -224,6 +247,27 @@ def _run_node_json(command: list[str], *, env: dict[str, str], timeout: int) -> 
     return _run_json(command, env=env, timeout=timeout)
 
 
+def _run_product_boundary_contract(*, env: dict[str, str], timeout: int) -> dict[str, Any]:
+    command = [sys.executable, "scripts/verify_product_boundaries.py"]
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
+    return {
+        "ok": result.returncode == 0,
+        "status": "ok" if result.returncode == 0 else "failed",
+        "command": command,
+        "returncode": result.returncode,
+        "checks": _boundary_check_lines(result.stdout),
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    }
+
+
 def _run_json(command: list[str], *, env: dict[str, str], timeout: int) -> dict[str, Any]:
     result = subprocess.run(
         command,
@@ -296,6 +340,14 @@ def _step_summary(payload: dict[str, Any]) -> list[dict[str, str]]:
             "message": str(step.get("message") or ""),
         }
         for step in payload.get("steps") or []
+    ]
+
+
+def _boundary_check_lines(stdout: str) -> list[str]:
+    return [
+        line[2:].strip()
+        for line in str(stdout or "").splitlines()
+        if line.startswith("- ")
     ]
 
 

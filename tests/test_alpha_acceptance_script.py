@@ -80,6 +80,24 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertEqual(payload["detail"], "scope missing")
         self.assertEqual(payload["command_returncode"], 2)
 
+    def test_product_boundary_contract_helper_runs_static_gate(self):
+        module = _load_script_module()
+
+        payload = module._run_product_boundary_contract(env=os.environ.copy(), timeout=30)
+
+        self.assertTrue(payload["ok"], payload.get("stderr"))
+        self.assertEqual(payload["status"], "ok")
+        self.assertIn("Hermes config example uses PSKA HTTP MCP only", payload["checks"])
+        self.assertIn("pska-mini stays a thin WebUI sidecar extension", payload["checks"])
+
+    def test_boundary_check_lines_extracts_reported_checks(self):
+        module = _load_script_module()
+
+        self.assertEqual(
+            module._boundary_check_lines("header\n- one\n- two\n"),
+            ["one", "two"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

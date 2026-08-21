@@ -50,9 +50,10 @@ make alpha-acceptance ENV_FILE=.env.pska PYTHON=.venv/bin/python
 
 ```text
 Status: ok
-alpha_readiness       PASS status=alpha_ready
-live_connectivity     PASS status=ok mode=connectivity_only
-full_component_proof  PASS status=ok mode=full_component_proof
+product_boundary_contract PASS status=ok
+alpha_readiness           PASS status=alpha_ready
+live_connectivity         PASS status=ok mode=connectivity_only
+full_component_proof      PASS status=ok mode=full_component_proof
 ```
 
 完整组件闭环使用的 ready dataset：
@@ -64,7 +65,7 @@ dataset_id = 07f35e1a9b9411f197ff8391030412c0
 闭环输出摘要：
 
 ```text
-run_id                  = run_9a450e5402e24ab195589f42627ad107
+run_id                  = run_6d3996e43a0c49249fb128ae09179698
 retrieval_context_count = 2
 closed_loop_contexts    = 4
 closed_loop_sources     = 9
@@ -295,7 +296,7 @@ alpha-acceptance          OK
 product-boundary-contract OK
 alpha-acceptance-webui    OK, 41/41 contract, visual OK, turn bridge OK
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  513 tests OK
+unittest                  515 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

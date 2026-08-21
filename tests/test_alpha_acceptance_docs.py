@@ -19,13 +19,14 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
         )
         required_terms = [
             "alpha_readiness.status = alpha_ready",
+            "product_boundary_contract PASS status=ok",
             "webui_extension_contract    PASS passed=41/41",
             "webui_extension_turn_bridge PASS ok=True forced_context_count=1",
             "make product-boundary-contract",
             "make demo-browser-verify-videos",
             "10 ordered plain Chinese subtitles",
             "product-boundary-contract OK",
-            "unittest                  513 tests OK",
+            "unittest                  515 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):
