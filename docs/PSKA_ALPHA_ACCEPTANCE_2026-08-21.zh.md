@@ -268,6 +268,14 @@ make product-boundary-contract
 make live-product-boundary-contract
 ```
 
+其中 live 守门只输出通过项和文件路径，不打印配置正文。当前它确认：
+
+```text
+Hermes config: pska-essential -> http://127.0.0.1:8766/mcp
+WebUI manifest: pska-mini -> http://127.0.0.1:8765
+WebUI sidecar consent: pska-mini -> http://127.0.0.1:8765
+```
+
 演示前完整入口，包含 Hermes WebUI extension 契约、浏览器级视觉检查和真实发问注入：
 
 ```bash
@@ -298,7 +306,7 @@ product-boundary-contract OK
 live-product-boundary-contract OK
 alpha-acceptance-webui    OK, 41/41 contract, visual OK, turn bridge OK
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  518 tests OK
+unittest                  521 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

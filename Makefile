@@ -24,7 +24,10 @@ product-boundary-contract:
 	$(PYTHON) scripts/verify_product_boundaries.py
 
 live-product-boundary-contract:
-	$(PYTHON) scripts/verify_product_boundaries.py --live-hermes-config "$${HERMES_CONFIG_PATH:-$${HOME}/.hermes/config.yaml}"
+	$(PYTHON) scripts/verify_product_boundaries.py \
+	  --live-hermes-config "$${HERMES_CONFIG_PATH:-$${HOME}/.hermes/config.yaml}" \
+	  --live-webui-extension-manifest "$${HERMES_WEBUI_EXTENSION_MANIFEST_PATH:-$${HERMES_WEBUI_EXTENSION_DIR:-$${HOME}/.hermes/webui-local-extensions}/$${HERMES_WEBUI_EXTENSION_MANIFEST:-extensions.json}}" \
+	  --live-webui-extension-overrides "$${HERMES_WEBUI_EXTENSION_OVERRIDES_PATH:-$${HERMES_WEBUI_STATE_DIR:-$${HOME}/.hermes/webui}/extension-overrides.json}"
 
 alpha-acceptance:
 	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG)

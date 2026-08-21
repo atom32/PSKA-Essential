@@ -39,6 +39,21 @@ def main() -> int:
         default=os.getenv("PSKA_MCP_BASE_URL", "http://127.0.0.1:8766/mcp"),
         help="Expected PSKA MCP URL in the live Hermes config.",
     )
+    parser.add_argument(
+        "--live-webui-extension-manifest",
+        type=Path,
+        help="Also verify the live Hermes WebUI extension manifest without printing it.",
+    )
+    parser.add_argument(
+        "--live-webui-extension-overrides",
+        type=Path,
+        help="Also verify the live Hermes WebUI sidecar consent state without printing it.",
+    )
+    parser.add_argument(
+        "--expected-pska-api-origin",
+        default=os.getenv("PSKA_API_BASE_URL", "http://127.0.0.1:8765"),
+        help="Expected PSKA Product API origin for pska-mini sidecar consent.",
+    )
     args = parser.parse_args()
 
     checks: list[str] = []
@@ -54,6 +69,17 @@ def main() -> int:
                 args.live_hermes_config.expanduser(),
                 checks,
                 expected_url=args.expected_pska_mcp_url.rstrip("/"),
+            )
+        if args.live_webui_extension_manifest:
+            verify_live_webui_extension(
+                args.live_webui_extension_manifest.expanduser(),
+                checks,
+                overrides_path=(
+                    args.live_webui_extension_overrides.expanduser()
+                    if args.live_webui_extension_overrides
+                    else None
+                ),
+                expected_origin=args.expected_pska_api_origin.rstrip("/"),
             )
     except BoundaryFailure as exc:
         print(f"PSKA product boundary verification failed: {exc}", file=sys.stderr)
@@ -165,6 +191,85 @@ def verify_live_hermes_config(path: Path, checks: list[str], *, expected_url: st
     else:
         _verify_live_hermes_config_text(path, text, expected_url=expected_url)
     checks.append(f"live Hermes config uses PSKA HTTP MCP only: {path}")
+
+
+def verify_live_webui_extension(
+    manifest_path: Path,
+    checks: list[str],
+    *,
+    overrides_path: Path | None,
+    expected_origin: str,
+) -> None:
+    manifest = _read_json_file(manifest_path)
+    entries = _extension_entries(manifest)
+    pska = entries.get("pska-mini")
+    if not isinstance(pska, dict):
+        raise BoundaryFailure(f"{manifest_path}: live WebUI manifest must contain pska-mini")
+    _verify_pska_mini_manifest_entry(manifest_path, pska, expected_origin=expected_origin)
+    _forbid_live_webui_provider_extensions(manifest_path, entries)
+    checks.append(f"live WebUI manifest loads pska-mini through PSKA sidecar: {manifest_path}")
+
+    if overrides_path is not None:
+        overrides = _read_json_file(overrides_path)
+        _verify_pska_mini_consent(overrides_path, overrides, expected_origin=expected_origin)
+        checks.append(f"live WebUI sidecar consent matches PSKA API origin: {overrides_path}")
+
+
+def _verify_pska_mini_manifest_entry(path: Path, entry: dict, *, expected_origin: str) -> None:
+    assert_equal(entry.get("scripts"), ["pska-mini/pska-mini.js"], path, "pska-mini scripts")
+    assert_equal(entry.get("stylesheets"), ["pska-mini/pska-mini.css"], path, "pska-mini stylesheets")
+    sidecar = entry.get("sidecar") or {}
+    if not isinstance(sidecar, dict):
+        raise BoundaryFailure(f"{path}: pska-mini sidecar must be an object")
+    assert_equal(sidecar.get("type"), "loopback", path, "pska-mini sidecar type")
+    assert_equal(str(sidecar.get("origin") or "").rstrip("/"), expected_origin, path, "pska-mini sidecar origin")
+    assert_equal(sidecar.get("health_path"), "/api/health", path, "pska-mini sidecar health path")
+
+
+def _verify_pska_mini_consent(path: Path, overrides: dict, *, expected_origin: str) -> None:
+    disabled = overrides.get("disabled_extensions")
+    if isinstance(disabled, list) and "pska-mini" in disabled:
+        raise BoundaryFailure(f"{path}: pska-mini must not be disabled in live WebUI state")
+    consents = overrides.get("sidecar_proxy_consents")
+    if not isinstance(consents, dict):
+        raise BoundaryFailure(f"{path}: live WebUI state must contain sidecar_proxy_consents")
+    actual_origin = str(consents.get("pska-mini") or "").rstrip("/")
+    if actual_origin != expected_origin:
+        raise BoundaryFailure(
+            f"{path}: pska-mini sidecar consent must be {expected_origin!r}, got {actual_origin!r}"
+        )
+
+
+def _forbid_live_webui_provider_extensions(path: Path, entries: dict[str, dict]) -> None:
+    provider_names = ("ragflow", "graphiti", "gbrain", "zep", "mem0")
+    provider_url = re.compile(
+        r"https?://(?:127\.0\.0\.1|localhost|host\.docker\.internal):(?:9380|9388|9222|9228|8000|6380|3131)\b"
+    )
+    for extension_id, entry in entries.items():
+        if extension_id in {"pska-mini", "eidolia"}:
+            continue
+        if any(provider in extension_id.lower() for provider in provider_names):
+            raise BoundaryFailure(f"{path}: live WebUI manifest exposes forbidden provider extension {extension_id!r}")
+        sidecar = entry.get("sidecar") if isinstance(entry, dict) else None
+        origin = str((sidecar or {}).get("origin") or "") if isinstance(sidecar, dict) else ""
+        if provider_url.search(origin):
+            raise BoundaryFailure(
+                f"{path}: live WebUI extension {extension_id!r} points at a provider port directly"
+            )
+
+
+def _extension_entries(payload) -> dict[str, dict]:
+    raw_entries = payload.get("extensions") if isinstance(payload, dict) else payload
+    if not isinstance(raw_entries, list):
+        raise BoundaryFailure("live WebUI extension manifest must be an object/list with extension entries")
+    entries: dict[str, dict] = {}
+    for item in raw_entries:
+        if not isinstance(item, dict):
+            continue
+        extension_id = str(item.get("id") or "").strip()
+        if extension_id:
+            entries[extension_id] = item
+    return entries
 
 
 def _verify_live_hermes_config_mapping(path: Path, config: dict, *, expected_url: str) -> None:
@@ -287,6 +392,15 @@ def read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise BoundaryFailure(f"missing required file: {path}") from exc
+
+
+def _read_json_file(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise BoundaryFailure(f"missing required file: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise BoundaryFailure(f"{path}: invalid JSON: {exc}") from exc
 
 
 def require(text: str, needle: str, path: Path, message: str) -> None:

@@ -138,7 +138,8 @@ Verify the product boundary contract:
 make product-boundary-contract
 ```
 
-Verify the same boundary against the current local Hermes config:
+Verify the same boundary against the current local Hermes config and WebUI
+extension state:
 
 ```bash
 make live-product-boundary-contract

@@ -109,6 +109,134 @@ mcp_servers:
                     expected_url="http://127.0.0.1:8766/mcp",
                 )
 
+    def test_live_webui_extension_accepts_pska_sidecar_and_consent(self):
+        module = _load_boundary_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "extensions.json"
+            overrides = root / "extension-overrides.json"
+            manifest.write_text(
+                """
+{
+  "extensions": [
+    {
+      "id": "pska-mini",
+      "scripts": ["pska-mini/pska-mini.js"],
+      "stylesheets": ["pska-mini/pska-mini.css"],
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:8765",
+        "health_path": "/api/health"
+      }
+    },
+    {
+      "id": "eidolia",
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:8797",
+        "health_path": "/health"
+      }
+    }
+  ]
+}
+""".lstrip(),
+                encoding="utf-8",
+            )
+            overrides.write_text(
+                """
+{
+  "version": 1,
+  "disabled_extensions": [],
+  "sidecar_proxy_consents": {
+    "pska-mini": "http://127.0.0.1:8765"
+  }
+}
+""".lstrip(),
+                encoding="utf-8",
+            )
+            checks = []
+            module.verify_live_webui_extension(
+                manifest,
+                checks,
+                overrides_path=overrides,
+                expected_origin="http://127.0.0.1:8765",
+            )
+
+        self.assertEqual(len(checks), 2)
+        self.assertIn("live WebUI manifest loads pska-mini", checks[0])
+        self.assertIn("live WebUI sidecar consent matches PSKA API origin", checks[1])
+
+    def test_live_webui_extension_rejects_wrong_pska_origin(self):
+        module = _load_boundary_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "extensions.json"
+            manifest.write_text(
+                """
+{
+  "extensions": [
+    {
+      "id": "pska-mini",
+      "scripts": ["pska-mini/pska-mini.js"],
+      "stylesheets": ["pska-mini/pska-mini.css"],
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:9380",
+        "health_path": "/api/health"
+      }
+    }
+  ]
+}
+""".lstrip(),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(module.BoundaryFailure):
+                module.verify_live_webui_extension(
+                    manifest,
+                    [],
+                    overrides_path=None,
+                    expected_origin="http://127.0.0.1:8765",
+                )
+
+    def test_live_webui_extension_rejects_provider_extension(self):
+        module = _load_boundary_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "extensions.json"
+            manifest.write_text(
+                """
+{
+  "extensions": [
+    {
+      "id": "pska-mini",
+      "scripts": ["pska-mini/pska-mini.js"],
+      "stylesheets": ["pska-mini/pska-mini.css"],
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:8765",
+        "health_path": "/api/health"
+      }
+    },
+    {
+      "id": "ragflow-direct",
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:9380"
+      }
+    }
+  ]
+}
+""".lstrip(),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(module.BoundaryFailure):
+                module.verify_live_webui_extension(
+                    manifest,
+                    [],
+                    overrides_path=None,
+                    expected_origin="http://127.0.0.1:8765",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
