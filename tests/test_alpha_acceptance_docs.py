@@ -26,11 +26,13 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "make live-product-boundary-contract",
             "WebUI manifest: pska-mini -> http://127.0.0.1:8765",
             "WebUI sidecar consent: pska-mini -> http://127.0.0.1:8765",
+            "--include-live-product-boundary-contract",
+            "product_boundary_contract.mode = repository_and_live",
             "make demo-browser-verify-videos",
             "10 ordered plain Chinese subtitles",
             "product-boundary-contract OK",
             "live-product-boundary-contract OK",
-            "unittest                  521 tests OK",
+            "unittest                  523 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):

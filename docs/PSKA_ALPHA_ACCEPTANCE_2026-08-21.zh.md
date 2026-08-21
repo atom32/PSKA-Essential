@@ -65,7 +65,7 @@ dataset_id = 07f35e1a9b9411f197ff8391030412c0
 闭环输出摘要：
 
 ```text
-run_id                  = run_6d3996e43a0c49249fb128ae09179698
+run_id                  = run_fd3297e220df4ca0892716e62b7181ad
 retrieval_context_count = 2
 closed_loop_contexts    = 4
 closed_loop_sources     = 9
@@ -96,6 +96,8 @@ PSKA_PLAYWRIGHT_CHANNEL=chrome \
 HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
+
+该入口会把 `--include-live-product-boundary-contract` 传给验收脚本，因此 WebUI 演示前检查包含真实 Hermes MCP 配置、真实 WebUI extension manifest 和 sidecar consent。对应 artifact 中 `product_boundary_contract.mode = repository_and_live`。
 
 结果：
 
@@ -306,7 +308,7 @@ product-boundary-contract OK
 live-product-boundary-contract OK
 alpha-acceptance-webui    OK, 41/41 contract, visual OK, turn bridge OK
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  521 tests OK
+unittest                  523 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

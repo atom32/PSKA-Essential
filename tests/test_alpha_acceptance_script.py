@@ -90,6 +90,56 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertIn("Hermes config example uses PSKA HTTP MCP only", payload["checks"])
         self.assertIn("pska-mini stays a thin WebUI sidecar extension", payload["checks"])
 
+    def test_live_product_boundary_args_include_config_manifest_and_consent(self):
+        module = _load_script_module()
+
+        args = module._live_product_boundary_args(
+            live_hermes_config=Path("/tmp/hermes/config.yaml"),
+            live_webui_extension_manifest=Path("/tmp/extensions/extensions.json"),
+            live_webui_extension_overrides=Path("/tmp/webui/extension-overrides.json"),
+        )
+
+        self.assertEqual(
+            args,
+            [
+                "--live-hermes-config",
+                "/tmp/hermes/config.yaml",
+                "--live-webui-extension-manifest",
+                "/tmp/extensions/extensions.json",
+                "--live-webui-extension-overrides",
+                "/tmp/webui/extension-overrides.json",
+            ],
+        )
+
+    def test_default_live_webui_extension_paths_follow_env(self):
+        module = _load_script_module()
+        old_manifest_path = os.environ.get("HERMES_WEBUI_EXTENSION_MANIFEST_PATH")
+        old_extension_dir = os.environ.get("HERMES_WEBUI_EXTENSION_DIR")
+        old_manifest = os.environ.get("HERMES_WEBUI_EXTENSION_MANIFEST")
+        old_overrides_path = os.environ.get("HERMES_WEBUI_EXTENSION_OVERRIDES_PATH")
+        old_state_dir = os.environ.get("HERMES_WEBUI_STATE_DIR")
+        try:
+            os.environ.pop("HERMES_WEBUI_EXTENSION_MANIFEST_PATH", None)
+            os.environ["HERMES_WEBUI_EXTENSION_DIR"] = "/tmp/extensions-root"
+            os.environ["HERMES_WEBUI_EXTENSION_MANIFEST"] = "manifest.json"
+            os.environ.pop("HERMES_WEBUI_EXTENSION_OVERRIDES_PATH", None)
+            os.environ["HERMES_WEBUI_STATE_DIR"] = "/tmp/webui-state"
+
+            self.assertEqual(
+                module._default_live_webui_extension_manifest(),
+                Path("/tmp/extensions-root/manifest.json"),
+            )
+            self.assertEqual(
+                module._default_live_webui_extension_overrides(),
+                Path("/tmp/webui-state/extension-overrides.json"),
+            )
+        finally:
+            _restore_env("HERMES_WEBUI_EXTENSION_MANIFEST_PATH", old_manifest_path)
+            _restore_env("HERMES_WEBUI_EXTENSION_DIR", old_extension_dir)
+            _restore_env("HERMES_WEBUI_EXTENSION_MANIFEST", old_manifest)
+            _restore_env("HERMES_WEBUI_EXTENSION_OVERRIDES_PATH", old_overrides_path)
+            _restore_env("HERMES_WEBUI_STATE_DIR", old_state_dir)
+
     def test_boundary_check_lines_extracts_reported_checks(self):
         module = _load_script_module()
 
@@ -97,6 +147,13 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
             module._boundary_check_lines("header\n- one\n- two\n"),
             ["one", "two"],
         )
+
+
+def _restore_env(name: str, value: str | None) -> None:
+    if value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = value
 
 
 if __name__ == "__main__":

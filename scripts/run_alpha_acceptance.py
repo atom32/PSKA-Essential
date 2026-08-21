@@ -34,6 +34,10 @@ def main() -> int:
     parser.add_argument("--question", default=os.getenv("PSKA_ALPHA_ACCEPTANCE_QUESTION", DEFAULT_QUESTION))
     parser.add_argument("--out-dir", type=Path)
     parser.add_argument("--skip-product-boundary-contract", action="store_true")
+    parser.add_argument("--include-live-product-boundary-contract", action="store_true")
+    parser.add_argument("--live-hermes-config", type=Path, default=_default_live_hermes_config())
+    parser.add_argument("--live-webui-extension-manifest", type=Path, default=_default_live_webui_extension_manifest())
+    parser.add_argument("--live-webui-extension-overrides", type=Path, default=_default_live_webui_extension_overrides())
     parser.add_argument("--skip-full-proof", action="store_true")
     parser.add_argument("--include-webui-contract", action="store_true")
     parser.add_argument("--include-webui-visual", action="store_true")
@@ -60,7 +64,14 @@ def main() -> int:
             )
         )
     else:
-        boundary = _run_product_boundary_contract(env=env, timeout=args.timeout)
+        boundary = _run_product_boundary_contract(
+            env=env,
+            timeout=args.timeout,
+            live=args.include_live_product_boundary_contract,
+            live_hermes_config=args.live_hermes_config,
+            live_webui_extension_manifest=args.live_webui_extension_manifest,
+            live_webui_extension_overrides=args.live_webui_extension_overrides,
+        )
         _write_json(out_dir / "product_boundary_contract.json", boundary)
         artifacts["product_boundary_contract"] = str(out_dir / "product_boundary_contract.json")
         checks.append(
@@ -247,8 +258,22 @@ def _run_node_json(command: list[str], *, env: dict[str, str], timeout: int) -> 
     return _run_json(command, env=env, timeout=timeout)
 
 
-def _run_product_boundary_contract(*, env: dict[str, str], timeout: int) -> dict[str, Any]:
+def _run_product_boundary_contract(
+    *,
+    env: dict[str, str],
+    timeout: int,
+    live: bool = False,
+    live_hermes_config: Path | None = None,
+    live_webui_extension_manifest: Path | None = None,
+    live_webui_extension_overrides: Path | None = None,
+) -> dict[str, Any]:
     command = [sys.executable, "scripts/verify_product_boundaries.py"]
+    if live:
+        command.extend(_live_product_boundary_args(
+            live_hermes_config=live_hermes_config,
+            live_webui_extension_manifest=live_webui_extension_manifest,
+            live_webui_extension_overrides=live_webui_extension_overrides,
+        ))
     result = subprocess.run(
         command,
         cwd=ROOT,
@@ -260,12 +285,29 @@ def _run_product_boundary_contract(*, env: dict[str, str], timeout: int) -> dict
     return {
         "ok": result.returncode == 0,
         "status": "ok" if result.returncode == 0 else "failed",
+        "mode": "repository_and_live" if live else "repository",
         "command": command,
         "returncode": result.returncode,
         "checks": _boundary_check_lines(result.stdout),
         "stdout": result.stdout,
         "stderr": result.stderr,
     }
+
+
+def _live_product_boundary_args(
+    *,
+    live_hermes_config: Path | None,
+    live_webui_extension_manifest: Path | None,
+    live_webui_extension_overrides: Path | None,
+) -> list[str]:
+    args: list[str] = []
+    if live_hermes_config is not None:
+        args.extend(["--live-hermes-config", str(live_hermes_config.expanduser())])
+    if live_webui_extension_manifest is not None:
+        args.extend(["--live-webui-extension-manifest", str(live_webui_extension_manifest.expanduser())])
+    if live_webui_extension_overrides is not None:
+        args.extend(["--live-webui-extension-overrides", str(live_webui_extension_overrides.expanduser())])
+    return args
 
 
 def _run_json(command: list[str], *, env: dict[str, str], timeout: int) -> dict[str, Any]:
@@ -320,6 +362,27 @@ def _normalized(values: list[Any]) -> list[str]:
 def _default_out_dir() -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return Path(tempfile.gettempdir()) / f"pska-alpha-acceptance-{stamp}"
+
+
+def _default_live_hermes_config() -> Path:
+    return Path(os.getenv("HERMES_CONFIG_PATH", str(Path.home() / ".hermes" / "config.yaml")))
+
+
+def _default_live_webui_extension_manifest() -> Path:
+    explicit = os.getenv("HERMES_WEBUI_EXTENSION_MANIFEST_PATH", "")
+    if explicit:
+        return Path(explicit)
+    root = Path(os.getenv("HERMES_WEBUI_EXTENSION_DIR", str(Path.home() / ".hermes" / "webui-local-extensions")))
+    name = os.getenv("HERMES_WEBUI_EXTENSION_MANIFEST", "extensions.json")
+    return root / name
+
+
+def _default_live_webui_extension_overrides() -> Path:
+    explicit = os.getenv("HERMES_WEBUI_EXTENSION_OVERRIDES_PATH", "")
+    if explicit:
+        return Path(explicit)
+    state_dir = Path(os.getenv("HERMES_WEBUI_STATE_DIR", str(Path.home() / ".hermes" / "webui")))
+    return state_dir / "extension-overrides.json"
 
 
 def _pythonpath(env: dict[str, str]) -> str:

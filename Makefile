@@ -33,7 +33,7 @@ alpha-acceptance:
 	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG)
 
 alpha-acceptance-webui:
-	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG) --include-webui-contract --include-webui-visual --include-webui-turn-bridge
+	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG) --include-live-product-boundary-contract --include-webui-contract --include-webui-visual --include-webui-turn-bridge
 
 live-component-check:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.component_check $(ENV_FILE_ARG)
