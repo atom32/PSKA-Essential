@@ -12,7 +12,9 @@ but the daily product path must stay HTTP MCP and provider-gated.
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -26,6 +28,19 @@ class BoundaryFailure(AssertionError):
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Verify PSKA product boundary invariants.")
+    parser.add_argument(
+        "--live-hermes-config",
+        type=Path,
+        help="Also verify a live Hermes config.yaml file without printing its contents.",
+    )
+    parser.add_argument(
+        "--expected-pska-mcp-url",
+        default=os.getenv("PSKA_MCP_BASE_URL", "http://127.0.0.1:8766/mcp"),
+        help="Expected PSKA MCP URL in the live Hermes config.",
+    )
+    args = parser.parse_args()
+
     checks: list[str] = []
     try:
         verify_hermes_config(checks)
@@ -34,6 +49,12 @@ def main() -> int:
         verify_webui_extension(checks)
         verify_demo_entrypoints(checks)
         verify_readme_boundary(checks)
+        if args.live_hermes_config:
+            verify_live_hermes_config(
+                args.live_hermes_config.expanduser(),
+                checks,
+                expected_url=args.expected_pska_mcp_url.rstrip("/"),
+            )
     except BoundaryFailure as exc:
         print(f"PSKA product boundary verification failed: {exc}", file=sys.stderr)
         return 1
@@ -134,6 +155,121 @@ def verify_readme_boundary(checks: list[str]) -> None:
     require(text, "Browser code and Hermes agents must not call RAGFlow, Graphiti,", path, "README must state provider direct-call boundary")
     require(text, "The repository still contains a bundled local UI for development diagnostics and", path, "README must distinguish diagnostic UI from product workspace")
     checks.append("README states HTTP MCP and no direct provider calls")
+
+
+def verify_live_hermes_config(path: Path, checks: list[str], *, expected_url: str) -> None:
+    text = read_text(path)
+    config = _parse_yaml_document(text)
+    if isinstance(config, dict):
+        _verify_live_hermes_config_mapping(path, config, expected_url=expected_url)
+    else:
+        _verify_live_hermes_config_text(path, text, expected_url=expected_url)
+    checks.append(f"live Hermes config uses PSKA HTTP MCP only: {path}")
+
+
+def _verify_live_hermes_config_mapping(path: Path, config: dict, *, expected_url: str) -> None:
+    servers = config.get("mcp_servers")
+    if not isinstance(servers, dict):
+        raise BoundaryFailure(f"{path}: live Hermes config must contain an mcp_servers mapping")
+    pska = servers.get("pska-essential")
+    if not isinstance(pska, dict):
+        raise BoundaryFailure(f"{path}: live Hermes config must contain mcp_servers.pska-essential")
+    actual_url = str(pska.get("url") or "").rstrip("/")
+    if actual_url != expected_url:
+        raise BoundaryFailure(
+            f"{path}: pska-essential must use {expected_url!r}, got {actual_url!r}"
+        )
+    if "command" in pska or "args" in pska:
+        raise BoundaryFailure(f"{path}: pska-essential must be URL-based HTTP MCP, not stdio")
+
+    for name, server in servers.items():
+        if str(name).strip() == "pska-essential":
+            continue
+        if not isinstance(server, dict):
+            continue
+        if not _server_enabled(server):
+            continue
+        _forbid_live_provider_server(path, str(name), server)
+
+
+def _verify_live_hermes_config_text(path: Path, text: str, *, expected_url: str) -> None:
+    pska_seen = False
+    for name, body in _mcp_server_blocks(text):
+        if name == "pska-essential":
+            pska_seen = True
+            if expected_url not in body:
+                raise BoundaryFailure(
+                    f"{path}: pska-essential must use expected HTTP MCP URL {expected_url!r}"
+                )
+            if re.search(r"(?m)^\s{4}(command|args):", body):
+                raise BoundaryFailure(f"{path}: pska-essential must be URL-based HTTP MCP, not stdio")
+            continue
+        if not _server_body_enabled(body):
+            continue
+        if any(provider in name.lower() for provider in ("ragflow", "graphiti", "gbrain", "zep", "mem0")):
+            raise BoundaryFailure(f"{path}: live Hermes config exposes forbidden provider MCP server {name!r}")
+        if re.search(
+            r"https?://(?:127\.0\.0\.1|localhost|host\.docker\.internal):(?:9380|9388|9222|9228|8000|6380|3131)\b",
+            body,
+        ):
+            raise BoundaryFailure(
+                f"{path}: live Hermes config server {name!r} points at a provider port directly"
+            )
+    if not pska_seen:
+        raise BoundaryFailure(f"{path}: live Hermes config must contain mcp_servers.pska-essential")
+
+
+def _forbid_live_provider_server(path: Path, name: str, server: dict) -> None:
+    normalized_name = name.lower()
+    provider_names = ("ragflow", "graphiti", "gbrain", "zep", "mem0")
+    if any(provider in normalized_name for provider in provider_names):
+        raise BoundaryFailure(f"{path}: live Hermes config exposes forbidden provider MCP server {name!r}")
+
+    values = [str(server.get(key) or "") for key in ("url", "command")]
+    values.extend(str(item or "") for item in server.get("args") or [])
+    combined = "\n".join(values)
+    if re.search(
+        r"https?://(?:127\.0\.0\.1|localhost|host\.docker\.internal):(?:9380|9388|9222|9228|8000|6380|3131)\b",
+        combined,
+    ):
+        raise BoundaryFailure(
+            f"{path}: live Hermes config server {name!r} points at a provider port directly"
+        )
+
+
+def _server_enabled(server: dict) -> bool:
+    value = server.get("enabled", True)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in {"0", "false", "no", "off", "disabled"}
+
+
+def _server_body_enabled(body: str) -> bool:
+    match = re.search(r"(?m)^\s{4}enabled:\s*([^\n#]+)", body)
+    if not match:
+        return True
+    return match.group(1).strip().strip("'\"").lower() not in {"0", "false", "no", "off", "disabled"}
+
+
+def _mcp_server_blocks(text: str) -> list[tuple[str, str]]:
+    return [
+        (match.group("name").strip(), match.group("body"))
+        for match in re.finditer(
+            r"(?ms)^\s{2}(?P<name>[A-Za-z0-9_.-]+):\s*\n(?P<body>(?:^\s{4}.+\n?)*)",
+            text,
+        )
+    ]
+
+
+def _parse_yaml_document(text: str):
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        return None
+    try:
+        return yaml.safe_load(text)
+    except Exception:
+        return None
 
 
 def forbid_provider_urls(text: str, path: Path) -> None:

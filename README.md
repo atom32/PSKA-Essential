@@ -138,6 +138,12 @@ Verify the product boundary contract:
 make product-boundary-contract
 ```
 
+Verify the same boundary against the current local Hermes config:
+
+```bash
+make live-product-boundary-contract
+```
+
 For a demo-before-showing check that also covers Hermes WebUI extension
 contract and browser-level visual smoke, run:
 
