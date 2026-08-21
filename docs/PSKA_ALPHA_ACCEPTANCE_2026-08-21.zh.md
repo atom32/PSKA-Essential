@@ -260,6 +260,12 @@ RAGFlow next / Hermes WebUI next 是 side-by-side optional，不影响主线
 make alpha-acceptance ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
+产品边界守门：
+
+```bash
+make product-boundary-contract
+```
+
 演示前完整入口，包含 Hermes WebUI extension 契约、浏览器级视觉检查和真实发问注入：
 
 ```bash
@@ -286,9 +292,10 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 
 ```text
 alpha-acceptance          OK
+product-boundary-contract OK
 alpha-acceptance-webui    OK, 41/41 contract, visual OK, turn bridge OK
 demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  512 tests OK
+unittest                  513 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

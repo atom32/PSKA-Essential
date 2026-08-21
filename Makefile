@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status alpha-acceptance alpha-acceptance-webui live-connectivity-check live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual webui-extension-turn-bridge webui-extension-llm-proof demo-browser-verify demo-browser-verify-videos demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-preflight full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status product-boundary-contract alpha-acceptance alpha-acceptance-webui live-connectivity-check live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual webui-extension-turn-bridge webui-extension-llm-proof demo-browser-verify demo-browser-verify-videos demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-preflight full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -19,6 +19,9 @@ eval:
 
 workspace-status:
 	@PYTHONPATH=src $(PYTHON) -m pska_essential.workspace_status_cli $(ENV_FILE_ARG)
+
+product-boundary-contract:
+	$(PYTHON) scripts/verify_product_boundaries.py
 
 alpha-acceptance:
 	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG)
