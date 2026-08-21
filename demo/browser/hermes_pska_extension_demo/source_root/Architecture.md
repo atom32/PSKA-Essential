@@ -1,16 +1,16 @@
-# PSKA Hermes Extension Architecture
+# 个人知识助手与对话工作台架构
 
-PSKA is not an independent frontend. In the demo product shape, Hermes WebUI is the visible workspace and PSKA is the glue layer behind it.
+个人知识助手不是一个独立的新页面。演示中的产品形态是：对话工作台负责用户每天看到的聊天、会话、工具、设置和任务；知识助手在背后负责资料登记、资料找回、记忆审核、操作记录和下一步建议。
 
-The PSKA Mini extension inside Hermes WebUI exposes a thin control plane: runtime scope, Jarvis Briefing, Agentic Context Brief, Source Recall, Memory Review, and projection to Hermes Kanban or Tasks.
+对话工作台里的小入口只是一层薄控制面。用户可以在这里刷新状态、选择本轮资料范围、查看开始前总览、整理回答前上下文、按文件信息找资料、进入记忆审核页，并把整理任务同步到任务列表。
 
-Source Recall is metadata-first and does not require embedding. It searches registered local source roots by title, path, extracted text, and structured metadata. This makes it suitable for personal folders where the user wants management, recall, deduplication, tags, comments, and audit trails before any semantic vector layer is introduced.
+资料找回优先使用文件名、标题、路径、正文和结构化信息，不要求先建立语义向量。这适合个人文件夹管理场景：用户可能只是给系统几个自己的文件夹，希望它先能查找、去重、打标签、写备注、保留来源和操作记录，再决定是否引入更重的检索组件。
 
-The durable architecture boundary is:
+系统边界可以概括为：
 
-- Hermes WebUI owns chat, sessions, extension loading, task views, and the user's daily operating surface.
-- PSKA Product API owns source registry, memory review gates, trace summaries, evidence packets, and agentic context assembly.
-- PSKA MCP HTTP exposes the same capabilities to Hermes agents as tools.
-- Eidolia remains a WebUI-embedded creation workspace with thoughts and artifacts; PSKA reads its trace/context instead of becoming a separate Eidolia frontend.
+- 对话工作台负责可见工作区。
+- 知识助手负责资料、记忆、审核、记录和工具合同。
+- 智能体通过工具使用知识助手能力，不能绕过审核直接写长期记忆。
+- 创作画布仍然是创作区，知识助手只读取它的想法、产物和来源记录。
 
-For a PSKA answer, the agent should cite source recall, memory, trace, and next actions instead of pretending that a standalone Ask page is the product.
+当用户问“为什么知识助手不单独做一个新页面”时，系统应该引用资料找回、记忆、记录和下一步动作，而不是假装独立问答页才是主产品。

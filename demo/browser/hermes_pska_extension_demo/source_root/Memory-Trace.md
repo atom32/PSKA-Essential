@@ -1,9 +1,9 @@
-# Memory, Trace, And Next Actions
+# 记忆、记录和下一步动作
 
-PSKA memory is governed memory, not a free-form personality summary. A candidate memory should preserve provenance, source references, confidence, lifecycle status, and whether it is fact, belief, decision, preference, or behavior delta.
+知识助手里的记忆不是自由发挥的人格摘要。一个合格的记忆候选应该保留来源、证据、可信度、生命周期状态，以及它到底是事实、信念、决定、偏好，还是行为变化。
 
-The Hermes extension should surface memory review and next actions in the same place where the user is already talking to the agent. Jarvis Briefing provides workspace state and queues. Agentic Context Brief assembles evidence, source recall, memory candidates, trace, and next actions before a chat turn.
+记忆审核应该出现在用户已经和助手对话的地方。开始前总览负责展示当前工作区状态、待处理资料、待确认记忆和下一步动作；回答前整理负责把资料、记忆、记录和建议放到同一处，供正式回答使用。
 
-Trace should answer: what did the system look at, what did it infer, what did it write, and what should still require human review. Durable writes must stay behind PSKA gates.
+操作记录需要回答几个问题：系统看过什么资料，使用了哪些记忆，做了什么推断，写入了什么内容，还有哪些事情需要人来确认。长期记忆和源文件写回必须继续放在审核门后面。
 
-This is the intended business case for the demo: a user asks why PSKA is a glue layer and not an independent frontend, then Hermes uses PSKA scope to recall local files and construct a grounded answer.
+这个演示的业务问题是：用户问为什么知识助手是胶水层和治理层，而不是独立页面。正确的回答应该说明：用户每天仍然在对话工作台里工作，知识助手负责把资料、记忆、记录和后续动作连接起来。

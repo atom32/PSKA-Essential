@@ -1,7 +1,9 @@
-# Eidolia Bridge
+# 创作画布桥接
 
-Eidolia is the wireless canvas and creation surface. Its model is intentionally simple: thoughts and artifacts.
+创作画布是无线画布和创作空间。它的模型故意保持简单：想法和产物。
 
-PSKA should not duplicate Eidolia's canvas UI. Instead, Hermes WebUI can load Eidolia as an embedded extension, while PSKA consumes Eidolia thoughts, artifacts, source links, and trace events as part of agentic context.
+知识助手不应该复制创作画布的界面，也不应该把自己变成另一个创作平台。正确做法是：对话工作台可以内嵌创作画布，用户在画布里组织想法、来源和草稿；知识助手读取这些想法、产物、来源链接和操作记录，把它们纳入回答前整理、记忆候选和追溯记录。
 
-In the demo, Eidolia proves that PSKA can connect creative work to memory and source governance without creating another product shell.
+这样做的好处是创作流程不会被拆散。作者可以在画布里写小说续章、整理财报报告或构思项目方案；知识助手则继续负责资料来源、记忆确认和长期可追溯性。
+
+演示中的创作画布证明了一件事：知识助手可以连接创作工作、个人资料和长期记忆，而不需要给用户再造一个庞大的独立前端。

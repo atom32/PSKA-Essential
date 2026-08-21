@@ -140,7 +140,8 @@ python3 scripts/verify_hermes_extension_demo_pack.py \
 
 验证器已内置已知素材的最低时长门槛：核心短版 `30s`，核心长版 `180s`，
 财报和网文业务 case `120s`。显式 `--min-duration` 只能提高门槛，不能降低这些已知素材的最低要求；
-下面命令保留显式参数，是为了让验收口径在文档里一眼可见。
+下面命令保留显式参数，是为了让验收口径在文档里一眼可见。验证器还会拒绝字幕里的英文术语，
+避免后续配音或给非技术用户演示时变得难懂。
 
 检查业务 case：
 
@@ -164,10 +165,10 @@ python3 scripts/verify_hermes_extension_demo_pack.py \
 
 当前本机 `dist/` 为可再生成产物，不进入 git。最新验证结果：
 
-- `hermes_pska_extension_demo.mp4`：`60.9s`，`1280x720`，无音轨，10 段字幕。
-- `hermes_pska_extension_demo_long.mp4`：`190.2s`，`1280x720`，无音轨，10 段字幕。
-- `hermes_pska_finance_case_demo.mp4`：`123.4s`，`1280x720`，无音轨，10 段字幕。
-- `hermes_pska_webnovel_case_demo.mp4`：`133.5s`，`1280x720`，无音轨，10 段字幕。
+- `hermes_pska_extension_demo.mp4`：`88.9s`，`1280x720`，无音轨，10 段纯中文字幕。
+- `hermes_pska_extension_demo_long.mp4`：`200.8s`，`1280x720`，无音轨，10 段纯中文字幕。
+- `hermes_pska_finance_case_demo.mp4`：`123.4s`，`1280x720`，无音轨，10 段纯中文字幕。
+- `hermes_pska_webnovel_case_demo.mp4`：`133.5s`，`1280x720`，无音轨，10 段纯中文字幕。
 - 网文 case 的 Eidolia 镜头从 `01:49.072` 到 `02:12.633`，用于展示想法/产物节点和续写草稿。
 
 ## 边界

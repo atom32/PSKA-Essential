@@ -733,13 +733,14 @@ python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webn
 
 验证器本身已内置最低时长门槛：核心短版 `30s`，核心长版 `180s`，财报和网文业务 case
 `120s`。因此漏写或误写较低的 `--min-duration` 时，已知业务 case 不会退回到 30 秒通过。
+验证器也会拒绝字幕里的英文术语，保证后续配音和非技术用户演示使用纯中文讲法。
 
 本机视频验证结果：
 
-- core demo：`60.9s`，`1280x720`，无音轨，10 段字幕。
-- long core demo：`190.2s`，`1280x720`，无音轨，10 段字幕。
-- finance case：`123.4s`，`1280x720`，无音轨，10 段字幕。
-- webnovel case：`133.5s`，`1280x720`，无音轨，10 段字幕；Eidolia 镜头保留
+- core demo：`88.9s`，`1280x720`，无音轨，10 段纯中文字幕。
+- long core demo：`200.8s`，`1280x720`，无音轨，10 段纯中文字幕。
+- finance case：`123.4s`，`1280x720`，无音轨，10 段纯中文字幕。
+- webnovel case：`133.5s`，`1280x720`，无音轨，10 段纯中文字幕；Eidolia 镜头保留
   `23.6s`，展示想法/产物两类节点与续写草稿。
 
 ## 当前开发环境结论

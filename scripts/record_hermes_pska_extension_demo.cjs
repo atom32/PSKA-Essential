@@ -216,7 +216,7 @@ async function record({ args, chromium }) {
       async () => {
         await openPskaMenu(page);
         await clickById(page, "pskaMiniRefresh");
-        await waitForPreviewOrMenuText(page, "API", 20_000);
+        await waitForPskaStatusReady(page, 45_000);
         await moveCursor(page, 189, 423);
         await pause(2200);
       },
@@ -244,7 +244,7 @@ async function record({ args, chromium }) {
       ),
       async () => {
         await clickById(page, "pskaMiniJarvisBrief");
-        await waitForPreviewText(page, "Jarvis Brief", 30_000);
+        await waitForPreviewAny(page, ["开始前总览", "工作区", "待确认", "下一步", "Jarvis Brief", "失败"], 30_000);
         await revealPreview(page);
         await moveCursor(page, 359, 530);
         await pause(2600);
@@ -262,7 +262,7 @@ async function record({ args, chromium }) {
         await setComposerQuestion(page, demoCase.question);
         await openPskaMenu(page);
         await clickById(page, "pskaMiniAgenticBrief");
-        await waitForPreviewText(page, "Agentic Brief", 35_000);
+        await waitForPreviewAny(page, ["回答前整理", "资料", "记忆", "记录", "Agentic Brief", "失败"], 35_000);
         await revealPreview(page);
         await moveCursor(page, 363, 530);
         await pause(3200);
@@ -280,7 +280,7 @@ async function record({ args, chromium }) {
         await setComposerQuestion(page, demoCase.sourceRecallQuery);
         await openPskaMenu(page);
         await clickById(page, "pskaMiniSourceRecall");
-        await waitForPreviewText(page, "Source Recall", 25_000);
+        await waitForPreviewAny(page, ["资料找回", "命中", "结果", "Source Recall", "失败"], 25_000);
         await revealPreview(page);
         await moveCursor(page, 383, 530);
         await pause(2600);
@@ -1329,6 +1329,20 @@ async function waitForPreviewOrMenuText(page, needle, timeout) {
       );
     },
     needle,
+    { timeout },
+  );
+}
+
+async function waitForPskaStatusReady(page, timeout) {
+  await page.waitForFunction(
+    () => {
+      const text = document.querySelector("#pskaMiniStatus")?.innerText || "";
+      return /API\s+ready/iu.test(text)
+        && /KB\s+(\d+\/\d+|ready)/iu.test(text)
+        && /Memory\s+\S+/iu.test(text)
+        && !/checking/iu.test(text);
+    },
+    undefined,
     { timeout },
   );
 }

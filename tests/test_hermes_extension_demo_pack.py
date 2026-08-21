@@ -78,6 +78,19 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
             ],
         )
 
+    def test_plain_chinese_subtitle_check_rejects_english_terms(self):
+        with self.assertRaises(SystemExit):
+            self.verifier.verify_plain_chinese_subtitles(
+                pathlib.Path("demo.zh.srt"),
+                "1\n00:00:00,000 --> 00:00:01,000\nAgentic Brief 会让听众困惑。\n",
+            )
+
+    def test_plain_chinese_subtitle_check_accepts_chinese_caption(self):
+        self.verifier.verify_plain_chinese_subtitles(
+            pathlib.Path("demo.zh.srt"),
+            "1\n00:00:00,000 --> 00:00:01,000\n回答前整理会把资料和记忆放在一起。\n",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

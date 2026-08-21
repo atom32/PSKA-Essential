@@ -277,7 +277,9 @@ def ffprobe(path: Path) -> dict[str, Any]:
 
 
 def verify_srt(path: Path, video_duration: float, checks: list[str]) -> None:
-    blocks = parse_srt(path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8")
+    verify_plain_chinese_subtitles(path, text)
+    blocks = parse_srt(text)
     if len(blocks) != 10:
         raise SystemExit(f"{path} expected 10 subtitle blocks, got {len(blocks)}")
     previous_end = -1.0
@@ -292,6 +294,16 @@ def verify_srt(path: Path, video_duration: float, checks: list[str]) -> None:
     if blocks[-1][1] > video_duration + 5.0:
         raise SystemExit(f"{path} subtitle end exceeds video duration by more than 5s")
     checks.append(f"{path.name}: 10 ordered subtitle blocks")
+    checks.append(f"{path.name}: plain Chinese subtitles")
+
+
+def verify_plain_chinese_subtitles(path: Path, text: str) -> None:
+    offenders = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9_-]*", text)))
+    if offenders:
+        raise SystemExit(
+            f"{path} subtitles must avoid English/technical terms for TTS/user clarity: "
+            + ", ".join(offenders[:20])
+        )
 
 
 def parse_srt(text: str) -> list[tuple[float, float, str]]:
@@ -333,7 +345,33 @@ def verify_manifest(path: Path, checks: list[str], expected_case: str | None = N
         demo_case = payload.get("demo_case") or {}
         if demo_case.get("id") != expected_case:
             raise SystemExit(f"{path} expected demo_case.id={expected_case!r}, got {demo_case.get('id')!r}")
+        verify_business_case_manifest(path, payload, expected_case)
     checks.append(f"{path.name}: manifest schema, entrypoint, 10 scenes, no TTS")
+
+
+def verify_business_case_manifest(path: Path, payload: dict[str, Any], expected_case: str) -> None:
+    eidolia = payload.get("seeded_eidolia_project") or {}
+    if not eidolia.get("project_id") or not eidolia.get("draft_node_id"):
+        raise SystemExit(f"{path} expected seeded Eidolia project for business case {expected_case!r}")
+    if not isinstance(eidolia.get("focus_node_ids"), list) or len(eidolia.get("focus_node_ids") or []) < 3:
+        raise SystemExit(f"{path} expected at least 3 Eidolia focus nodes")
+    if int(eidolia.get("source_packets") or 0) < 1:
+        raise SystemExit(f"{path} expected Eidolia source packets from PSKA source recall")
+    scene_minimums = {
+        "finance_report_research": {"eidolia_bridge": 10.0, "chat_injection": 30.0},
+        "webnovel_author": {"eidolia_bridge": 20.0, "chat_injection": 25.0},
+    }
+    durations = {
+        str(scene.get("id") or ""): float(scene.get("endsAt") or 0) - float(scene.get("startsAt") or 0)
+        for scene in payload.get("timeline") or []
+    }
+    for scene_id, minimum in scene_minimums.get(expected_case, {}).items():
+        duration = durations.get(scene_id, 0.0)
+        if duration < minimum:
+            raise SystemExit(
+                f"{path} scene {scene_id!r} too short for business case {expected_case!r}: "
+                f"{duration:.1f}s < {minimum:.1f}s"
+            )
 
 
 if __name__ == "__main__":
