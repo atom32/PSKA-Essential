@@ -223,6 +223,36 @@ class ConversationContextPackTests(unittest.TestCase):
             [warning["code"] for warning in context_pack["warnings"]],
         )
 
+    def test_project_context_pack_does_not_request_rag_evidence_without_kb_scope(self):
+        service = build_fake_service()
+
+        def fail_context_retrieve(*_args, **_kwargs):
+            raise AssertionError("source-root-only context pack must not call RAG evidence retrieval")
+
+        service.context_retrieve = fail_context_retrieve  # type: ignore[method-assign]
+
+        response = assemble_conversation_context_pack(
+            service,
+            {
+                "caller": "hermes-webui-extension",
+                "user_message": "Use source roots only.",
+                "mode": "project",
+                "scope": {"source_root_ids": ["root-demo"]},
+                "conversation_recall": {"items": []},
+                "budget": {
+                    "max_memory_notes": 0,
+                    "max_conversation_blocks": 0,
+                    "max_evidence_blocks": 3,
+                    "max_source_blocks": 0,
+                    "max_tokens": 1200,
+                },
+            },
+        )
+
+        context_pack = response["context_pack"]
+        self.assertEqual(context_pack["source_counts"]["evidence"], 0)
+        self.assertNotIn("evidence_retrieve_failed", [warning["code"] for warning in context_pack["warnings"]])
+
 
 if __name__ == "__main__":
     unittest.main()

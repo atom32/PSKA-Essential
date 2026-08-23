@@ -440,7 +440,6 @@ def _evidence_blocks(
         and (
             bool(scope.get("dataset_ids"))
             or bool(scope.get("document_ids"))
-            or mode in {"project", "evidence-only"}
         )
     )
     if not should_retrieve:

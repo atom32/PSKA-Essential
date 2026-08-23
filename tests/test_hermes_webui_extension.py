@@ -69,6 +69,7 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("PSKA did not return a rendered prompt context block", script)
         self.assertNotIn("contextBlockLabel", script)
         self.assertIn("contextPackFlowLine", script)
+        self.assertIn("contextPackWarningLines", script)
         self.assertIn("History boundary: query recall", script)
         self.assertIn("PSKA context pack", script)
         self.assertIn("hermesRecallComponent", script)

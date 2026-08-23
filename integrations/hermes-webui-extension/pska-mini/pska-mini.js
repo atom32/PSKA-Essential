@@ -2961,7 +2961,7 @@
     const query = String(message || "").trim();
     if (!query) throw new Error("PSKA context pack needs the current message.");
     const mode = state.mode || "auto";
-    const useEvidence = mode !== "memory-only" && (state.datasetIds.length > 0 || mode === "project" || mode === "evidence-only");
+    const useEvidence = mode !== "memory-only" && (state.datasetIds.length > 0 || state.documentIds.length > 0);
     const useSources = mode !== "memory-only" && state.sourceRootIds.length > 0;
     return pskaMiniFetchJson("/api/conversation/context-pack", {
       method: "POST",
@@ -3004,13 +3004,19 @@
       ""
     ];
     if (warnings.length) {
-      lines.push("Warnings:");
-      warnings.slice(0, 4).forEach((warning) => {
-        lines.push(`- ${warning.code || "warning"}: ${truncate(warning.message || "", 220)}`);
-      });
-      lines.push("");
+      lines.push(...contextPackWarningLines(warnings));
     }
     return lines.join("\n\n");
+  }
+
+  function contextPackWarningLines(warnings) {
+    if (!Array.isArray(warnings) || !warnings.length) return [];
+    const lines = ["Warnings:"];
+    warnings.slice(0, 4).forEach((warning) => {
+      lines.push(`- ${warning.code || "warning"}: ${truncate(warning.message || "", 220)}`);
+    });
+    lines.push("");
+    return lines;
   }
 
   function contextPackFlowLine(flow) {
@@ -3255,7 +3261,7 @@
     }
     try {
       const mode = state.mode || "auto";
-      const useEvidence = mode !== "memory-only" && (state.datasetIds.length > 0 || mode === "project" || mode === "evidence-only");
+      const useEvidence = mode !== "memory-only" && (state.datasetIds.length > 0 || state.documentIds.length > 0);
       const useSources = mode !== "memory-only" && state.sourceRootIds.length > 0;
       const data = await pskaMiniFetchJson("/api/conversation/context-pack", {
         method: "POST",
@@ -3280,17 +3286,22 @@
       });
       const context = data.context_pack || {};
       const counts = context.source_counts || {};
+      const warnings = Array.isArray(context.warnings) ? context.warnings : [];
       const flow = context.data_flow || {};
-      box.textContent = [
+      const lines = [
         context.summary || "No summary.",
         `memory: ${counts.memory || 0}`,
         `conversation: ${counts.conversation || 0}`,
         `evidence: ${counts.evidence || 0}`,
         `source: ${counts.source || 0}`,
-        `citations: ${(context.citations || []).length}`,
+        `citations: ${(context.citations || []).length}`
+      ];
+      lines.push(...contextPackWarningLines(warnings));
+      lines.push(
         contextPackFlowLine(flow),
         contextPackHistoryLine(flow)
-      ].join("\n");
+      );
+      box.textContent = lines.join("\n");
     } catch (error) {
       box.textContent = `PSKA context pack failed: ${errorText(error)}`;
     }
