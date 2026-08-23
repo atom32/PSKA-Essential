@@ -329,6 +329,7 @@ async function runDesktop(context, checks, artifacts) {
       && visible("#pskaMiniImportChatgptMemory")
       && visible("#pskaMiniChatgptConversationPath")
       && visible("#pskaMiniChatgptConversationOutput")
+      && visible("#pskaMiniChatgptConversationHistoryLimit")
       && visible("#pskaMiniChatgptConversationLimit")
       && visible("#pskaMiniImportChatgptConversationHistory")
       && visible("#pskaMiniImportChatgptConversations");
@@ -360,6 +361,7 @@ async function runDesktop(context, checks, artifacts) {
       "#pskaMiniChatgptConversationImport",
       "#pskaMiniChatgptConversationPath",
       "#pskaMiniChatgptConversationOutput",
+      "#pskaMiniChatgptConversationHistoryLimit",
       "#pskaMiniChatgptConversationLimit",
       "#pskaMiniImportChatgptConversationHistory",
       "#pskaMiniImportChatgptConversations",
@@ -377,6 +379,7 @@ async function runDesktop(context, checks, artifacts) {
       memoryPlaceholder: document.querySelector("#pskaMiniChatgptMemorySummary")?.getAttribute("placeholder") || "",
       pathPlaceholder: document.querySelector("#pskaMiniChatgptConversationPath")?.getAttribute("placeholder") || "",
       outputPlaceholder: document.querySelector("#pskaMiniChatgptConversationOutput")?.getAttribute("placeholder") || "",
+      historyLimitValue: document.querySelector("#pskaMiniChatgptConversationHistoryLimit")?.value || "",
       limitValue: document.querySelector("#pskaMiniChatgptConversationLimit")?.value || "",
       importButton: document.querySelector("#pskaMiniImportChatgptMemory")?.innerText || "",
       importHistoryButton: document.querySelector("#pskaMiniImportChatgptConversationHistory")?.innerText || "",
@@ -394,6 +397,7 @@ async function runDesktop(context, checks, artifacts) {
       && /memory summary/iu.test(chatgptImportUi.memoryPlaceholder)
       && /conversations\.json|export zip/iu.test(chatgptImportUi.pathPlaceholder)
       && /archive output folder/iu.test(chatgptImportUi.outputPlaceholder)
+      && chatgptImportUi.historyLimitValue === "20"
       && chatgptImportUi.limitValue === "100"
       && /Import/iu.test(chatgptImportUi.importButton)
       && /Import to history/iu.test(chatgptImportUi.importHistoryButton)
@@ -628,7 +632,7 @@ async function runDesktop(context, checks, artifacts) {
   assertCheck(checks, "Source Evidence marks first-run rehearsal done with source note", (
     /done\s+·\s+required/iu.test(rehearsalCheck.text)
       && /source evidence/iu.test(rehearsalCheck.note)
-      && /Northstar Robotics/iu.test(rehearsalCheck.note)
+      && /Northstar|Robotics|Finance|财报|local_folder|README\.md/iu.test(rehearsalCheck.note)
   ), rehearsalCheck);
   artifacts.desktopSourceEvidence = path.join(OUT_DIR, "desktop-source-evidence.png");
   await page.screenshot({ path: artifacts.desktopSourceEvidence, fullPage: false });

@@ -383,7 +383,8 @@
                 <input id="pskaMiniChatgptConversationPath" type="text" placeholder="Path to conversations.json, split export folder, or export zip">
                 <input id="pskaMiniChatgptConversationOutput" type="text" placeholder="Optional PSKA archive output folder">
                 <div class="pska-mini-memory-create-actions">
-                  <label>limit <input id="pskaMiniChatgptConversationLimit" type="number" min="0" max="5000" step="50" value="100"></label>
+                  <label>history <input id="pskaMiniChatgptConversationHistoryLimit" type="number" min="1" max="200" step="5" value="20"></label>
+                  <label>archive <input id="pskaMiniChatgptConversationLimit" type="number" min="0" max="5000" step="50" value="100"></label>
                   <button class="pska-mini-page-btn" id="pskaMiniImportChatgptConversationHistory" type="button">Import to history</button>
                   <button class="pska-mini-page-btn" id="pskaMiniImportChatgptConversations" type="button">Import archive</button>
                 </div>
@@ -945,7 +946,7 @@
 
   async function importChatgptConversationHistory() {
     const pathBox = document.getElementById("pskaMiniChatgptConversationPath");
-    const limitBox = document.getElementById("pskaMiniChatgptConversationLimit");
+    const limitBox = document.getElementById("pskaMiniChatgptConversationHistoryLimit");
     const exportPath = String(pathBox?.value || "").trim();
     const limit = boundedInt(limitBox?.value, 20, 0, 200);
     if (!exportPath) {
@@ -963,6 +964,7 @@
           export_path: exportPath,
           source_label: "ChatGPT imported conversation history",
           conversation_limit: limit || 20,
+          selection: "recent",
           read_only: true
         }),
         timeoutMs: 60000

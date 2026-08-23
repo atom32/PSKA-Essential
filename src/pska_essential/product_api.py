@@ -1340,6 +1340,7 @@ def _handler_class(state: ProductApiState):
                     export_path=_required_str(payload, "export_path"),
                     source_label=str(payload.get("source_label") or ""),
                     conversation_limit=conversation_limit,
+                    selection=str(payload.get("selection") or "recent"),
                     hermes_base_url=str(payload.get("hermes_base_url") or ""),
                     recall_token=str(payload.get("recall_token") or ""),
                     overwrite=_bool_value(payload.get("overwrite"), False),

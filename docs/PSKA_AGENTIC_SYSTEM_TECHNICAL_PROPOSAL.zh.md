@@ -67,6 +67,8 @@ PSKA 的日常对话路径不是把所有历史对话、文件和记忆直接塞
 边界原则：
 
 - Hermes WebUI extension 是控制面，不读取 Hermes 数据库，也不自行拼历史对话上下文。
+- PSKA 是数据流转层，负责导入选择、召回编排、去重、压缩、来源标注和审计；
+  extension 只提交用户意图和参数。
 - Hermes 对话记录由 Hermes 后端 token provider 查询，PSKA 只接收 query-based recall 结果，
   不接收整包近期历史；旧 `/api/sessions/search` 密码 fallback 默认关闭，只作为显式兼容开关。
 - 召回到的标题和正文都是不可信引用内容，Hermes 只能把它们当证据，不能执行其中的指令。

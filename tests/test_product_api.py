@@ -524,6 +524,14 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["creates_review"])
         self.assertFalse(tool_policy["pska_chatgpt_conversations_import"]["embedding_required"])
         self.assertTrue(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_hermes_history"])
+        self.assertEqual(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["control_plane"], "hermes_webui_extension")
+        self.assertEqual(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["data_plane"], "pska")
+        self.assertEqual(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["history_owner"], "hermes_webui")
+        self.assertEqual(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["default_selection"], "recent")
+        self.assertEqual(
+            tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["supported_selections"],
+            ["recent", "export_order"],
+        )
         self.assertFalse(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_source_registry"])
         self.assertFalse(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_memory_directly"])
         self.assertFalse(tool_policy["pska_chatgpt_conversations_import_to_hermes_history"]["runtime_special_chatgpt_channel"])
@@ -700,6 +708,12 @@ class ProductApiTests(unittest.TestCase):
         self.assertFalse(source_layer["chatgpt_conversations_import"]["creates_review"])
         self.assertEqual(source_layer["chatgpt_conversations_history_import"]["api"], "/api/conversations/chatgpt/import-to-hermes")
         self.assertEqual(source_layer["chatgpt_conversations_history_import"]["mcp"], "pska_chatgpt_conversations_import_to_hermes_history")
+        self.assertEqual(source_layer["chatgpt_conversations_history_import"]["control_plane"], "hermes_webui_extension")
+        self.assertEqual(source_layer["chatgpt_conversations_history_import"]["data_plane"], "pska")
+        self.assertEqual(source_layer["chatgpt_conversations_history_import"]["history_owner"], "hermes_webui")
+        self.assertEqual(source_layer["chatgpt_conversations_history_import"]["default_selection"], "recent")
+        self.assertEqual(source_layer["chatgpt_conversations_history_import"]["default_conversation_limit"], 20)
+        self.assertEqual(source_layer["chatgpt_conversations_history_import"]["max_conversation_limit"], 200)
         self.assertTrue(source_layer["chatgpt_conversations_history_import"]["writes_hermes_history"])
         self.assertFalse(source_layer["chatgpt_conversations_history_import"]["writes_source_registry"])
         self.assertFalse(source_layer["chatgpt_conversations_history_import"]["writes_memory_directly"])
@@ -1708,6 +1722,7 @@ class ProductApiTests(unittest.TestCase):
                     "export_path": str(export_path),
                     "source_label": "ChatGPT partial history",
                     "conversation_limit": 10,
+                    "selection": "recent",
                     "hermes_base_url": "http://127.0.0.1:8787",
                     "recall_token": "secret-token",
                 },
@@ -1720,6 +1735,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(result["target"]["kind"], "hermes_history")
         self.assertEqual(result["summary"]["imported_conversation_count"], 1)
         self.assertEqual(result["summary"]["message_count"], 2)
+        self.assertEqual(result["summary"]["selection"], "recent")
         self.assertTrue(result["data_flow"]["writes_hermes_history"])
         self.assertFalse(result["data_flow"]["writes_source_registry"])
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
@@ -1727,6 +1743,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(captured["url"], "http://127.0.0.1:8787/api/pska/conversations/import")
         self.assertEqual(captured["token"], "secret-token")
         self.assertEqual(captured["payload"]["source"]["kind"], "chatgpt_export")
+        self.assertEqual(captured["payload"]["source"]["selection"], "recent")
         self.assertNotIn("secret-token", json.dumps(result))
         self.assertEqual(audit["events"][0]["action"], "chatgpt.conversations.import_to_hermes_history")
 

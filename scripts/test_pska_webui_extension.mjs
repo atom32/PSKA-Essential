@@ -192,6 +192,8 @@ async function main() {
     && jsAsset.text.includes("/api/hermes/answer-proofs")
     && jsAsset.text.includes("/api/memory/chatgpt-summary/import")
     && jsAsset.text.includes("/api/conversations/chatgpt/import-to-hermes")
+    && jsAsset.text.includes("pskaMiniChatgptConversationHistoryLimit")
+    && jsAsset.text.includes('selection: "recent"')
     && jsAsset.text.includes("/api/sources/chatgpt-conversations/import")
     && jsAsset.text.includes("/api/jobs/health?include_kb=false")
     && jsAsset.text.includes("/api/wakeup/plan")
@@ -467,6 +469,7 @@ async function main() {
         export_path: historyFixture.exportPath,
         source_label: "PSKA WebUI contract ChatGPT conversation history",
         conversation_limit: 1,
+        selection: "recent",
         read_only: true,
       },
     },
@@ -476,6 +479,7 @@ async function main() {
       return response.ok
         && result.schema === "pska.chatgpt_conversation_history_import.v1"
         && result.status === "imported"
+        && result.summary?.selection === "recent"
         && result.summary?.imported_conversation_count >= 1
         && flow.writes_hermes_history === true
         && flow.writes_source_registry === false

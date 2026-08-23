@@ -228,14 +228,18 @@ curl -fsS http://127.0.0.1:8765/api/conversations/chatgpt/import-to-hermes \
     "export_path": "/path/to/conversations.json-or-split-export-folder",
     "source_label": "ChatGPT imported conversation history",
     "conversation_limit": 20,
+    "selection": "recent",
     "read_only": true
   }'
 ```
 
-This does not create a PSKA source root or memory. PSKA normalizes the selected
-conversations and asks Hermes WebUI to write read-only history sessions through
-the token provider. Later answers recall those sessions through the normal
-`/api/conversation/context-pack` history path.
+This does not create a PSKA source root or memory. `selection: "recent"` is the
+default for this history bridge and selects the most recently updated
+conversations within the bounded limit; use `"export_order"` only when you need
+to preserve the export file order for a test. PSKA performs the selection and
+normalization, then asks Hermes WebUI to write read-only history sessions
+through the token provider. Later answers recall those sessions through the
+normal `/api/conversation/context-pack` history path.
 
 Live RAGFlow mode uses the same Product API command after setting providers
 explicitly. The current local dogfood path uses GBrain memory over HTTP MCP:

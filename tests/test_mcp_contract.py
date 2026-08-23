@@ -537,6 +537,14 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_chatgpt_conversations_import"]["creates_review"])
         self.assertFalse(policy["pska_chatgpt_conversations_import"]["embedding_required"])
         self.assertTrue(policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_hermes_history"])
+        self.assertEqual(policy["pska_chatgpt_conversations_import_to_hermes_history"]["control_plane"], "hermes_webui_extension")
+        self.assertEqual(policy["pska_chatgpt_conversations_import_to_hermes_history"]["data_plane"], "pska")
+        self.assertEqual(policy["pska_chatgpt_conversations_import_to_hermes_history"]["history_owner"], "hermes_webui")
+        self.assertEqual(policy["pska_chatgpt_conversations_import_to_hermes_history"]["default_selection"], "recent")
+        self.assertEqual(
+            policy["pska_chatgpt_conversations_import_to_hermes_history"]["supported_selections"],
+            ["recent", "export_order"],
+        )
         self.assertFalse(policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_source_registry"])
         self.assertFalse(policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_memory_directly"])
         self.assertFalse(policy["pska_chatgpt_conversations_import_to_hermes_history"]["runtime_special_chatgpt_channel"])
@@ -1289,6 +1297,7 @@ class McpContractTests(unittest.TestCase):
                 str(export_path),
                 source_label="ChatGPT MCP history",
                 conversation_limit=20,
+                selection="recent",
                 hermes_base_url="http://127.0.0.1:8787",
                 recall_token="secret-token",
             )
@@ -1298,8 +1307,10 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(result["data_flow"]["writes_source_registry"])
         self.assertFalse(result["data_flow"]["writes_memory_directly"])
         self.assertFalse(result["data_flow"]["runtime_special_chatgpt_channel"])
+        self.assertEqual(result["summary"]["selection"], "recent")
         self.assertEqual(captured["url"], "http://127.0.0.1:8787/api/pska/conversations/import")
         self.assertEqual(captured["payload"]["source"]["kind"], "chatgpt_export")
+        self.assertEqual(captured["payload"]["source"]["selection"], "recent")
         self.assertEqual(captured["payload"]["conversations"][0]["messages"][1]["role"], "assistant")
 
     def test_chatgpt_memory_summary_import_tool_creates_review_candidates(self):

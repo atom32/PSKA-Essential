@@ -20,6 +20,8 @@ from pska_essential.chatgpt_conversations_import import (
 CHATGPT_CONVERSATION_HISTORY_IMPORT_SCHEMA = "pska.chatgpt_conversation_history_import.v1"
 DEFAULT_HISTORY_CONVERSATION_LIMIT = 20
 MAX_HISTORY_CONVERSATION_LIMIT = 200
+DEFAULT_HISTORY_SELECTION = "recent"
+HISTORY_SELECTIONS = {"recent", "export_order"}
 
 UrlopenFn = Callable[..., Any]
 
@@ -34,6 +36,7 @@ def import_chatgpt_conversations_to_hermes_history(
     export_path: str,
     source_label: str = "",
     conversation_limit: int = DEFAULT_HISTORY_CONVERSATION_LIMIT,
+    selection: str = DEFAULT_HISTORY_SELECTION,
     hermes_base_url: str = "",
     recall_token: str = "",
     overwrite: bool = False,
@@ -52,7 +55,8 @@ def import_chatgpt_conversations_to_hermes_history(
     payload = _decode_conversations(raw_bytes)
     conversations = _conversation_list(payload)
     selected_limit = min(_normalize_limit(conversation_limit), MAX_HISTORY_CONVERSATION_LIMIT)
-    selected = conversations[:selected_limit] if selected_limit else conversations[:MAX_HISTORY_CONVERSATION_LIMIT]
+    selected_selection = _history_selection(selection)
+    selected = _select_history_conversations(conversations, limit=selected_limit, selection=selected_selection)
     export_hash = _sha256_bytes(raw_bytes)
     import_id = f"cgconv_{export_hash[:16]}"
     normalized = [_history_conversation_payload(item, index=index) for index, item in enumerate(selected, start=1)]
@@ -75,6 +79,7 @@ def import_chatgpt_conversations_to_hermes_history(
                 "export_member": member_name,
                 "sha256": export_hash,
                 "import_id": import_id,
+                "selection": selected_selection,
             },
             "conversations": normalized,
             "conversation_limit": len(normalized),
@@ -94,6 +99,7 @@ def import_chatgpt_conversations_to_hermes_history(
             "export_member": member_name,
             "sha256": export_hash,
             "label": source_label.strip() or "ChatGPT imported conversation history",
+            "selection": selected_selection,
         },
         "target": {
             "kind": "hermes_history",
@@ -109,6 +115,7 @@ def import_chatgpt_conversations_to_hermes_history(
             "imported_conversation_count": int(summary.get("imported_conversation_count") or 0),
             "skipped_conversation_count": int(summary.get("skipped_conversation_count") or 0),
             "message_count": int(summary.get("message_count") or 0),
+            "selection": selected_selection,
         },
         "imported": list(hermes_result.get("imported") or [])[:20],
         "imported_truncated": bool(hermes_result.get("imported_truncated")) or len(hermes_result.get("imported") or []) > 20,
@@ -145,6 +152,7 @@ def import_chatgpt_conversations_to_hermes_history(
             hermes_base_url=base_url,
             conversation_count=result["summary"]["conversation_count"],
             selected_conversation_count=result["summary"]["selected_conversation_count"],
+            selection=selected_selection,
             normalized_conversation_count=result["summary"]["normalized_conversation_count"],
             imported_conversation_count=result["summary"]["imported_conversation_count"],
             skipped_conversation_count=result["summary"]["skipped_conversation_count"],
@@ -161,6 +169,66 @@ def import_chatgpt_conversations_to_hermes_history(
         )
     )
     return result
+
+
+def _history_selection(value: str) -> str:
+    selected = str(value or DEFAULT_HISTORY_SELECTION).strip().lower().replace("-", "_")
+    if selected not in HISTORY_SELECTIONS:
+        raise ChatGPTConversationHistoryImportError(
+            f"selection must be one of: {', '.join(sorted(HISTORY_SELECTIONS))}"
+        )
+    return selected
+
+
+def _select_history_conversations(
+    conversations: list[dict[str, Any]],
+    *,
+    limit: int,
+    selection: str,
+) -> list[dict[str, Any]]:
+    max_count = MAX_HISTORY_CONVERSATION_LIMIT if limit == 0 else max(0, int(limit))
+    if max_count <= 0:
+        return []
+    if selection == "export_order":
+        return conversations[:max_count]
+    ranked = [
+        (_history_conversation_sort_timestamp(conversation), index, conversation)
+        for index, conversation in enumerate(conversations)
+    ]
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return [conversation for _, _, conversation in ranked[:max_count]]
+
+
+def _history_conversation_sort_timestamp(conversation: dict[str, Any]) -> float:
+    for key in ("update_time", "updated_at", "updated", "create_time", "created_at", "created"):
+        value = conversation.get(key)
+        timestamp = _history_timestamp_value(value)
+        if timestamp > 0:
+            return timestamp
+    return 0.0
+
+
+def _history_timestamp_value(value: Any) -> float:
+    if isinstance(value, (int, float)) and value > 0:
+        return float(value)
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+    try:
+        parsed = float(text)
+        return parsed if parsed > 0 else 0.0
+    except (TypeError, ValueError):
+        pass
+    try:
+        from datetime import datetime, timezone
+
+        normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
+        parsed_dt = datetime.fromisoformat(normalized)
+        if parsed_dt.tzinfo is None:
+            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+        return float(parsed_dt.timestamp())
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _history_conversation_payload(conversation: dict[str, Any], *, index: int) -> dict[str, Any]:

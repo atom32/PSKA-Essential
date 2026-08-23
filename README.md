@@ -868,10 +868,13 @@ archive folder removes only stale PSKA-managed import files with PSKA markers;
 unmarked user files in that folder are left untouched.
 `pska_chatgpt_conversations_import_to_hermes_history` is the partial-history
 bridge for day-to-day dogfooding. It normalizes a bounded slice of a ChatGPT
-conversation export, asks the Hermes WebUI provider to create read-only Hermes
-sessions, and then relies on the ordinary query-based Hermes conversation
-recall path. It does not create a PSKA source root, write durable memory, or add
-a special ChatGPT runtime channel.
+conversation export, defaults to the most recently updated conversations, asks
+the Hermes WebUI provider to create read-only Hermes sessions, and then relies
+on the ordinary query-based Hermes conversation recall path. The Hermes WebUI
+extension is only the control plane for this action; PSKA owns the import
+selection and data flow, while Hermes owns the resulting conversation history.
+It does not create a PSKA source root, write durable memory, or add a special
+ChatGPT runtime channel.
 Hermes WebUI `pska-mini` surfaces a Source Evidence workbench on the PSKA
 Memory page: it searches selected source roots through `/api/sources/search`,
 reads full evidence through `/api/sources/read`, and can draft an editable
