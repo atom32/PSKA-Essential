@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import subprocess
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--demo-dir", type=Path, default=DEMO_DIR)
     parser.add_argument("--require-video", action="store_true")
+    parser.add_argument("--require-delivery-pack", action="store_true")
     parser.add_argument("--all-videos", action="store_true", help="Verify every known generated demo video pack.")
     parser.add_argument("--basename", default=BASE_NAME)
     parser.add_argument("--case", default="")
@@ -95,6 +97,8 @@ def main() -> int:
                 min_duration_arg=args.min_duration,
                 checks=checks,
             )
+        if args.require_delivery_pack:
+            verify_delivery_pack(dist_dir, "hermes_pska_customer_walkthrough_demo", checks)
     elif args.require_video:
         verify_media_pack(
             demo_dir,
@@ -104,10 +108,14 @@ def main() -> int:
             min_duration_arg=args.min_duration,
             checks=checks,
         )
+        if args.require_delivery_pack:
+            verify_delivery_pack(dist_dir, args.basename, checks)
     else:
         media_files = media_files_for(dist_dir, args.basename)
         existing = [path for path in media_files if path.exists()]
         checks.append(f"media optional in this mode: {len(existing)}/{len(media_files)} present")
+        if args.require_delivery_pack:
+            verify_delivery_pack(dist_dir, args.basename, checks)
 
     print("Hermes extension demo verification passed:")
     for check in checks:
@@ -236,6 +244,43 @@ def verify_customer_packager(path: Path, checks: list[str]) -> None:
     if missing:
         raise SystemExit(f"{path} missing customer packager markers: {', '.join(missing)}")
     checks.append("customer packager: delivery assets and zip output covered")
+
+
+def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> None:
+    if basename != "hermes_pska_customer_walkthrough_demo":
+        raise SystemExit("--require-delivery-pack is only supported for hermes_pska_customer_walkthrough_demo")
+    package_dir_name = f"{basename}_delivery_pack"
+    zip_path = dist_dir / f"{package_dir_name}.zip"
+    package_dir = dist_dir / package_dir_name
+    required_names = [
+        f"{package_dir_name}/README.zh.md",
+        f"{package_dir_name}/delivery_manifest.json",
+        f"{package_dir_name}/{basename}.mp4",
+        f"{package_dir_name}/{basename}.zh.srt",
+        f"{package_dir_name}/{basename}_voiceover.zh.md",
+        f"{package_dir_name}/{basename}_storyboard.zh.md",
+        f"{package_dir_name}/{basename}_manifest.json",
+    ]
+    if not zip_path.exists():
+        raise SystemExit(f"missing customer delivery zip: {zip_path}")
+    with zipfile.ZipFile(zip_path) as archive:
+        names = set(archive.namelist())
+        missing = [name for name in required_names if name not in names]
+        if missing:
+            raise SystemExit(f"{zip_path} missing delivery files: {', '.join(missing)}")
+        readme = archive.read(f"{package_dir_name}/README.zh.md").decode("utf-8")
+        delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
+    if "客户演示视频交付包" not in readme or "旁白稿" not in readme:
+        raise SystemExit(f"{zip_path} README does not describe the delivery package")
+    if delivery_manifest.get("schema") != "pska.customer_demo_delivery_pack.v1":
+        raise SystemExit(f"{zip_path} has wrong delivery manifest schema")
+    item_filenames = {str(item.get("filename") or "") for item in delivery_manifest.get("items") or []}
+    expected_filenames = {Path(name).name for name in required_names if Path(name).name not in {"README.zh.md", "delivery_manifest.json"}}
+    if not expected_filenames.issubset(item_filenames):
+        raise SystemExit(f"{zip_path} delivery manifest missing expected items")
+    if package_dir.exists():
+        require_files([package_dir / Path(name).name for name in required_names], checks)
+    checks.append(f"{zip_path.name}: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README")
 
 
 def verify_case_fixture(demo_dir: Path, case_id: str, checks: list[str]) -> None:

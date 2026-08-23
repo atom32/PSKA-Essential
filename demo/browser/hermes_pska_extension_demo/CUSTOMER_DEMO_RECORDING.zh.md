@@ -106,7 +106,7 @@ python3 scripts/package_customer_demo_assets.py
 录完后检查全部视频：
 
 ```bash
-python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-video
+python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack
 ```
 
 ## 剪映处理建议

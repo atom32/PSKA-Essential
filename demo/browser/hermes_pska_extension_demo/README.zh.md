@@ -172,6 +172,7 @@ python3 scripts/build_customer_demo_video.py
 python3 scripts/package_customer_demo_assets.py
 python3 scripts/verify_hermes_extension_demo_pack.py \
   --require-video \
+  --require-delivery-pack \
   --basename hermes_pska_customer_walkthrough_demo \
   --min-duration 300
 ```

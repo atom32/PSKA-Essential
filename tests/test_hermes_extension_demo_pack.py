@@ -114,6 +114,14 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("客户演示视频交付包", script)
         self.assertIn("zipfile.ZipFile", script)
 
+    def test_verifier_can_require_customer_delivery_pack(self):
+        script = SCRIPT_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("--require-delivery-pack", script)
+        self.assertIn("verify_delivery_pack", script)
+        self.assertIn("pska.customer_demo_delivery_pack.v1", script)
+        self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
+
     def test_plain_chinese_subtitle_check_rejects_english_terms(self):
         with self.assertRaises(SystemExit):
             self.verifier.verify_plain_chinese_subtitles(
