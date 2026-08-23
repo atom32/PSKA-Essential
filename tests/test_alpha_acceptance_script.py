@@ -203,6 +203,24 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
             )
         )
 
+    def test_demo_delivery_handoff_presence_detects_external_note(self):
+        module = _load_script_module()
+
+        self.assertTrue(
+            module._demo_delivery_handoff_present(
+                [
+                    "hermes_pska_customer_walkthrough_demo_delivery_handoff.zh.md: external handoff note covers checksum and editing steps",
+                ]
+            )
+        )
+        self.assertFalse(
+            module._demo_delivery_handoff_present(
+                [
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256: delivery zip external checksum verified with sha256",
+                ]
+            )
+        )
+
     def test_demo_acceptance_requires_video_and_delivery_pack(self):
         script = (ROOT / "scripts" / "run_alpha_acceptance.py").read_text(encoding="utf-8")
 
@@ -210,8 +228,10 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertIn('"--require-delivery-pack"', script)
         self.assertIn('"delivery_pack": delivery_pack', script)
         self.assertIn('"delivery_integrity": delivery_integrity', script)
+        self.assertIn('"delivery_handoff": delivery_handoff', script)
         self.assertIn("delivery={'yes' if demo_videos.get('delivery_pack') else 'no'}", script)
         self.assertIn("integrity={'yes' if demo_videos.get('delivery_integrity') else 'no'}", script)
+        self.assertIn("handoff={'yes' if demo_videos.get('delivery_handoff') else 'no'}", script)
 
     def test_eidolia_bridge_rejects_temporary_review_after_trace(self):
         module = _load_script_module()

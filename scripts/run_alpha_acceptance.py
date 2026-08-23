@@ -243,7 +243,8 @@ def main() -> int:
                     f"status={demo_videos.get('status')} "
                     f"videos={demo_videos.get('video_count')}/{demo_videos.get('expected_video_count')} "
                     f"delivery={'yes' if demo_videos.get('delivery_pack') else 'no'} "
-                    f"integrity={'yes' if demo_videos.get('delivery_integrity') else 'no'}"
+                    f"integrity={'yes' if demo_videos.get('delivery_integrity') else 'no'} "
+                    f"handoff={'yes' if demo_videos.get('delivery_handoff') else 'no'}"
                 ),
                 checks=demo_videos.get("checks") or [],
             )
@@ -560,7 +561,14 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
     expected_video_count = len(DEMO_VIDEO_BASENAMES)
     delivery_pack = _demo_delivery_pack_present(checks)
     delivery_integrity = _demo_delivery_integrity_present(checks)
-    ok = result.returncode == 0 and video_count == expected_video_count and delivery_pack and delivery_integrity
+    delivery_handoff = _demo_delivery_handoff_present(checks)
+    ok = (
+        result.returncode == 0
+        and video_count == expected_video_count
+        and delivery_pack
+        and delivery_integrity
+        and delivery_handoff
+    )
     return {
         "ok": ok,
         "status": "ok" if ok else "failed",
@@ -570,6 +578,7 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
         "expected_video_count": expected_video_count,
         "delivery_pack": delivery_pack,
         "delivery_integrity": delivery_integrity,
+        "delivery_handoff": delivery_handoff,
         "checks": checks,
         "stdout": result.stdout,
         "stderr": result.stderr,
@@ -761,6 +770,14 @@ def _demo_delivery_integrity_present(checks: list[str]) -> bool:
         for line in checks
     )
     return internal and external
+
+
+def _demo_delivery_handoff_present(checks: list[str]) -> bool:
+    return any(
+        line.startswith("hermes_pska_customer_walkthrough_demo_delivery_handoff.zh.md:")
+        and "external handoff note covers checksum and editing steps" in line
+        for line in checks
+    )
 
 
 def _eidolia_step(name: str, ok: bool, message: str) -> dict[str, Any]:
