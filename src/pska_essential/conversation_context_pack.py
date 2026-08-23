@@ -12,12 +12,14 @@ from urllib.parse import urlencode
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 from pska_essential.contracts import ContextPacket, MemoryFact, SourceRef, to_jsonable
+from pska_essential.runtime_context import build_runtime_memory_scope
 from pska_essential.workflow import WorkflowService
 
 
 CONTEXT_PACK_SCHEMA = "pska.conversation_context_pack_response.v1"
 TURN_CONTEXT_SCHEMA = "pska.turn_context_response.v1"
 ALLOWED_MODES = {"auto", "project", "evidence-only", "memory-only"}
+MEMORY_CONTEXT_RELEVANCE_THRESHOLD = 1.8
 
 
 @dataclass(frozen=True)
@@ -301,24 +303,56 @@ def _memory_blocks(
 ) -> list[dict[str, Any]]:
     if mode == "evidence-only" or budget.max_memory_notes <= 0:
         return []
+    explicit_memory_query = _is_explicit_memory_query(query)
     try:
-        facts = service.memory_search(
-            query,
-            scope,
-            budget.max_memory_notes,
-            trace_context={
-                "caller": str(payload.get("caller") or "context_pack"),
-                "run_id": run_id,
-                "message_id": str(payload.get("message_id") or ""),
-                "purpose": "context_pack_memory",
-                "used_as": "memory_note",
-                "usage_stage": "context_pack",
-            },
-        )
+        candidate_limit = min(20, max(budget.max_memory_notes, budget.max_memory_notes * 3))
+        facts = _listed_memory_facts_for_context(service, scope, candidate_limit) if explicit_memory_query else None
+        if facts is None:
+            facts = service.memory_search(
+                query,
+                scope,
+                candidate_limit,
+                trace_context={
+                    "caller": str(payload.get("caller") or "context_pack"),
+                    "run_id": run_id,
+                    "message_id": str(payload.get("message_id") or ""),
+                    "purpose": "context_pack_memory",
+                    "used_as": "memory_note",
+                    "usage_stage": "context_pack",
+                },
+            )
     except Exception as exc:  # noqa: BLE001 - context packs must degrade when an optional provider is absent.
         warnings.append({"code": "memory_search_failed", "message": str(exc)})
         return []
-    return [_memory_block(fact, index) for index, fact in enumerate(facts, start=1)]
+    selected = _select_context_memory_facts(query, facts, budget.max_memory_notes)
+    if selected["filtered_count"]:
+        warnings.append(
+            {
+                "code": "memory_context_relevance_filtered",
+                "message": (
+                    f"Filtered {selected['filtered_count']} low-relevance memory note(s) "
+                    "from the answer context pack."
+                ),
+            }
+        )
+    return [
+        _memory_block(fact, index, relevance=relevance)
+        for index, (fact, relevance) in enumerate(selected["facts"], start=1)
+    ]
+
+
+def _listed_memory_facts_for_context(service: WorkflowService, scope: dict[str, Any], limit: int) -> list[MemoryFact] | None:
+    list_facts = getattr(service.memory, "list_facts", None)
+    if not callable(list_facts):
+        return None
+    runtime_scope = build_runtime_memory_scope(scope)
+    try:
+        facts = list_facts(runtime_scope, max(0, int(limit)), include_inactive=False)
+    except TypeError:
+        facts = list_facts(runtime_scope, max(0, int(limit)))
+    if not isinstance(facts, list):
+        return []
+    return [service.enrich_memory_fact_with_lineage(fact) for fact in facts if isinstance(fact, MemoryFact)]
 
 
 def _conversation_blocks(
@@ -335,8 +369,19 @@ def _conversation_blocks(
         items = _fetch_hermes_conversation_recall(query, scope, budget, warnings)
     if not items:
         return []
+    selected = _select_context_conversation_items(query, items, budget.max_conversation_blocks)
+    if selected["filtered_count"]:
+        warnings.append(
+            {
+                "code": "conversation_context_relevance_filtered",
+                "message": (
+                    f"Filtered {selected['filtered_count']} low-relevance conversation recall block(s) "
+                    "from the answer context pack."
+                ),
+            }
+        )
     blocks: list[dict[str, Any]] = []
-    for index, item in enumerate(items[: budget.max_conversation_blocks], start=1):
+    for index, (item, relevance) in enumerate(selected["items"], start=1):
         if not isinstance(item, dict):
             continue
         text = _first_text(item, "snippet", "text", "match_preview", "preview", "content")
@@ -373,6 +418,7 @@ def _conversation_blocks(
                     "message_id": message_id,
                     "match_type": str(item.get("match_type") or "content"),
                     "query_based_recall": True,
+                    "context_relevance": relevance,
                 },
             }
         )
@@ -710,8 +756,10 @@ def _packet_block(packet: ContextPacket, index: int, *, block_type: str) -> dict
     }
 
 
-def _memory_block(fact: MemoryFact, index: int) -> dict[str, Any]:
+def _memory_block(fact: MemoryFact, index: int, *, relevance: dict[str, Any] | None = None) -> dict[str, Any]:
     metadata = dict(fact.metadata or {})
+    if relevance:
+        metadata["context_relevance"] = relevance
     return {
         "type": "memory",
         "index": index,
@@ -723,6 +771,271 @@ def _memory_block(fact: MemoryFact, index: int) -> dict[str, Any]:
         "source_refs": to_jsonable(fact.source_refs),
         "metadata": to_jsonable(metadata),
     }
+
+
+def _select_context_memory_facts(query: str, facts: list[MemoryFact], limit: int) -> dict[str, Any]:
+    bounded_limit = max(0, int(limit))
+    if bounded_limit <= 0:
+        return {"facts": [], "filtered_count": len(facts), "bypassed": False}
+    if _is_explicit_memory_query(query):
+        return {
+            "facts": [
+                (
+                    fact,
+                    {
+                        "score": 1.0,
+                        "matched_terms": [],
+                        "threshold": 0.0,
+                        "bypassed": True,
+                        "reason": "explicit_memory_query",
+                    },
+                )
+                for fact in facts[:bounded_limit]
+            ],
+            "filtered_count": 0,
+            "bypassed": True,
+        }
+    terms = _context_query_terms(query)
+    if not terms:
+        return {
+            "facts": [
+                (
+                    fact,
+                    {
+                        "score": 0.0,
+                        "matched_terms": [],
+                        "threshold": 0.0,
+                        "bypassed": True,
+                        "reason": "no_query_terms",
+                    },
+                )
+                for fact in facts[:bounded_limit]
+            ],
+            "filtered_count": 0,
+            "bypassed": True,
+        }
+    scored: list[tuple[float, int, MemoryFact, list[str]]] = []
+    for index, fact in enumerate(facts):
+        score, matched = _memory_context_relevance_score(fact, terms)
+        scored.append((score, -index, fact, matched))
+    threshold = _memory_context_threshold(terms)
+    selected = [item for item in scored if item[0] >= threshold]
+    if not selected and len(terms) <= 2:
+        selected = [item for item in scored if item[0] > 0]
+    selected.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    selected = selected[:bounded_limit]
+    selected_ids = {id(item[2]) for item in selected}
+    return {
+        "facts": [
+            (
+                fact,
+                {
+                    "score": round(score, 3),
+                    "matched_terms": matched[:8],
+                    "threshold": threshold,
+                    "bypassed": False,
+                },
+            )
+            for score, _index, fact, matched in selected
+        ],
+        "filtered_count": len([fact for fact in facts if id(fact) not in selected_ids]),
+        "bypassed": False,
+    }
+
+
+def _select_context_conversation_items(query: str, items: list[dict[str, Any]], limit: int) -> dict[str, Any]:
+    bounded_limit = max(0, int(limit))
+    if bounded_limit <= 0:
+        return {"items": [], "filtered_count": len(items)}
+    terms = _context_query_terms(query)
+    if not terms:
+        return {
+            "items": [
+                (
+                    item,
+                    {
+                        "score": 0.0,
+                        "matched_terms": [],
+                        "threshold": 0.0,
+                        "bypassed": True,
+                        "reason": "no_query_terms",
+                    },
+                )
+                for item in items[:bounded_limit]
+                if isinstance(item, dict)
+            ],
+            "filtered_count": 0,
+        }
+    scored: list[tuple[float, int, dict[str, Any], list[str]]] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        score, matched = _context_relevance_score(_conversation_relevance_haystack(item), terms)
+        scored.append((score, -index, item, matched))
+    threshold = _memory_context_threshold(terms)
+    selected = [item for item in scored if item[0] >= threshold]
+    if not selected and len(terms) <= 2:
+        selected = [item for item in scored if item[0] > 0]
+    selected.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    selected = selected[:bounded_limit]
+    selected_ids = {id(item[2]) for item in selected}
+    return {
+        "items": [
+            (
+                item,
+                {
+                    "score": round(score, 3),
+                    "matched_terms": matched[:8],
+                    "threshold": threshold,
+                    "bypassed": False,
+                },
+            )
+            for score, _index, item, matched in selected
+        ],
+        "filtered_count": len([item for item in items if isinstance(item, dict) and id(item) not in selected_ids]),
+    }
+
+
+def _is_explicit_memory_query(query: str) -> bool:
+    text = re.sub(r"\s+", " ", str(query or "").strip().lower())
+    if not text:
+        return False
+    patterns = [
+        r"你.*记得.*我",
+        r"你.*知道.*我",
+        r"关于我.*记忆",
+        r"我的.*记忆",
+        r"我是谁",
+        r"what do you remember about me",
+        r"what you remember about me",
+        r"my memories",
+    ]
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
+
+
+def _context_query_terms(query: str) -> list[str]:
+    text = str(query or "")
+    terms: list[str] = []
+
+    def add(value: str) -> None:
+        normalized = value.strip().lower()
+        if not normalized or normalized in _CONTEXT_TERM_STOPWORDS:
+            return
+        if normalized not in terms:
+            terms.append(normalized)
+
+    for raw in re.findall(r"[A-Za-z0-9_][A-Za-z0-9_-]{1,}", text):
+        add(raw)
+        for part in re.split(r"[_-]+", raw):
+            if len(part) >= 3:
+                add(part)
+    split_pattern = (
+        r"[\s,.;:!?=()\[\]{}<>\"'`/\\|"
+        r"\uFF0C\u3002\uFF01\uFF1F\u3001\uFF1B\uFF1A\uFF08\uFF09\u300A\u300B\u3010\u3011]+"
+    )
+    for raw in re.split(split_pattern, text):
+        token = raw.strip()
+        if re.search(r"[\u4e00-\u9fff]", token):
+            if 2 <= len(token) <= 12:
+                add(token)
+            if len(token) > 4:
+                for index in range(0, min(len(token) - 1, 12)):
+                    add(token[index : index + 2])
+    return terms[:32]
+
+
+_CONTEXT_TERM_STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "with",
+    "from",
+    "this",
+    "that",
+    "what",
+    "why",
+    "how",
+    "should",
+    "memory",
+    "review",
+    "apply",
+    "什么",
+    "为什么",
+    "怎么",
+    "如何",
+    "说明",
+    "说明了什么",
+    "这个",
+    "那个",
+    "用户",
+}
+
+
+def _memory_context_relevance_score(fact: MemoryFact, terms: list[str]) -> tuple[float, list[str]]:
+    return _context_relevance_score(_memory_relevance_haystack(fact), terms)
+
+
+def _context_relevance_score(haystack: str, terms: list[str]) -> tuple[float, list[str]]:
+    matched: list[str] = []
+    score = 0.0
+    for term in terms:
+        if term in haystack:
+            matched.append(term)
+            score += _context_term_weight(term)
+    return score, matched
+
+
+def _conversation_relevance_haystack(item: dict[str, Any]) -> str:
+    pieces = [
+        _first_text(item, "title", "display_title", "name"),
+        _first_text(item, "snippet", "text", "match_preview", "preview", "content"),
+        _first_text(item, "match_type", "role", "source"),
+    ]
+    return " ".join(piece for piece in pieces if piece).lower()
+
+
+def _memory_relevance_haystack(fact: MemoryFact) -> str:
+    pieces: list[str] = [fact.text]
+    metadata = fact.metadata or {}
+    for key in ("display_text", "current_text", "canonical_text", "behavior_delta", "memory_type", "memory_scope", "reason"):
+        value = metadata.get(key)
+        if value not in (None, ""):
+            pieces.append(str(value))
+    for ref in fact.source_refs or []:
+        pieces.extend(
+            [
+                ref.adapter or "",
+                ref.title or "",
+                ref.path or "",
+                ref.source_id or "",
+                ref.document_id or "",
+            ]
+        )
+    return " ".join(pieces).lower()
+
+
+def _context_term_weight(term: str) -> float:
+    if term == "pska":
+        return 0.5
+    if "_" in term or "-" in term:
+        return 2.0
+    if re.search(r"[\u4e00-\u9fff]", term):
+        if len(term) >= 4:
+            return 1.6
+        if len(term) == 3:
+            return 1.1
+        return 0.8
+    if len(term) >= 8:
+        return 2.0
+    if len(term) >= 6:
+        return 1.5
+    return 1.0
+
+
+def _memory_context_threshold(terms: list[str]) -> float:
+    if len(terms) <= 2:
+        return 0.8
+    return MEMORY_CONTEXT_RELEVANCE_THRESHOLD
 
 
 def _dedupe_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -233,7 +233,7 @@ class SQLiteSourceRegistry:
             return []
         scope = dict(scope or {})
         filters = dict(filters or {})
-        root_ids = _scope_strings(scope, "root_ids", "root_id")
+        root_ids = _scope_strings(scope, "root_ids", "root_id") or _scope_strings(scope, "source_root_ids", "source_root_id")
         kinds = _scope_strings(scope, "source_kinds", "source_kind")
         path_prefixes = _scope_strings(filters, "path_prefixes", "path_prefix")
         object_kinds = _scope_strings(filters, "object_kinds", "object_kind")

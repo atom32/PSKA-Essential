@@ -1152,7 +1152,7 @@ def _handler_class(state: ProductApiState):
                 payload = self._read_json()
                 packets = state.service.source_search(
                     _required_str(payload, "query"),
-                    scope=_optional_dict(payload, "scope"),
+                    scope=_source_search_scope(payload),
                     limit=int(payload.get("limit") or 10),
                     filters=_optional_dict(payload, "filters"),
                 )
@@ -2150,6 +2150,20 @@ def _optional_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ApiError(f"{key} must be an object", HTTPStatus.BAD_REQUEST)
     return dict(value)
+
+
+def _source_search_scope(payload: dict[str, Any]) -> dict[str, Any]:
+    scope = _optional_dict(payload, "scope")
+    root_ids = (
+        _optional_str_list(scope, "root_ids")
+        or _optional_str_list(scope, "source_root_ids")
+        or _optional_str_list(payload, "root_ids")
+        or _optional_str_list(payload, "source_root_ids")
+    )
+    if root_ids:
+        scope["root_ids"] = root_ids
+        scope["source_root_ids"] = root_ids
+    return scope
 
 
 def _query_scope(query: dict[str, str]) -> dict[str, Any]:

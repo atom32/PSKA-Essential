@@ -1468,6 +1468,41 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(apply_event["metadata"]["write_target"], "obsidian_frontmatter")
         self.assertFalse(apply_event["metadata"]["writes_sidecar"])
 
+    def test_product_api_source_search_accepts_top_level_source_root_ids(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_a = Path(temp_dir) / "A"
+            root_b = Path(temp_dir) / "B"
+            root_a.mkdir()
+            root_b.mkdir()
+            (root_a / "Alpha.md").write_text("shared scoped source marker alpha only", encoding="utf-8")
+            (root_b / "Beta.md").write_text("shared scoped source marker beta only", encoding="utf-8")
+            registered_a = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_a), "kind": "local_folder", "permission_mode": "read_only"},
+            )
+            registered_b = self._post_json(
+                "/api/sources/roots",
+                {"path": str(root_b), "kind": "local_folder", "permission_mode": "read_only"},
+            )
+            self._post_json(f"/api/sources/roots/{registered_a['root']['root_id']}/scan", {"max_files": 10})
+            self._post_json(f"/api/sources/roots/{registered_b['root']['root_id']}/scan", {"max_files": 10})
+
+            searched = self._post_json(
+                "/api/sources/search",
+                {
+                    "query": "shared scoped source marker",
+                    "source_root_ids": [registered_a["root"]["root_id"]],
+                    "limit": 5,
+                },
+            )
+
+        packets = searched["context_packets"]
+        self.assertTrue(packets)
+        self.assertTrue(
+            all(packet["source_ref"]["metadata"]["root_id"] == registered_a["root"]["root_id"] for packet in packets)
+        )
+        self.assertEqual({packet["source_ref"]["path"] for packet in packets}, {"Alpha.md"})
+
     def test_product_api_obsidian_markdown_comment_writeback(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir) / "Vault"

@@ -4,6 +4,7 @@ import time
 import unittest
 from unittest.mock import patch
 
+from pska_essential.contracts import MemoryFact, SourceRef
 from pska_essential.conversation_context_pack import assemble_conversation_context_pack
 from pska_essential.workflow import build_fake_service
 
@@ -92,6 +93,134 @@ class ConversationContextPackTests(unittest.TestCase):
                 "evidence_test_warning",
                 "source_test_warning",
             ],
+        )
+
+    def test_context_pack_filters_low_relevance_memory_from_answer_context(self):
+        service = build_fake_service()
+        service.memory.facts.extend(
+            [
+                MemoryFact(
+                    fact_id="mem-broad-pska",
+                    text="用户长期维护 PSKA、Hermes Agent 和 Eidolia，并关注知识图谱和 RAG。",
+                    source_refs=[SourceRef(adapter="test", source_id="broad")],
+                    valid_at="2026-08-20T00:00:00+00:00",
+                ),
+                MemoryFact(
+                    fact_id="mem-specific-review",
+                    text="PSKA dogfooding 的 WebUI Review Detail 验证显示该候选仍为 pending，memory_apply=false。",
+                    source_refs=[SourceRef(adapter="test", source_id="specific")],
+                    valid_at="2026-08-19T00:00:00+00:00",
+                ),
+            ]
+        )
+
+        response = assemble_conversation_context_pack(
+            service,
+            {
+                "caller": "hermes-webui-extension",
+                "user_message": "PSKA dogfooding WebUI Review Detail pending memory_apply=false 说明了什么？",
+                "mode": "memory-only",
+                "conversation_recall": {"items": []},
+                "budget": {
+                    "max_memory_notes": 2,
+                    "max_conversation_blocks": 0,
+                    "max_evidence_blocks": 0,
+                    "max_source_blocks": 0,
+                    "max_tokens": 2000,
+                },
+            },
+        )
+
+        context_pack = response["context_pack"]
+        self.assertEqual(context_pack["source_counts"]["memory"], 1)
+        memory = context_pack["memory_notes"][0]
+        self.assertEqual(memory["fact_id"], "mem-specific-review")
+        self.assertIn("memory_apply=false", memory["text"])
+        self.assertGreaterEqual(memory["metadata"]["context_relevance"]["score"], 1.8)
+        self.assertIn("memory_context_relevance_filtered", [warning["code"] for warning in context_pack["warnings"]])
+
+    def test_context_pack_keeps_memory_when_user_asks_about_memory(self):
+        service = build_fake_service()
+        service.memory.facts.extend(
+            [
+                MemoryFact(
+                    fact_id="mem-profile",
+                    text="用户是徐大为，长期关注 PSKA、个人记忆和外部认知系统。",
+                    source_refs=[SourceRef(adapter="test", source_id="profile")],
+                    valid_at="2026-08-20T00:00:00+00:00",
+                )
+            ]
+        )
+
+        response = assemble_conversation_context_pack(
+            service,
+            {
+                "caller": "hermes-webui-extension",
+                "user_message": "你记得我什么？",
+                "mode": "memory-only",
+                "conversation_recall": {"items": []},
+                "budget": {
+                    "max_memory_notes": 1,
+                    "max_conversation_blocks": 0,
+                    "max_evidence_blocks": 0,
+                    "max_source_blocks": 0,
+                    "max_tokens": 1200,
+                },
+            },
+        )
+
+        context_pack = response["context_pack"]
+        self.assertEqual(context_pack["source_counts"]["memory"], 1)
+        memory = context_pack["memory_notes"][0]
+        self.assertEqual(memory["fact_id"], "mem-profile")
+        self.assertTrue(memory["metadata"]["context_relevance"]["bypassed"])
+        self.assertNotIn("memory_context_relevance_filtered", [warning["code"] for warning in context_pack["warnings"]])
+
+    def test_context_pack_filters_low_relevance_conversation_recall(self):
+        service = build_fake_service()
+
+        response = assemble_conversation_context_pack(
+            service,
+            {
+                "caller": "hermes-webui-extension",
+                "user_message": "PSKA dogfooding WebUI Review Detail pending memory_apply=false 说明了什么？",
+                "mode": "memory-only",
+                "conversation_recall": {
+                    "items": [
+                        {
+                            "session_id": "sess-smoke",
+                            "message_id": "msg-smoke",
+                            "title": "PSKA smoke history import",
+                            "role": "user",
+                            "snippet": "请记住这个烟测标记，它应该作为普通 Hermes 对话历史被查询回来。",
+                        },
+                        {
+                            "session_id": "sess-review",
+                            "message_id": "msg-review",
+                            "title": "PSKA dogfooding Review check",
+                            "role": "assistant",
+                            "snippet": "WebUI Review Detail 显示候选仍为 pending，memory_apply=false。",
+                        },
+                    ],
+                },
+                "budget": {
+                    "max_memory_notes": 0,
+                    "max_conversation_blocks": 2,
+                    "max_evidence_blocks": 0,
+                    "max_source_blocks": 0,
+                    "max_tokens": 1200,
+                },
+            },
+        )
+
+        context_pack = response["context_pack"]
+        self.assertEqual(context_pack["source_counts"]["conversation"], 1)
+        conversation = context_pack["conversation_blocks"][0]
+        self.assertEqual(conversation["source_ref"]["source_id"], "msg-review")
+        self.assertIn("memory_apply=false", conversation["text"])
+        self.assertIn(
+            "conversation_context_relevance_filtered",
+            [warning["code"] for warning in context_pack["warnings"]],
         )
 
 
