@@ -13,6 +13,7 @@ from pska_essential.contracts import to_jsonable
 from pska_essential.embedding_component import build_embedding_component_status
 from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
+from pska_essential.hermes_recall_component import build_hermes_recall_component_status
 from pska_essential.kb_scope import (
     dataset_scope_has_resolution_errors,
     dataset_scope_resolution_message,
@@ -51,6 +52,7 @@ def build_runtime_diagnostics(*, service: Any, kb_gateway_factory: KbGatewayFact
         "components": {
             "embedding": build_embedding_component_status(),
             "gbrain": build_gbrain_component_status(),
+            "hermes_recall": build_hermes_recall_component_status(probe=True),
         },
         "checks": checks,
     }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from pska_essential.adapters.fake import FakeMemoryAdapter, FakeRetrievalAdapter
 from pska_essential.adapters.sqlite import SQLiteMemoryAdapter
@@ -46,6 +47,27 @@ class _ReadyGateway:
                 "status": "ready",
             }
         ]
+
+
+class _FakeHermesRecallResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __call__(self, _request, timeout):
+        self.timeout = timeout
+        return self
+
+    def __enter__(self):
+        self.status = 200
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+    def read(self):
+        import json
+
+        return json.dumps(self.payload).encode("utf-8")
 
 
 class _BrokenRetrieval:
@@ -127,6 +149,8 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(diagnostics["components"]["embedding"]["schema"], "pska.embedding_component_status.v1")
         self.assertFalse(diagnostics["components"]["embedding"]["runtime"]["direct_pska_dependency"])
         self.assertEqual(diagnostics["components"]["gbrain"]["schema"], "pska.gbrain_component_status.v1")
+        self.assertEqual(diagnostics["components"]["hermes_recall"]["schema"], "pska.hermes_recall_component_status.v1")
+        self.assertFalse(diagnostics["components"]["hermes_recall"]["runtime"]["browser_extension_direct_history_allowed"])
         self.assertEqual(diagnostics["components"]["gbrain"]["runtime"]["pska_adapter"], "available_not_selected")
         self.assertFalse(diagnostics["components"]["gbrain"]["runtime"]["participates_in_memory_search"])
         adapter_slots = diagnostics["capabilities"]["adapter_slots"]
@@ -144,6 +168,30 @@ class DiagnosticsTests(unittest.TestCase):
         )
         self.assertIn(imagehash["status"], {"available", "unavailable"})
         self.assertEqual(imagehash["integration"], "python_optional_extra")
+
+    def test_runtime_diagnostics_can_probe_hermes_recall_provider(self):
+        service = WorkflowService(_LiveRetrieval(), SQLiteMemoryAdapter(":memory:"), SQLiteReviewStore(":memory:"))
+        with patch.dict(
+            "os.environ",
+            {
+                "PSKA_HERMES_WEBUI_BASE_URL": "http://127.0.0.1:8787",
+                "PSKA_HERMES_RECALL_TOKEN": "secret-token",
+            },
+            clear=False,
+        ), patch(
+            "pska_essential.hermes_recall_component.urlopen",
+            _FakeHermesRecallResponse({"schema": "hermes.pska_conversation_recall.v1", "items": []}),
+        ):
+            diagnostics = build_runtime_diagnostics(
+                service=service,
+                kb_gateway_factory=lambda: _ReadyGateway(),
+            )
+
+        component = diagnostics["components"]["hermes_recall"]
+        self.assertEqual(component["status"], "configured")
+        self.assertEqual(component["mode"], "token_provider_verified")
+        self.assertTrue(component["endpoints"]["probed"])
+        self.assertEqual(component["endpoints"]["response_schema"], "hermes.pska_conversation_recall.v1")
 
     def test_memory_probe_rejects_fake_as_live_proof(self):
         service = WorkflowService(_LiveRetrieval(), FakeMemoryAdapter(), SQLiteReviewStore(":memory:"))

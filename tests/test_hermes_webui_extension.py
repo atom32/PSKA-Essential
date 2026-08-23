@@ -54,6 +54,8 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("buildComposerContextPack", script)
         self.assertIn("formatContextPackForSkill", script)
         self.assertIn("PSKA context pack", script)
+        self.assertIn("hermesRecallComponent", script)
+        self.assertIn("History recall", script)
         self.assertIn("max_conversation_blocks", script)
         self.assertIn("max_source_blocks", script)
         self.assertIn("GBrain", script)

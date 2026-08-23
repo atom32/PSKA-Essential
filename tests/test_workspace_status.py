@@ -272,6 +272,26 @@ class WorkspaceStatusTests(unittest.TestCase):
         self.assertEqual(status["workspace"]["tenant_id"], "tenant-a")
         self.assertEqual(status["workspace"]["memory_namespace"], "workspace:workspace-a:tenant:tenant-a")
 
+    def test_workspace_status_exposes_hermes_recall_component(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "PSKA_HERMES_WEBUI_BASE_URL": "http://127.0.0.1:8787",
+                "PSKA_HERMES_RECALL_TOKEN": "secret-token",
+            },
+            clear=False,
+        ):
+            status = build_workspace_status(service=build_fake_service(), gateway=_Gateway())
+            compact = compact_workspace_status(status)
+
+        component = status["components"]["hermes_recall"]
+        self.assertEqual(component["schema"], "pska.hermes_recall_component_status.v1")
+        self.assertEqual(component["mode"], "token_provider_configured")
+        self.assertFalse(component["runtime"]["browser_extension_direct_history_allowed"])
+        self.assertFalse(component["endpoints"]["probed"])
+        self.assertEqual(compact["components"]["hermes_recall"]["mode"], "token_provider_configured")
+        self.assertTrue(compact["components"]["hermes_recall"]["runtime"]["context_pack_uses_provider"])
+
     def test_mixed_workspace_keeps_ready_scope_action_visible(self):
         status = build_workspace_status(service=build_fake_service(), gateway=_MixedGateway())
         actions = {item["action"]: item for item in status["next_actions"]}

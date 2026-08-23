@@ -8,6 +8,7 @@ from pska_essential.capabilities import memory_capabilities, memory_operation_fo
 from pska_essential.embedding_component import build_embedding_component_status
 from pska_essential.gbrain_component import build_gbrain_component_status
 from pska_essential.governance import DURABLE_PROPOSAL_KINDS, build_workspace_policy_from_env
+from pska_essential.hermes_recall_component import build_hermes_recall_component_status
 from pska_essential.memory_candidate_quality import memory_candidate_quality_issue
 from pska_essential.memory_cards import list_memory_cards
 from pska_essential.memory_health import scan_memory_health
@@ -99,6 +100,7 @@ def build_workspace_status(
         "components": {
             "embedding": build_embedding_component_status(),
             "gbrain": build_gbrain_component_status(),
+            "hermes_recall": build_hermes_recall_component_status(probe=False),
         },
         "memory": {
             "cards": memory_cards,
@@ -164,6 +166,7 @@ def compact_workspace_status(
     components = dict(status.get("components") or {})
     embedding = dict(components.get("embedding") or {})
     gbrain = dict(components.get("gbrain") or {})
+    hermes_recall = dict(components.get("hermes_recall") or {})
 
     return {
         "kind": "workspace_status_compact",
@@ -178,6 +181,7 @@ def compact_workspace_status(
         "components": {
             "embedding": _compact_embedding(embedding),
             "gbrain": _compact_gbrain(gbrain),
+            "hermes_recall": _compact_hermes_recall(hermes_recall),
         },
         "memory": {
             "backend": str(memory_caps.get("backend") or ""),
@@ -286,6 +290,37 @@ def _compact_gbrain(gbrain: dict[str, Any]) -> dict[str, Any]:
             "participates_in_memory_search": bool(runtime.get("participates_in_memory_search")),
             "participates_in_agentic_context_brief": bool(runtime.get("participates_in_agentic_context_brief")),
             "participates_in_jarvis_briefing": bool(runtime.get("participates_in_jarvis_briefing")),
+        },
+    }
+
+
+def _compact_hermes_recall(component: dict[str, Any]) -> dict[str, Any]:
+    configuration = dict(component.get("configuration") or {})
+    endpoints = dict(component.get("endpoints") or {})
+    runtime = dict(component.get("runtime") or {})
+    return {
+        "schema": component.get("schema"),
+        "name": component.get("name"),
+        "status": component.get("status"),
+        "mode": component.get("mode"),
+        "summary": component.get("summary") or "",
+        "configuration": {
+            "base_url_configured": bool(configuration.get("base_url_configured")),
+            "token_configured": bool(configuration.get("token_configured")),
+            "legacy_fallback_enabled": bool(configuration.get("legacy_fallback_enabled")),
+            "password_fallback_default_enabled": bool(configuration.get("password_fallback_default_enabled")),
+        },
+        "endpoints": {
+            "provider_url": endpoints.get("provider_url") or "",
+            "probed": bool(endpoints.get("probed")),
+            "http_status": endpoints.get("http_status"),
+            "response_schema": endpoints.get("response_schema") or "",
+        },
+        "runtime": {
+            "context_pack_uses_provider": bool(runtime.get("context_pack_uses_provider")),
+            "query_based_recall": bool(runtime.get("query_based_recall")),
+            "browser_extension_direct_history_allowed": bool(runtime.get("browser_extension_direct_history_allowed")),
+            "whole_recent_history_injected": bool(runtime.get("whole_recent_history_injected")),
         },
     }
 

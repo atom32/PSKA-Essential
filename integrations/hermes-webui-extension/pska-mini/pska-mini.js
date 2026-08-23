@@ -74,6 +74,7 @@
     observabilityMetrics: null,
     sourceRecallEval: null,
     alphaRecoveryPlan: null,
+    diagnostics: null,
     scopeSuggestions: [],
     diagnosticsError: "",
     errors: {}
@@ -1939,6 +1940,7 @@
       sourceRecallEval: valueOrNull(results.sourceRecallEval)?.source_recall_eval || null,
       alphaReadiness: valueOrNull(results.alphaReadiness)?.alpha_readiness || null,
       alphaRecoveryPlan: valueOrNull(results.alphaRecoveryPlan)?.alpha_recovery_plan || null,
+      diagnostics: diagnosticsValue?.diagnostics || null,
       scopeSuggestions: [],
       diagnosticsError: results.diagnostics.status === "rejected"
         ? errorText(results.diagnostics.reason)
@@ -1973,6 +1975,7 @@
           <span class="pska-mini-pill is-warn"><b>API</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>KB</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Memory</b> checking</span>
+          <span class="pska-mini-pill is-warn"><b>History</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Embedding</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>GBrain</b> checking</span>
           <span class="pska-mini-pill is-warn"><b>Jobs</b> checking</span>
@@ -1993,6 +1996,7 @@
     const memoryOk = Boolean(providers.memory) && !dashboard.diagnosticsError;
     const embedding = embeddingComponent();
     const gbrain = gbrainComponent();
+    const hermesRecall = hermesRecallComponent();
     const jobs = jobHealth();
     const wakeup = wakeupPlan();
     const metrics = observabilityMetrics();
@@ -2002,6 +2006,7 @@
       ["API", apiOk ? "ready" : "missing", apiOk ? "ok" : "bad", ""],
       ["KB", kbOk ? `${kb.ready_dataset_count || 0}/${kb.dataset_count || 0}` : "not ready", kbOk ? "ok" : "warn", ""],
       ["Memory", memoryOk ? providers.memory : "down", memoryOk ? "ok" : "bad", ""],
+      ["History", hermesRecallStatusLabel(hermesRecall), hermesRecallTone(hermesRecall), hermesRecallTitle(hermesRecall)],
       ["Embedding", embeddingStatusLabel(embedding), embeddingTone(embedding), embeddingTitle(embedding)],
       ["GBrain", gbrainStatusLabel(gbrain), gbrainTone(gbrain), ""],
       ["Jobs", jobHealthStatusLabel(jobs), jobHealthTone(jobs), jobHealthTitle(jobs)],
@@ -2022,6 +2027,7 @@
       ${jobHealthWarning(jobs)}
       ${wakeupWarning(wakeup)}
       ${observabilityMetricsWarning(metrics)}
+      ${hermesRecallWarning(hermesRecall)}
       ${sourceRecallEvalWarning(recallEval)}
       ${Object.keys(dashboard.errors).length ? `
         <div class="pska-mini-warning">${Object.entries(dashboard.errors).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join("<br>")}</div>
@@ -2073,6 +2079,51 @@
     if (!component) return "bad";
     if (component.runtime?.participates_in_memory_search) return "ok";
     return "warn";
+  }
+
+  function hermesRecallComponent() {
+    return dashboard.diagnostics?.components?.hermes_recall || dashboard.workspace?.components?.hermes_recall || null;
+  }
+
+  function hermesRecallStatusLabel(component) {
+    if (!component) return "not visible";
+    const mode = String(component.mode || "");
+    if (mode === "token_provider_verified") return "verified";
+    if (mode === "token_provider_configured") return "configured";
+    if (mode === "legacy_password_fallback") return "legacy";
+    if (mode === "disabled") return "disabled";
+    if (mode === "incomplete") return "incomplete";
+    if (mode === "token_provider_unreachable") return "down";
+    if (mode === "token_provider_unexpected_response") return "schema";
+    return String(component.status || mode || "unknown");
+  }
+
+  function hermesRecallTone(component) {
+    const status = String(component?.status || "");
+    if (!component) return "bad";
+    if (status === "configured") return "ok";
+    if (status === "disabled" || status === "warning") return "warn";
+    return "bad";
+  }
+
+  function hermesRecallTitle(component) {
+    if (!component) return "Hermes conversation recall status is not visible in PSKA workspace status.";
+    const endpoint = component.endpoints?.provider_url || "";
+    return [
+      String(component.mode || component.status || "unknown"),
+      endpoint,
+      component.runtime?.query_based_recall ? "query-based" : "",
+      component.runtime?.browser_extension_direct_history_allowed ? "extension direct history" : "extension control-plane only"
+    ].filter(Boolean).join(" · ");
+  }
+
+  function hermesRecallWarning(component) {
+    if (!component) return "";
+    const status = String(component.status || "");
+    if (status === "configured") return "";
+    const action = Array.isArray(component.next_actions) ? component.next_actions[0] : null;
+    const label = action?.label || component.summary || hermesRecallStatusLabel(component);
+    return `<div class="pska-mini-warning">History recall: ${escapeHtml(label)}</div>`;
   }
 
   function jobHealth() {
