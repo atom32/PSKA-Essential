@@ -176,6 +176,17 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("package_customer_demo_assets.py", result.stdout)
         self.assertIn("verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack", result.stdout)
 
+    def test_customer_demo_recorder_preflight_checks_hard_subtitle_dependencies(self):
+        script = CUSTOMER_RECORDER_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("missing Pillow", script)
+        self.assertIn("missing ffprobe", script)
+        self.assertIn("overlay filter required for hard-subtitled delivery video", script)
+        self.assertIn("libx264 encoder required for MP4 delivery videos", script)
+        self.assertIn("python_module_available", script)
+        self.assertIn("ffmpeg_has_filter", script)
+        self.assertIn("ffmpeg_has_encoder", script)
+
     def test_customer_demo_recorder_preflight_fails_before_recording_when_services_are_missing(self):
         result = subprocess.run(
             [

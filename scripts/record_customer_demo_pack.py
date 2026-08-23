@@ -158,6 +158,15 @@ def run_preflight(args: argparse.Namespace, env: dict[str, str]) -> None:
         failures.append("missing Node.js: install node or add it to PATH")
     if not shutil.which("ffmpeg"):
         failures.append("missing ffmpeg: install ffmpeg or add it to PATH")
+    if not shutil.which("ffprobe"):
+        failures.append("missing ffprobe: install ffmpeg with ffprobe or add it to PATH")
+    if shutil.which("ffmpeg"):
+        if not ffmpeg_has_filter("overlay"):
+            failures.append("ffmpeg is missing the overlay filter required for hard-subtitled delivery video")
+        if not ffmpeg_has_encoder("libx264"):
+            failures.append("ffmpeg is missing the libx264 encoder required for MP4 delivery videos")
+    if not python_module_available("PIL"):
+        failures.append("missing Pillow: install pillow for hard-subtitled delivery video generation")
 
     playwright_module = args.playwright_module or "playwright"
     node_path = str(args.node_path or "").strip()
@@ -195,6 +204,42 @@ def can_resolve_node_module(module_name: str, env: dict[str, str]) -> bool:
         check=False,
     )
     return result.returncode == 0
+
+
+def python_module_available(module_name: str) -> bool:
+    result = subprocess.run(
+        [sys.executable, "-c", f"import {module_name}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def ffmpeg_has_filter(filter_name: str) -> bool:
+    result = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-filters"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and re_search_ffmpeg_name(result.stdout, filter_name)
+
+
+def ffmpeg_has_encoder(encoder_name: str) -> bool:
+    result = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-encoders"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and re_search_ffmpeg_name(result.stdout, encoder_name)
+
+
+def re_search_ffmpeg_name(text: str, name: str) -> bool:
+    return any(line.split()[-1:] == [name] or f" {name} " in line for line in text.splitlines())
 
 
 def check_http(url: str, label: str, failures: list[str]) -> None:
