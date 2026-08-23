@@ -209,6 +209,25 @@ class HermesWebuiExtensionTests(unittest.TestCase):
             with self.subTest(term=term):
                 self.assertIn(term, script)
 
+    def test_llm_proof_verifies_extension_auto_answer_proof_by_default(self):
+        script = (ROOT / "scripts" / "test_pska_webui_llm_proof.cjs").read_text(encoding="utf-8")
+
+        required = [
+            "PSKA_LLM_PROOF_ANSWER_PROOF_MODE",
+            'return "auto"',
+            'if (ANSWER_PROOF_MODE !== "auto") return null',
+            "waitForAutomaticAnswerProof",
+            "isAutomaticExtensionProof",
+            "Extension automatic answer proof recorded in PSKA audit",
+            'proof.caller === "hermes-webui-extension"',
+            "metadata.automatic_after_answer_audit === true",
+            "metadata.data_plane === \"pska\"",
+        ]
+        for term in required:
+            with self.subTest(term=term):
+                self.assertIn(term, script)
+        self.assertNotIn("const RECORD_ANSWER_PROOF = !falsy", script)
+
     def test_visual_smoke_exercises_chatgpt_import_controls(self):
         script = (ROOT / "scripts" / "test_pska_webui_visual.cjs").read_text(encoding="utf-8")
 

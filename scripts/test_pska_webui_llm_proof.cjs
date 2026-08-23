@@ -21,7 +21,10 @@ const HEADLESS = !truthy(process.env.PSKA_PLAYWRIGHT_HEADED);
 const KEEP_SESSION = truthy(process.env.PSKA_LLM_PROOF_KEEP_SESSION);
 const TIMEOUT_MS = Number(process.env.PSKA_LLM_PROOF_TIMEOUT_MS || 240000);
 const STORAGE_KEY = "pska-mini.hermes-webui.scope.v1";
-const RECORD_ANSWER_PROOF = !falsy(process.env.PSKA_LLM_PROOF_RECORD_ANSWER_PROOF);
+const ANSWER_PROOF_MODE = answerProofMode(
+  process.env.PSKA_LLM_PROOF_ANSWER_PROOF_MODE,
+  process.env.PSKA_LLM_PROOF_RECORD_ANSWER_PROOF,
+);
 
 function usage() {
   console.log(`Usage: node scripts/test_pska_webui_llm_proof.cjs
@@ -38,8 +41,15 @@ Environment:
   PSKA_LLM_PROOF_OUT            output directory, default: /tmp/pska-webui-llm-proof-*
   PSKA_LLM_PROOF_TIMEOUT_MS     default: 240000
   PSKA_LLM_PROOF_KEEP_SESSION   set to 1 to keep the created WebUI session
+  PSKA_LLM_PROOF_ANSWER_PROOF_MODE
+                                  auto, harness, or off. default: auto.
+                                  auto waits for the pska-mini extension's
+                                  non-blocking post-answer proof.
+                                  harness forces this script to POST a legacy
+                                  proof itself.
   PSKA_LLM_PROOF_RECORD_ANSWER_PROOF
-                                  set to 0/false/no/off to skip POSTing proof metadata to PSKA API
+                                  legacy alias: true forces harness mode,
+                                  false selects off mode
   PSKA_API_BASE_URL              default: http://127.0.0.1:8765
   PSKA_PLAYWRIGHT_HEADED        set to 1 for headed browser
 
@@ -63,6 +73,21 @@ function truthy(value) {
 
 function falsy(value) {
   return /^(0|false|no|off)$/iu.test(String(value || ""));
+}
+
+function answerProofMode(modeValue, legacyValue) {
+  const selected = String(modeValue || "").trim().toLowerCase();
+  if (selected) {
+    if (!["auto", "harness", "off"].includes(selected)) {
+      throw new Error("PSKA_LLM_PROOF_ANSWER_PROOF_MODE must be auto, harness, or off.");
+    }
+    return selected;
+  }
+  if (String(legacyValue || "").trim()) {
+    if (truthy(legacyValue)) return "harness";
+    if (falsy(legacyValue)) return "off";
+  }
+  return "auto";
 }
 
 function timestampSlug() {
@@ -288,7 +313,7 @@ async function recordAnswerProof(context, {
   answer,
   cleanupOk,
 }) {
-  if (!RECORD_ANSWER_PROOF) return null;
+  if (ANSWER_PROOF_MODE !== "harness") return null;
   const payload = {
     session_id: sessionId,
     caller: "webui-extension-llm-proof",
@@ -315,7 +340,7 @@ async function recordAnswerProof(context, {
   };
   const response = await context.request.post(`${PSKA_API}/api/hermes/answer-proofs`, { data: payload });
   const json = await safeJson(response);
-  assertCheck(checks, "Persist Hermes answer proof in PSKA audit", response.ok() && json?.ok !== false, {
+  assertCheck(checks, "Persist legacy harness answer proof in PSKA audit", response.ok() && json?.ok !== false, {
     pska_api: PSKA_API,
     status: response.status(),
     proof_id: json?.proof?.proof_id || "",
@@ -323,6 +348,84 @@ async function recordAnswerProof(context, {
     error: json?.error || null,
   });
   return json;
+}
+
+async function waitForAutomaticAnswerProof(context, {
+  sessionId,
+  answer,
+  proofSummary,
+  checks,
+}) {
+  if (ANSWER_PROOF_MODE !== "auto") return null;
+  if (!sessionId) throw new Error("Cannot verify automatic answer proof without a Hermes session_id.");
+  const deadline = Date.now() + 30000;
+  let lastPayload = null;
+  while (Date.now() < deadline) {
+    const response = await context.request.get(
+      `${PSKA_API}/api/hermes/answer-proofs?session_id=${encodeURIComponent(sessionId)}&limit=10`,
+    );
+    const json = await safeJson(response);
+    lastPayload = json;
+    if (response.ok() && json?.ok !== false) {
+      const proofs = Array.isArray(json?.proofs) ? json.proofs : [];
+      const proof = proofs.find((item) => isAutomaticExtensionProof(item, answer, proofSummary));
+      if (proof) {
+        assertCheck(checks, "Extension automatic answer proof recorded in PSKA audit", true, {
+          pska_api: PSKA_API,
+          proof_id: proof.proof_id || "",
+          audit_event_id: proof.audit_event_id || "",
+          caller: proof.caller || "",
+          answer_length: proof.answer?.length || 0,
+          completed_pska_tools: proof.tool_summary?.completed_pska_tools || [],
+        });
+        return {
+          mode: "auto",
+          status: "verified",
+          proof,
+          list_status: json.status || "",
+          proof_count: json.proof_count || proofs.length,
+        };
+      }
+    }
+    await sleep(750);
+  }
+  assertCheck(checks, "Extension automatic answer proof recorded in PSKA audit", false, {
+    pska_api: PSKA_API,
+    session_id: sessionId,
+    last_status: lastPayload?.status || "",
+    last_error: lastPayload?.error || null,
+    last_proof_count: lastPayload?.proof_count || 0,
+  });
+  return null;
+}
+
+function isAutomaticExtensionProof(proof, answer, proofSummary) {
+  if (!proof || typeof proof !== "object") return false;
+  const metadata = proof.metadata || {};
+  const completed = Array.isArray(proof.tool_summary?.completed_pska_tools)
+    ? proof.tool_summary.completed_pska_tools
+    : [];
+  const expectedCompleted = Array.isArray(proofSummary?.completed_pska_tools)
+    ? proofSummary.completed_pska_tools
+    : [];
+  return proof.caller === "hermes-webui-extension"
+    && metadata.automatic_after_answer_audit === true
+    && metadata.non_blocking === true
+    && metadata.data_plane === "pska"
+    && metadata.control_plane === "hermes_webui_extension"
+    && proof.data_flow?.data_plane === "pska"
+    && proof.data_flow?.non_blocking_after_answer_audit === true
+    && proof.answer?.stored_full_text === false
+    && proof.question?.stored_full_text === false
+    && Number(proof.answer?.length || 0) === String(answer || "").length
+    && String(proof.answer?.sha256 || "") === sha256(answer)
+    && String(proof.question?.sha256 || "") === sha256(QUESTION)
+    && proof.read_only === true
+    && expectedCompleted.every((name) => completed.includes(name));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function main() {
@@ -503,6 +606,13 @@ async function main() {
       ignored_page_errors: pageErrors.length - relevantPageErrors.length,
     });
 
+    answerProofRecord = await waitForAutomaticAnswerProof(context, {
+      sessionId,
+      answer: finalAnswer,
+      proofSummary,
+      checks,
+    });
+
     await cleanupSession(context, sessionId, checks);
     cleanupAttempted = true;
 
@@ -510,7 +620,7 @@ async function main() {
     if (failedCleanup) {
       throw new Error(`Cleanup temporary WebUI session failed: ${JSON.stringify(failedCleanup.detail)}`);
     }
-    answerProofRecord = await recordAnswerProof(context, {
+    if (!answerProofRecord) answerProofRecord = await recordAnswerProof(context, {
       sessionId,
       checks,
       proofSummary,
@@ -540,6 +650,7 @@ async function main() {
     question: QUESTION,
     session_id: sessionId,
     kept_session: KEEP_SESSION,
+    answer_proof_mode: ANSWER_PROOF_MODE,
     artifacts,
     proof_summary: proofSummary,
     answer_proof_record: answerProofRecord,

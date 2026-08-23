@@ -273,10 +273,10 @@ write_like_events = 0
 Final answer is substantive and source-oriented
 Visible user turn remains clean
 Temporary WebUI session cleanup OK
-Persist Hermes answer proof in PSKA audit OK
+Extension automatic answer proof recorded in PSKA audit OK
 ```
 
-这条 proof 会真实调用模型，因此不放进默认 `alpha-acceptance-webui`；需要展示 Hermes Agent 确实使用 PSKA 时再显式运行。成功后它会写入 `hermes.answer_proof` audit 事件；可通过 `GET /api/hermes/answer-proofs` 或 `GET /api/trace/query?action=hermes.answer_proof` 反查，保存的是问题/回答预览、哈希、工具调用摘要和检查结果，不保存完整回答文本。
+这条 proof 会真实调用模型，因此不放进默认 `alpha-acceptance-webui`；需要展示 Hermes Agent 确实使用 PSKA 时再显式运行。默认模式会等待并验证 `pska-mini` extension 在回答后静默写入的 `hermes.answer_proof` audit 事件；可通过 `GET /api/hermes/answer-proofs` 或 `GET /api/trace/query?action=hermes.answer_proof` 反查，保存的是问题/回答预览、哈希、工具调用摘要和检查结果，不保存完整回答文本。若需要旧的脚本直写 proof，可显式设置 `PSKA_LLM_PROOF_ANSWER_PROOF_MODE=harness`。
 
 ## 记忆治理状态
 
