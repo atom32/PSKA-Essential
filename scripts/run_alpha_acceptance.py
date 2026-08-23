@@ -243,6 +243,7 @@ def main() -> int:
                     f"status={demo_videos.get('status')} "
                     f"videos={demo_videos.get('video_count')}/{demo_videos.get('expected_video_count')} "
                     f"delivery={'yes' if demo_videos.get('delivery_pack') else 'no'} "
+                    f"preview={'yes' if demo_videos.get('delivery_preview') else 'no'} "
                     f"integrity={'yes' if demo_videos.get('delivery_integrity') else 'no'} "
                     f"handoff={'yes' if demo_videos.get('delivery_handoff') else 'no'}"
                 ),
@@ -560,12 +561,14 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
     video_count = _demo_video_count(checks)
     expected_video_count = len(DEMO_VIDEO_BASENAMES)
     delivery_pack = _demo_delivery_pack_present(checks)
+    delivery_preview = _demo_delivery_preview_present(checks)
     delivery_integrity = _demo_delivery_integrity_present(checks)
     delivery_handoff = _demo_delivery_handoff_present(checks)
     ok = (
         result.returncode == 0
         and video_count == expected_video_count
         and delivery_pack
+        and delivery_preview
         and delivery_integrity
         and delivery_handoff
     )
@@ -577,6 +580,7 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
         "video_count": video_count,
         "expected_video_count": expected_video_count,
         "delivery_pack": delivery_pack,
+        "delivery_preview": delivery_preview,
         "delivery_integrity": delivery_integrity,
         "delivery_handoff": delivery_handoff,
         "checks": checks,
@@ -754,6 +758,14 @@ def _demo_delivery_pack_present(checks: list[str]) -> bool:
     return any(
         line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
         and "delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README" in line
+        for line in checks
+    )
+
+
+def _demo_delivery_preview_present(checks: list[str]) -> bool:
+    return any(
+        line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
+        and "preview sheet" in line
         for line in checks
     )
 

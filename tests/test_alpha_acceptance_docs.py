@@ -37,16 +37,16 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "--include-eidolia-bridge",
             "make alpha-acceptance-demo",
             "recovery_boundary PASS status=ok recovery=needs_rehearsal",
-            "demo_video_pack PASS status=ok videos=5/5 delivery=yes integrity=yes handoff=yes",
+            "demo_video_pack PASS status=ok videos=5/5 delivery=yes preview=yes integrity=yes handoff=yes",
             "eidolia_bridge PASS status=ok review=reject",
             "make demo-browser-verify-videos",
             "10 ordered plain Chinese subtitles",
             "product-boundary-contract OK",
             "live-product-boundary-contract OK",
             "alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK",
-            "alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes, integrity=yes, handoff=yes",
-            "demo-browser-videos       OK, 5/5 videos, delivery pack, sha256 integrity, handoff note, pure Chinese subtitles",
-            "unittest                  566 tests OK",
+            "alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes, preview=yes, integrity=yes, handoff=yes",
+            "demo-browser-videos       OK, 5/5 videos, delivery pack, preview sheet, sha256 integrity, handoff note, pure Chinese subtitles",
+            "unittest                  567 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):
