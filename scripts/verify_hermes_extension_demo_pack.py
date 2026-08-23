@@ -404,6 +404,14 @@ def verify_customer_walkthrough_manifest(path: Path, payload: dict[str, Any]) ->
     }
     if sources != expected_sources:
         raise SystemExit(f"{path} expected source recordings {sorted(expected_sources)}, got {sorted(sources)}")
+    cleanup = composition.get("visual_cleanup") or {}
+    if cleanup.get("sidebar_history_masked") is not True:
+        raise SystemExit(f"{path} expected customer walkthrough to mask browser history/sidebar titles")
+    mask_filters = cleanup.get("mask_filters") or []
+    if not isinstance(mask_filters, list) or len(mask_filters) < 2:
+        raise SystemExit(f"{path} expected visual cleanup mask_filters")
+    if any("drawbox=" not in str(mask_filter or "") for mask_filter in mask_filters):
+        raise SystemExit(f"{path} expected visual cleanup drawbox filters")
     durations = {
         str(scene.get("id") or ""): float(scene.get("endsAt") or 0) - float(scene.get("startsAt") or 0)
         for scene in payload.get("timeline") or []

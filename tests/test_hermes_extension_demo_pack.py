@@ -6,6 +6,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "verify_hermes_extension_demo_pack.py"
+CUSTOMER_BUILDER_PATH = ROOT / "scripts" / "build_customer_demo_video.py"
 
 
 def load_verifier():
@@ -86,6 +87,14 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
                 ("hermes_pska_customer_walkthrough_demo", ""),
             ],
         )
+
+    def test_customer_video_builder_masks_browser_history_titles(self):
+        script = CUSTOMER_BUILDER_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("SIDEBAR_HISTORY_MASK_FILTER", script)
+        self.assertIn("sidebar_history_masked", script)
+        self.assertIn("hide_sidebar=True", script)
+        self.assertIn("customer_facing_operational_walkthrough", script)
 
     def test_plain_chinese_subtitle_check_rejects_english_terms(self):
         with self.assertRaises(SystemExit):

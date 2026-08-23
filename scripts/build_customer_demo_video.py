@@ -21,6 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEMO_DIR = ROOT / "demo" / "browser" / "hermes_pska_extension_demo"
 DIST_DIR = DEMO_DIR / "dist"
 DEFAULT_OUTPUT_BASENAME = "hermes_pska_customer_walkthrough_demo"
+SIDEBAR_HISTORY_MASK_FILTER = "drawbox=x=48:y=80:w=300:h=580:color=0b0d19@1:t=fill"
+SIDEBAR_HISTORY_LOWER_EDGE_MASK_FILTER = "drawbox=x=48:y=640:w=64:h=80:color=0b0d19@1:t=fill"
 
 
 @dataclass(frozen=True)
@@ -210,7 +212,8 @@ def render_clips(dist_dir: Path, build_dir: Path) -> list[dict[str, Any]]:
 def render_clip(source: Path, output: Path, clip: Clip) -> None:
     video_filters = ["scale=1280:720", "fps=25", "format=yuv420p"]
     if clip.hide_sidebar:
-        video_filters.append("drawbox=x=48:y=80:w=300:h=560:color=0b0d19@1:t=fill")
+        video_filters.append(SIDEBAR_HISTORY_MASK_FILTER)
+        video_filters.append(SIDEBAR_HISTORY_LOWER_EDGE_MASK_FILTER)
     subprocess.run(
         [
             "ffmpeg",
@@ -323,6 +326,13 @@ def write_manifest(
             "source_recordings": sorted({clip.source for clip in CLIPS}),
             "audio": "none",
             "purpose": "customer_facing_operational_walkthrough",
+            "visual_cleanup": {
+                "sidebar_history_masked": True,
+                "mask_filters": [
+                    SIDEBAR_HISTORY_MASK_FILTER,
+                    SIDEBAR_HISTORY_LOWER_EDGE_MASK_FILTER,
+                ],
+            },
         },
     }
     manifest.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
