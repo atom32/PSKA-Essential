@@ -37,6 +37,29 @@
 
 这些字幕已经按“客户能听懂”的口径写好，不使用英文术语。
 
+## 最省事的交付方式
+
+如果只是要给客户看，不需要重新录制。直接使用已经合成好的客户版主片：
+
+```text
+demo/browser/hermes_pska_extension_demo/dist/hermes_pska_customer_walkthrough_demo.mp4
+```
+
+推荐按这个顺序处理：
+
+1. 先看 `hermes_pska_customer_walkthrough_demo_preview_sheet.jpg`，确认画面顺序。
+2. 把 `hermes_pska_customer_walkthrough_demo.mp4` 导入剪映。
+3. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕。
+4. 用 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md` 生成中文配音。
+5. 导出前检查最后一段是否保留创作画布、想法节点、产物节点和续写草稿。
+
+对外转交时，优先发送：
+
+```text
+demo/browser/hermes_pska_extension_demo/dist/hermes_pska_customer_walkthrough_demo_delivery_pack.zip
+demo/browser/hermes_pska_extension_demo/dist/hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256
+```
+
 ## 重新录制前检查
 
 先确认三个入口在线：
@@ -120,6 +143,23 @@ python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-vide
 5. 如果要发给他人处理，使用 `hermes_pska_customer_walkthrough_demo_delivery_pack.zip`，并同时带上旁边的 `.zip.sha256` 校验文件和 `_delivery_handoff.zh.md` 外部说明。
 6. 如果要加长讲解，再补财报案例或网文案例的完整视频。
 
+## 实操讲解顺序
+
+录制或现场讲解时，不要先讲架构。按客户实际使用顺序讲：
+
+| 顺序 | 画面动作 | 讲给客户听的话 |
+| --- | --- | --- |
+| 1 | 打开对话工作台 | 这是用户每天提问和工作的地方，不需要另开系统。 |
+| 2 | 点开知识助手入口 | 这个入口负责选择资料、查看状态、准备回答。 |
+| 3 | 选择本轮资料范围 | 这次只看用户允许的资料，不扫全盘。 |
+| 4 | 点开始前总览 | 系统先告诉用户现在有哪些资料、记忆和待办。 |
+| 5 | 点回答前整理 | 系统把本轮要用的资料和记忆整理好，再交给助手回答。 |
+| 6 | 在对话框里发问 | 用户仍然像平时一样聊天，不用跳到新页面。 |
+| 7 | 打开记忆页 | 适合长期保存的内容会进入待确认区，用户确认后才保存。 |
+| 8 | 展示财报案例 | 证明它能查真实资料，并生成可继续修改的报告草稿。 |
+| 9 | 展示网文案例 | 证明它能找回设定、反馈和章节问题，辅助续写。 |
+| 10 | 打开创作画布 | 资料和想法沉淀到画布里，最后形成可审阅的产物。 |
+
 ## 旁白口径
 
 尽量使用这些说法：
@@ -147,6 +187,11 @@ python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-vide
 - 长期记忆不是自动乱写，而是有待确认内容。
 - 回答记录和整理任务能被追踪。
 - 创作画布里能看到想法节点和产物节点，并出现财报报告或小说续写草稿。
+
+其中创作画布不是装饰镜头。必须让客户看懂两件事：
+
+- “想法”节点承接设定、反馈、资料线索和下一步方向。
+- “产物”节点承接报告草稿、续写草稿和后续可交付内容。
 
 ## 不要拍的内容
 
