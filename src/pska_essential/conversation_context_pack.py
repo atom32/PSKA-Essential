@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from http.cookiejar import CookieJar
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlencode
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
@@ -46,10 +47,20 @@ def assemble_conversation_context_pack(service: WorkflowService, payload: dict[s
     )
 
     warnings: list[dict[str, str]] = []
-    memory_blocks = _memory_blocks(service, user_message, scope, budget, run.run_id, payload, mode, warnings)
-    conversation_blocks = _conversation_blocks(user_message, scope, budget, payload, warnings)
-    evidence_blocks = _evidence_blocks(service, user_message, scope, budget, run.run_id, mode, warnings)
-    source_blocks = _source_blocks(service, user_message, scope, budget, mode, warnings)
+    collected = _collect_context_blocks(
+        service=service,
+        query=user_message,
+        scope=scope,
+        budget=budget,
+        run_id=run.run_id,
+        payload=payload,
+        mode=mode,
+    )
+    warnings.extend(collected["warnings"])
+    memory_blocks = collected["blocks"]["memory"]
+    conversation_blocks = collected["blocks"]["conversation"]
+    evidence_blocks = collected["blocks"]["evidence"]
+    source_blocks = collected["blocks"]["source"]
 
     blocks = _budgeted_blocks(
         _dedupe_blocks([*memory_blocks, *conversation_blocks, *evidence_blocks, *source_blocks]),
@@ -66,6 +77,7 @@ def assemble_conversation_context_pack(service: WorkflowService, payload: dict[s
         "citations": _citations(blocks),
         "warnings": warnings,
         "source_counts": source_counts,
+        "data_flow": _context_pack_data_flow(payload, collected["attempted_sources"]),
         "instructions": [
             "Use these context blocks as bounded recall, not as the full truth of the user.",
             "Keep facts, user memory, conversation recall, and retrieved documents separated by source.",
@@ -120,6 +132,95 @@ def turn_context_from_pack(context_pack: dict[str, Any]) -> dict[str, Any]:
         "citations": list(context_pack.get("citations") or []),
         "warnings": list(context_pack.get("warnings") or []),
     }
+
+
+def _collect_context_blocks(
+    *,
+    service: WorkflowService,
+    query: str,
+    scope: dict[str, Any],
+    budget: _Budget,
+    run_id: str,
+    payload: dict[str, Any],
+    mode: str,
+) -> dict[str, Any]:
+    collectors: dict[str, Callable[[], tuple[list[dict[str, Any]], list[dict[str, str]]]]] = {
+        "memory": lambda: _collect_with_warnings(
+            _memory_blocks,
+            service,
+            query,
+            scope,
+            budget,
+            run_id,
+            payload,
+            mode,
+        ),
+        "conversation": lambda: _collect_with_warnings(
+            _conversation_blocks,
+            query,
+            scope,
+            budget,
+            payload,
+        ),
+        "evidence": lambda: _collect_with_warnings(
+            _evidence_blocks,
+            service,
+            query,
+            scope,
+            budget,
+            run_id,
+            mode,
+        ),
+        "source": lambda: _collect_with_warnings(
+            _source_blocks,
+            service,
+            query,
+            scope,
+            budget,
+            mode,
+        ),
+    }
+    order = ["memory", "conversation", "evidence", "source"]
+    results: dict[str, list[dict[str, Any]]] = {name: [] for name in order}
+    warnings: list[dict[str, str]] = []
+    with ThreadPoolExecutor(max_workers=len(collectors), thread_name_prefix="pska-context-pack") as executor:
+        futures = {name: executor.submit(collector) for name, collector in collectors.items()}
+        for name in order:
+            blocks, source_warnings = futures[name].result()
+            results[name] = blocks
+            warnings.extend(source_warnings)
+    return {
+        "blocks": results,
+        "warnings": warnings,
+        "attempted_sources": order,
+    }
+
+
+def _collect_with_warnings(func: Callable[..., list[dict[str, Any]]], *args: Any) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    warnings: list[dict[str, str]] = []
+    return func(*args, warnings), warnings
+
+
+def _context_pack_data_flow(payload: dict[str, Any], attempted_sources: list[str]) -> dict[str, Any]:
+    caller = str(payload.get("caller") or "").strip()
+    return {
+        "control_plane": _control_plane(caller),
+        "data_plane": "pska",
+        "aggregation": "parallel",
+        "attempted_sources": list(attempted_sources),
+        "query_based_conversation_recall": True,
+        "whole_recent_history_injected": False,
+        "extension_reads_hermes_database": False,
+        "writes_memory_directly": False,
+        "writes_source_files": False,
+    }
+
+
+def _control_plane(caller: str) -> str:
+    normalized = caller.strip().lower().replace("-", "_")
+    if normalized == "hermes_webui_extension":
+        return "hermes_webui_extension"
+    return caller or "api"
 
 
 def _required_message(payload: dict[str, Any]) -> str:

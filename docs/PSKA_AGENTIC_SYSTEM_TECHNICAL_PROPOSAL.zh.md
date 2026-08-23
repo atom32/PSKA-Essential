@@ -52,11 +52,12 @@ PSKA 的日常对话路径不是把所有历史对话、文件和记忆直接塞
        enable / mode / dataset scope / source root scope / current session hints
   -> PSKA Product API
        POST /api/conversation/context-pack
-          1. 查 GBrain / PSKA active memory
-          2. 通过 Hermes Conversation Recall Provider 查询相关历史对话片段
-          3. 查 RAGFlow dataset 和 source roots
-          4. 去重、排序、压缩、标来源
-          5. 生成 bounded context pack
+          并行查：
+            1. GBrain / PSKA active memory
+            2. Hermes Conversation Recall Provider 的相关历史对话片段
+            3. RAGFlow dataset evidence
+            4. source roots
+          再由 PSKA 去重、排序、压缩、标来源，生成 bounded context pack
   -> Hermes Agent
        使用 context pack 回答
        需要深查时再调用 PSKA HTTP MCP tools

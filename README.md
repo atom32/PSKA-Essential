@@ -866,6 +866,14 @@ export, write durable memory, or create reviews; stable claims must still be
 promoted later through governed memory review. Re-importing into the same
 archive folder removes only stale PSKA-managed import files with PSKA markers;
 unmarked user files in that folder are left untouched.
+`/api/conversation/context-pack` is the main PSKA data-plane entry for Hermes
+turns. The Hermes WebUI extension sends only the current message, mode, and
+selected scopes; PSKA then runs memory recall, Hermes conversation recall,
+RAGFlow evidence retrieval, and source-root search in parallel before applying
+dedupe, budget trimming, citations, and source labels. The returned
+`data_flow` contract explicitly marks `aggregation=parallel`, `data_plane=pska`,
+`query_based_conversation_recall=true`, and
+`whole_recent_history_injected=false`.
 `pska_chatgpt_conversations_import_to_hermes_history` is the partial-history
 bridge for day-to-day dogfooding. It normalizes a bounded slice of a ChatGPT
 conversation export, defaults to the most recently updated conversations, asks

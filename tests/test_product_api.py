@@ -2938,6 +2938,16 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(context_pack["source_counts"]["memory"], 1)
         self.assertEqual(context_pack["source_counts"]["conversation"], 1)
         self.assertEqual(context_pack["source_counts"]["evidence"], 1)
+        self.assertEqual(context_pack["data_flow"]["control_plane"], "hermes_webui_extension")
+        self.assertEqual(context_pack["data_flow"]["data_plane"], "pska")
+        self.assertEqual(context_pack["data_flow"]["aggregation"], "parallel")
+        self.assertEqual(
+            context_pack["data_flow"]["attempted_sources"],
+            ["memory", "conversation", "evidence", "source"],
+        )
+        self.assertTrue(context_pack["data_flow"]["query_based_conversation_recall"])
+        self.assertFalse(context_pack["data_flow"]["whole_recent_history_injected"])
+        self.assertFalse(context_pack["data_flow"]["extension_reads_hermes_database"])
         block_types = [block["type"] for block in context_pack["blocks"]]
         self.assertIn("memory", block_types)
         self.assertIn("conversation", block_types)
