@@ -171,6 +171,26 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
 
         self.assertEqual(module._demo_video_count(["unknown.mp4: 1.0s"]), 0)
 
+    def test_demo_delivery_pack_presence_detects_customer_zip(self):
+        module = _load_script_module()
+
+        self.assertTrue(
+            module._demo_delivery_pack_present(
+                [
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README",
+                ]
+            )
+        )
+        self.assertFalse(module._demo_delivery_pack_present(["hermes_pska_customer_walkthrough_demo.mp4: 325.4s"]))
+
+    def test_demo_acceptance_requires_video_and_delivery_pack(self):
+        script = (ROOT / "scripts" / "run_alpha_acceptance.py").read_text(encoding="utf-8")
+
+        self.assertIn('"--require-video"', script)
+        self.assertIn('"--require-delivery-pack"', script)
+        self.assertIn('"delivery_pack": delivery_pack', script)
+        self.assertIn("delivery={'yes' if demo_videos.get('delivery_pack') else 'no'}", script)
+
     def test_eidolia_bridge_rejects_temporary_review_after_trace(self):
         module = _load_script_module()
         calls = []

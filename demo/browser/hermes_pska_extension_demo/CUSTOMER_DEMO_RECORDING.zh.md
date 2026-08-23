@@ -26,7 +26,7 @@
 
 ## 现有可用素材
 
-本机已经有四个通过检查的视频包，都没有音轨，适合导入剪映后配音：
+本机已经有五个通过检查的视频包，都没有音轨，适合导入剪映后配音：
 
 - `dist/hermes_pska_customer_walkthrough_demo.mp4`：客户版合成主片，约五分二十五秒。
 - `dist/hermes_pska_extension_demo_long.mp4`：核心长版，约三分二十一秒。

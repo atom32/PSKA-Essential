@@ -99,11 +99,11 @@ demo-browser-verify:
 	$(PYTHON) scripts/verify_hermes_extension_demo_pack.py
 
 demo-browser-verify-videos:
-	$(PYTHON) scripts/verify_hermes_extension_demo_pack.py --all-videos
+	$(PYTHON) scripts/verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack
 
 demo-browser-package:
 	@echo "Legacy diagnostic-page demo packaging is disabled."
-	@echo "Use node scripts/record_hermes_pska_extension_demo.cjs, then python3 scripts/verify_hermes_extension_demo_pack.py --require-video."
+	@echo "Use node scripts/record_hermes_pska_extension_demo.cjs, python3 scripts/build_customer_demo_video.py, then python3 scripts/package_customer_demo_assets.py."
 
 serve-api:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.product_api $(ENV_FILE_ARG)

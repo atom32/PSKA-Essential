@@ -241,7 +241,8 @@ def main() -> int:
                 bool(demo_videos.get("ok")),
                 (
                     f"status={demo_videos.get('status')} "
-                    f"videos={demo_videos.get('video_count')}/{demo_videos.get('expected_video_count')}"
+                    f"videos={demo_videos.get('video_count')}/{demo_videos.get('expected_video_count')} "
+                    f"delivery={'yes' if demo_videos.get('delivery_pack') else 'no'}"
                 ),
                 checks=demo_videos.get("checks") or [],
             )
@@ -538,7 +539,13 @@ def _run_recovery_boundary(api_base_url: str) -> dict[str, Any]:
 
 
 def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]:
-    command = [sys.executable, "scripts/verify_hermes_extension_demo_pack.py", "--all-videos"]
+    command = [
+        sys.executable,
+        "scripts/verify_hermes_extension_demo_pack.py",
+        "--all-videos",
+        "--require-video",
+        "--require-delivery-pack",
+    ]
     result = subprocess.run(
         command,
         cwd=ROOT,
@@ -550,7 +557,8 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
     checks = _boundary_check_lines(result.stdout)
     video_count = _demo_video_count(checks)
     expected_video_count = len(DEMO_VIDEO_BASENAMES)
-    ok = result.returncode == 0 and video_count == expected_video_count
+    delivery_pack = _demo_delivery_pack_present(checks)
+    ok = result.returncode == 0 and video_count == expected_video_count and delivery_pack
     return {
         "ok": ok,
         "status": "ok" if ok else "failed",
@@ -558,6 +566,7 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
         "returncode": result.returncode,
         "video_count": video_count,
         "expected_video_count": expected_video_count,
+        "delivery_pack": delivery_pack,
         "checks": checks,
         "stdout": result.stdout,
         "stderr": result.stderr,
@@ -727,6 +736,14 @@ def _demo_video_count(checks: list[str]) -> int:
             if line.startswith(f"{basename}.mp4:"):
                 seen.add(basename)
     return len(seen)
+
+
+def _demo_delivery_pack_present(checks: list[str]) -> bool:
+    return any(
+        line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
+        and "delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README" in line
+        for line in checks
+    )
 
 
 def _eidolia_step(name: str, ok: bool, message: str) -> dict[str, Any]:

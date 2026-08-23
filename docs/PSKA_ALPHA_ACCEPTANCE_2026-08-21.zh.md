@@ -4,7 +4,7 @@
 
 ## 结论
 
-当前本机 dogfood 实例达到 `alpha_ready`，并且 Hermes WebUI 扩展、浏览器级视觉检查、真实发问注入、完整组件闭环和四段演示视频都已重新验证。
+当前本机 dogfood 实例达到 `alpha_ready`，并且 Hermes WebUI 扩展、浏览器级视觉检查、真实发问注入、完整组件闭环、五套演示视频和客户主片交付包都已重新验证。
 
 ```text
 alpha_readiness.status = alpha_ready
@@ -191,7 +191,7 @@ make alpha-acceptance-demo ENV_FILE=.env.pska PYTHON=.venv/bin/python
 真实 WebUI extension 和 sidecar consent
 WebUI 扩展契约、视觉布局、发问注入链路
 恢复计划只读、备份/恢复演练项可见、native source writeback 仍锁定
-四套浏览器演示视频、无音频、十段纯中文字幕
+五套浏览器演示视频、无音频、十段纯中文字幕，客户主片交付包可用
 Eidolia thought/artifact 进入 PSKA SourceRef 和 Review，而不写长期记忆
 ```
 
@@ -199,7 +199,7 @@ artifact 中会多出：
 
 ```text
 recovery_boundary PASS status=ok recovery=needs_rehearsal
-demo_video_pack PASS status=ok videos=4/4
+demo_video_pack PASS status=ok videos=5/5 delivery=yes
 eidolia_bridge PASS status=ok review=reject
 ```
 
@@ -218,6 +218,8 @@ hermes_pska_extension_demo.mp4       88.9s   1280x720 no audio 10 ordered plain 
 hermes_pska_extension_demo_long.mp4  200.8s  1280x720 no audio 10 ordered plain Chinese subtitles
 hermes_pska_finance_case_demo.mp4    123.4s  1280x720 no audio 10 ordered plain Chinese subtitles
 hermes_pska_webnovel_case_demo.mp4   133.5s  1280x720 no audio 10 ordered plain Chinese subtitles
+hermes_pska_customer_walkthrough_demo.mp4 325.4s 1280x720 no audio 10 ordered plain Chinese subtitles
+hermes_pska_customer_walkthrough_demo_delivery_pack.zip contains video, subtitles, voiceover, storyboard, manifests, and README
 ```
 
 演示包验证器同时检查：
@@ -279,7 +281,7 @@ Agentic Context Brief / Jarvis Brief
 Source Recall
 Eidolia 创作场景与 trace/source bridge
 Alpha trial guide / recovery plan / first-run checklist
-四段浏览器操作演示视频
+五套浏览器操作演示视频和客户主片交付包
 ```
 
 仍保持锁定或可选的能力：
@@ -325,7 +327,7 @@ HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
-演示前总闸，额外把四套录制视频、纯中文字幕和 Eidolia-to-PSKA bridge proof 纳入同一个 alpha acceptance artifact：
+演示前总闸，额外把五套录制视频、客户主片交付包、纯中文字幕和 Eidolia-to-PSKA bridge proof 纳入同一个 alpha acceptance artifact：
 
 ```bash
 NODE_PATH=/tmp/pska-playwright/node_modules \
@@ -354,9 +356,9 @@ alpha-acceptance          OK
 product-boundary-contract OK
 live-product-boundary-contract OK
 alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK
-alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 4/4 videos
-demo-browser-videos       OK, 4/4 videos, pure Chinese subtitles
-unittest                  529 tests OK
+alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes
+demo-browser-videos       OK, 5/5 videos, delivery pack, pure Chinese subtitles
+unittest                  557 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

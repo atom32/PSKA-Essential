@@ -122,6 +122,20 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
         self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
 
+    def test_customer_recording_manual_uses_customer_facing_scope(self):
+        manual = (
+            ROOT
+            / "demo"
+            / "browser"
+            / "hermes_pska_extension_demo"
+            / "CUSTOMER_DEMO_RECORDING.zh.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("五个通过检查的视频包", manual)
+        self.assertIn("不要录独立的知识助手页面作为主入口", manual)
+        self.assertIn("创作画布里能看到想法节点和产物节点", manual)
+        self.assertIn("--require-delivery-pack", manual)
+
     def test_plain_chinese_subtitle_check_rejects_english_terms(self):
         with self.assertRaises(SystemExit):
             self.verifier.verify_plain_chinese_subtitles(

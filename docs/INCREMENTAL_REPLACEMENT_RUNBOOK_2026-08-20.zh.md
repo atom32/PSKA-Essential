@@ -725,10 +725,12 @@ python3 scripts/verify_hermes_extension_demo_pack.py
 make demo-browser-verify
 make demo-browser-verify-videos
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video
-python3 scripts/verify_hermes_extension_demo_pack.py --all-videos
+python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --basename hermes_pska_extension_demo_long --min-duration 180
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case finance_report_research --basename hermes_pska_finance_case_demo --min-duration 120
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webnovel_author --basename hermes_pska_webnovel_case_demo --min-duration 120
+python3 scripts/build_customer_demo_video.py
+python3 scripts/package_customer_demo_assets.py
 ```
 
 验证器本身已内置最低时长门槛：核心短版 `30s`，核心长版 `180s`，财报和网文业务 case
@@ -742,6 +744,8 @@ python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webn
 - finance case：`123.4s`，`1280x720`，无音轨，10 段纯中文字幕。
 - webnovel case：`133.5s`，`1280x720`，无音轨，10 段纯中文字幕；Eidolia 镜头保留
   `23.6s`，展示想法/产物两类节点与续写草稿。
+- customer walkthrough：`325.4s`，`1280x720`，无音轨，10 段纯中文字幕；客户主片交付包
+  包含视频、字幕、旁白稿、分镜、清单和说明。
 
 ## 当前开发环境结论
 
