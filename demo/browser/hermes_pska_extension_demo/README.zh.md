@@ -30,6 +30,21 @@
 
 ## 录制命令
 
+推荐使用一键录制和交付包生成：
+
+```bash
+HERMES_WEBUI_PASSWORD='***' make demo-browser-customer-record-package
+```
+
+它会依次录制核心长版、财报案例、网文/Eidolia 案例，再合成客户版主片并生成交付压缩包。
+如果只想检查将要执行的命令：
+
+```bash
+make demo-browser-customer-record-package DEMO_RECORD_ARGS="--dry-run"
+```
+
+下面的命令用于单独录制某个片段。
+
 脚本只生成视频和字幕，不生成 TTS 音轨。
 
 ```bash

@@ -3,6 +3,8 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -12,6 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "verify_hermes_extension_demo_pack.py"
 CUSTOMER_BUILDER_PATH = ROOT / "scripts" / "build_customer_demo_video.py"
 CUSTOMER_PACKAGER_PATH = ROOT / "scripts" / "package_customer_demo_assets.py"
+CUSTOMER_RECORDER_PATH = ROOT / "scripts" / "record_customer_demo_pack.py"
 
 
 def load_verifier():
@@ -132,10 +135,34 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
     def test_makefile_has_customer_delivery_pack_target(self):
         makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
 
+        self.assertIn("demo-browser-customer-record-package", makefile)
+        self.assertIn("scripts/record_customer_demo_pack.py", makefile)
+        self.assertIn("DEMO_RECORD_ARGS", makefile)
         self.assertIn("demo-browser-customer-package", makefile)
         self.assertIn("scripts/build_customer_demo_video.py", makefile)
         self.assertIn("scripts/package_customer_demo_assets.py", makefile)
         self.assertIn("--all-videos --require-video --require-delivery-pack", makefile)
+
+    def test_customer_demo_recorder_dry_run_covers_full_recording_pipeline(self):
+        result = subprocess.run(
+            [sys.executable, str(CUSTOMER_RECORDER_PATH), "--dry-run"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("[dry-run] 核心长版", result.stdout)
+        self.assertIn("[dry-run] 财报调研案例", result.stdout)
+        self.assertIn("[dry-run] 网文续写和创作画布案例", result.stdout)
+        self.assertIn("record_hermes_pska_extension_demo.cjs --case core", result.stdout)
+        self.assertIn("--output-basename hermes_pska_extension_demo_long", result.stdout)
+        self.assertIn("--case finance_report_research", result.stdout)
+        self.assertIn("--case webnovel_author", result.stdout)
+        self.assertIn("build_customer_demo_video.py", result.stdout)
+        self.assertIn("package_customer_demo_assets.py", result.stdout)
+        self.assertIn("verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack", result.stdout)
 
     def test_verifier_can_require_customer_delivery_pack(self):
         script = SCRIPT_PATH.read_text(encoding="utf-8")
@@ -257,6 +284,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("五个通过检查的视频包", manual)
         self.assertIn("最省事的交付方式", manual)
         self.assertIn("实操讲解顺序", manual)
+        self.assertIn("make demo-browser-customer-record-package", manual)
+        self.assertIn("DEMO_RECORD_ARGS=\"--dry-run\"", manual)
         self.assertIn("按客户实际使用顺序讲", manual)
         self.assertIn("hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256", manual)
         self.assertIn("不要录独立的知识助手页面作为主入口", manual)

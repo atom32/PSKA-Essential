@@ -78,6 +78,22 @@ curl -fsS http://127.0.0.1:8797/api/agent/health
 
 ## 重新录制命令
 
+优先使用一键重录和打包：
+
+```bash
+HERMES_WEBUI_PASSWORD=011235 make demo-browser-customer-record-package
+```
+
+这条命令会依次录制核心长版、财报案例、网文续写和创作画布案例，然后合成客户版主片、生成字幕和旁白稿、打包交付文件，并做完整检查。
+
+如果只想先看会执行什么，不实际录制：
+
+```bash
+make demo-browser-customer-record-package DEMO_RECORD_ARGS="--dry-run"
+```
+
+下面的三条命令用于单独重录某一段，或者排查某个 case 的问题。
+
 核心长版：
 
 ```bash
