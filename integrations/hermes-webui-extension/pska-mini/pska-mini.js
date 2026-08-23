@@ -12,6 +12,11 @@
   const PANEL_NAME = "pska-mini";
   const MAIN_PANEL_ID = "mainPskaMini";
   const DASHBOARD_REQUEST_TIMEOUT_MS = 30000;
+  const ANSWER_PROOF_PREVIEW_CHARS = 600;
+  const ANSWER_PROOF_MAX_TOOL_EVENTS = 80;
+  const ANSWER_PROOF_MAX_SOURCE_REFS = 30;
+  const ANSWER_PROOF_FINALIZE_DELAY_MS = 1500;
+  const ANSWER_PROOF_WRITE_LIKE_RE = /(?:memory|review|source|file|kanban|task|digest).*?(?:apply|write|save|create|update|patch|delete|remove|decision|archive)|(?:apply|write|save|create|update|patch|delete|remove|decision|archive).*?(?:memory|review|source|file|kanban|task|digest)/iu;
   const BUILTIN_MAIN_CLASSES = [
     "showing-settings",
     "showing-skills",
@@ -33,7 +38,10 @@
   let sendBridgeInstalling = false;
   let sendBridgeInjecting = false;
   let apiBridgeInstalling = false;
+  let answerProofBridgeInstalling = false;
   let pendingChatStartInjection = null;
+  let pendingAnswerProofTurns = [];
+  const activeAnswerProofTurns = new Map();
   let memoryPage = {
     loading: false,
     loadedAt: "",
@@ -123,6 +131,7 @@
     installNavButtons();
     installMemoryPage();
     installComposerChip();
+    installAnswerProofBridge();
     installApiBridge();
     installDisplaySanitizer();
     installVisibleEnvelopeCleaner();
@@ -497,15 +506,25 @@
     memoryPage = { ...memoryPage, loading: true, error: "", message: "Loading PSKA memory..." };
     renderMemoryPage();
     try {
-      await Promise.all([
-        refreshDashboard(),
-        loadFirstRunSession(),
-        loadAnswerProofs(),
-        loadMemoryPageReviews(),
-        runSourceEvidenceSearch({ silentEmpty: true, skipIfNoScope: true }),
-        runMemoryPageSearch({ silentEmpty: true })
-      ]);
-      memoryPage = { ...memoryPage, loading: false, loadedAt: new Date().toLocaleTimeString(), message: "Loaded." };
+      const tasks = [
+        ["dashboard", () => refreshDashboard()],
+        ["first-run", () => loadFirstRunSession()],
+        ["answer-proofs", () => loadAnswerProofs()],
+        ["reviews", () => loadMemoryPageReviews()],
+        ["source-evidence", () => runSourceEvidenceSearch({ silentEmpty: true, skipIfNoScope: true })],
+        ["memory-search", () => runMemoryPageSearch({ silentEmpty: true })]
+      ];
+      const results = await Promise.allSettled(tasks.map(([, task]) => task()));
+      const failed = results
+        .map((result, index) => result.status === "rejected" ? `${tasks[index][0]}: ${errorText(result.reason)}` : "")
+        .filter(Boolean);
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        loadedAt: new Date().toLocaleTimeString(),
+        message: failed.length ? `Loaded with ${failed.length} warning(s).` : "Loaded.",
+        error: failed.slice(0, 2).join(" · ")
+      };
     } catch (error) {
       memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
     }
@@ -513,7 +532,7 @@
   }
 
   async function loadFirstRunSession() {
-    const data = await pskaMiniFetchJson("/api/alpha/first-run-session", { timeoutMs: 15000 });
+    const data = await pskaMiniFetchJson("/api/alpha/first-run-session", { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS });
     memoryPage = {
       ...memoryPage,
       firstRunSession: data.alpha_first_run_session || null,
@@ -2635,6 +2654,239 @@
     tryInstall();
   }
 
+  function installAnswerProofBridge() {
+    if (answerProofBridgeInstalling) return;
+    answerProofBridgeInstalling = true;
+    const tryInstall = () => {
+      const NativeEventSource = window.EventSource;
+      if (typeof NativeEventSource !== "function") {
+        window.setTimeout(tryInstall, 250);
+        return;
+      }
+      if (NativeEventSource.__pskaMiniAnswerProofWrapped) return;
+      function PSKAMiniAnswerProofEventSource(url, config) {
+        const source = new NativeEventSource(url, config);
+        const href = String(url || "");
+        if (href.includes("/api/chat/stream")) {
+          attachAnswerProofStream(source, href);
+        }
+        return source;
+      }
+      PSKAMiniAnswerProofEventSource.prototype = NativeEventSource.prototype;
+      try {
+        Object.setPrototypeOf(PSKAMiniAnswerProofEventSource, NativeEventSource);
+      } catch (_) {}
+      PSKAMiniAnswerProofEventSource.CONNECTING = NativeEventSource.CONNECTING;
+      PSKAMiniAnswerProofEventSource.OPEN = NativeEventSource.OPEN;
+      PSKAMiniAnswerProofEventSource.CLOSED = NativeEventSource.CLOSED;
+      PSKAMiniAnswerProofEventSource.__pskaMiniAnswerProofWrapped = true;
+      PSKAMiniAnswerProofEventSource.__pskaMiniOriginal = NativeEventSource;
+      window.EventSource = PSKAMiniAnswerProofEventSource;
+    };
+    tryInstall();
+  }
+
+  function attachAnswerProofStream(source, href) {
+    const turn = claimPendingAnswerProofTurn(href);
+    if (!turn || !source || typeof source.addEventListener !== "function") return;
+    activeAnswerProofTurns.set(turn.streamId, turn);
+    [
+      "tool",
+      "tool_complete",
+      "done",
+      "stream_end",
+      "warning",
+      "error",
+      "apperror",
+      "cancel"
+    ].forEach((eventName) => {
+      source.addEventListener(eventName, (event) => recordAnswerProofStreamEvent(turn, eventName, event));
+    });
+  }
+
+  function claimPendingAnswerProofTurn(href) {
+    prunePendingAnswerProofTurns();
+    const turn = pendingAnswerProofTurns.shift();
+    if (!turn) return null;
+    turn.streamUrl = String(href || "");
+    turn.streamId = streamIdFromUrl(href) || turn.streamId || `stream_${Date.now().toString(36)}`;
+    return turn;
+  }
+
+  function recordAnswerProofStreamEvent(turn, eventName, event) {
+    if (!turn || turn.recordStarted) return;
+    const payload = parseEventPayload(event);
+    const item = {
+      type: eventName,
+      at: new Date().toISOString(),
+      name: eventToolName(payload),
+      is_error: Boolean(payload?.is_error || payload?.error),
+      args_preview: toolArgsPreview(payload)
+    };
+    if (eventName === "tool" || eventName === "tool_complete") {
+      if (turn.toolEvents.length < ANSWER_PROOF_MAX_TOOL_EVENTS) {
+        turn.toolEvents.push(item);
+      } else {
+        turn.toolEventsTruncated = true;
+      }
+    }
+    const isTerminalProblem = eventName === "error" || eventName === "apperror" || eventName === "cancel";
+    const alreadyCompleted = turn.terminalEvent && !turn.terminalEvent.is_error;
+    if (eventName === "warning" || (isTerminalProblem && !alreadyCompleted)) {
+      turn.terminalProblems.push({
+        type: eventName,
+        at: item.at,
+        name: item.name,
+        preview: truncate(payload?.message || payload?.error || payload?.preview || "", 320)
+      });
+    }
+    if (isTerminalProblem && alreadyCompleted) return;
+    if (eventName === "done" || eventName === "stream_end" || eventName === "error" || eventName === "apperror" || eventName === "cancel") {
+      turn.terminalEvent = {
+        type: eventName,
+        at: item.at,
+        is_error: eventName === "error" || eventName === "apperror" || eventName === "cancel"
+      };
+      scheduleAnswerProofFinalize(turn);
+    }
+  }
+
+  function scheduleAnswerProofFinalize(turn) {
+    if (!turn || turn.finalizeTimer || turn.recordStarted) return;
+    turn.finalizeTimer = window.setTimeout(() => {
+      finalizeAnswerProofTurn(turn).catch((error) => {
+        console.debug("PSKA answer proof recording failed", error);
+      });
+    }, ANSWER_PROOF_FINALIZE_DELAY_MS);
+  }
+
+  async function finalizeAnswerProofTurn(turn) {
+    if (!turn || turn.recordStarted) return;
+    turn.recordStarted = true;
+    try {
+      const answer = latestAssistantAnswerText();
+      const answerPreview = truncate(answer, ANSWER_PROOF_PREVIEW_CHARS);
+      const questionPreview = truncate(turn.question || "", ANSWER_PROOF_PREVIEW_CHARS);
+      const toolNames = uniqueStrings(turn.toolEvents.map((event) => event.name).filter(Boolean));
+      const completedPskaTools = uniqueStrings(
+        turn.toolEvents
+          .filter((event) => event.type === "tool_complete" && isPskaToolName(event.name) && !event.is_error)
+          .map((event) => event.name)
+      );
+      const writeLikeTools = uniqueStrings(toolNames.filter(isWriteLikeToolName));
+      const checks = [
+        { name: "PSKA context pack attached", ok: Boolean(turn.contextPackRunId || turn.contextPackSummary) },
+        { name: "Hermes stream reached terminal event", ok: Boolean(turn.terminalEvent) && !turn.terminalEvent.is_error },
+        { name: "Answer-side observed PSKA tool or context-pack", ok: completedPskaTools.length > 0 || Boolean(turn.contextPackRunId) },
+        { name: "Answer-side stayed read-only", ok: writeLikeTools.length === 0 },
+        { name: "Answer proof recorded without blocking chat", ok: true }
+      ];
+      const metadata = {
+        origin: "hermes-webui.pska-mini-answer-proof-bridge",
+        automatic_after_answer_audit: true,
+        non_blocking: true,
+        control_plane: "hermes_webui_extension",
+        data_plane: "pska",
+        stream_id: turn.streamId,
+        stream_url_path: streamPathFromUrl(turn.streamUrl),
+        context_pack: {
+          run_id: turn.contextPackRunId,
+          summary: turn.contextPackSummary,
+          source_counts: turn.contextPackSourceCounts,
+          data_flow: turn.contextPackDataFlow,
+          prompt_context_rendered_by: turn.contextPackDataFlow?.prompt_context_rendered_by || "pska"
+        },
+        used_memory_ids: turn.usedMemoryIds,
+        tool_events_truncated: Boolean(turn.toolEventsTruncated),
+        terminal_problems: turn.terminalProblems
+      };
+      await pskaMiniFetchJson("/api/hermes/answer-proofs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: turn.sessionId || currentHermesSessionId() || "unknown",
+          proof_id: turn.proofId,
+          message_id: turn.messageId,
+          response_id: turn.streamId,
+          caller: "hermes-webui-extension",
+          webui: window.location.origin,
+          started_at: turn.startedAt,
+          finished_at: new Date().toISOString(),
+          question_preview: questionPreview,
+          question_sha256: await sha256Text(turn.question || ""),
+          answer_preview: answerPreview,
+          answer_sha256: await sha256Text(answer),
+          answer_length: answer.length,
+          dataset_ids: turn.datasetIds,
+          document_ids: turn.documentIds,
+          source_root_ids: turn.sourceRootIds,
+          source_refs: turn.sourceRefs,
+          proof_summary: {
+            tool_names: toolNames,
+            completed_pska_tools: completedPskaTools,
+            write_like_tools: writeLikeTools,
+            tool_events: turn.toolEvents
+          },
+          checks,
+          read_only: writeLikeTools.length === 0,
+          metadata
+        }),
+        timeoutMs: 15000
+      });
+      turn.recorded = true;
+      if (document.getElementById("pskaMiniAnswerProofs")) {
+        refreshAnswerProofs().catch(() => {});
+      }
+    } catch (error) {
+      turn.error = errorText(error);
+      console.debug("PSKA answer proof record failed", error);
+    } finally {
+      activeAnswerProofTurns.delete(turn.streamId);
+    }
+  }
+
+  function startAnswerProofTurn(chatStartBody, injection, originalMessage) {
+    const packResponse = injection?.contextPackResponse || {};
+    const pack = packResponse.context_pack || {};
+    const turn = {
+      proofId: `hproof_webui_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 10)}`,
+      startedAt: new Date().toISOString(),
+      expiresAt: Date.now() + 120000,
+      sessionId: String(chatStartBody?.session_id || currentHermesSessionId() || ""),
+      messageId: String(chatStartBody?.message_id || chatStartBody?.user_message_id || ""),
+      streamId: "",
+      streamUrl: "",
+      question: String(originalMessage || ""),
+      datasetIds: state.datasetIds.slice(),
+      documentIds: state.documentIds.slice(),
+      sourceRootIds: state.sourceRootIds.slice(),
+      contextPackRunId: String(packResponse.run_id || ""),
+      contextPackSummary: String(pack.summary || ""),
+      contextPackSourceCounts: { ...(pack.source_counts || {}) },
+      contextPackDataFlow: { ...(pack.data_flow || {}) },
+      sourceRefs: contextPackSourceRefs(pack),
+      usedMemoryIds: contextPackMemoryIds(pack),
+      toolEvents: [],
+      terminalProblems: [],
+      terminalEvent: null,
+      toolEventsTruncated: false,
+      finalizeTimer: null,
+      recordStarted: false,
+      recorded: false,
+      error: ""
+    };
+    pendingAnswerProofTurns.push(turn);
+    if (pendingAnswerProofTurns.length > 5) {
+      pendingAnswerProofTurns = pendingAnswerProofTurns.slice(-5);
+    }
+    return turn;
+  }
+
+  function prunePendingAnswerProofTurns() {
+    const now = Date.now();
+    pendingAnswerProofTurns = pendingAnswerProofTurns.filter((turn) => !turn.expiresAt || turn.expiresAt > now);
+  }
+
   function shouldApplyToNextSend() {
     if (!state.enabled) return false;
     const input = document.getElementById("msg");
@@ -2659,6 +2911,7 @@
     };
     pendingChatStartInjection = {
       payload,
+      contextPackResponse: contextPack,
       expiresAt: Date.now() + 30000
     };
   }
@@ -2804,6 +3057,7 @@
       const body = JSON.parse(opts.body);
       const originalMessage = String(body.message || "").trim();
       if (!originalMessage) return opts;
+      startAnswerProofTurn(body, injection, originalMessage);
       body.message = buildForcedSkillMessage(injection.payload, originalMessage);
       return { ...opts, body: JSON.stringify(body) };
     } catch (error) {
@@ -3534,6 +3788,143 @@
     const text = String(value || "");
     const parts = text.split("__");
     return parts[parts.length - 1] || text;
+  }
+
+  function parseEventPayload(event) {
+    const raw = String(event?.data || "");
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_) {
+      return { preview: truncate(raw, 320) };
+    }
+  }
+
+  function eventToolName(payload) {
+    return String(payload?.name || payload?.tool || payload?.function_name || "").trim();
+  }
+
+  function toolArgsPreview(payload) {
+    try {
+      return truncate(JSON.stringify(payload?.args || {}), 800);
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function isPskaToolName(value) {
+    return /pska/iu.test(String(value || ""));
+  }
+
+  function isWriteLikeToolName(value) {
+    return ANSWER_PROOF_WRITE_LIKE_RE.test(String(value || ""));
+  }
+
+  function latestAssistantAnswerText() {
+    const messages = Array.isArray(window.S?.messages) ? window.S.messages : [];
+    for (const message of [...messages].reverse()) {
+      if (message?.role === "assistant") {
+        const text = String(message.content || message.text || "").trim();
+        if (text) return text;
+      }
+    }
+    const rows = Array.from(document.querySelectorAll('.msg-row[data-role="assistant"] .msg-body, .msg-row[data-role="assistant"]'));
+    for (const row of rows.reverse()) {
+      const text = String(row?.innerText || "").trim();
+      if (text) return text;
+    }
+    return "";
+  }
+
+  function currentHermesSessionId() {
+    return String(
+      window.S?.session?.session_id
+        || window.S?.session_id
+        || window.__HERMES_SESSION_ID__
+        || ""
+    ).trim();
+  }
+
+  async function sha256Text(value) {
+    const text = String(value || "");
+    if (!text || !window.crypto?.subtle || typeof TextEncoder !== "function") return "";
+    try {
+      const bytes = new TextEncoder().encode(text);
+      const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function streamIdFromUrl(value) {
+    try {
+      const url = new URL(String(value || ""), window.location.href);
+      return String(url.searchParams.get("stream_id") || url.searchParams.get("id") || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function streamPathFromUrl(value) {
+    try {
+      const url = new URL(String(value || ""), window.location.href);
+      return `${url.pathname}${url.search ? "?stream_id=..." : ""}`;
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function contextPackSourceRefs(pack) {
+    const refs = [];
+    const add = (ref) => {
+      if (!ref || typeof ref !== "object") return;
+      const copy = {
+        adapter: String(ref.adapter || ""),
+        dataset_id: ref.dataset_id || null,
+        document_id: ref.document_id || null,
+        chunk_id: ref.chunk_id || null,
+        source_id: ref.source_id || null,
+        title: ref.title || null,
+        url: ref.url || null,
+        path: ref.path || null,
+        external_id: ref.external_id || null,
+        metadata: ref.metadata && typeof ref.metadata === "object" ? ref.metadata : {}
+      };
+      refs.push(copy);
+    };
+    (Array.isArray(pack?.citations) ? pack.citations : []).forEach((citation) => add(citation?.source_ref));
+    (Array.isArray(pack?.blocks) ? pack.blocks : []).forEach((block) => {
+      add(block?.source_ref);
+      (Array.isArray(block?.source_refs) ? block.source_refs : []).forEach(add);
+    });
+    return uniqueByStableJson(refs).slice(0, ANSWER_PROOF_MAX_SOURCE_REFS);
+  }
+
+  function contextPackMemoryIds(pack) {
+    const ids = [];
+    (Array.isArray(pack?.blocks) ? pack.blocks : []).forEach((block) => {
+      if (String(block?.type || "") === "memory" && block?.fact_id) ids.push(String(block.fact_id));
+      (Array.isArray(block?.metadata?.memory_ids) ? block.metadata.memory_ids : []).forEach((id) => ids.push(String(id)));
+    });
+    return uniqueStrings(ids);
+  }
+
+  function uniqueStrings(values) {
+    return Array.from(new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean)));
+  }
+
+  function uniqueByStableJson(values) {
+    const seen = new Set();
+    const result = [];
+    values.forEach((value) => {
+      const key = stableJson(value);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      result.push(value);
+    });
+    return result;
   }
 
   async function pskaMiniFetchJson(path, options = {}) {

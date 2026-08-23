@@ -182,8 +182,15 @@ async function main() {
   const startedAt = new Date().toISOString();
   let capturedChatStart = null;
   let capturedResolver = null;
+  let capturedAnswerProof = null;
+  let capturedAnswerProofAt = 0;
+  let answerProofResolver = null;
+  let sendReturnedAt = 0;
   const capturedPromise = new Promise((resolve) => {
     capturedResolver = resolve;
+  });
+  const answerProofPromise = new Promise((resolve) => {
+    answerProofResolver = resolve;
   });
 
   try {
@@ -192,6 +199,44 @@ async function main() {
     const page = await context.newPage();
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(String(error?.message || error)));
+
+    await page.route("**/api/extensions/pska-mini/sidecar/api/hermes/answer-proofs", async (route) => {
+      const request = route.request();
+      if (request.method() !== "POST") {
+        await route.continue();
+        return;
+      }
+      const postData = request.postData() || "";
+      let body = null;
+      try {
+        body = postData ? JSON.parse(postData) : null;
+      } catch (_) {
+        body = null;
+      }
+      capturedAnswerProof = {
+        url: request.url(),
+        method: request.method(),
+        postData,
+        body,
+      };
+      capturedAnswerProofAt = Date.now();
+      if (answerProofResolver) answerProofResolver(capturedAnswerProof);
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          schema: "pska.hermes_answer_proof.v1",
+          status: "recorded",
+          proof: {
+            proof_id: body?.proof_id || "hproof_mocked",
+            session_id: body?.session_id || "",
+            read_only: body?.read_only !== false,
+          },
+          audit_event_id: "audit_mocked_answer_proof",
+        }),
+      });
+    });
 
     await page.route("**/api/chat/start", async (route) => {
       const request = route.request();
@@ -225,6 +270,14 @@ async function main() {
 
     await page.route("**/api/chat/stream?**", async (route) => {
       const sessionId = capturedChatStart?.body?.session_id || "pska-turn-bridge-session";
+      const tool = {
+        name: "mcp__pska_essential__pska_source_search",
+        args: { query: "Northstar Robotics revenue risk" },
+      };
+      const toolComplete = {
+        name: "mcp__pska_essential__pska_source_search",
+        is_error: false,
+      };
       const done = {
         status: "completed",
         stream_id: "pska_turn_bridge_stream",
@@ -245,7 +298,11 @@ async function main() {
           "cache-control": "no-cache",
           connection: "close",
         },
-        body: `event: done\ndata: ${JSON.stringify(done)}\n\n`,
+        body: [
+          `event: tool\ndata: ${JSON.stringify(tool)}\n\n`,
+          `event: tool_complete\ndata: ${JSON.stringify(toolComplete)}\n\n`,
+          `event: done\ndata: ${JSON.stringify(done)}\n\n`,
+        ].join(""),
       });
     });
 
@@ -278,10 +335,10 @@ async function main() {
     });
 
     await setComposerQuestion(page, QUESTION);
-    await Promise.all([
-      capturedPromise,
-      page.evaluate(() => window.send()),
-    ]);
+    const sendPromise = page.evaluate(() => window.send()).then(() => {
+      sendReturnedAt = Date.now();
+    });
+    await Promise.all([capturedPromise, sendPromise]);
     const captured = await Promise.race([capturedPromise, timeoutPromise(20000, "chat-start capture")]);
     const body = captured.body || {};
     const message = String(body.message || "");
@@ -333,6 +390,56 @@ async function main() {
       user_rows: visible.userRows.slice(0, 3),
     });
 
+    const proofCapture = await Promise.race([answerProofPromise, timeoutPromise(15000, "answer-proof capture")]);
+    const proofBody = proofCapture.body || {};
+    assertCheck(checks, "PSKA answer proof is recorded after stream without blocking send", (
+      proofCapture.method === "POST"
+        && capturedAnswerProofAt >= sendReturnedAt
+        && proofBody.caller === "hermes-webui-extension"
+        && proofBody.session_id === body.session_id
+        && !Object.prototype.hasOwnProperty.call(proofBody, "answer")
+        && !Object.prototype.hasOwnProperty.call(proofBody, "question")
+    ), {
+      method: proofCapture.method,
+      send_returned_at: sendReturnedAt,
+      proof_captured_at: capturedAnswerProofAt,
+      caller: proofBody.caller,
+      session_id_matches: proofBody.session_id === body.session_id,
+      has_full_answer_field: Object.prototype.hasOwnProperty.call(proofBody, "answer"),
+      has_full_question_field: Object.prototype.hasOwnProperty.call(proofBody, "question"),
+    });
+    assertCheck(checks, "PSKA answer proof carries context-pack metadata from PSKA data plane", (
+      proofBody.metadata?.automatic_after_answer_audit === true
+        && proofBody.metadata?.non_blocking === true
+        && proofBody.metadata?.data_plane === "pska"
+        && proofBody.metadata?.control_plane === "hermes_webui_extension"
+        && Array.isArray(proofBody.metadata?.terminal_problems)
+        && proofBody.metadata.terminal_problems.length === 0
+        && proofBody.metadata?.context_pack?.data_flow?.data_plane === "pska"
+        && proofBody.metadata?.context_pack?.data_flow?.prompt_context_rendered_by === "pska"
+    ), {
+      metadata: proofBody.metadata,
+    });
+    assertCheck(checks, "PSKA answer proof stores preview/hash fields and observed tool events", (
+      String(proofBody.question_preview || "").includes(QUESTION.slice(0, 80))
+        && String(proofBody.answer_preview || "").includes("PSKA turn bridge smoke complete")
+        && Number(proofBody.answer_length || 0) > 0
+        && Array.isArray(proofBody.proof_summary?.completed_pska_tools)
+        && proofBody.proof_summary.completed_pska_tools.includes("mcp__pska_essential__pska_source_search")
+        && proofBody.read_only === true
+        && Array.isArray(proofBody.checks)
+        && proofBody.checks.some((check) => check?.name === "Hermes stream reached terminal event" && check?.ok === true)
+        && proofBody.checks.some((check) => check?.name === "Answer proof recorded without blocking chat" && check?.ok === true)
+    ), {
+      question_preview: proofBody.question_preview,
+      answer_preview: proofBody.answer_preview,
+      answer_length: proofBody.answer_length,
+      answer_sha256_present: Boolean(proofBody.answer_sha256),
+      completed_pska_tools: proofBody.proof_summary?.completed_pska_tools || [],
+      read_only: proofBody.read_only,
+      checks: proofBody.checks,
+    });
+
     artifacts.turnBridgeScreenshot = path.join(OUT_DIR, "turn-bridge.png");
     await page.screenshot({ path: artifacts.turnBridgeScreenshot, fullPage: false });
     const relevantPageErrors = pageErrors.filter((message) => !isBenignSandboxPageError(message));
@@ -363,6 +470,15 @@ async function main() {
       body_keys: Object.keys(capturedChatStart.body || {}).sort(),
       message_length: String(capturedChatStart.body?.message || "").length,
       forced_context_count: forcedContextCount(capturedChatStart.body?.message),
+    } : null,
+    captured_answer_proof: capturedAnswerProof ? {
+      url: capturedAnswerProof.url,
+      method: capturedAnswerProof.method,
+      body_keys: Object.keys(capturedAnswerProof.body || {}).sort(),
+      caller: capturedAnswerProof.body?.caller || "",
+      session_id: capturedAnswerProof.body?.session_id || "",
+      answer_length: capturedAnswerProof.body?.answer_length || 0,
+      completed_pska_tools: capturedAnswerProof.body?.proof_summary?.completed_pska_tools || [],
     } : null,
   };
   const resultPath = path.join(OUT_DIR, "turn-bridge-results.json");

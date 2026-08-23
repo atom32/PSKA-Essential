@@ -26,6 +26,10 @@ It provides:
   audit records, shows observed answer-side tool use, and opens trace-backed
   proof details through `View Trace`; a selected proof can seed an editable
   memory review draft with the proof attached as a PSKA SourceRef
+- a non-blocking answer-proof bridge that observes the Hermes chat stream after
+  a PSKA-attached turn, then sends bounded preview/hash/tool-event metadata to
+  PSKA `POST /api/hermes/answer-proofs`; PSKA remains the audit data plane and
+  the extension does not persist full question or answer text
 - a per-turn bridge that loads the Hermes `knowledge-retrieval` skill and
   attaches a `PSKA-Mini Runtime Scope` block to the next chat start request
 - a read-only PSKA Review projection into Hermes Kanban board `pska-review`

@@ -246,6 +246,12 @@ def list_hermes_answer_proofs(
 
 def answer_proof_data_flow() -> dict[str, Any]:
     return {
+        "control_plane": "hermes_webui_extension_or_proof_harness",
+        "data_plane": "pska",
+        "trigger": "post_answer_observation",
+        "non_blocking_after_answer_audit": True,
+        "caller_provides_preview_and_hash": True,
+        "caller_observes_stream_events_only": True,
         "writes_audit_metadata": True,
         "writes_memory_directly": False,
         "writes_source_files": False,
