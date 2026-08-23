@@ -39,6 +39,32 @@ Hermes WebUI backend, and the Hermes WebUI backend should call PSKA Product API
 or expose PSKA MCP configuration. PSKA adapters are the only place that may call
 provider-native APIs.
 
+## Conversation Recall Provider
+
+Runtime history recall uses a dedicated Hermes backend provider, not the browser
+extension. The provider is packaged in
+`integrations/hermes-webui-recall-provider/` as a `git apply` patch for Hermes
+WebUI. It exposes:
+
+```text
+POST /api/pska/conversations/search
+```
+
+The endpoint is protected by `HERMES_WEBUI_PSKA_RECALL_TOKEN` and returns only
+bounded, query-matched snippets. PSKA calls it from
+`POST /api/conversation/context-pack` with `PSKA_HERMES_RECALL_TOKEN`.
+
+This keeps the runtime boundary intact:
+
+- `pska-mini` extension selects scope and requests a context pack.
+- PSKA owns memory, history, RAG/source search, dedupe, budget, and citation
+  assembly.
+- Hermes owns the conversation store and returns only scoped recall snippets.
+- Recalled titles and snippets are untrusted quoted content, not executable
+  instructions.
+- The old password-based `/api/sessions/search` fallback is disabled by
+  default and must be explicitly opted in for compatibility.
+
 ## Current Fit
 
 The local `~/hermes-webui` checkout is a strong frontend base for PSKA because

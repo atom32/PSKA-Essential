@@ -6,6 +6,7 @@ PSKA_HOME="${PSKA_HOME:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 ENV_FILE="${ENV_FILE:-${PSKA_HOME}/.env.pska}"
 STACK_ENV_FILE="${PSKA_STACK_ENV_FILE:-${HOME}/.hermes/pska-stack.env}"
 HERMES_WEBUI_HOME="${HERMES_WEBUI_HOME:-${HOME}/hermes-webui}"
+HERMES_RECALL_PROVIDER_PATCH="${HERMES_RECALL_PROVIDER_PATCH:-${PSKA_HOME}/integrations/hermes-webui-recall-provider/pska-conversation-recall-provider.patch}"
 PSKA_COMPONENTS_HOME="${PSKA_COMPONENTS_HOME:-${HOME}/PSKA-Components}"
 RAGFLOW_HOME="${RAGFLOW_HOME:-${PSKA_COMPONENTS_HOME}/ragflow}"
 GRAPHITI_HOME="${GRAPHITI_HOME:-${PSKA_COMPONENTS_HOME}/graphiti}"
@@ -47,6 +48,7 @@ Useful overrides:
   PSKA_STACK_ENV_FILE=~/.hermes/pska-stack.env
   PSKA_HOME=/path/to/PSKA-Essential
   HERMES_WEBUI_HOME=/path/to/hermes-webui
+  HERMES_RECALL_PROVIDER_PATCH=/path/to/pska-conversation-recall-provider.patch
   HERMES_WEBUI_EXTENSION_DIR=~/.hermes/webui-local-extensions
   HERMES_WEBUI_EXTENSION_MANIFEST=extensions.json
   HERMES_WEBUI_STATE_DIR=~/.hermes/webui
@@ -1245,6 +1247,7 @@ start_eidolia_if_needed() {
 
 start_hermes_if_needed() {
   local health_url="${HERMES_WEBUI_BASE_URL}/health"
+  warn_if_hermes_recall_provider_missing
   if http_ok "${health_url}"; then
     if (( HERMES_CONFIG_CHANGED )); then
       warn "Hermes WebUI is running, but PSKA MCP config changed. Restarting it."
@@ -1284,6 +1287,25 @@ start_hermes_if_needed() {
     start_hermes_ctl
   fi
   wait_for_url "Hermes WebUI" "${health_url}" "${HERMES_WAIT_SECONDS:-60}" || true
+}
+
+hermes_recall_provider_source_ok() {
+  local root="${HERMES_WEBUI_HOME}"
+  [[ -f "${root}/api/auth.py" && -f "${root}/api/routes.py" ]] || return 1
+  grep -q "def pska_recall_token_auth_ok" "${root}/api/auth.py" || return 1
+  grep -q "HERMES_WEBUI_PSKA_RECALL_TOKEN" "${root}/api/auth.py" || return 1
+  grep -q '"/api/pska/conversations/search"' "${root}/api/routes.py" || return 1
+  grep -q "def _handle_pska_conversations_search" "${root}/api/routes.py" || return 1
+}
+
+warn_if_hermes_recall_provider_missing() {
+  [[ -n "${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}" ]] || return 0
+  if hermes_recall_provider_source_ok; then
+    log "Hermes PSKA conversation recall provider source present"
+    return 0
+  fi
+  warn "Hermes PSKA conversation recall provider is not installed in ${HERMES_WEBUI_HOME}; PSKA history recall will be unavailable."
+  warn "Apply the provider patch from a Hermes checkout: git apply ${HERMES_RECALL_PROVIDER_PATCH}"
 }
 
 hermes_python() {

@@ -136,6 +136,31 @@ Hermes test:
 hermes mcp test pska-essential
 ```
 
+For query-based Hermes conversation recall inside PSKA context packs, apply the
+PSKA recall provider patch to the Hermes WebUI checkout that will actually run:
+
+```bash
+cd /Users/xudawei/hermes-webui
+git apply /Users/xudawei/PSKA-Essential/integrations/hermes-webui-recall-provider/pska-conversation-recall-provider.patch
+python3 -m py_compile api/auth.py api/routes.py
+python3 -m pytest tests/test_pska_conversation_recall_provider.py tests/test_sessions_search_profile_scope.py
+```
+
+Then set the same secret on both sides:
+
+```bash
+export HERMES_WEBUI_PSKA_RECALL_TOKEN="<shared local secret>"
+export PSKA_HERMES_RECALL_TOKEN="<shared local secret>"
+export PSKA_HERMES_WEBUI_BASE_URL="http://127.0.0.1:8787"
+```
+
+`scripts/start_pska_workspace.sh` checks whether the configured
+`HERMES_WEBUI_HOME` contains this provider when a recall token is present. If it
+is missing, PSKA still starts, but conversation recall is unavailable and the
+context pack reports a warning. `PSKA_HERMES_WEBUI_PASSWORD` is not required for
+normal history recall; legacy password fallback is disabled unless
+`PSKA_HERMES_LEGACY_RECALL_FALLBACK=1` is set.
+
 ### 3. Product API And Frontend Development
 
 The Product API serves the frontend and exposes stable PSKA routes. The frontend
