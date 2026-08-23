@@ -39,6 +39,7 @@ class DemoRecording:
     output_basename: str | None
     dwell_scale: str
     wait_for_llm_ms: str
+    tail_pad_ms: str | None = None
 
 
 RECORDINGS = [
@@ -48,6 +49,7 @@ RECORDINGS = [
         output_basename="hermes_pska_extension_demo_long",
         dwell_scale="4",
         wait_for_llm_ms="75000",
+        tail_pad_ms="15000",
     ),
     DemoRecording(
         title="财报调研案例",
@@ -245,6 +247,8 @@ def build_recording_command(recording: DemoRecording, args: argparse.Namespace) 
     ]
     if recording.output_basename:
         command.extend(["--output-basename", recording.output_basename])
+    if recording.tail_pad_ms:
+        command.extend(["--tail-pad-ms", recording.tail_pad_ms])
     if args.playwright_module:
         command.extend(["--playwright-module", str(args.playwright_module)])
     if args.storage_state:

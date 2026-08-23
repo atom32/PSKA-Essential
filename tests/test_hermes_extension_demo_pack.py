@@ -12,6 +12,7 @@ import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "verify_hermes_extension_demo_pack.py"
+HERMES_RECORDER_PATH = ROOT / "scripts" / "record_hermes_pska_extension_demo.cjs"
 CUSTOMER_BUILDER_PATH = ROOT / "scripts" / "build_customer_demo_video.py"
 CUSTOMER_PACKAGER_PATH = ROOT / "scripts" / "package_customer_demo_assets.py"
 CUSTOMER_RECORDER_PATH = ROOT / "scripts" / "record_customer_demo_pack.py"
@@ -112,6 +113,13 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn('"voiceover": str(voiceover.relative_to(ROOT))', script)
         self.assertIn("客户版实操演示视频旁白稿", script)
 
+    def test_recorder_supports_tail_padding_for_stable_long_capture(self):
+        script = HERMES_RECORDER_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("--tail-pad-ms", script)
+        self.assertIn("HERMES_DEMO_TAIL_PAD_MS", script)
+        self.assertIn("tail_pad_ms", script)
+
     def test_customer_demo_packager_collects_delivery_assets(self):
         script = CUSTOMER_PACKAGER_PATH.read_text(encoding="utf-8")
 
@@ -158,6 +166,7 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("[dry-run] 网文续写和创作画布案例", result.stdout)
         self.assertIn("record_hermes_pska_extension_demo.cjs --case core", result.stdout)
         self.assertIn("--output-basename hermes_pska_extension_demo_long", result.stdout)
+        self.assertIn("--tail-pad-ms 15000", result.stdout)
         self.assertIn("--case finance_report_research", result.stdout)
         self.assertIn("--case webnovel_author", result.stdout)
         self.assertIn("build_customer_demo_video.py", result.stdout)

@@ -140,6 +140,7 @@ async function record({ args, chromium }) {
   const detailed = Boolean(args.detailed || process.env.HERMES_DEMO_PROFILE === "detailed");
   const dwellScale = Number(args.dwellScale || process.env.HERMES_DEMO_DWELL_SCALE || (detailed ? 4 : 1));
   const waitForLlmMs = Number(args.waitForLlmMs || process.env.HERMES_DEMO_WAIT_FOR_LLM_MS || (detailed ? 75_000 : 45_000));
+  const tailPadMs = Number(args.tailPadMs || process.env.HERMES_DEMO_TAIL_PAD_MS || 0);
   const pskaApiBaseUrl = String(
     args.pskaApiBaseUrl || process.env.PSKA_PRODUCT_API_BASE_URL || DEFAULT_PSKA_API_BASE_URL,
   ).replace(/\/+$/g, "");
@@ -389,6 +390,13 @@ async function record({ args, chromium }) {
       },
     );
 
+    if (tailPadMs > 0) {
+      await page.waitForTimeout(tailPadMs);
+      if (timeline.length) {
+        timeline[timeline.length - 1].endsAt += tailPadMs / 1000;
+      }
+    }
+
     const rawVideoPath = await page.video().path();
     await context.close();
     await browser.close();
@@ -423,6 +431,7 @@ async function record({ args, chromium }) {
           storyboard: path.relative(ROOT, storyboardOut),
           timeline,
           llm_wait_ms: waitForLlmMs,
+          tail_pad_ms: tailPadMs,
           demo_profile: detailed ? "detailed" : "standard",
           dwell_scale: dwellScale,
           no_tts: true,
@@ -460,6 +469,7 @@ function parseArgs(argv) {
     else if (arg === "--password") args.password = argv[++index];
     else if (arg === "--case") args.caseId = argv[++index];
     else if (arg === "--wait-for-llm-ms") args.waitForLlmMs = argv[++index];
+    else if (arg === "--tail-pad-ms") args.tailPadMs = argv[++index];
     else if (arg === "--output-basename") args.outputBasename = argv[++index];
     else if (arg === "--pska-api-base-url") args.pskaApiBaseUrl = argv[++index];
     else if (arg === "--eidolia-base-url") args.eidoliaBaseUrl = argv[++index];
