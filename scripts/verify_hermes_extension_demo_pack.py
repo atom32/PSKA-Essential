@@ -238,6 +238,8 @@ def verify_customer_packager(path: Path, checks: list[str]) -> None:
         "hermes_pska_customer_walkthrough_demo",
         '"voiceover"',
         "客户演示视频交付包",
+        "创作画布必须保留",
+        "不要说这是独立前端",
         "zipfile.ZipFile",
     ]
     missing = [needle for needle in required if needle not in text]
@@ -270,7 +272,18 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
             raise SystemExit(f"{zip_path} missing delivery files: {', '.join(missing)}")
         readme = archive.read(f"{package_dir_name}/README.zh.md").decode("utf-8")
         delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
-    if "客户演示视频交付包" not in readme or "旁白稿" not in readme:
+    required_readme_terms = [
+        "客户演示视频交付包",
+        "旁白稿",
+        "片子面向客户，不讲内部接口、数据库或模型术语",
+        "回答前会先整理资料、已有记忆、操作记录和下一步建议",
+        "长期记忆需要用户确认",
+        "创作画布里的想法节点、产物节点和续写草稿",
+        "不要说这是独立前端",
+        "不要展示底层数据库或资料库管理界面",
+    ]
+    missing_readme_terms = [term for term in required_readme_terms if term not in readme]
+    if missing_readme_terms:
         raise SystemExit(f"{zip_path} README does not describe the delivery package")
     if delivery_manifest.get("schema") != "pska.customer_demo_delivery_pack.v1":
         raise SystemExit(f"{zip_path} has wrong delivery manifest schema")

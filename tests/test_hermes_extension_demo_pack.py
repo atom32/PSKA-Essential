@@ -112,6 +112,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("hermes_pska_customer_walkthrough_demo", script)
         self.assertIn('"voiceover"', script)
         self.assertIn("客户演示视频交付包", script)
+        self.assertIn("创作画布必须保留", script)
+        self.assertIn("不要说这是独立前端", script)
         self.assertIn("zipfile.ZipFile", script)
 
     def test_makefile_has_customer_delivery_pack_target(self):
@@ -129,6 +131,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("verify_delivery_pack", script)
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
         self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
+        self.assertIn("片子面向客户，不讲内部接口、数据库或模型术语", script)
+        self.assertIn("创作画布里的想法节点、产物节点和续写草稿", script)
 
     def test_customer_recording_manual_uses_customer_facing_scope(self):
         manual = (
