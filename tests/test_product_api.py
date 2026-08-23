@@ -2941,6 +2941,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertEqual(context_pack["data_flow"]["control_plane"], "hermes_webui_extension")
         self.assertEqual(context_pack["data_flow"]["data_plane"], "pska")
         self.assertEqual(context_pack["data_flow"]["aggregation"], "parallel")
+        self.assertEqual(context_pack["data_flow"]["prompt_context_rendered_by"], "pska")
         self.assertEqual(
             context_pack["data_flow"]["attempted_sources"],
             ["memory", "conversation", "evidence", "source"],
@@ -2948,6 +2949,10 @@ class ProductApiTests(unittest.TestCase):
         self.assertTrue(context_pack["data_flow"]["query_based_conversation_recall"])
         self.assertFalse(context_pack["data_flow"]["whole_recent_history_injected"])
         self.assertFalse(context_pack["data_flow"]["extension_reads_hermes_database"])
+        self.assertEqual(context_pack["prompt_context_metadata"]["rendered_by"], "pska")
+        self.assertIn("## PSKA Context Pack", context_pack["prompt_context_block"])
+        self.assertIn("Flow: data-plane=pska", context_pack["prompt_context_block"])
+        self.assertIn("History boundary: query recall=yes", context_pack["prompt_context_block"])
         block_types = [block["type"] for block in context_pack["blocks"]]
         self.assertIn("memory", block_types)
         self.assertIn("conversation", block_types)

@@ -191,6 +191,7 @@ async function main() {
     && jsAsset.text.includes("/api/alpha/first-run-session")
     && jsAsset.text.includes("/api/hermes/answer-proofs")
     && jsAsset.text.includes("contextPackFlowLine")
+    && jsAsset.text.includes("prompt_context_block")
     && jsAsset.text.includes("History boundary: query recall")
     && jsAsset.text.includes("/api/memory/chatgpt-summary/import")
     && jsAsset.text.includes("/api/conversations/chatgpt/import-to-hermes")
@@ -346,6 +347,9 @@ async function main() {
     && json?.context_pack
     && json.context_pack.data_flow?.data_plane === "pska"
     && json.context_pack.data_flow?.aggregation === "parallel"
+    && json.context_pack.data_flow?.prompt_context_rendered_by === "pska"
+    && typeof json.context_pack.prompt_context_block === "string"
+    && json.context_pack.prompt_context_block.includes("Flow: data-plane=pska")
     && json.context_pack.data_flow?.query_based_conversation_recall === true
     && json.context_pack.data_flow?.whole_recent_history_injected === false
     && json.context_pack.data_flow?.extension_reads_hermes_database === false);
@@ -364,6 +368,9 @@ async function main() {
     && json?.context_pack
     && json.context_pack.data_flow?.data_plane === "pska"
     && json.context_pack.data_flow?.aggregation === "parallel"
+    && json.context_pack.data_flow?.prompt_context_rendered_by === "pska"
+    && typeof json.context_pack.prompt_context_block === "string"
+    && json.context_pack.prompt_context_block.includes("Flow: data-plane=pska")
     && json.context_pack.data_flow?.query_based_conversation_recall === true
     && json.context_pack.data_flow?.whole_recent_history_injected === false
     && json.context_pack.data_flow?.extension_reads_hermes_database === false);
