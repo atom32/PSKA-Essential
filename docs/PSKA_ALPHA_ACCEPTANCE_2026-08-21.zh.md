@@ -222,6 +222,7 @@ hermes_pska_customer_walkthrough_demo.mp4 325.4s 1280x720 no audio 10 ordered pl
 hermes_pska_customer_walkthrough_demo_delivery_pack.zip contains video, subtitles, voiceover, storyboard, manifests, and README
 hermes_pska_customer_walkthrough_demo_delivery_pack.zip integrity verified with sha256 for delivery files
 hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256 verifies the transferred zip itself
+hermes_pska_customer_walkthrough_demo_delivery_handoff.zh.md explains checksum and editing steps
 ```
 
 演示包验证器同时检查：
@@ -360,7 +361,7 @@ live-product-boundary-contract OK
 alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK
 alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes, integrity=yes
 demo-browser-videos       OK, 5/5 videos, delivery pack, sha256 integrity, pure Chinese subtitles
-unittest                  563 tests OK
+unittest                  564 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

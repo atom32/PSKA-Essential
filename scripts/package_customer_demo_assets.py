@@ -50,10 +50,12 @@ def main() -> int:
     zip_path = dist_dir / f"{basename}_delivery_pack.zip"
     write_zip(package_dir, zip_path)
     checksum_path = write_zip_checksum(zip_path)
+    handoff_path = write_external_handoff_note(dist_dir, basename, zip_path, checksum_path)
 
     print(f"package_dir: {package_dir}")
     print(f"zip: {zip_path}")
     print(f"zip_sha256: {checksum_path}")
+    print(f"handoff: {handoff_path}")
     print(f"readme: {readme_path}")
     print(f"manifest: {pack_manifest_path}")
     return 0
@@ -196,6 +198,46 @@ def write_zip_checksum(zip_path: Path) -> Path:
     checksum_path = zip_path.with_suffix(zip_path.suffix + ".sha256")
     checksum_path.write_text(f"{sha256_file(zip_path)}  {zip_path.name}\n", encoding="utf-8")
     return checksum_path
+
+
+def write_external_handoff_note(dist_dir: Path, basename: str, zip_path: Path, checksum_path: Path) -> Path:
+    handoff_path = dist_dir / f"{basename}_delivery_handoff.zh.md"
+    lines = [
+        "# 客户演示视频外部交付说明",
+        "",
+        "这份说明放在压缩包外面，交给剪辑或讲解同事时请和压缩包一起发送。",
+        "",
+        "## 一起发送",
+        "",
+        f"- `{zip_path.name}`",
+        f"- `{checksum_path.name}`",
+        "",
+        "## 收到后先校验",
+        "",
+        "```bash",
+        f"shasum -a 256 -c {checksum_path.name}",
+        "```",
+        "",
+        "看到校验通过后，再解压压缩包。",
+        "",
+        "## 剪辑顺序",
+        "",
+        "1. 导入主视频。",
+        "2. 导入同名字幕。",
+        "3. 用旁白稿生成中文配音。",
+        "4. 保留资料范围、提问到回答、长期记忆待确认和创作画布画面。",
+        "",
+        "## 讲解边界",
+        "",
+        "- 不要说这是独立前端。",
+        "- 不要展示底层数据库或资料库管理界面。",
+        "- 不要删掉创作画布里的想法节点、产物节点和续写草稿。",
+        "",
+        f"包名：`{basename}`",
+        "",
+    ]
+    handoff_path.write_text("\n".join(lines), encoding="utf-8")
+    return handoff_path
 
 
 if __name__ == "__main__":

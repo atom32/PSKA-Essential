@@ -120,8 +120,10 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("不要说这是独立前端", script)
         self.assertIn("sha256_file", script)
         self.assertIn("write_zip_checksum", script)
+        self.assertIn("write_external_handoff_note", script)
         self.assertIn('".sha256"', script)
         self.assertIn("zip_sha256", script)
+        self.assertIn("客户演示视频外部交付说明", script)
         self.assertIn('"bytes": path.stat().st_size', script)
         self.assertIn("zipfile.ZipFile", script)
 
@@ -142,10 +144,12 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
         self.assertIn("delivery zip integrity verified with sha256", script)
         self.assertIn("delivery zip external checksum verified with sha256", script)
+        self.assertIn("external handoff note covers checksum and editing steps", script)
         self.assertIn("片子面向客户，不讲内部接口、数据库或模型术语", script)
         self.assertIn("创作画布里的想法节点、产物节点和续写草稿", script)
         self.assertIn("verify_delivery_integrity", script)
         self.assertIn("verify_zip_checksum_file", script)
+        self.assertIn("verify_external_handoff_note", script)
         self.assertIn("customer delivery item checksum mismatch", script)
 
     def test_delivery_integrity_verifies_zip_member_hashes(self):
@@ -198,6 +202,38 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
             checksum_path.write_text(f"{'0' * 64}  pack.zip\n", encoding="utf-8")
             with self.assertRaises(SystemExit):
                 self.verifier.verify_zip_checksum_file(zip_path, checksum_path)
+
+    def test_external_handoff_note_names_checksum_and_editing_steps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            zip_path = root / "pack.zip"
+            checksum_path = root / "pack.zip.sha256"
+            handoff_path = root / "handoff.zh.md"
+            handoff_path.write_text(
+                "\n".join(
+                    [
+                        "# 客户演示视频外部交付说明",
+                        "",
+                        "`pack.zip`",
+                        "`pack.zip.sha256`",
+                        "```bash",
+                        "shasum -a 256 -c pack.zip.sha256",
+                        "```",
+                        "## 剪辑顺序",
+                        "长期记忆待确认。",
+                        "创作画布。",
+                        "不要说这是独立前端。",
+                        "不要展示底层数据库或资料库管理界面。",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            self.verifier.verify_external_handoff_note(handoff_path, zip_path, checksum_path)
+
+            handoff_path.write_text("# 客户演示视频外部交付说明\n", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                self.verifier.verify_external_handoff_note(handoff_path, zip_path, checksum_path)
 
     def test_customer_recording_manual_uses_customer_facing_scope(self):
         manual = (

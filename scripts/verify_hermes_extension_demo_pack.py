@@ -256,6 +256,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     package_dir_name = f"{basename}_delivery_pack"
     zip_path = dist_dir / f"{package_dir_name}.zip"
     checksum_path = zip_path.with_suffix(zip_path.suffix + ".sha256")
+    handoff_path = dist_dir / f"{basename}_delivery_handoff.zh.md"
     package_dir = dist_dir / package_dir_name
     required_names = [
         f"{package_dir_name}/README.zh.md",
@@ -269,6 +270,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     if not zip_path.exists():
         raise SystemExit(f"missing customer delivery zip: {zip_path}")
     verify_zip_checksum_file(zip_path, checksum_path)
+    verify_external_handoff_note(handoff_path, zip_path, checksum_path)
     with zipfile.ZipFile(zip_path) as archive:
         names = set(archive.namelist())
         missing = [name for name in required_names if name not in names]
@@ -301,6 +303,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     checks.append(f"{zip_path.name}: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README")
     checks.append(f"{zip_path.name}: delivery zip integrity verified with sha256 for {integrity_count} files")
     checks.append(f"{checksum_path.name}: delivery zip external checksum verified with sha256")
+    checks.append(f"{handoff_path.name}: external handoff note covers checksum and editing steps")
 
 
 def verify_delivery_integrity(
@@ -350,6 +353,26 @@ def verify_zip_checksum_file(zip_path: Path, checksum_path: Path) -> None:
     actual_sha = hashlib.sha256(zip_path.read_bytes()).hexdigest()
     if actual_sha != expected_sha:
         raise SystemExit(f"{checksum_path} checksum mismatch for {zip_path.name}")
+
+
+def verify_external_handoff_note(handoff_path: Path, zip_path: Path, checksum_path: Path) -> None:
+    if not handoff_path.exists():
+        raise SystemExit(f"missing customer delivery external handoff note: {handoff_path}")
+    text = handoff_path.read_text(encoding="utf-8")
+    required_terms = [
+        "客户演示视频外部交付说明",
+        zip_path.name,
+        checksum_path.name,
+        f"shasum -a 256 -c {checksum_path.name}",
+        "剪辑顺序",
+        "长期记忆待确认",
+        "创作画布",
+        "不要说这是独立前端",
+        "不要展示底层数据库或资料库管理界面",
+    ]
+    missing = [term for term in required_terms if term not in text]
+    if missing:
+        raise SystemExit(f"{handoff_path} missing handoff terms: {', '.join(missing)}")
 
 
 def verify_case_fixture(demo_dir: Path, case_id: str, checks: list[str]) -> None:
