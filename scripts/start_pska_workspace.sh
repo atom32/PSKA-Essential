@@ -1548,7 +1548,9 @@ log "Using stack env file: ${STACK_ENV_FILE}"
 log "Using env file: ${ENV_FILE}"
 log "PSKA API: ${PSKA_API_BASE_URL}"
 log "PSKA MCP: ${PSKA_MCP_BASE_URL}"
-gbrain_should_start && log "GBrain HTTP MCP: ${GBRAIN_MCP_URL}"
+if (( ! SKIP_GBRAIN )) && gbrain_should_start; then
+  log "GBrain HTTP MCP: ${GBRAIN_MCP_URL}"
+fi
 if (( ! SKIP_GRAPHITI )) && graphiti_should_start; then
   log "Graphiti: ${GRAPHITI_BASE_URL}"
 fi
