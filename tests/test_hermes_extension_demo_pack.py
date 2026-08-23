@@ -127,6 +127,9 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("hermes_pska_customer_walkthrough_demo", script)
         self.assertIn('"voiceover"', script)
         self.assertIn("客户演示视频交付包", script)
+        self.assertIn("硬字幕版视频", script)
+        self.assertIn("write_subtitled_video", script)
+        self.assertIn("直接播放时，优先使用硬字幕版视频", script)
         self.assertIn("创作画布必须保留", script)
         self.assertIn("不要说这是独立前端", script)
         self.assertIn("sha256_file", script)
@@ -203,7 +206,9 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("--require-delivery-pack", script)
         self.assertIn("verify_delivery_pack", script)
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
-        self.assertIn("delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README", script)
+        self.assertIn("delivery zip contains video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README", script)
+        self.assertIn("_subtitled.mp4", script)
+        self.assertIn("硬字幕版视频", script)
         self.assertIn("customer delivery preview sheet does not look like a valid JPEG", script)
         self.assertIn("delivery zip integrity verified with sha256", script)
         self.assertIn("delivery zip external checksum verified with sha256", script)
@@ -288,6 +293,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
                         "```bash",
                         "shasum -a 256 -c pack.zip.sha256",
                         "```",
+                        "## 直接预览",
+                        "`pack_subtitled.mp4`",
                         "## 剪辑顺序",
                         "关键画面预览图。",
                         "长期记忆待确认。",
@@ -314,7 +321,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
             / "CUSTOMER_DEMO_RECORDING.zh.md"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("五个通过检查的视频包", manual)
+        self.assertIn("五个通过检查的视频包，并可生成一个硬字幕版本", manual)
+        self.assertIn("hermes_pska_customer_walkthrough_demo_subtitled.mp4", manual)
         self.assertIn("最省事的交付方式", manual)
         self.assertIn("实操讲解顺序", manual)
         self.assertIn("make demo-browser-customer-record-package", manual)
@@ -328,6 +336,18 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("“想法”节点承接设定、反馈、资料线索和下一步方向", manual)
         self.assertIn("“产物”节点承接报告草稿、续写草稿和后续可交付内容", manual)
         self.assertIn("--require-delivery-pack", manual)
+
+    def test_demo_readme_mentions_hard_subtitled_customer_video(self):
+        readme = (
+            ROOT
+            / "demo"
+            / "browser"
+            / "hermes_pska_extension_demo"
+            / "README.zh.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("hermes_pska_customer_walkthrough_demo_subtitled.mp4", readme)
+        self.assertIn("硬字幕版主片，适合直接预览或发给客户确认", readme)
 
     def test_plain_chinese_subtitle_check_rejects_english_terms(self):
         with self.assertRaises(SystemExit):

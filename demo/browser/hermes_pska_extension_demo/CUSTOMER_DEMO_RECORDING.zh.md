@@ -26,9 +26,10 @@
 
 ## 现有可用素材
 
-本机已经有五个通过检查的视频包，都没有音轨，适合导入剪映后配音：
+本机已经有五个通过检查的视频包，并可生成一个硬字幕版本；视频都没有音轨，适合导入剪映后配音：
 
 - `dist/hermes_pska_customer_walkthrough_demo.mp4`：客户版合成主片，约五分二十五秒。
+- `dist/hermes_pska_customer_walkthrough_demo_subtitled.mp4`：硬字幕版主片，适合直接发给客户预览。
 - `dist/hermes_pska_extension_demo_long.mp4`：核心长版，约三分二十一秒。
 - `dist/hermes_pska_finance_case_demo.mp4`：财报调研案例，约两分三秒。
 - `dist/hermes_pska_webnovel_case_demo.mp4`：网文续写和创作画布案例，约两分十四秒。
@@ -48,10 +49,11 @@ demo/browser/hermes_pska_extension_demo/dist/hermes_pska_customer_walkthrough_de
 推荐按这个顺序处理：
 
 1. 先看 `hermes_pska_customer_walkthrough_demo_preview_sheet.jpg`，确认画面顺序。
-2. 把 `hermes_pska_customer_walkthrough_demo.mp4` 导入剪映。
-3. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕。
-4. 用 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md` 生成中文配音。
-5. 导出前检查最后一段是否保留创作画布、想法节点、产物节点和续写草稿。
+2. 直接播放时，使用 `hermes_pska_customer_walkthrough_demo_subtitled.mp4`。
+3. 需要二次剪辑时，把 `hermes_pska_customer_walkthrough_demo.mp4` 导入剪映。
+4. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕。
+5. 用 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md` 生成中文配音。
+6. 导出前检查最后一段是否保留创作画布、想法节点、产物节点和续写草稿。
 
 对外转交时，优先发送：
 

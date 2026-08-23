@@ -197,10 +197,11 @@ make demo-browser-customer-package
 当前本机 `dist/` 为可再生成产物，不进入 git。最新验证结果：
 
 - `hermes_pska_extension_demo.mp4`：`88.9s`，`1280x720`，无音轨，10 段纯中文字幕。
-- `hermes_pska_extension_demo_long.mp4`：`200.8s`，`1280x720`，无音轨，10 段纯中文字幕。
-- `hermes_pska_finance_case_demo.mp4`：`123.4s`，`1280x720`，无音轨，10 段纯中文字幕。
-- `hermes_pska_webnovel_case_demo.mp4`：`133.5s`，`1280x720`，无音轨，10 段纯中文字幕。
+- `hermes_pska_extension_demo_long.mp4`：`188.6s`，`1280x720`，无音轨，10 段纯中文字幕。
+- `hermes_pska_finance_case_demo.mp4`：`148.2s`，`1280x720`，无音轨，10 段纯中文字幕。
+- `hermes_pska_webnovel_case_demo.mp4`：`148.9s`，`1280x720`，无音轨，10 段纯中文字幕。
 - `hermes_pska_customer_walkthrough_demo.mp4`：`325.4s`，`1280x720`，无音轨，10 段纯中文字幕。
+- `hermes_pska_customer_walkthrough_demo_subtitled.mp4`：硬字幕版主片，适合直接预览或发给客户确认。
 - 网文 case 的 Eidolia 镜头从 `01:49.072` 到 `02:12.633`，用于展示想法/产物节点和续写草稿。
 - 客户主片的创作画布镜头从 `05:01.610` 到 `05:25.171`，用于展示想法/产物节点和续写草稿。
 - 客户主片交付包内包含 `hermes_pska_customer_walkthrough_demo_preview_sheet.jpg`，用于快速检查关键画面顺序。

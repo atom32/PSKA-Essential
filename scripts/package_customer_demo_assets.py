@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -80,13 +81,15 @@ def read_manifest(path: Path) -> dict[str, Any]:
 
 def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, Any]]:
     copied: list[dict[str, Any]] = []
+    subtitled_video = write_subtitled_video(manifest)
     for key, label in [
         ("mp4", "视频主片"),
+        ("subtitled_mp4", "硬字幕版视频"),
         ("subtitles", "字幕文件"),
         ("voiceover", "旁白稿"),
         ("storyboard", "分镜说明"),
     ]:
-        source = ROOT / str(manifest[key])
+        source = subtitled_video if key == "subtitled_mp4" else ROOT / str(manifest[key])
         if not source.exists():
             raise SystemExit(f"missing {label}: {source}")
         copied.append(copy_asset(label, source, package_dir))
@@ -95,6 +98,167 @@ def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, A
     if source_manifest.exists():
         copied.append(copy_asset("生成记录", source_manifest, package_dir))
     return copied
+
+
+def write_subtitled_video(manifest: dict[str, Any]) -> Path:
+    video_path = ROOT / str(manifest["mp4"])
+    subtitle_path = ROOT / str(manifest["subtitles"])
+    output_path = video_path.with_name(video_path.stem + "_subtitled.mp4")
+    duration = ffprobe_duration(video_path)
+    subtitles = parse_srt(subtitle_path.read_text(encoding="utf-8"))
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        images = write_subtitle_images(subtitles, tmp_dir)
+        command = [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(video_path),
+        ]
+        for image in images:
+            command.extend(["-loop", "1", "-framerate", "25", "-i", str(image)])
+        command.extend(
+            [
+                "-filter_complex",
+                subtitle_overlay_filter(subtitles),
+                "-map",
+                f"[v{len(subtitles)}]",
+                "-t",
+                f"{duration:.3f}",
+                "-c:v",
+                "libx264",
+                "-crf",
+                "20",
+                "-preset",
+                "veryfast",
+                "-an",
+                str(output_path),
+            ]
+        )
+        subprocess.run(command, check=True)
+    if not output_path.exists() or output_path.stat().st_size < video_path.stat().st_size * 0.5:
+        raise SystemExit(f"failed to build hard-subtitled customer video: {output_path}")
+    return output_path
+
+
+def ffprobe_duration(path: Path) -> float:
+    raw = subprocess.check_output(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        text=True,
+    ).strip()
+    return float(raw)
+
+
+def parse_srt(text: str) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = []
+    for raw_block in re.split(r"\n\s*\n", text.strip()):
+        lines = [line.rstrip() for line in raw_block.splitlines() if line.strip()]
+        if len(lines) < 3 or "-->" not in lines[1]:
+            continue
+        start_raw, end_raw = [item.strip() for item in lines[1].split("-->", 1)]
+        blocks.append(
+            {
+                "start": srt_time_seconds(start_raw),
+                "end": srt_time_seconds(end_raw),
+                "text": "\n".join(lines[2:]),
+            }
+        )
+    if not blocks:
+        raise SystemExit("customer subtitles are empty; cannot build hard-subtitled video")
+    return blocks
+
+
+def srt_time_seconds(value: str) -> float:
+    match = re.fullmatch(r"(\d\d):(\d\d):(\d\d),(\d\d\d)", value)
+    if not match:
+        raise SystemExit(f"invalid SRT timestamp: {value}")
+    hours, minutes, seconds, millis = (int(part) for part in match.groups())
+    return hours * 3600 + minutes * 60 + seconds + millis / 1000
+
+
+def write_subtitle_images(subtitles: list[dict[str, Any]], tmp_dir: Path) -> list[Path]:
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:
+        raise SystemExit("Pillow is required to build the hard-subtitled customer video") from exc
+
+    font = load_subtitle_font(ImageFont)
+    images: list[Path] = []
+    for index, block in enumerate(subtitles, start=1):
+        image = Image.new("RGBA", (1280, 720), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        lines = split_subtitle_lines(str(block["text"]))
+        line_boxes = [draw.textbbox((0, 0), line, font=font) for line in lines]
+        line_heights = [box[3] - box[1] for box in line_boxes]
+        text_width = max((box[2] - box[0] for box in line_boxes), default=0)
+        text_height = sum(line_heights) + max(0, len(lines) - 1) * 8
+        box_width = min(1120, text_width + 72)
+        box_height = text_height + 34
+        box_x = (1280 - box_width) // 2
+        box_y = 720 - box_height - 38
+        draw.rounded_rectangle(
+            (box_x, box_y, box_x + box_width, box_y + box_height),
+            radius=12,
+            fill=(0, 0, 0, 172),
+        )
+        y = box_y + 16
+        for line, line_box, line_height in zip(lines, line_boxes, line_heights):
+            width = line_box[2] - line_box[0]
+            draw.text(((1280 - width) // 2, y), line, font=font, fill=(255, 255, 255, 255))
+            y += line_height + 8
+        path = tmp_dir / f"subtitle_{index:02d}.png"
+        image.save(path)
+        images.append(path)
+    return images
+
+
+def load_subtitle_font(ImageFont: Any) -> Any:
+    candidates = [
+        Path("/System/Library/Fonts/STHeiti Medium.ttc"),
+        Path("/System/Library/Fonts/PingFang.ttc"),
+        Path("/System/Library/Fonts/Supplemental/Songti.ttc"),
+        Path("/Library/Fonts/Arial Unicode.ttf"),
+    ]
+    for path in candidates:
+        if path.exists():
+            return ImageFont.truetype(str(path), 27)
+    return ImageFont.load_default()
+
+
+def split_subtitle_lines(text: str) -> list[str]:
+    raw_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    lines: list[str] = []
+    for line in raw_lines:
+        if len(line) <= 30:
+            lines.append(line)
+            continue
+        cursor = 0
+        while cursor < len(line):
+            lines.append(line[cursor:cursor + 30])
+            cursor += 30
+    return lines[:3]
+
+
+def subtitle_overlay_filter(subtitles: list[dict[str, Any]]) -> str:
+    chains = ["[0:v]format=rgba[v0]"]
+    for index, block in enumerate(subtitles, start=1):
+        chains.append(
+            f"[v{index - 1}][{index}:v]overlay=0:0:"
+            f"enable='between(t,{block['start']:.3f},{block['end']:.3f})'[v{index}]"
+        )
+    return ";".join(chains)
 
 
 def copy_asset(label: str, source: Path, package_dir: Path) -> dict[str, Any]:
@@ -192,8 +356,8 @@ def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]
             "",
             "## 使用建议",
             "",
-            "1. 先导入视频主片。",
-            "2. 再导入字幕文件。",
+            "1. 直接播放时，优先使用硬字幕版视频。",
+            "2. 需要二次剪辑时，导入视频主片和字幕文件。",
             "3. 使用旁白稿生成中文配音，语速建议偏慢。",
             "4. 可先打开关键画面预览图，快速确认画面顺序。",
             "5. 如需调整节奏，只裁短等待画面，不删掉提问到回答的过程。",
@@ -282,6 +446,11 @@ def write_external_handoff_note(dist_dir: Path, basename: str, zip_path: Path, c
         "```",
         "",
         "看到校验通过后，再解压压缩包。",
+        "",
+        "## 直接预览",
+        "",
+        f"- 直接播放 `{basename}_subtitled.mp4`，不用另外加载字幕。",
+        "- 需要二次剪辑时，再使用无字幕主视频和同名字幕文件。",
         "",
         "## 剪辑顺序",
         "",
