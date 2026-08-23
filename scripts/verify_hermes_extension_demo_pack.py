@@ -494,9 +494,7 @@ def verify_customer_walkthrough_manifest(path: Path, payload: dict[str, Any]) ->
     if not voiceover_path.exists():
         raise SystemExit(f"{path} voiceover script does not exist: {voiceover_path}")
     voiceover_text = voiceover_path.read_text(encoding="utf-8")
-    if "旁白稿" not in voiceover_text or "剪映" not in voiceover_text:
-        raise SystemExit(f"{voiceover_path} does not look like a customer voiceover script")
-    verify_no_english_terms(voiceover_path, voiceover_text, "voiceover script")
+    verify_customer_voiceover_script(voiceover_path, voiceover_text)
     durations = {
         str(scene.get("id") or ""): float(scene.get("endsAt") or 0) - float(scene.get("startsAt") or 0)
         for scene in payload.get("timeline") or []
@@ -505,6 +503,32 @@ def verify_customer_walkthrough_manifest(path: Path, payload: dict[str, Any]) ->
         raise SystemExit(f"{path} customer walkthrough Eidolia scene is too short")
     if durations.get("finance_report", 0.0) < 45.0:
         raise SystemExit(f"{path} customer walkthrough finance report scene is too short")
+
+
+def verify_customer_voiceover_script(path: Path, text: str) -> None:
+    if "旁白稿" not in text or "剪映" not in text:
+        raise SystemExit(f"{path} does not look like a customer voiceover script")
+    verify_no_english_terms(path, text, "voiceover script")
+    segments = re.findall(r"^## 第\d+段：", text, flags=re.MULTILINE)
+    if len(segments) != 10:
+        raise SystemExit(f"{path} expected 10 customer voiceover segments, got {len(segments)}")
+    required_terms = [
+        "对话工作台",
+        "资料范围",
+        "开始前",
+        "回答前",
+        "已有记忆",
+        "确认记忆",
+        "同步任务",
+        "财报",
+        "经营报告草稿",
+        "创作画布",
+        "续写草稿",
+        "同一个工作流",
+    ]
+    missing = [term for term in required_terms if term not in text]
+    if missing:
+        raise SystemExit(f"{path} customer voiceover missing required topics: {', '.join(missing)}")
 
 
 def verify_business_case_manifest(path: Path, payload: dict[str, Any], expected_case: str) -> None:

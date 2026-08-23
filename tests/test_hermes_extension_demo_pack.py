@@ -161,6 +161,38 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
             "1\n00:00:00,000 --> 00:00:01,000\n回答前整理会把资料和记忆放在一起。\n",
         )
 
+    def test_customer_voiceover_rejects_missing_required_topic(self):
+        text = "\n".join(
+            [
+                "# 客户版实操演示视频旁白稿",
+                "",
+                "这份稿子用于人工讲解或导入剪映生成中文配音。",
+                "",
+                *[f"## 第{index}段：片段\n\n对话工作台。资料范围。开始前。回答前。已有记忆。确认记忆。同步任务。财报。经营报告草稿。创作画布。" for index in range(1, 11)],
+                "## 收尾",
+                "",
+                "这套流程保持在同一个工作流里。",
+            ]
+        )
+        with self.assertRaises(SystemExit):
+            self.verifier.verify_customer_voiceover_script(pathlib.Path("voiceover.zh.md"), text)
+
+    def test_customer_voiceover_accepts_required_customer_topics(self):
+        text = "\n".join(
+            [
+                "# 客户版实操演示视频旁白稿",
+                "",
+                "这份稿子用于人工讲解或导入剪映生成中文配音。",
+                "",
+                *[f"## 第{index}段：片段\n\n对话工作台。资料范围。开始前。回答前。已有记忆。确认记忆。同步任务。财报。经营报告草稿。创作画布。续写草稿。" for index in range(1, 11)],
+                "## 收尾",
+                "",
+                "这套流程保持在同一个工作流里。",
+            ]
+        )
+
+        self.verifier.verify_customer_voiceover_script(pathlib.Path("voiceover.zh.md"), text)
+
     def test_feature_matrix_covers_all_demo_scenes(self):
         checks = []
         self.verifier.verify_feature_matrix(
