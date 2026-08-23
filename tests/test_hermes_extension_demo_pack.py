@@ -14,6 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "verify_hermes_extension_demo_pack.py"
 HERMES_RECORDER_PATH = ROOT / "scripts" / "record_hermes_pska_extension_demo.cjs"
 CUSTOMER_BUILDER_PATH = ROOT / "scripts" / "build_customer_demo_video.py"
+CUSTOMER_AUDIO_BUILDER_PATH = ROOT / "scripts" / "build_customer_demo_audio_preview.py"
 CUSTOMER_PACKAGER_PATH = ROOT / "scripts" / "package_customer_demo_assets.py"
 CUSTOMER_RECORDER_PATH = ROOT / "scripts" / "record_customer_demo_pack.py"
 
@@ -34,11 +35,20 @@ def load_packager():
     return module
 
 
+def load_audio_builder():
+    spec = importlib.util.spec_from_file_location("build_customer_demo_audio_preview", CUSTOMER_AUDIO_BUILDER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 class HermesExtensionDemoPackTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.verifier = load_verifier()
         cls.packager = load_packager()
+        cls.audio_builder = load_audio_builder()
 
     def test_core_demo_defaults_to_short_smoke_floor(self):
         args = argparse.Namespace(
@@ -121,9 +131,26 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("write_voiceover_tts", script)
         self.assertIn("_voiceover.zh.md", script)
         self.assertIn("_voiceover_tts.zh.txt", script)
+        self.assertIn("remove_stale_audio_preview_outputs", script)
         self.assertIn('"voiceover": str(voiceover.relative_to(ROOT))', script)
         self.assertIn('"voiceover_tts": str(voiceover_tts.relative_to(ROOT))', script)
         self.assertIn("客户版实操演示视频旁白稿", script)
+
+    def test_customer_audio_preview_builder_uses_subtitle_timed_chinese_voice(self):
+        script = CUSTOMER_AUDIO_BUILDER_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("Tingting", script)
+        self.assertIn("parse_srt", script)
+        self.assertIn("_voiceover_preview.m4a", script)
+        self.assertIn("_subtitled_voiceover.mp4", script)
+        self.assertIn("subtitle_text", script)
+        self.assertIn("customer_quick_preview_with_machine_voice", script)
+        self.assertIn("macOS say command", script)
+
+    def test_audio_preview_atempo_filter_chains_extreme_factors(self):
+        self.assertEqual(self.audio_builder.atempo_filters(1.25), ["atempo=1.250000"])
+        self.assertEqual(self.audio_builder.atempo_filters(4.0), ["atempo=2.000000", "atempo=2.000000"])
+        self.assertEqual(self.audio_builder.atempo_filters(0.25), ["atempo=0.500000", "atempo=0.500000"])
 
     def test_recorder_supports_tail_padding_for_stable_long_capture(self):
         script = HERMES_RECORDER_PATH.read_text(encoding="utf-8")
@@ -142,6 +169,9 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("客户演示视频交付包", script)
         self.assertIn("硬字幕版视频", script)
         self.assertIn("纯旁白文本", script)
+        self.assertIn("带声音预览视频", script)
+        self.assertIn("_subtitled_voiceover.mp4", script)
+        self.assertIn("_voiceover_preview.m4a", script)
         self.assertIn("write_subtitled_video", script)
         self.assertIn("write_package_index", script)
         self.assertIn("write_delivery_summary", script)
@@ -182,6 +212,9 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("scripts/build_customer_demo_video.py", makefile)
         self.assertIn("scripts/package_customer_demo_assets.py", makefile)
         self.assertIn("--all-videos --require-video --require-delivery-pack", makefile)
+        self.assertIn("demo-browser-customer-audio-package", makefile)
+        self.assertIn("scripts/build_customer_demo_audio_preview.py", makefile)
+        self.assertIn("--require-audio-preview", makefile)
 
     def test_customer_demo_recorder_dry_run_covers_full_recording_pipeline(self):
         result = subprocess.run(
@@ -244,10 +277,13 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         script = SCRIPT_PATH.read_text(encoding="utf-8")
 
         self.assertIn("--require-delivery-pack", script)
+        self.assertIn("--require-audio-preview", script)
         self.assertIn("verify_delivery_pack", script)
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
         self.assertIn("delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README", script)
         self.assertIn("_subtitled.mp4", script)
+        self.assertIn("_subtitled_voiceover.mp4", script)
+        self.assertIn("_voiceover_preview.m4a", script)
         self.assertIn("index.html", script)
         self.assertIn("DELIVERY_SUMMARY.zh.md", script)
         self.assertIn("_voiceover_tts.zh.txt", script)
@@ -268,6 +304,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("verify_zip_checksum_file", script)
         self.assertIn("verify_external_handoff_note", script)
         self.assertIn("verify_customer_voiceover_tts_text", script)
+        self.assertIn("verify_audio_preview_assets", script)
+        self.assertIn("optional spoken preview video and audio", script)
         self.assertIn("customer delivery item checksum mismatch", script)
 
     def test_delivery_integrity_verifies_zip_member_hashes(self):

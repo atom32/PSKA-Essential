@@ -100,6 +100,17 @@ def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, A
             raise SystemExit(f"missing {label}: {source}")
         copied.append(copy_asset(label, source, package_dir))
 
+    video_path = ROOT / str(manifest["mp4"])
+    dist_dir = video_path.parent
+    basename = video_path.stem
+    for label, source in [
+        ("带声音预览视频", dist_dir / f"{basename}_subtitled_voiceover.mp4"),
+        ("预览音频", dist_dir / f"{basename}_voiceover_preview.m4a"),
+        ("音频生成记录", dist_dir / f"{basename}_subtitled_voiceover_manifest.json"),
+    ]:
+        if source.exists():
+            copied.append(copy_asset(label, source, package_dir))
+
     source_manifest = ROOT / str(manifest.get("mp4", "")).replace(".mp4", "_manifest.json")
     if source_manifest.exists():
         copied.append(copy_asset("生成记录", source_manifest, package_dir))
@@ -404,6 +415,7 @@ def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]
 
 def write_package_index(path: Path, basename: str, copied: list[dict[str, Any]]) -> None:
     hard_subtitled = f"{basename}_subtitled.mp4"
+    spoken_preview = f"{basename}_subtitled_voiceover.mp4"
     original_video = f"{basename}.mp4"
     subtitles = f"{basename}.zh.srt"
     voiceover = f"{basename}_voiceover.zh.md"
@@ -502,6 +514,7 @@ def write_delivery_summary(
     index_path: Path,
 ) -> None:
     hard_subtitled = f"{basename}_subtitled.mp4"
+    spoken_preview = f"{basename}_subtitled_voiceover.mp4"
     original_video = f"{basename}.mp4"
     duration = ffprobe_duration(index_path.parent / original_video)
     summary_items = copied + [file_item("入口页面", index_path), file_item("交付说明", readme_path)]
@@ -512,6 +525,7 @@ def write_delivery_summary(
         f"- 主片时长：`{duration:.1f}` 秒",
         "- 推荐入口：`index.html`",
         f"- 直接预览：`{hard_subtitled}`",
+        f"- 有声预览：如果交付文件包含 `{spoken_preview}`，可直接播放这一版。",
         f"- 二次剪辑：`{original_video}` + `{basename}.zh.srt` + `{basename}_voiceover_tts.zh.txt`",
         f"- 人工讲解：`{basename}_voiceover.zh.md`",
         "- 压缩包外部校验：同名 `.zip.sha256` 文件",

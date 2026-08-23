@@ -55,6 +55,7 @@ def main() -> int:
     parser.add_argument("--demo-dir", type=Path, default=DEMO_DIR)
     parser.add_argument("--require-video", action="store_true")
     parser.add_argument("--require-delivery-pack", action="store_true")
+    parser.add_argument("--require-audio-preview", action="store_true")
     parser.add_argument("--all-videos", action="store_true", help="Verify every known generated demo video pack.")
     parser.add_argument("--basename", default=BASE_NAME)
     parser.add_argument("--case", default="")
@@ -65,6 +66,8 @@ def main() -> int:
         help="Add a duration floor. Known demo floors still apply: 30s core, 180s long core, 120s business cases.",
     )
     args = parser.parse_args()
+    if args.require_audio_preview and not args.require_delivery_pack:
+        parser.error("--require-audio-preview requires --require-delivery-pack")
 
     demo_dir = args.demo_dir.resolve()
     dist_dir = demo_dir / "dist"
@@ -100,7 +103,12 @@ def main() -> int:
                 checks=checks,
             )
         if args.require_delivery_pack:
-            verify_delivery_pack(dist_dir, "hermes_pska_customer_walkthrough_demo", checks)
+            verify_delivery_pack(
+                dist_dir,
+                "hermes_pska_customer_walkthrough_demo",
+                checks,
+                require_audio_preview=args.require_audio_preview,
+            )
     elif args.require_video:
         verify_media_pack(
             demo_dir,
@@ -111,13 +119,13 @@ def main() -> int:
             checks=checks,
         )
         if args.require_delivery_pack:
-            verify_delivery_pack(dist_dir, args.basename, checks)
+            verify_delivery_pack(dist_dir, args.basename, checks, require_audio_preview=args.require_audio_preview)
     else:
         media_files = media_files_for(dist_dir, args.basename)
         existing = [path for path in media_files if path.exists()]
         checks.append(f"media optional in this mode: {len(existing)}/{len(media_files)} present")
         if args.require_delivery_pack:
-            verify_delivery_pack(dist_dir, args.basename, checks)
+            verify_delivery_pack(dist_dir, args.basename, checks, require_audio_preview=args.require_audio_preview)
 
     print("Hermes extension demo verification passed:")
     for check in checks:
@@ -252,7 +260,13 @@ def verify_customer_packager(path: Path, checks: list[str]) -> None:
     checks.append("customer packager: delivery assets and zip output covered")
 
 
-def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> None:
+def verify_delivery_pack(
+    dist_dir: Path,
+    basename: str,
+    checks: list[str],
+    *,
+    require_audio_preview: bool = False,
+) -> None:
     if basename != "hermes_pska_customer_walkthrough_demo":
         raise SystemExit("--require-delivery-pack is only supported for hermes_pska_customer_walkthrough_demo")
     package_dir_name = f"{basename}_delivery_pack"
@@ -292,6 +306,12 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         verify_customer_voiceover_tts_text(Path(f"{basename}_voiceover_tts.zh.txt"), voiceover_tts_text)
         verify_preview_image_bytes(archive.read(f"{package_dir_name}/{basename}_preview_sheet.jpg"))
         integrity_count = verify_delivery_integrity(archive, package_dir_name, delivery_manifest)
+        audio_preview_video_name = f"{package_dir_name}/{basename}_subtitled_voiceover.mp4"
+        audio_preview_track_name = f"{package_dir_name}/{basename}_voiceover_preview.m4a"
+        audio_preview_manifest_name = f"{package_dir_name}/{basename}_subtitled_voiceover_manifest.json"
+        has_audio_preview = audio_preview_video_name in names and audio_preview_track_name in names
+        if require_audio_preview and not has_audio_preview:
+            raise SystemExit(f"{zip_path} missing required customer audio preview files")
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             original_video = tmp_dir / f"{basename}.mp4"
@@ -299,6 +319,14 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
             original_video.write_bytes(archive.read(f"{package_dir_name}/{basename}.mp4"))
             subtitled_video.write_bytes(archive.read(f"{package_dir_name}/{basename}_subtitled.mp4"))
             verify_hard_subtitled_video(original_video, subtitled_video, parse_srt(subtitle_text), checks)
+            if has_audio_preview:
+                preview_video = tmp_dir / f"{basename}_subtitled_voiceover.mp4"
+                preview_audio = tmp_dir / f"{basename}_voiceover_preview.m4a"
+                preview_video.write_bytes(archive.read(audio_preview_video_name))
+                preview_audio.write_bytes(archive.read(audio_preview_track_name))
+                verify_audio_preview_assets(subtitled_video, preview_video, preview_audio, checks)
+                if audio_preview_manifest_name not in names:
+                    raise SystemExit(f"{zip_path} missing customer audio preview manifest")
     required_readme_terms = [
         "客户演示视频交付包",
         "入口页面",
@@ -338,6 +366,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         "客户演示视频交付摘要",
         "推荐入口：`index.html`",
         f"直接预览：`{basename}_subtitled.mp4`",
+        f"有声预览：如果交付文件包含 `{basename}_subtitled_voiceover.mp4`",
         f"二次剪辑：`{basename}.mp4` + `{basename}.zh.srt` + `{basename}_voiceover_tts.zh.txt`",
         f"人工讲解：`{basename}_voiceover.zh.md`",
         "SHA256",
@@ -354,6 +383,8 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         raise SystemExit(f"{zip_path} delivery manifest missing expected items")
     if package_dir.exists():
         require_files([package_dir / Path(name).name for name in required_names], checks)
+    if require_audio_preview or has_audio_preview:
+        checks.append(f"{zip_path.name}: delivery zip contains optional spoken preview video and audio")
     checks.append(f"{zip_path.name}: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README")
     checks.append(f"{zip_path.name}: delivery zip integrity verified with sha256 for {integrity_count} files")
     checks.append(f"{checksum_path.name}: delivery zip external checksum verified with sha256")
@@ -421,6 +452,33 @@ def verify_hard_subtitled_video(
     if mean_abs_diff < 2.0:
         raise SystemExit(f"customer hard-subtitled video does not show visible subtitle overlay: diff={mean_abs_diff:.2f}")
     checks.append(f"{subtitled_video.name}: hard subtitles visible in bottom-band pixel check")
+
+
+def verify_audio_preview_assets(
+    subtitled_video: Path,
+    preview_video: Path,
+    preview_audio: Path,
+    checks: list[str],
+) -> None:
+    subtitled_payload = ffprobe(subtitled_video)
+    preview_payload = ffprobe(preview_video)
+    audio_payload = ffprobe(preview_audio)
+    subtitled_duration = float((subtitled_payload.get("format") or {}).get("duration") or 0)
+    preview_duration = float((preview_payload.get("format") or {}).get("duration") or 0)
+    audio_duration = float((audio_payload.get("format") or {}).get("duration") or 0)
+    preview_streams = preview_payload.get("streams") or []
+    preview_video_streams = [stream for stream in preview_streams if stream.get("codec_type") == "video"]
+    preview_audio_streams = [stream for stream in preview_streams if stream.get("codec_type") == "audio"]
+    if not preview_video_streams or not preview_audio_streams:
+        raise SystemExit("customer spoken preview must contain both video and audio streams")
+    audio_streams = [stream for stream in audio_payload.get("streams") or [] if stream.get("codec_type") == "audio"]
+    if not audio_streams:
+        raise SystemExit("customer spoken preview audio file has no audio stream")
+    if audio_duration < subtitled_duration - 2.0:
+        raise SystemExit(f"customer spoken preview audio is too short: {audio_duration:.1f}s vs {subtitled_duration:.1f}s")
+    if abs(preview_duration - subtitled_duration) > 2.0:
+        raise SystemExit(f"customer spoken preview video duration mismatch: {preview_duration:.1f}s vs {subtitled_duration:.1f}s")
+    checks.append(f"{preview_video.name}: optional spoken preview has video and audio streams")
 
 
 def video_bottom_band_bytes(path: Path, timestamp: float) -> bytes:

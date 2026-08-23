@@ -26,10 +26,11 @@
 
 ## 现有可用素材
 
-本机已经有五个通过检查的视频包，并可生成一个硬字幕版本；视频都没有音轨，适合导入剪映后配音：
+本机已经有五个通过检查的视频包，并可生成一个硬字幕版本；默认视频都没有音轨，适合导入剪映后配音：
 
 - `dist/hermes_pska_customer_walkthrough_demo.mp4`：客户版合成主片，约五分二十五秒。
 - `dist/hermes_pska_customer_walkthrough_demo_subtitled.mp4`：硬字幕版主片，适合直接发给客户预览。
+- `dist/hermes_pska_customer_walkthrough_demo_subtitled_voiceover.mp4`：带机器旁白的有声预览版，适合内部快速过片或给客户先看。
 - `dist/hermes_pska_extension_demo_long.mp4`：核心长版，约三分二十一秒。
 - `dist/hermes_pska_finance_case_demo.mp4`：财报调研案例，约两分三秒。
 - `dist/hermes_pska_webnovel_case_demo.mp4`：网文续写和创作画布案例，约两分十四秒。
@@ -50,6 +51,7 @@ demo/browser/hermes_pska_extension_demo/dist/hermes_pska_customer_walkthrough_de
 
 1. 先看 `hermes_pska_customer_walkthrough_demo_preview_sheet.jpg`，确认画面顺序。
 2. 直接播放时，使用 `hermes_pska_customer_walkthrough_demo_subtitled.mp4`。
+   如果已经生成有声预览，也可以直接播放 `hermes_pska_customer_walkthrough_demo_subtitled_voiceover.mp4`。
 3. 需要二次剪辑时，把 `hermes_pska_customer_walkthrough_demo.mp4` 导入剪映。
 4. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕。
 5. 用 `hermes_pska_customer_walkthrough_demo_voiceover_tts.zh.txt` 生成中文配音；人工讲解时看 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md`。
@@ -101,6 +103,15 @@ HERMES_WEBUI_PASSWORD=011235 make demo-browser-customer-record-package DEMO_RECO
 ```
 
 检查会提前确认 Node、ffmpeg、录制依赖、对话工作台、知识助手服务和创作画布服务是否可用。
+
+如果只想在本机加一个带机器旁白的客户预览版，不重新录浏览器画面：
+
+```bash
+make demo-browser-customer-audio-package
+```
+
+这会使用字幕文本生成中文机器旁白，并额外产出
+`hermes_pska_customer_walkthrough_demo_subtitled_voiceover.mp4`。无音轨主片仍然是剪辑源文件。
 
 下面的三条命令用于单独重录某一段，或者排查某个 case 的问题。
 

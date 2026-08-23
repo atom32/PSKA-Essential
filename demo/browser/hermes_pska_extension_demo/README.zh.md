@@ -202,11 +202,13 @@ make demo-browser-customer-package
 - `hermes_pska_webnovel_case_demo.mp4`：`148.9s`，`1280x720`，无音轨，10 段纯中文字幕。
 - `hermes_pska_customer_walkthrough_demo.mp4`：`325.4s`，`1280x720`，无音轨，10 段纯中文字幕。
 - `hermes_pska_customer_walkthrough_demo_subtitled.mp4`：硬字幕版主片，适合直接预览或发给客户确认。
+- `hermes_pska_customer_walkthrough_demo_subtitled_voiceover.mp4`：带机器旁白的有声预览版，适合快速播放确认。
 - 网文 case 的 Eidolia 镜头从 `01:49.072` 到 `02:12.633`，用于展示想法/产物节点和续写草稿。
 - 客户主片的创作画布镜头从 `05:01.610` 到 `05:25.171`，用于展示想法/产物节点和续写草稿。
 - 客户主片交付包内包含 `hermes_pska_customer_walkthrough_demo_preview_sheet.jpg`，用于快速检查关键画面顺序。
 - 客户主片同时生成 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md` 和
   `hermes_pska_customer_walkthrough_demo_voiceover_tts.zh.txt`；前者用于人工讲解，后者用于剪映中文配音。
+- 需要有声预览时运行 `make demo-browser-customer-audio-package`；无音轨主片仍然是剪辑源文件。
 - 客户主片可打包为 `hermes_pska_customer_walkthrough_demo_delivery_pack.zip`，用于交付剪辑或讲解同事；旁边的
   `.zip.sha256` 文件用于转交后核对压缩包是否被截断或替换，`_delivery_handoff.zh.md`
   是给收件人的外部说明。

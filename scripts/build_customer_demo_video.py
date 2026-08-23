@@ -200,6 +200,7 @@ def main() -> int:
     output_voiceover = dist_dir / f"{args.output_basename}_voiceover.zh.md"
     output_voiceover_tts = dist_dir / f"{args.output_basename}_voiceover_tts.zh.txt"
     output_manifest = dist_dir / f"{args.output_basename}_manifest.json"
+    remove_stale_audio_preview_outputs(dist_dir, args.output_basename)
 
     concat_clips(build_dir, output_mp4)
     write_srt(timeline, output_srt)
@@ -398,6 +399,17 @@ def write_voiceover_tts(timeline: list[dict[str, Any]], path: Path) -> None:
 
 def customer_voiceover_closing() -> str:
     return "这套流程的重点不是多一个页面，而是让对话、资料、记忆、任务和创作保持在同一个工作流里。"
+
+
+def remove_stale_audio_preview_outputs(dist_dir: Path, basename: str) -> None:
+    for suffix in [
+        "_voiceover_preview.m4a",
+        "_subtitled_voiceover.mp4",
+        "_subtitled_voiceover_manifest.json",
+    ]:
+        path = dist_dir / f"{basename}{suffix}"
+        if path.exists():
+            path.unlink()
 
 
 def write_manifest(

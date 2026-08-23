@@ -168,6 +168,16 @@ HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-demo ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
+To add an optional spoken customer preview video using the local macOS Chinese
+voice, run:
+
+```bash
+make demo-browser-customer-audio-package
+```
+
+The no-audio master video remains the editing source; the spoken preview is for
+quick customer playback.
+
 Run the full local Hermes workspace stack:
 
 ```bash
