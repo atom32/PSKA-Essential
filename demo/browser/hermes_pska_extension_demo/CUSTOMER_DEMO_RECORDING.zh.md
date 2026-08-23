@@ -33,6 +33,7 @@
 - `dist/hermes_pska_finance_case_demo.mp4`：财报调研案例，约两分三秒。
 - `dist/hermes_pska_webnovel_case_demo.mp4`：网文续写和创作画布案例，约两分十四秒。
 - 每个视频旁边都有同名 `.zh.srt` 字幕文件。
+- 客户版主片旁边还有同名 `_voiceover.zh.md` 旁白稿，适合人工讲解或生成中文配音。
 
 这些字幕已经按“客户能听懂”的口径写好，不使用英文术语。
 
@@ -106,15 +107,16 @@ python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-vide
 
 1. 导入 `mp4` 视频。
 2. 导入同名 `.zh.srt` 字幕。
-3. 用字幕生成中文配音，语速选偏慢。
+3. 用同名 `_voiceover.zh.md` 旁白稿生成中文配音，语速选偏慢。
 4. 保留原始操作画面，不要改成幻灯片。
 5. 如果画面等待时间太长，只裁短等待，不删掉“发问到回答”的过程。
 
 推荐使用顺序：
 
 1. 直接使用 `hermes_pska_customer_walkthrough_demo.mp4` 作为主片。
-2. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕和配音文本。
-3. 如果要加长讲解，再补财报案例或网文案例的完整视频。
+2. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕。
+3. 用 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md` 作为配音文本。
+4. 如果要加长讲解，再补财报案例或网文案例的完整视频。
 
 ## 旁白口径
 

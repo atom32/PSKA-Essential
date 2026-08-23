@@ -186,6 +186,7 @@ python3 scripts/verify_hermes_extension_demo_pack.py \
 - `hermes_pska_customer_walkthrough_demo.mp4`：`325.4s`，`1280x720`，无音轨，10 段纯中文字幕。
 - 网文 case 的 Eidolia 镜头从 `01:49.072` 到 `02:12.633`，用于展示想法/产物节点和续写草稿。
 - 客户主片的创作画布镜头从 `05:01.610` 到 `05:25.171`，用于展示想法/产物节点和续写草稿。
+- 客户主片同时生成 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md`，用于人工讲解或剪映中文配音。
 
 ## 边界
 

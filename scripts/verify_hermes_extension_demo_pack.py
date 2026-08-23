@@ -412,6 +412,16 @@ def verify_customer_walkthrough_manifest(path: Path, payload: dict[str, Any]) ->
         raise SystemExit(f"{path} expected visual cleanup mask_filters")
     if any("drawbox=" not in str(mask_filter or "") for mask_filter in mask_filters):
         raise SystemExit(f"{path} expected visual cleanup drawbox filters")
+    voiceover = str(payload.get("voiceover") or "")
+    if not voiceover:
+        raise SystemExit(f"{path} expected customer walkthrough voiceover script")
+    voiceover_path = ROOT / voiceover
+    if not voiceover_path.exists():
+        raise SystemExit(f"{path} voiceover script does not exist: {voiceover_path}")
+    voiceover_text = voiceover_path.read_text(encoding="utf-8")
+    if "旁白稿" not in voiceover_text or "剪映" not in voiceover_text:
+        raise SystemExit(f"{voiceover_path} does not look like a customer voiceover script")
+    verify_no_english_terms(voiceover_path, voiceover_text, "voiceover script")
     durations = {
         str(scene.get("id") or ""): float(scene.get("endsAt") or 0) - float(scene.get("startsAt") or 0)
         for scene in payload.get("timeline") or []

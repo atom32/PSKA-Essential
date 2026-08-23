@@ -148,12 +148,22 @@ def main() -> int:
     output_mp4 = dist_dir / f"{args.output_basename}.mp4"
     output_srt = dist_dir / f"{args.output_basename}.zh.srt"
     output_storyboard = dist_dir / f"{args.output_basename}_storyboard.zh.md"
+    output_voiceover = dist_dir / f"{args.output_basename}_voiceover.zh.md"
     output_manifest = dist_dir / f"{args.output_basename}_manifest.json"
 
     concat_clips(build_dir, output_mp4)
     write_srt(timeline, output_srt)
     write_storyboard(timeline, output_storyboard)
-    write_manifest(args.output_basename, timeline, output_mp4, output_srt, output_storyboard, output_manifest)
+    write_voiceover(timeline, output_voiceover)
+    write_manifest(
+        args.output_basename,
+        timeline,
+        output_mp4,
+        output_srt,
+        output_storyboard,
+        output_voiceover,
+        output_manifest,
+    )
 
     if not args.keep_build:
         shutil.rmtree(build_dir, ignore_errors=True)
@@ -161,6 +171,7 @@ def main() -> int:
     print(f"video: {output_mp4}")
     print(f"subtitles: {output_srt}")
     print(f"storyboard: {output_storyboard}")
+    print(f"voiceover: {output_voiceover}")
     print(f"manifest: {output_manifest}")
     return 0
 
@@ -299,12 +310,40 @@ def write_storyboard(timeline: list[dict[str, Any]], path: Path) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def write_voiceover(timeline: list[dict[str, Any]], path: Path) -> None:
+    lines = [
+        "# 客户版实操演示视频旁白稿",
+        "",
+        "这份稿子用于人工讲解或导入剪映生成中文配音。语速建议偏慢，遇到画面等待时可以停顿。",
+        "",
+    ]
+    for index, scene in enumerate(timeline, start=1):
+        lines.extend(
+            [
+                f"## 第{index}段：{scene['title']}",
+                "",
+                str(scene["narration"]),
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## 收尾",
+            "",
+            "这套流程的重点不是多一个页面，而是让对话、资料、记忆、任务和创作保持在同一个工作流里。",
+            "",
+        ]
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def write_manifest(
     basename: str,
     timeline: list[dict[str, Any]],
     mp4: Path,
     srt: Path,
     storyboard: Path,
+    voiceover: Path,
     manifest: Path,
 ) -> None:
     payload = {
@@ -318,6 +357,7 @@ def write_manifest(
         "mp4": str(mp4.relative_to(ROOT)),
         "subtitles": str(srt.relative_to(ROOT)),
         "storyboard": str(storyboard.relative_to(ROOT)),
+        "voiceover": str(voiceover.relative_to(ROOT)),
         "timeline": timeline,
         "no_tts": True,
         "entrypoint": "Hermes WebUI extension",

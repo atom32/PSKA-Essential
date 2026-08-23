@@ -96,6 +96,14 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("hide_sidebar=True", script)
         self.assertIn("customer_facing_operational_walkthrough", script)
 
+    def test_customer_video_builder_writes_voiceover_script(self):
+        script = CUSTOMER_BUILDER_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("write_voiceover", script)
+        self.assertIn("_voiceover.zh.md", script)
+        self.assertIn('"voiceover": str(voiceover.relative_to(ROOT))', script)
+        self.assertIn("客户版实操演示视频旁白稿", script)
+
     def test_plain_chinese_subtitle_check_rejects_english_terms(self):
         with self.assertRaises(SystemExit):
             self.verifier.verify_plain_chinese_subtitles(
