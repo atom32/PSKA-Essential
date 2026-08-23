@@ -265,6 +265,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         f"{package_dir_name}/{basename}.zh.srt",
         f"{package_dir_name}/{basename}_voiceover.zh.md",
         f"{package_dir_name}/{basename}_storyboard.zh.md",
+        f"{package_dir_name}/{basename}_preview_sheet.jpg",
         f"{package_dir_name}/{basename}_manifest.json",
     ]
     if not zip_path.exists():
@@ -278,10 +279,12 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
             raise SystemExit(f"{zip_path} missing delivery files: {', '.join(missing)}")
         readme = archive.read(f"{package_dir_name}/README.zh.md").decode("utf-8")
         delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
+        verify_preview_image_bytes(archive.read(f"{package_dir_name}/{basename}_preview_sheet.jpg"))
         integrity_count = verify_delivery_integrity(archive, package_dir_name, delivery_manifest)
     required_readme_terms = [
         "客户演示视频交付包",
         "旁白稿",
+        "关键画面预览图",
         "片子面向客户，不讲内部接口、数据库或模型术语",
         "回答前会先整理资料、已有记忆、操作记录和下一步建议",
         "长期记忆需要用户确认",
@@ -300,7 +303,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         raise SystemExit(f"{zip_path} delivery manifest missing expected items")
     if package_dir.exists():
         require_files([package_dir / Path(name).name for name in required_names], checks)
-    checks.append(f"{zip_path.name}: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README")
+    checks.append(f"{zip_path.name}: delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README")
     checks.append(f"{zip_path.name}: delivery zip integrity verified with sha256 for {integrity_count} files")
     checks.append(f"{checksum_path.name}: delivery zip external checksum verified with sha256")
     checks.append(f"{handoff_path.name}: external handoff note covers checksum and editing steps")
@@ -338,6 +341,11 @@ def verify_delivery_integrity(
     return len(items)
 
 
+def verify_preview_image_bytes(data: bytes) -> None:
+    if len(data) < 10_000 or not data.startswith(b"\xff\xd8"):
+        raise SystemExit("customer delivery preview sheet does not look like a valid JPEG")
+
+
 def verify_zip_checksum_file(zip_path: Path, checksum_path: Path) -> None:
     if not checksum_path.exists():
         raise SystemExit(f"missing customer delivery zip checksum: {checksum_path}")
@@ -365,6 +373,7 @@ def verify_external_handoff_note(handoff_path: Path, zip_path: Path, checksum_pa
         checksum_path.name,
         f"shasum -a 256 -c {checksum_path.name}",
         "剪辑顺序",
+        "关键画面预览图",
         "长期记忆待确认",
         "创作画布",
         "不要说这是独立前端",

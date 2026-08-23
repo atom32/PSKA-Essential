@@ -177,7 +177,7 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertTrue(
             module._demo_delivery_pack_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
                 ]
             )
         )
@@ -197,7 +197,7 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertFalse(
             module._demo_delivery_integrity_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
                     "hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256: delivery zip external checksum verified with sha256",
                 ]
             )

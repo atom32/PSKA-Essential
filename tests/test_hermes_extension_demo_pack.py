@@ -119,8 +119,10 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("创作画布必须保留", script)
         self.assertIn("不要说这是独立前端", script)
         self.assertIn("sha256_file", script)
+        self.assertIn("write_preview_contact_sheet", script)
         self.assertIn("write_zip_checksum", script)
         self.assertIn("write_external_handoff_note", script)
+        self.assertIn("关键画面预览", script)
         self.assertIn('".sha256"', script)
         self.assertIn("zip_sha256", script)
         self.assertIn("客户演示视频外部交付说明", script)
@@ -141,7 +143,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("--require-delivery-pack", script)
         self.assertIn("verify_delivery_pack", script)
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
-        self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
+        self.assertIn("delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README", script)
+        self.assertIn("customer delivery preview sheet does not look like a valid JPEG", script)
         self.assertIn("delivery zip integrity verified with sha256", script)
         self.assertIn("delivery zip external checksum verified with sha256", script)
         self.assertIn("external handoff note covers checksum and editing steps", script)
@@ -187,6 +190,12 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     self.verifier.verify_delivery_integrity(archive, "pack", bad_manifest)
 
+    def test_preview_image_bytes_require_jpeg_payload(self):
+        self.verifier.verify_preview_image_bytes(b"\xff\xd8" + b"x" * 10_000)
+
+        with self.assertRaises(SystemExit):
+            self.verifier.verify_preview_image_bytes(b"not a jpeg")
+
     def test_zip_checksum_file_verifies_transferred_archive(self):
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = pathlib.Path(tmp) / "pack.zip"
@@ -220,6 +229,7 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
                         "shasum -a 256 -c pack.zip.sha256",
                         "```",
                         "## 剪辑顺序",
+                        "关键画面预览图。",
                         "长期记忆待确认。",
                         "创作画布。",
                         "不要说这是独立前端。",

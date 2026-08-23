@@ -12,6 +12,8 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
+import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,6 +44,8 @@ def main() -> int:
     package_dir.mkdir(parents=True, exist_ok=True)
 
     copied = copy_assets(manifest, package_dir)
+    preview_path = write_preview_contact_sheet(manifest, dist_dir, basename)
+    copied.append(copy_asset("关键画面预览", preview_path, package_dir))
     readme_path = package_dir / "README.zh.md"
     write_package_readme(readme_path, basename, copied)
     pack_manifest_path = package_dir / "delivery_manifest.json"
@@ -85,16 +89,18 @@ def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, A
         source = ROOT / str(manifest[key])
         if not source.exists():
             raise SystemExit(f"missing {label}: {source}")
-        target = package_dir / source.name
-        shutil.copy2(source, target)
-        copied.append(file_item(label, target))
+        copied.append(copy_asset(label, source, package_dir))
 
     source_manifest = ROOT / str(manifest.get("mp4", "")).replace(".mp4", "_manifest.json")
     if source_manifest.exists():
-        target = package_dir / source_manifest.name
-        shutil.copy2(source_manifest, target)
-        copied.append(file_item("生成记录", target))
+        copied.append(copy_asset("生成记录", source_manifest, package_dir))
     return copied
+
+
+def copy_asset(label: str, source: Path, package_dir: Path) -> dict[str, Any]:
+    target = package_dir / source.name
+    shutil.copy2(source, target)
+    return file_item(label, target)
 
 
 def file_item(label: str, path: Path) -> dict[str, Any]:
@@ -112,6 +118,62 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def write_preview_contact_sheet(manifest: dict[str, Any], dist_dir: Path, basename: str) -> Path:
+    video_path = ROOT / str(manifest["mp4"])
+    timeline = manifest.get("timeline") or []
+    if len(timeline) != 10:
+        raise SystemExit("customer preview sheet expects 10 timeline scenes")
+    preview_path = dist_dir / f"{basename}_preview_sheet.jpg"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        for index, scene in enumerate(timeline, start=1):
+            start = float(scene.get("startsAt") or 0)
+            end = float(scene.get("endsAt") or start)
+            timestamp = max(0.0, start + max(end - start, 1.0) / 2.0)
+            frame_path = tmp_dir / f"frame_{index:02d}.jpg"
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-ss",
+                    f"{timestamp:.3f}",
+                    "-i",
+                    str(video_path),
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    "scale=320:-1",
+                    str(frame_path),
+                ],
+                check=True,
+            )
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-framerate",
+                "1",
+                "-i",
+                str(tmp_dir / "frame_%02d.jpg"),
+                "-vf",
+                "tile=5x2:padding=8:margin=8",
+                "-frames:v",
+                "1",
+                str(preview_path),
+            ],
+            check=True,
+        )
+    if not preview_path.exists() or preview_path.stat().st_size < 10_000:
+        raise SystemExit(f"failed to build customer preview sheet: {preview_path}")
+    return preview_path
 
 
 def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]) -> None:
@@ -133,8 +195,9 @@ def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]
             "1. 先导入视频主片。",
             "2. 再导入字幕文件。",
             "3. 使用旁白稿生成中文配音，语速建议偏慢。",
-            "4. 如需调整节奏，只裁短等待画面，不删掉提问到回答的过程。",
-            "5. 最后一段创作画布必须保留，它展示想法节点、产物节点和续写草稿。",
+            "4. 可先打开关键画面预览图，快速确认画面顺序。",
+            "5. 如需调整节奏，只裁短等待画面，不删掉提问到回答的过程。",
+            "6. 最后一段创作画布必须保留，它展示想法节点、产物节点和续写草稿。",
             "",
             "## 讲解重点",
             "",
@@ -225,7 +288,8 @@ def write_external_handoff_note(dist_dir: Path, basename: str, zip_path: Path, c
         "1. 导入主视频。",
         "2. 导入同名字幕。",
         "3. 用旁白稿生成中文配音。",
-        "4. 保留资料范围、提问到回答、长期记忆待确认和创作画布画面。",
+        "4. 先看关键画面预览图，确认画面顺序。",
+        "5. 保留资料范围、提问到回答、长期记忆待确认和创作画布画面。",
         "",
         "## 讲解边界",
         "",
