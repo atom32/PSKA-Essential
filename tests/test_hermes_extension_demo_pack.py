@@ -7,6 +7,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "verify_hermes_extension_demo_pack.py"
 CUSTOMER_BUILDER_PATH = ROOT / "scripts" / "build_customer_demo_video.py"
+CUSTOMER_PACKAGER_PATH = ROOT / "scripts" / "package_customer_demo_assets.py"
 
 
 def load_verifier():
@@ -103,6 +104,15 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("_voiceover.zh.md", script)
         self.assertIn('"voiceover": str(voiceover.relative_to(ROOT))', script)
         self.assertIn("客户版实操演示视频旁白稿", script)
+
+    def test_customer_demo_packager_collects_delivery_assets(self):
+        script = CUSTOMER_PACKAGER_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("pska.customer_demo_delivery_pack.v1", script)
+        self.assertIn("hermes_pska_customer_walkthrough_demo", script)
+        self.assertIn('"voiceover"', script)
+        self.assertIn("客户演示视频交付包", script)
+        self.assertIn("zipfile.ZipFile", script)
 
     def test_plain_chinese_subtitle_check_rejects_english_terms(self):
         with self.assertRaises(SystemExit):

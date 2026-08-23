@@ -97,6 +97,12 @@ node scripts/record_hermes_pska_extension_demo.cjs \
 python3 scripts/build_customer_demo_video.py
 ```
 
+生成可交付目录和压缩包：
+
+```bash
+python3 scripts/package_customer_demo_assets.py
+```
+
 录完后检查全部视频：
 
 ```bash
@@ -116,7 +122,8 @@ python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-vide
 1. 直接使用 `hermes_pska_customer_walkthrough_demo.mp4` 作为主片。
 2. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕。
 3. 用 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md` 作为配音文本。
-4. 如果要加长讲解，再补财报案例或网文案例的完整视频。
+4. 如果要发给他人处理，使用 `hermes_pska_customer_walkthrough_demo_delivery_pack.zip`。
+5. 如果要加长讲解，再补财报案例或网文案例的完整视频。
 
 ## 旁白口径
 

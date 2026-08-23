@@ -74,11 +74,13 @@ def main() -> int:
         demo_dir / "source_root" / "Memory-Trace.md",
         demo_dir / "source_root" / "Eidolia-Bridge.md",
         ROOT / "scripts" / "record_hermes_pska_extension_demo.cjs",
+        ROOT / "scripts" / "package_customer_demo_assets.py",
     ]
     require_files(required, checks)
     verify_plan(demo_dir / "demo_plan.json", checks)
     verify_feature_matrix(demo_dir / "FEATURE_EVIDENCE_MATRIX.zh.md", checks)
     verify_recorder(ROOT / "scripts" / "record_hermes_pska_extension_demo.cjs", checks)
+    verify_customer_packager(ROOT / "scripts" / "package_customer_demo_assets.py", checks)
     if args.case and not (args.require_video or args.all_videos):
         verify_case_fixture(demo_dir, args.case, checks)
     verify_legacy_demo_disabled(checks)
@@ -219,6 +221,21 @@ def verify_recorder(path: Path, checks: list[str]) -> None:
     if offenders:
         raise SystemExit(f"{path} contains forbidden diagnostic/TTS markers: {', '.join(offenders)}")
     checks.append("recorder: extension selectors present and no diagnostic/TTS path")
+
+
+def verify_customer_packager(path: Path, checks: list[str]) -> None:
+    text = path.read_text(encoding="utf-8")
+    required = [
+        "pska.customer_demo_delivery_pack.v1",
+        "hermes_pska_customer_walkthrough_demo",
+        '"voiceover"',
+        "客户演示视频交付包",
+        "zipfile.ZipFile",
+    ]
+    missing = [needle for needle in required if needle not in text]
+    if missing:
+        raise SystemExit(f"{path} missing customer packager markers: {', '.join(missing)}")
+    checks.append("customer packager: delivery assets and zip output covered")
 
 
 def verify_case_fixture(demo_dir: Path, case_id: str, checks: list[str]) -> None:
