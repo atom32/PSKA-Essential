@@ -16,9 +16,13 @@ control plane: it does not read the Hermes database and does not call
 From a Hermes WebUI checkout:
 
 ```bash
-git apply /Users/xudawei/PSKA-Essential/integrations/hermes-webui-recall-provider/pska-conversation-recall-provider.patch
-python3 -m py_compile api/auth.py api/routes.py
-python3 -m pytest tests/test_pska_conversation_recall_provider.py tests/test_sessions_search_profile_scope.py
+/Users/xudawei/PSKA-Essential/scripts/install_hermes_recall_provider.sh /path/to/hermes-webui
+```
+
+To only verify an existing checkout:
+
+```bash
+/Users/xudawei/PSKA-Essential/scripts/install_hermes_recall_provider.sh --check --no-test /path/to/hermes-webui
 ```
 
 Then start Hermes with:

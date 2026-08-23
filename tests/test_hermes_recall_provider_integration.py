@@ -31,6 +31,26 @@ class HermesRecallProviderIntegrationTests(unittest.TestCase):
         self.assertIn("git apply ${HERMES_RECALL_PROVIDER_PATCH}", script)
         self.assertIn("HERMES_WEBUI_PSKA_RECALL_TOKEN", script)
 
+    def test_install_script_is_idempotent_and_testable(self):
+        script_path = ROOT / "scripts" / "install_hermes_recall_provider.sh"
+        script = script_path.read_text(encoding="utf-8")
+
+        self.assertTrue(script_path.stat().st_mode & 0o111)
+        self.assertIn("provider_source_ok", script)
+        self.assertIn("git -C \"${HERMES_WEBUI_HOME}\" apply --check", script)
+        self.assertIn("git -C \"${HERMES_WEBUI_HOME}\" apply \"${PATCH_FILE}\"", script)
+        self.assertIn("apply --reverse --check", script)
+        self.assertIn("python3 -m py_compile api/auth.py api/routes.py", script)
+        self.assertIn("tests/test_pska_conversation_recall_provider.py", script)
+
+    def test_env_example_documents_recall_token_pair(self):
+        env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+        self.assertIn("PSKA_HERMES_WEBUI_BASE_URL=http://127.0.0.1:8787", env_example)
+        self.assertIn("PSKA_HERMES_RECALL_TOKEN=", env_example)
+        self.assertIn("HERMES_WEBUI_PSKA_RECALL_TOKEN=", env_example)
+        self.assertIn("PSKA_HERMES_LEGACY_RECALL_FALLBACK=1", env_example)
+
 
 if __name__ == "__main__":
     unittest.main()

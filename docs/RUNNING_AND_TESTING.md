@@ -140,10 +140,8 @@ For query-based Hermes conversation recall inside PSKA context packs, apply the
 PSKA recall provider patch to the Hermes WebUI checkout that will actually run:
 
 ```bash
-cd /Users/xudawei/hermes-webui
-git apply /Users/xudawei/PSKA-Essential/integrations/hermes-webui-recall-provider/pska-conversation-recall-provider.patch
-python3 -m py_compile api/auth.py api/routes.py
-python3 -m pytest tests/test_pska_conversation_recall_provider.py tests/test_sessions_search_profile_scope.py
+cd /Users/xudawei/PSKA-Essential
+scripts/install_hermes_recall_provider.sh /Users/xudawei/hermes-webui
 ```
 
 Then set the same secret on both sides:
