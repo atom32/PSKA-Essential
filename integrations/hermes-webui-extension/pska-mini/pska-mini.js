@@ -3004,19 +3004,56 @@
       ""
     ];
     if (warnings.length) {
-      lines.push(...contextPackWarningLines(warnings));
+      lines.push(...contextPackWarningLines(warnings, { includeCodes: true }));
     }
     return lines.join("\n\n");
   }
 
-  function contextPackWarningLines(warnings) {
+  function contextPackWarningLines(warnings, options = {}) {
     if (!Array.isArray(warnings) || !warnings.length) return [];
-    const lines = ["Warnings:"];
+    const includeCodes = Boolean(options.includeCodes);
+    const lines = [includeCodes ? "Warnings:" : "注意:"];
     warnings.slice(0, 4).forEach((warning) => {
-      lines.push(`- ${warning.code || "warning"}: ${truncate(warning.message || "", 220)}`);
+      lines.push(includeCodes ? contextPackTechnicalWarningLine(warning) : contextPackUserWarningLine(warning));
     });
     lines.push("");
     return lines;
+  }
+
+  function contextPackTechnicalWarningLine(warning) {
+    return `- ${warning.code || "warning"}: ${truncate(warning.message || "", 220)}`;
+  }
+
+  function contextPackUserWarningLine(warning) {
+    const code = String(warning?.code || "");
+    const count = contextPackWarningCount(warning);
+    if (code === "memory_context_relevance_filtered") {
+      return `- 已排除${count ? ` ${count} 条` : ""}相关性较低的长期记忆，本轮不会塞进回答上下文。`;
+    }
+    if (code === "conversation_context_relevance_filtered") {
+      return `- 已排除${count ? ` ${count} 条` : ""}相关性较低的历史对话，本轮不会塞进回答上下文。`;
+    }
+    if (code === "conversation_recall_unconfigured" || code === "conversation_recall_token_unconfigured") {
+      return "- 历史对话找回还没有配置好，本轮只使用其他可用资料。";
+    }
+    if (code === "conversation_recall_provider_failed" || code === "conversation_recall_failed") {
+      return "- 历史对话暂时没有取回，本轮只使用其他可用资料。";
+    }
+    if (code === "memory_search_failed") {
+      return "- 长期记忆暂时没有取回，本轮只使用其他可用资料。";
+    }
+    if (code === "source_search_failed") {
+      return "- 已选资料夹暂时没有取回，本轮只使用其他可用资料。";
+    }
+    if (code === "evidence_retrieve_failed") {
+      return "- 知识库资料暂时没有取回，本轮只使用其他可用资料。";
+    }
+    return `- ${truncate(warning?.message || "有一项上下文提示需要注意。", 220)}`;
+  }
+
+  function contextPackWarningCount(warning) {
+    const match = String(warning?.message || "").match(/Filtered\s+(\d+)/i);
+    return match ? Number.parseInt(match[1], 10) || 0 : 0;
   }
 
   function contextPackFlowLine(flow) {
