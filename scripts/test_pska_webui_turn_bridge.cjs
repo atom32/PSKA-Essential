@@ -11,6 +11,7 @@ const BROWSER_CHANNEL = process.env.PSKA_PLAYWRIGHT_CHANNEL || "";
 const DATASET_ID = process.env.PSKA_TEST_DATASET_ID || "07f35e1a9b9411f197ff8391030412c0";
 const SOURCE_ROOT_ID = process.env.PSKA_TEST_SOURCE_ROOT_ID || "root_ebdf0044b0442f494246012f";
 const QUESTION = process.env.PSKA_TURN_BRIDGE_QUESTION || `PSKA turn bridge smoke ${Date.now()} Northstar Robotics revenue risk`;
+const DONE_PAYLOAD_ANSWER = "PSKA turn bridge SSE terminal payload answer complete.";
 const OUT_DIR = process.env.PSKA_TURN_BRIDGE_OUT || path.join(os.tmpdir(), `pska-webui-turn-bridge-${timestampSlug()}`);
 const HEADLESS = !truthy(process.env.PSKA_PLAYWRIGHT_HEADED);
 const STORAGE_KEY = "pska-mini.hermes-webui.scope.v1";
@@ -286,7 +287,7 @@ async function main() {
           title: "PSKA bridge smoke",
           messages: [
             { role: "user", content: QUESTION, _ts: Date.now() / 1000 },
-            { role: "assistant", content: "PSKA turn bridge smoke complete.", _ts: Date.now() / 1000 },
+            { role: "assistant", content: DONE_PAYLOAD_ANSWER, _ts: Date.now() / 1000 },
           ],
           message_count: 2,
         },
@@ -413,6 +414,7 @@ async function main() {
         && proofBody.metadata?.non_blocking === true
         && proofBody.metadata?.data_plane === "pska"
         && proofBody.metadata?.control_plane === "hermes_webui_extension"
+        && proofBody.metadata?.answer_capture_source === "hermes_stream_terminal_payload"
         && Array.isArray(proofBody.metadata?.terminal_problems)
         && proofBody.metadata.terminal_problems.length === 0
         && proofBody.metadata?.context_pack?.data_flow?.data_plane === "pska"
@@ -422,7 +424,7 @@ async function main() {
     });
     assertCheck(checks, "PSKA answer proof stores preview/hash fields and observed tool events", (
       String(proofBody.question_preview || "").includes(QUESTION.slice(0, 80))
-        && String(proofBody.answer_preview || "").includes("PSKA turn bridge smoke complete")
+        && String(proofBody.answer_preview || "").includes(DONE_PAYLOAD_ANSWER)
         && Number(proofBody.answer_length || 0) > 0
         && Array.isArray(proofBody.proof_summary?.completed_pska_tools)
         && proofBody.proof_summary.completed_pska_tools.includes("mcp__pska_essential__pska_source_search")

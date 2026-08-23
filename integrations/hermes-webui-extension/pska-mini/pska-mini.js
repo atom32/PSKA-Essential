@@ -2742,6 +2742,7 @@
     }
     if (isTerminalProblem && alreadyCompleted) return;
     if (eventName === "done" || eventName === "stream_end" || eventName === "error" || eventName === "apperror" || eventName === "cancel") {
+      mergeAnswerProofTerminalPayload(turn, eventName, payload);
       turn.terminalEvent = {
         type: eventName,
         at: item.at,
@@ -2764,7 +2765,8 @@
     if (!turn || turn.recordStarted) return;
     turn.recordStarted = true;
     try {
-      const answer = latestAssistantAnswerText();
+      const hasTerminalAnswer = Boolean(String(turn.answerCandidate || "").trim());
+      const answer = String(hasTerminalAnswer ? turn.answerCandidate : latestAssistantAnswerText()).trim();
       const answerPreview = truncate(answer, ANSWER_PROOF_PREVIEW_CHARS);
       const questionPreview = truncate(turn.question || "", ANSWER_PROOF_PREVIEW_CHARS);
       const toolNames = uniqueStrings(turn.toolEvents.map((event) => event.name).filter(Boolean));
@@ -2787,6 +2789,7 @@
         non_blocking: true,
         control_plane: "hermes_webui_extension",
         data_plane: "pska",
+        answer_capture_source: hasTerminalAnswer ? "hermes_stream_terminal_payload" : "webui_state_or_dom",
         stream_id: turn.streamId,
         stream_url_path: streamPathFromUrl(turn.streamUrl),
         context_pack: {
@@ -2869,6 +2872,7 @@
       toolEvents: [],
       terminalProblems: [],
       terminalEvent: null,
+      answerCandidate: "",
       toolEventsTruncated: false,
       finalizeTimer: null,
       recordStarted: false,
@@ -3801,6 +3805,76 @@
     }
   }
 
+  function mergeAnswerProofTerminalPayload(turn, eventName, payload) {
+    if (!turn || !payload || typeof payload !== "object") return;
+    if (eventName !== "done" && eventName !== "stream_end") return;
+    const sessionId = terminalPayloadSessionId(payload);
+    if (sessionId && !turn.sessionId) turn.sessionId = sessionId;
+    const answer = answerTextFromTerminalPayload(payload);
+    if (answer) turn.answerCandidate = answer;
+  }
+
+  function terminalPayloadSessionId(payload) {
+    const candidates = [
+      payload?.session_id,
+      payload?.session?.session_id,
+      payload?.session?.id,
+      payload?.data?.session_id,
+      payload?.data?.session?.session_id,
+      payload?.data?.session?.id,
+      payload?.result?.session_id,
+      payload?.result?.session?.session_id,
+      payload?.result?.session?.id
+    ];
+    return String(candidates.find((value) => String(value || "").trim()) || "").trim();
+  }
+
+  function answerTextFromTerminalPayload(payload) {
+    return latestAssistantMessageText(terminalPayloadMessages(payload));
+  }
+
+  function terminalPayloadMessages(payload) {
+    const candidates = [
+      payload?.session?.messages,
+      payload?.messages,
+      payload?.data?.session?.messages,
+      payload?.data?.messages,
+      payload?.result?.session?.messages,
+      payload?.result?.messages
+    ];
+    return candidates.find(Array.isArray) || [];
+  }
+
+  function latestAssistantMessageText(messages) {
+    if (!Array.isArray(messages)) return "";
+    for (const message of [...messages].reverse()) {
+      const role = String(message?.role || message?.type || "").toLowerCase();
+      if (role !== "assistant" && role !== "model") continue;
+      const text = messageContentText(
+        message?.content
+          ?? message?.text
+          ?? message?.message
+          ?? message?.response
+          ?? ""
+      );
+      if (text) return text;
+    }
+    return "";
+  }
+
+  function messageContentText(value) {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value)) {
+      return value.map((part) => messageContentText(part)).join("").trim();
+    }
+    if (typeof value === "object") {
+      if (Array.isArray(value.parts)) return messageContentText(value.parts);
+      return messageContentText(value.text ?? value.content ?? value.value ?? "");
+    }
+    return String(value || "").trim();
+  }
+
   function eventToolName(payload) {
     return String(payload?.name || payload?.tool || payload?.function_name || "").trim();
   }
@@ -3823,12 +3897,8 @@
 
   function latestAssistantAnswerText() {
     const messages = Array.isArray(window.S?.messages) ? window.S.messages : [];
-    for (const message of [...messages].reverse()) {
-      if (message?.role === "assistant") {
-        const text = String(message.content || message.text || "").trim();
-        if (text) return text;
-      }
-    }
+    const fromState = latestAssistantMessageText(messages);
+    if (fromState) return fromState;
     const rows = Array.from(document.querySelectorAll('.msg-row[data-role="assistant"] .msg-body, .msg-row[data-role="assistant"]'));
     for (const row of rows.reverse()) {
       const text = String(row?.innerText || "").trim();

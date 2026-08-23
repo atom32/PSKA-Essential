@@ -3,6 +3,10 @@
 这个目录用于重做 PSKA 产品演示视频。它的产品入口是 Hermes WebUI，不是
 `src/pska_essential/web/*` 历史诊断页。
 
+面向客户的实操讲解视频录制口径见
+`CUSTOMER_DEMO_RECORDING.zh.md`。那份文档用更直白的语言说明如何选素材、
+重新录制、导入剪映和处理字幕。
+
 ## 录制目标
 
 视频展示 PSKA 的正确形态：
