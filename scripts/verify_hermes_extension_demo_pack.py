@@ -274,7 +274,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
             raise SystemExit(f"{zip_path} missing delivery files: {', '.join(missing)}")
         readme = archive.read(f"{package_dir_name}/README.zh.md").decode("utf-8")
         delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
-        verify_delivery_integrity(archive, package_dir_name, delivery_manifest)
+        integrity_count = verify_delivery_integrity(archive, package_dir_name, delivery_manifest)
     required_readme_terms = [
         "客户演示视频交付包",
         "旁白稿",
@@ -297,13 +297,14 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     if package_dir.exists():
         require_files([package_dir / Path(name).name for name in required_names], checks)
     checks.append(f"{zip_path.name}: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README")
+    checks.append(f"{zip_path.name}: delivery zip integrity verified with sha256 for {integrity_count} files")
 
 
 def verify_delivery_integrity(
     archive: zipfile.ZipFile,
     package_dir_name: str,
     delivery_manifest: dict[str, Any],
-) -> None:
+) -> int:
     if (delivery_manifest.get("integrity") or {}).get("algorithm") != "sha256":
         raise SystemExit("customer delivery manifest must declare sha256 integrity")
     items = list(delivery_manifest.get("items") or [])
@@ -328,6 +329,7 @@ def verify_delivery_integrity(
         actual_sha = hashlib.sha256(data).hexdigest()
         if actual_sha != expected_sha:
             raise SystemExit(f"customer delivery item checksum mismatch: {filename}")
+    return len(items)
 
 
 def verify_case_fixture(demo_dir: Path, case_id: str, checks: list[str]) -> None:

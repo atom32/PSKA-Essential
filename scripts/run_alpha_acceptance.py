@@ -242,7 +242,8 @@ def main() -> int:
                 (
                     f"status={demo_videos.get('status')} "
                     f"videos={demo_videos.get('video_count')}/{demo_videos.get('expected_video_count')} "
-                    f"delivery={'yes' if demo_videos.get('delivery_pack') else 'no'}"
+                    f"delivery={'yes' if demo_videos.get('delivery_pack') else 'no'} "
+                    f"integrity={'yes' if demo_videos.get('delivery_integrity') else 'no'}"
                 ),
                 checks=demo_videos.get("checks") or [],
             )
@@ -558,7 +559,8 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
     video_count = _demo_video_count(checks)
     expected_video_count = len(DEMO_VIDEO_BASENAMES)
     delivery_pack = _demo_delivery_pack_present(checks)
-    ok = result.returncode == 0 and video_count == expected_video_count and delivery_pack
+    delivery_integrity = _demo_delivery_integrity_present(checks)
+    ok = result.returncode == 0 and video_count == expected_video_count and delivery_pack and delivery_integrity
     return {
         "ok": ok,
         "status": "ok" if ok else "failed",
@@ -567,6 +569,7 @@ def _run_demo_video_pack(*, env: dict[str, str], timeout: int) -> dict[str, Any]
         "video_count": video_count,
         "expected_video_count": expected_video_count,
         "delivery_pack": delivery_pack,
+        "delivery_integrity": delivery_integrity,
         "checks": checks,
         "stdout": result.stdout,
         "stderr": result.stderr,
@@ -742,6 +745,14 @@ def _demo_delivery_pack_present(checks: list[str]) -> bool:
     return any(
         line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
         and "delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README" in line
+        for line in checks
+    )
+
+
+def _demo_delivery_integrity_present(checks: list[str]) -> bool:
+    return any(
+        line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
+        and "delivery zip integrity verified with sha256 for " in line
         for line in checks
     )
 

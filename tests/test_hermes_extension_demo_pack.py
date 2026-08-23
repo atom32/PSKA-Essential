@@ -137,6 +137,7 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("verify_delivery_pack", script)
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
         self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
+        self.assertIn("delivery zip integrity verified with sha256", script)
         self.assertIn("片子面向客户，不讲内部接口、数据库或模型术语", script)
         self.assertIn("创作画布里的想法节点、产物节点和续写草稿", script)
         self.assertIn("verify_delivery_integrity", script)
