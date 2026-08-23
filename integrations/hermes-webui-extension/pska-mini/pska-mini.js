@@ -378,7 +378,7 @@
               </details>
               <details class="pska-mini-memory-create" id="pskaMiniChatgptConversationImport">
                 <summary>Import ChatGPT conversation archive</summary>
-                <input id="pskaMiniChatgptConversationPath" type="text" placeholder="Path to conversations.json or export zip">
+                <input id="pskaMiniChatgptConversationPath" type="text" placeholder="Path to conversations.json, split export folder, or export zip">
                 <input id="pskaMiniChatgptConversationOutput" type="text" placeholder="Optional PSKA archive output folder">
                 <div class="pska-mini-memory-create-actions">
                   <label>limit <input id="pskaMiniChatgptConversationLimit" type="number" min="0" max="5000" step="50" value="100"></label>

@@ -146,6 +146,43 @@ class ChatGPTConversationsImportTests(unittest.TestCase):
         self.assertTrue(result["archive"]["manifest_path"].endswith("PSKA_IMPORT_MANIFEST.json"))
         self.assertTrue(result["data_flow"]["writes_import_report_files"])
 
+    def test_import_split_directory_export_merges_conversation_parts(self):
+        service = build_fake_service()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            export_dir = Path(temp_dir) / "chatgpt-export"
+            output_dir = Path(temp_dir) / "archive"
+            export_dir.mkdir()
+            payload = _chatgpt_export_payload()
+            (export_dir / "conversations-000.json").write_text(
+                json.dumps(payload[:1], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (export_dir / "conversations-001.json").write_text(
+                json.dumps(payload[1:], ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            result = import_chatgpt_conversations(
+                service,
+                export_path=str(export_dir),
+                output_dir=str(output_dir),
+                source_label="ChatGPT split export",
+                conversation_limit=0,
+            )
+            packets = service.source_search(
+                "Eidolia thought artifact context",
+                {"root_ids": [result["root"]["root_id"]]},
+                limit=3,
+            )
+
+        self.assertEqual(result["source"]["export_path"], str(export_dir))
+        self.assertEqual(result["source"]["export_member"], "conversations-000.json..conversations-001.json (2 files)")
+        self.assertEqual(result["summary"]["conversation_count"], 2)
+        self.assertEqual(result["summary"]["imported_conversation_count"], 2)
+        self.assertTrue(result["data_flow"]["writes_source_registry"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertTrue(packets)
+
     def test_reimport_removes_only_stale_pska_managed_archive_files(self):
         service = build_fake_service()
         with tempfile.TemporaryDirectory() as temp_dir:

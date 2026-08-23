@@ -180,7 +180,7 @@ ChatGPT full conversation export import for source recall:
 curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
   -H 'Content-Type: application/json' \
   -d '{
-    "export_path": "/path/to/conversations.json",
+    "export_path": "/path/to/conversations.json-or-split-export-folder",
     "source_label": "ChatGPT conversation archive",
     "conversation_limit": 100,
     "scan": true

@@ -857,7 +857,7 @@ adds only a privacy-boundary candidate for those skipped chunks, and never
 writes durable memory, source files, embeddings, or full import text directly.
 `pska_chatgpt_conversations_import` is the companion source-archive bridge for
 full ChatGPT exports. It accepts `conversations.json`, an export `.zip`, or a
-folder containing `conversations.json`, normalizes selected conversations into
+folder containing `conversations.json` / `conversations-*.json` split files, normalizes selected conversations into
 PSKA-managed markdown files, registers that archive as a local source root, and
 scans it through the no-embedding source registry. Each archive also gets
 `PSKA_IMPORT_MANIFEST.json` and `PSKA_IMPORT_REPORT.md` so the import remains

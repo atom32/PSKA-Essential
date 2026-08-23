@@ -283,7 +283,7 @@ curl -fsS http://127.0.0.1:8765/api/memory/chatgpt-summary/import \
 
 ### 3.7 ChatGPT 完整对话档案
 
-目的：把 `conversations.json` 或 ChatGPT 导出 zip 变成可检索的资料档案，而不是直接变成长期记忆。
+目的：把 `conversations.json`、`conversations-*.json` 分片导出目录或 ChatGPT 导出 zip 变成可检索的资料档案，而不是直接变成长期记忆。
 
 用法：
 
@@ -291,7 +291,7 @@ curl -fsS http://127.0.0.1:8765/api/memory/chatgpt-summary/import \
 curl -fsS http://127.0.0.1:8765/api/sources/chatgpt-conversations/import \
   -H 'Content-Type: application/json' \
   -d '{
-    "export_path": "/path/to/conversations.json",
+    "export_path": "/path/to/conversations.json-or-split-export-folder",
     "source_label": "ChatGPT 完整对话档案",
     "conversation_limit": 100,
     "scan": true

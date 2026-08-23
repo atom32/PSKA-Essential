@@ -39,7 +39,7 @@ def import_chatgpt_conversations(
     scan: bool = True,
     scan_max_bytes: int = DEFAULT_SCAN_MAX_BYTES,
 ) -> dict[str, Any]:
-    """Normalize ChatGPT `conversations.json` or export zip into searchable source files.
+    """Normalize ChatGPT conversation exports into searchable source files.
 
     The importer writes a PSKA-managed markdown archive, registers that archive
     as a normal local-folder source root, then scans it with the existing
@@ -214,22 +214,85 @@ def _read_export(export_path: str) -> tuple[bytes, Path, str]:
     if not path.exists():
         raise ChatGPTConversationsImportError(f"ChatGPT conversations export_path does not exist: {export_path}")
     if path.is_dir():
-        path = path / "conversations.json"
+        single_path = path / "conversations.json"
+        if single_path.is_file():
+            path = single_path
+        else:
+            split_paths = _split_conversations_paths(path)
+            if split_paths:
+                return _read_split_conversations_blobs(
+                    [(item.name, item.read_bytes()) for item in split_paths],
+                    export_file=path,
+                )
     if not path.is_file():
         raise ChatGPTConversationsImportError(f"ChatGPT conversations export_path must be a file or directory: {export_path}")
     suffix = path.suffix.lower()
     if suffix == ".zip":
         with zipfile.ZipFile(path) as archive:
-            member = _find_conversations_member(archive.namelist())
-            return archive.read(member), path, member
+            names = archive.namelist()
+            member = _find_conversations_member(names)
+            if member:
+                return archive.read(member), path, member
+            split_members = _split_conversations_members(names)
+            if split_members:
+                return _read_split_conversations_blobs(
+                    [(member, archive.read(member)) for member in split_members],
+                    export_file=path,
+                )
+            raise ChatGPTConversationsImportError(
+                "ChatGPT export zip does not contain conversations.json or conversations-*.json"
+            )
     return path.read_bytes(), path, path.name
 
 
 def _find_conversations_member(names: list[str]) -> str:
     candidates = [name for name in names if name.endswith("conversations.json")]
     if not candidates:
-        raise ChatGPTConversationsImportError("ChatGPT export zip does not contain conversations.json")
+        return ""
     return sorted(candidates, key=lambda value: (value.count("/"), value))[0]
+
+
+def _split_conversations_paths(path: Path) -> list[Path]:
+    return sorted(
+        [item for item in path.iterdir() if item.is_file() and _is_split_conversations_name(item.name)],
+        key=lambda item: (_split_conversations_index(item.name), item.name),
+    )
+
+
+def _split_conversations_members(names: list[str]) -> list[str]:
+    return sorted(
+        [name for name in names if _is_split_conversations_name(Path(name).name)],
+        key=lambda value: (value.count("/"), _split_conversations_index(Path(value).name), value),
+    )
+
+
+def _is_split_conversations_name(name: str) -> bool:
+    return re.fullmatch(r"conversations-\d+\.json", name) is not None
+
+
+def _split_conversations_index(name: str) -> int:
+    match = re.fullmatch(r"conversations-(\d+)\.json", name)
+    return int(match.group(1)) if match else 999_999
+
+
+def _read_split_conversations_blobs(blobs: list[tuple[str, bytes]], *, export_file: Path) -> tuple[bytes, Path, str]:
+    conversations: list[dict[str, Any]] = []
+    for name, raw_bytes in blobs:
+        try:
+            payload = _decode_conversations(raw_bytes)
+            conversations.extend(_conversation_list(payload))
+        except ChatGPTConversationsImportError as exc:
+            raise ChatGPTConversationsImportError(f"{exc} in split export member: {name}") from exc
+    raw_bytes = json.dumps(conversations, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return raw_bytes, export_file, _split_export_member_name([name for name, _ in blobs])
+
+
+def _split_export_member_name(names: list[str]) -> str:
+    if not names:
+        return ""
+    if len(names) == 1:
+        return names[0]
+    return f"{names[0]}..{names[-1]} ({len(names)} files)"
 
 
 def _decode_conversations(raw_bytes: bytes) -> Any:
