@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import re
 import shutil
@@ -49,8 +50,10 @@ def main() -> int:
     copied.append(copy_asset("关键画面预览", preview_path, package_dir))
     readme_path = package_dir / "README.zh.md"
     write_package_readme(readme_path, basename, copied)
+    index_path = package_dir / "index.html"
+    write_package_index(index_path, basename, copied)
     pack_manifest_path = package_dir / "delivery_manifest.json"
-    write_package_manifest(pack_manifest_path, basename, manifest_path, copied, readme_path)
+    write_package_manifest(pack_manifest_path, basename, manifest_path, copied, readme_path, index_path)
 
     zip_path = dist_dir / f"{basename}_delivery_pack.zip"
     write_zip(package_dir, zip_path)
@@ -353,6 +356,7 @@ def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]
     ]
     for item in copied:
         lines.append(f"- {item['label']}：`{item['filename']}`")
+    lines.append("- 入口页面：`index.html`")
     lines.extend(
         [
             "",
@@ -394,12 +398,103 @@ def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def write_package_index(path: Path, basename: str, copied: list[dict[str, Any]]) -> None:
+    hard_subtitled = f"{basename}_subtitled.mp4"
+    original_video = f"{basename}.mp4"
+    subtitles = f"{basename}.zh.srt"
+    voiceover = f"{basename}_voiceover.zh.md"
+    preview = f"{basename}_preview_sheet.jpg"
+    file_links = "\n".join(
+        f'<li><a href="{html.escape(item["filename"])}">{html.escape(item["label"])}：{html.escape(item["filename"])}</a></li>'
+        for item in copied
+    )
+    document = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>客户演示视频交付包</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #10131a;
+      color: #eef2f7;
+      line-height: 1.6;
+    }}
+    main {{
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }}
+    h1, h2 {{
+      margin: 0 0 12px;
+      line-height: 1.2;
+    }}
+    section {{
+      margin-top: 26px;
+    }}
+    video, img {{
+      width: 100%;
+      max-width: 100%;
+      background: #000;
+      border: 1px solid #2c3442;
+    }}
+    a {{
+      color: #8fd3ff;
+    }}
+    .note {{
+      color: #cbd5e1;
+    }}
+    .panel {{
+      border: 1px solid #2c3442;
+      padding: 16px;
+      background: #151a23;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>客户演示视频交付包</h1>
+    <p class="note">直接预览时先看硬字幕版视频；需要二次剪辑时，再使用无字幕主视频、字幕文件和旁白稿。</p>
+
+    <section>
+      <h2>先看这个</h2>
+      <video controls preload="metadata" src="{html.escape(hard_subtitled)}"></video>
+      <p><a href="{html.escape(hard_subtitled)}">打开硬字幕版视频</a></p>
+    </section>
+
+    <section class="panel">
+      <h2>剪辑使用</h2>
+      <p>导入 <a href="{html.escape(original_video)}">无字幕主视频</a> 和 <a href="{html.escape(subtitles)}">字幕文件</a>；需要中文配音时使用 <a href="{html.escape(voiceover)}">旁白稿</a>。</p>
+      <p>不要删掉资料范围、提问到回答、长期记忆待确认和创作画布画面。</p>
+    </section>
+
+    <section>
+      <h2>关键画面预览</h2>
+      <img src="{html.escape(preview)}" alt="客户演示视频关键画面预览">
+    </section>
+
+    <section>
+      <h2>全部文件</h2>
+      <ul>
+        {file_links}
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
+"""
+    path.write_text(document, encoding="utf-8")
+
+
 def write_package_manifest(
     path: Path,
     basename: str,
     source_manifest: Path,
     copied: list[dict[str, Any]],
     readme_path: Path,
+    index_path: Path,
 ) -> None:
     payload = {
         "schema": PACKAGE_SCHEMA,
@@ -411,7 +506,7 @@ def write_package_manifest(
             "algorithm": "sha256",
             "readme": file_item("交付说明", readme_path),
         },
-        "items": copied,
+        "items": copied + [file_item("入口页面", index_path)],
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
