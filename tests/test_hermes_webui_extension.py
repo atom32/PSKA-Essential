@@ -50,6 +50,12 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("buildForcedSkillMessage", script)
         self.assertIn("stripForcedSkillEnvelope", script)
         self.assertIn("[FORCED SKILL CONTEXT:", script)
+        self.assertIn('"/api/conversation/context-pack"', script)
+        self.assertIn("buildComposerContextPack", script)
+        self.assertIn("formatContextPackForSkill", script)
+        self.assertIn("PSKA context pack", script)
+        self.assertIn("max_conversation_blocks", script)
+        self.assertIn("max_source_blocks", script)
         self.assertIn("GBrain", script)
         self.assertIn("gbrainComponent()", script)
         self.assertIn("dashboard.workspace?.components?.gbrain", script)
@@ -142,6 +148,7 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn("currentSourceScopePayload()", script)
         self.assertNotIn("HermesChatStartHooks", script)
         self.assertNotIn("context_provider", script)
+        self.assertNotIn("/api/sessions/search", script)
         self.assertNotRegex(script, re.compile(r'fetch\(["\']/api/pska/'))
         for forbidden in [
             "panelEidolia",
@@ -163,6 +170,9 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         script = (ROOT / "scripts" / "test_pska_webui_extension.mjs").read_text(encoding="utf-8")
 
         required = [
+            "Button: Preview context-pack memory-only",
+            "Button: Preview context-pack dataset scoped",
+            "/api/extensions/pska-mini/sidecar/api/conversation/context-pack",
             "ChatGPT import: memory summary creates governed reviews",
             "ChatGPT import: reject temporary memory reviews",
             "ChatGPT import: conversation archive creates source root",

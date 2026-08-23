@@ -87,6 +87,10 @@ function summarize(json, text) {
   if (json.proofs) return `answer_proofs=${json.proofs.length}`;
   if (json.diagnostics) return `diagnostics=${json.diagnostics.status || "ok"}`;
   if (json.probe) return `probe=${json.probe.status || "ok"} contexts=${json.probe.context_count || 0}`;
+  if (json.context_pack) {
+    const counts = json.context_pack.source_counts || {};
+    return `context_pack memory=${counts.memory || 0} conversation=${counts.conversation || 0} evidence=${counts.evidence || 0} source=${counts.source || 0}`;
+  }
   if (json.turn_context) return `turn_context evidence=${(json.turn_context.evidence_blocks || []).length} memory=${(json.turn_context.memory_notes || []).length}`;
   if (json.briefing) return `briefing=${json.briefing.status || "ok"}`;
   if (json.agentic_context_brief) {
@@ -318,29 +322,29 @@ async function main() {
     },
   }, (json, response) => response.ok && json?.probe && json.probe.context_count >= 0);
 
-  await testJson("Button: Preview memory-only", "/api/extensions/pska-mini/sidecar/api/turn-context", {
+  await testJson("Button: Preview context-pack memory-only", "/api/extensions/pska-mini/sidecar/api/conversation/context-pack", {
     method: "POST",
     body: {
       caller: "hermes-webui-extension-test",
       user_message: "PSKA 第一用户 dogfooding 怎么做？",
       mode: "memory-only",
       scope: { dataset_ids: [], document_ids: [] },
-      budget: { max_evidence_blocks: 0, max_memory_notes: 3, max_tokens: 3000 },
+      budget: { max_evidence_blocks: 0, max_memory_notes: 3, max_conversation_blocks: 3, max_source_blocks: 0, max_tokens: 3000 },
       requirements: { need_citations: true },
     },
-  }, (json, response) => response.ok && json?.turn_context);
+  }, (json, response) => response.ok && json?.context_pack);
 
-  await testJson("Button: Preview dataset scoped", "/api/extensions/pska-mini/sidecar/api/turn-context", {
+  await testJson("Button: Preview context-pack dataset scoped", "/api/extensions/pska-mini/sidecar/api/conversation/context-pack", {
     method: "POST",
     body: {
       caller: "hermes-webui-extension-test",
       user_message: "财报研究时要看哪些指标？",
       mode: "project",
       scope: { dataset_ids: [DATASET_ID], document_ids: [] },
-      budget: { max_evidence_blocks: 3, max_memory_notes: 3, max_tokens: 3000 },
+      budget: { max_evidence_blocks: 3, max_memory_notes: 3, max_conversation_blocks: 3, max_source_blocks: 0, max_tokens: 3000 },
       requirements: { need_citations: true },
     },
-  }, (json, response) => response.ok && json?.turn_context);
+  }, (json, response) => response.ok && json?.context_pack);
 
   await testJson("Button: Jarvis Brief", "/api/extensions/pska-mini/sidecar/api/jarvis/briefing", {
     method: "POST",

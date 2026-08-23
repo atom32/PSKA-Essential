@@ -34,14 +34,20 @@ http://127.0.0.1:8765
 
 ```text
 Hermes WebUI
-  -> pska-mini extension
+  -> pska-mini extension 只做控制面
     -> /api/extensions/pska-mini/sidecar/*
-      -> PSKA Product API
+      -> PSKA Product API /api/conversation/context-pack
+        -> PSKA memory / Hermes conversation recall provider / RAGFlow / source roots
 
 Hermes Agent
   -> PSKA MCP tools
     -> PSKA Core / adapters / review / audit / memory governance
 ```
+
+历史对话召回属于 PSKA 的数据面编排，不属于浏览器 extension。extension 不直接读取
+Hermes 数据库，也不直接调用 `/api/sessions/search` 拼上下文；Hermes 后端侧可以提供
+conversation recall provider，PSKA 以 token HTTP adapter 方式查询少量命中片段。旧
+`/api/sessions/search` 密码 fallback 默认关闭；召回片段必须作为不可信引用内容处理。
 
 ## 现有 Extension 能力
 
@@ -54,7 +60,7 @@ Hermes Agent
 - PSKA API health、workspace status、diagnostics preview；
 - RAGFlow retrieval probe；
 - `knowledge-retrieval` skill 加载；
-- next chat start 的 `PSKA-Mini Runtime Scope` 注入；
+- next chat start 的 `PSKA-Mini Runtime Scope` 与 PSKA context pack 注入；
 - PSKA Memory 小页面；
 - review queue 查看、accept、reject、apply-memory；
 - review 到 Hermes Kanban `pska-review` 的只读/幂等投影；

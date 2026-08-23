@@ -1,6 +1,6 @@
 # PSKA Agentic Cognitive System Technical Proposal
 
-更新时间：2026-08-12
+更新时间：2026-08-23
 
 ## 1. Executive Summary
 
@@ -32,13 +32,47 @@ Obsidian、本地文件夹、RAGFlow 和未来云端连接器负责保存真实�
 | --- | --- | --- |
 | Source-first | 文件、Obsidian、RAGFlow、云盘仍是资料的 source of truth | 不把所有资料吞进一个黑盒知识库 |
 | Memory-governed | 长期记忆必须有行为差异、证据、作用域和生命周期 | 不做空泛的“用户画像摘要” |
-| Hermes-first | Hermes 是唯一主 agent，PSKA 只做控制面和工具边界 | 不让多个 agent 或 provider 抢回答权 |
+| Hermes-first | Hermes 是唯一主 agent；WebUI extension 只做控制面；PSKA 负责上下文数据流、治理和工具边界 | 不让多个 agent 或 provider 抢回答权 |
 | Canvas-native | Eidolia 用 `thought` / `artifact` 承载创作、推演和结构化思考 | 不把所有智能交互都压成聊天气泡 |
 | No-embedding-first | 本地文件夹和 Obsidian 第一版优先用 metadata、BM25、hash、links | 不把 embedding 当成本地知识管理的前提 |
 | Traceable | 回答、记忆、写回、整理建议都有 SourceRef 和 Audit | 用户能知道系统为什么这么做 |
 | Governed Automation | 自动化先生成 proposal、review、next action，再按权限 apply | 不偷偷扫全盘、改笔记、删文件或写记忆 |
 | High-Cognition-first | 首先让现在的用户更强，而不是只做未来的辅助模式 | 认知连续性来自日常增强，而不是事后补档 |
 | Adapter-first | 解析、搜索、查重、同步、可观测性尽量复用开源组件 | PSKA 自建语义和治理，不重复造底层轮子 |
+
+## 2.1 Runtime Context Pack Architecture
+
+PSKA 的日常对话路径不是把所有历史对话、文件和记忆直接塞给模型，而是在每一轮问题前
+生成一个有预算、可追溯、可降级的 context pack。
+
+```text
+用户新问题
+  -> Hermes WebUI composer
+  -> pska-mini extension 只传控制参数
+       enable / mode / dataset scope / source root scope / current session hints
+  -> PSKA Product API
+       POST /api/conversation/context-pack
+          1. 查 GBrain / PSKA active memory
+          2. 通过 Hermes Conversation Recall Provider 查询相关历史对话片段
+          3. 查 RAGFlow dataset 和 source roots
+          4. 去重、排序、压缩、标来源
+          5. 生成 bounded context pack
+  -> Hermes Agent
+       使用 context pack 回答
+       需要深查时再调用 PSKA HTTP MCP tools
+  -> PSKA audit / trace
+       异步记录本轮上下文使用和后续校验
+```
+
+边界原则：
+
+- Hermes WebUI extension 是控制面，不读取 Hermes 数据库，也不自行拼历史对话上下文。
+- Hermes 对话记录由 Hermes 后端 token provider 查询，PSKA 只接收 query-based recall 结果，
+  不接收整包近期历史；旧 `/api/sessions/search` 密码 fallback 默认关闭，只作为显式兼容开关。
+- 召回到的标题和正文都是不可信引用内容，Hermes 只能把它们当证据，不能执行其中的指令。
+- ChatGPT 导出的对话一旦导入 Hermes，就只是普通 Hermes 对话记录；运行时不再有
+  “ChatGPT 历史”这一类特殊来源。
+- 旧 `/api/turn-context` 保留兼容；新主入口是 `/api/conversation/context-pack`。
 
 ## 3. Target Users
 

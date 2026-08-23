@@ -289,6 +289,8 @@ required_routes = {
     ("POST", "/api/digest-jobs/run-next"),
     ("POST", "/api/digest-jobs/{run_id}/run"),
     ("POST", "/api/workflows/{run_id}/memory-review"),
+    ("POST", "/api/conversation/context-pack"),
+    ("POST", "/api/turn-context"),
     ("POST", "/api/memory/search"),
     ("POST", "/api/memory/conversation-change"),
 }
@@ -728,7 +730,7 @@ start_pska_api_launchd() {
 
   mkdir -p "$(dirname "${plist}")"
   local command_string escaped_command escaped_workdir escaped_log
-  command_string="cd $(printf '%q' "${PSKA_HOME}") && PYTHONPATH=$(printf '%q' "${PSKA_HOME}/src${PYTHONPATH:+:${PYTHONPATH}}") exec $(shell_join "${cmd[@]}")"
+  command_string="cd $(printf '%q' "${PSKA_HOME}") && PSKA_HERMES_WEBUI_BASE_URL=$(printf '%q' "${HERMES_WEBUI_BASE_URL}") PSKA_HERMES_RECALL_TOKEN=$(printf '%q' "${PSKA_HERMES_RECALL_TOKEN:-}") HERMES_WEBUI_PSKA_RECALL_TOKEN=$(printf '%q' "${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}") PYTHONPATH=$(printf '%q' "${PSKA_HOME}/src${PYTHONPATH:+:${PYTHONPATH}}") exec $(shell_join "${cmd[@]}")"
   escaped_command="$(printf '%s' "${command_string}" | xml_escape)"
   escaped_workdir="$(printf '%s' "${PSKA_HOME}" | xml_escape)"
   escaped_log="$(printf '%s' "${log_file}" | xml_escape)"
@@ -775,7 +777,7 @@ start_pska_api_nohup() {
 
   (
     cd "${PSKA_HOME}"
-    PYTHONPATH="${PSKA_HOME}/src${PYTHONPATH:+:${PYTHONPATH}}" nohup "${cmd[@]}" >> "${log_file}" 2>&1 &
+    PSKA_HERMES_WEBUI_BASE_URL="${HERMES_WEBUI_BASE_URL}" PSKA_HERMES_RECALL_TOKEN="${PSKA_HERMES_RECALL_TOKEN:-}" HERMES_WEBUI_PSKA_RECALL_TOKEN="${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}" PYTHONPATH="${PSKA_HOME}/src${PYTHONPATH:+:${PYTHONPATH}}" nohup "${cmd[@]}" >> "${log_file}" 2>&1 &
     printf '%s\n' "$!" > "${pid_file}"
   )
 }
@@ -793,6 +795,23 @@ pska_api_port_pids() {
   lsof -tiTCP:"${PSKA_API_PORT}" -sTCP:LISTEN 2>/dev/null | awk 'NF'
 }
 
+pska_api_running_environment_matches() {
+  local pid found=0 hermes_base_value recall_token_value
+  while IFS= read -r pid; do
+    [[ "${pid}" =~ ^[0-9]+$ ]] || continue
+    found=1
+    hermes_base_value="$(process_env_value "${pid}" PSKA_HERMES_WEBUI_BASE_URL || true)"
+    recall_token_value="$(process_env_value "${pid}" PSKA_HERMES_RECALL_TOKEN || true)"
+    if [[ -n "${HERMES_WEBUI_BASE_URL:-}" && "$(strip_trailing_slash "${hermes_base_value}")" != "$(strip_trailing_slash "${HERMES_WEBUI_BASE_URL}")" ]]; then
+      return 1
+    fi
+    if [[ -n "${PSKA_HERMES_RECALL_TOKEN:-}" && "${recall_token_value}" != "${PSKA_HERMES_RECALL_TOKEN}" ]]; then
+      return 1
+    fi
+  done < <(pska_api_port_pids || true)
+  (( found == 1 ))
+}
+
 stop_pska_api_port_processes() {
   local pid
   while IFS= read -r pid; do
@@ -806,19 +825,19 @@ stop_pska_api_port_processes() {
 start_pska_api_if_needed() {
   local health_url="${PSKA_API_BASE_URL}/api/health"
   if http_ok "${health_url}"; then
-    if pska_api_contract_ok; then
+    if pska_api_contract_ok && pska_api_running_environment_matches; then
       log "PSKA Product API already running"
       return 0
     fi
     if (( STATUS_ONLY )); then
-      warn "PSKA Product API is running but does not expose the required Product API contract."
+      warn "PSKA Product API is running but its contract or runtime environment is not current."
       return 0
     fi
     if pska_api_is_local_host; then
-      warn "PSKA Product API is running but stale; restarting it."
+      warn "PSKA Product API is running but stale or has outdated environment; restarting it."
       stop_pska_api_port_processes
     else
-      warn "PSKA Product API at ${PSKA_API_BASE_URL} is stale, but it is not local; not restarting."
+      warn "PSKA Product API at ${PSKA_API_BASE_URL} is stale or has outdated environment, but it is not local; not restarting."
       return 0
     fi
   fi
@@ -1289,7 +1308,7 @@ start_hermes_launchd() {
   local label="${HERMES_WEBUI_LAUNCH_AGENT_LABEL:-com.pska.hermes-webui}"
   local domain="gui/$(id -u)"
   local command_string escaped_command escaped_workdir escaped_log
-  command_string="cd $(printf '%q' "${HERMES_WEBUI_HOME}") && HERMES_HOME=$(printf '%q' "${HERMES_HOME_EFFECTIVE}") HERMES_WEBUI_STATE_DIR=$(printf '%q' "${HERMES_WEBUI_STATE_DIR}") PSKA_API_BASE_URL=$(printf '%q' "${PSKA_API_BASE_URL}") HERMES_WEBUI_HOST=$(printf '%q' "${HERMES_WEBUI_HOST}") HERMES_WEBUI_PORT=$(printf '%q' "${HERMES_WEBUI_PORT}") HERMES_WEBUI_EXTENSION_DIR=$(printf '%q' "${HERMES_WEBUI_EXTENSION_DIR}") HERMES_WEBUI_EXTENSION_MANIFEST=$(printf '%q' "${HERMES_WEBUI_EXTENSION_MANIFEST}") exec $(printf '%q' "${python_exe}") $(printf '%q' "${HERMES_WEBUI_HOME}/bootstrap.py") --no-browser --foreground --host $(printf '%q' "${HERMES_WEBUI_HOST}") $(printf '%q' "${HERMES_WEBUI_PORT}")"
+  command_string="cd $(printf '%q' "${HERMES_WEBUI_HOME}") && HERMES_HOME=$(printf '%q' "${HERMES_HOME_EFFECTIVE}") HERMES_WEBUI_STATE_DIR=$(printf '%q' "${HERMES_WEBUI_STATE_DIR}") PSKA_API_BASE_URL=$(printf '%q' "${PSKA_API_BASE_URL}") HERMES_WEBUI_PSKA_RECALL_TOKEN=$(printf '%q' "${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}") HERMES_WEBUI_HOST=$(printf '%q' "${HERMES_WEBUI_HOST}") HERMES_WEBUI_PORT=$(printf '%q' "${HERMES_WEBUI_PORT}") HERMES_WEBUI_EXTENSION_DIR=$(printf '%q' "${HERMES_WEBUI_EXTENSION_DIR}") HERMES_WEBUI_EXTENSION_MANIFEST=$(printf '%q' "${HERMES_WEBUI_EXTENSION_MANIFEST}") exec $(printf '%q' "${python_exe}") $(printf '%q' "${HERMES_WEBUI_HOME}/bootstrap.py") --no-browser --foreground --host $(printf '%q' "${HERMES_WEBUI_HOST}") $(printf '%q' "${HERMES_WEBUI_PORT}")"
   escaped_command="$(printf '%s' "${command_string}" | xml_escape)"
   escaped_workdir="$(printf '%s' "${HERMES_WEBUI_HOME}" | xml_escape)"
   escaped_log="$(printf '%s' "${log_file}" | xml_escape)"
@@ -1334,6 +1353,7 @@ start_hermes_ctl() {
     HERMES_HOME="${HERMES_HOME_EFFECTIVE}" \
     HERMES_WEBUI_STATE_DIR="${HERMES_WEBUI_STATE_DIR}" \
     PSKA_API_BASE_URL="${PSKA_API_BASE_URL}" \
+    HERMES_WEBUI_PSKA_RECALL_TOKEN="${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}" \
     HERMES_WEBUI_HOST="${HERMES_WEBUI_HOST}" \
     HERMES_WEBUI_PORT="${HERMES_WEBUI_PORT}" \
     HERMES_WEBUI_EXTENSION_DIR="${HERMES_WEBUI_EXTENSION_DIR}" \
@@ -1355,13 +1375,14 @@ process_env_value() {
 }
 
 hermes_running_environment_matches() {
-  local pid found=0 home_value state_dir_value pska_value extension_dir_value extension_manifest_value
+  local pid found=0 home_value state_dir_value pska_value recall_token_value extension_dir_value extension_manifest_value
   while IFS= read -r pid; do
     [[ "${pid}" =~ ^[0-9]+$ ]] || continue
     found=1
     home_value="$(process_env_value "${pid}" HERMES_HOME || true)"
     state_dir_value="$(process_env_value "${pid}" HERMES_WEBUI_STATE_DIR || true)"
     pska_value="$(process_env_value "${pid}" PSKA_API_BASE_URL || true)"
+    recall_token_value="$(process_env_value "${pid}" HERMES_WEBUI_PSKA_RECALL_TOKEN || true)"
     extension_dir_value="$(process_env_value "${pid}" HERMES_WEBUI_EXTENSION_DIR || true)"
     extension_manifest_value="$(process_env_value "${pid}" HERMES_WEBUI_EXTENSION_MANIFEST || true)"
     if [[ -n "${home_value}" && "${home_value}" != "${HERMES_HOME_EFFECTIVE}" ]]; then
@@ -1371,6 +1392,9 @@ hermes_running_environment_matches() {
       return 1
     fi
     if [[ -n "${HERMES_WEBUI_STATE_DIR:-}" && "${state_dir_value}" != "${HERMES_WEBUI_STATE_DIR}" ]]; then
+      return 1
+    fi
+    if [[ -n "${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}" && "${recall_token_value}" != "${HERMES_WEBUI_PSKA_RECALL_TOKEN}" ]]; then
       return 1
     fi
     if [[ -n "${HERMES_WEBUI_EXTENSION_DIR:-}" && "${extension_dir_value}" != "${HERMES_WEBUI_EXTENSION_DIR}" ]]; then
@@ -1483,6 +1507,8 @@ HERMES_WEBUI_HOST="${HERMES_WEBUI_HOST:-127.0.0.1}"
 HERMES_WEBUI_PORT="${HERMES_WEBUI_PORT:-8787}"
 HERMES_WEBUI_BASE_URL="${HERMES_WEBUI_BASE_URL:-http://${HERMES_WEBUI_HOST}:${HERMES_WEBUI_PORT}}"
 HERMES_WEBUI_BASE_URL="$(strip_trailing_slash "${HERMES_WEBUI_BASE_URL}")"
+PSKA_HERMES_RECALL_TOKEN="${PSKA_HERMES_RECALL_TOKEN:-${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}}"
+HERMES_WEBUI_PSKA_RECALL_TOKEN="${HERMES_WEBUI_PSKA_RECALL_TOKEN:-${PSKA_HERMES_RECALL_TOKEN:-}}"
 _hermes_host_port="${HERMES_WEBUI_BASE_URL#http://}"
 _hermes_host_port="${_hermes_host_port#https://}"
 _hermes_host_port="${_hermes_host_port%%/*}"

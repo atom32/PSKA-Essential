@@ -34,7 +34,11 @@ from pska_essential.chatgpt_conversations_import import import_chatgpt_conversat
 from pska_essential.chatgpt_memory_import import build_chatgpt_memory_summary_import
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
-from pska_essential.contracts import ContextPacket, MemoryFact, SourceRef, to_jsonable
+from pska_essential.conversation_context_pack import (
+    assemble_conversation_context_pack,
+    turn_context_response_from_pack,
+)
+from pska_essential.contracts import SourceRef, to_jsonable
 from pska_essential.diagnostics import (
     add_live_closed_loop_probe_audit,
     add_memory_probe_audit,
@@ -121,6 +125,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "GET", "path": "/api/observability/metrics"},
     {"method": "GET", "path": "/api/hermes/answer-proofs"},
     {"method": "POST", "path": "/api/hermes/answer-proofs"},
+    {"method": "POST", "path": "/api/conversation/context-pack"},
     {"method": "POST", "path": "/api/turn-context"},
     {"method": "POST", "path": "/api/ask"},
     {"method": "POST", "path": "/api/digest"},
@@ -737,9 +742,21 @@ def _handler_class(state: ProductApiState):
                 self._send_json({"ok": True, **result})
                 return
 
+            if method == "POST" and path == "/api/conversation/context-pack":
+                payload = self._read_json()
+                result = assemble_conversation_context_pack(state.service, payload)
+                self._send_json({"ok": True, **result})
+                return
+
             if method == "POST" and path == "/api/turn-context":
                 payload = self._read_json()
-                result = _assemble_turn_context(state.service, payload)
+                if isinstance(payload, dict):
+                    payload = dict(payload)
+                    budget = dict(payload.get("budget") or {})
+                    budget.setdefault("max_conversation_blocks", 0)
+                    budget.setdefault("max_source_blocks", 0)
+                    payload["budget"] = budget
+                result = turn_context_response_from_pack(assemble_conversation_context_pack(state.service, payload))
                 self._send_json({"ok": True, **result})
                 return
 
@@ -1015,12 +1032,6 @@ def _handler_class(state: ProductApiState):
             source_extraction_job_run = _match(path, "/api/sources/extraction-jobs/", "/run")
             if method == "POST" and source_extraction_job_run:
                 result = run_source_extraction_job(state.service, run_id=source_extraction_job_run)
-                self._send_json({"ok": True, **result})
-                return
-
-            if method == "POST" and path == "/api/turn-context":
-                payload = self._read_json()
-                result = _assemble_turn_context(state.service, payload)
                 self._send_json({"ok": True, **result})
                 return
 
@@ -2062,184 +2073,6 @@ def _match(path: str, prefix: str, suffix: str) -> str | None:
     return unquote(value.strip("/")) or None
 
 
-def _assemble_turn_context(service: WorkflowService, payload: dict[str, Any]) -> dict[str, Any]:
-    user_message = (
-        str(payload.get("user_message") or payload.get("query") or payload.get("task") or "")
-        .strip()
-    )
-    if not user_message:
-        raise ApiError("user_message is required", HTTPStatus.BAD_REQUEST)
-
-    mode = str(payload.get("mode") or "auto").strip().lower() or "auto"
-    scope = _turn_context_scope(payload)
-    budget = _optional_dict(payload, "budget")
-    requirements = _optional_dict(payload, "requirements")
-    max_evidence_blocks = _bounded_int(
-        budget.get("max_evidence_blocks", payload.get("limit", payload.get("max_evidence_blocks"))),
-        default=5,
-        minimum=0,
-        maximum=20,
-        field_name="budget.max_evidence_blocks",
-    )
-    max_memory_notes = _bounded_int(
-        budget.get("max_memory_notes", payload.get("max_memory_notes")),
-        default=5,
-        minimum=0,
-        maximum=20,
-        field_name="budget.max_memory_notes",
-    )
-
-    warnings: list[dict[str, Any]] = []
-    if mode != "memory-only" and max_evidence_blocks > 0:
-        run = service.start(
-            f"turn context: {user_message[:120]}",
-            {
-                **scope,
-                "turn_context": True,
-                "caller": str(payload.get("caller") or ""),
-                "workspace": str(payload.get("workspace") or scope.get("workspace") or ""),
-                "project_id": str(payload.get("project_id") or scope.get("project_id") or ""),
-            },
-        )
-        packets = service.context_retrieve(run.run_id, user_message, max_evidence_blocks)
-    else:
-        run = service.start(
-            f"turn context: {user_message[:120]}",
-            {**scope, "turn_context": True, "evidence_disabled": True},
-        )
-        packets = []
-
-    memory_facts = []
-    if mode != "evidence-only" and max_memory_notes > 0:
-        capabilities = product_capabilities(memory_adapter=service.memory)
-        search_capability = capabilities["memory"]["operations"].get("search", {})
-        if search_capability.get("supported") is False:
-            warnings.append(
-                {
-                    "code": "memory_search_unsupported",
-                    "message": "Configured PSKA memory backend does not support memory search.",
-                }
-            )
-        else:
-            memory_facts = service.memory_search(
-                user_message,
-                scope,
-                max_memory_notes,
-                trace_context={
-                    "caller": str(payload.get("caller") or "turn_context"),
-                    "run_id": run.run_id,
-                    "message_id": str(payload.get("message_id") or ""),
-                    "purpose": "turn_context_memory_notes",
-                    "used_as": "memory_note",
-                    "usage_stage": "turn_context",
-                },
-            )
-
-    evidence_blocks = [_turn_context_evidence_block(packet) for packet in packets]
-    memory_blocks = [_turn_context_memory_block(fact) for fact in memory_facts]
-    return {
-        "schema": "pska.turn_context_response.v1",
-        "run_id": run.run_id,
-        "mode": mode,
-        "scope": scope,
-        "budget": {
-            "max_evidence_blocks": max_evidence_blocks,
-            "max_memory_notes": max_memory_notes,
-        },
-        "requirements": requirements,
-        "turn_context": {
-            "summary": (
-                f"Retrieved {len(evidence_blocks)} evidence block(s) and "
-                f"{len(memory_blocks)} memory note(s)."
-            ),
-            "blocks": [*evidence_blocks, *memory_blocks],
-            "evidence_blocks": evidence_blocks,
-            "memory_notes": memory_blocks,
-            "citations": _turn_context_citations(packets, memory_facts),
-            "warnings": warnings,
-        },
-    }
-
-
-def _turn_context_scope(payload: dict[str, Any]) -> dict[str, Any]:
-    scope = _optional_dict(payload, "scope")
-    for key in ("dataset_ids", "document_ids", "memory_namespaces"):
-        values = _optional_str_list(payload, key)
-        if values:
-            scope[key] = values
-    for key in ("workspace", "project_id", "memory_namespace"):
-        value = str(payload.get(key) or "").strip()
-        if value:
-            scope[key] = value
-    return scope
-
-
-def _bounded_int(
-    value: Any,
-    *,
-    default: int,
-    minimum: int,
-    maximum: int,
-    field_name: str,
-) -> int:
-    if value is None or value == "":
-        return default
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        raise ApiError(f"{field_name} must be an integer", HTTPStatus.BAD_REQUEST) from None
-    if parsed < minimum or parsed > maximum:
-        raise ApiError(f"{field_name} must be between {minimum} and {maximum}", HTTPStatus.BAD_REQUEST)
-    return parsed
-
-
-def _turn_context_evidence_block(packet: Any) -> dict[str, Any]:
-    return {
-        "type": "evidence",
-        "context_id": packet.context_id,
-        "text": packet.text,
-        "title": packet.title or "",
-        "score": packet.score,
-        "source_ref": to_jsonable(packet.source_ref),
-        "metadata": to_jsonable(packet.metadata),
-    }
-
-
-def _turn_context_memory_block(fact: Any) -> dict[str, Any]:
-    metadata = dict(getattr(fact, "metadata", {}) or {})
-    return {
-        "type": "memory",
-        "fact_id": fact.fact_id,
-        "text": fact.text,
-        "confidence": metadata.get("confidence"),
-        "valid_at": fact.valid_at or "",
-        "source_refs": to_jsonable(fact.source_refs),
-        "metadata": to_jsonable(metadata),
-    }
-
-
-def _turn_context_citations(packets: list[Any], memory_facts: list[Any]) -> list[dict[str, Any]]:
-    citations = [
-        {
-            "type": "evidence",
-            "source_ref": to_jsonable(packet.source_ref),
-            "title": packet.title or packet.source_ref.title or "",
-        }
-        for packet in packets
-    ]
-    for fact in memory_facts:
-        for source_ref in fact.source_refs:
-            citations.append(
-                {
-                    "type": "memory",
-                    "fact_id": fact.fact_id,
-                    "source_ref": to_jsonable(source_ref),
-                    "title": source_ref.title or "",
-                }
-            )
-    return citations
-
-
 def _product_api_contract() -> dict[str, Any]:
     return {
         "schema": "pska.product_api_contract.v1",
@@ -2409,130 +2242,6 @@ def _kb_operation_status_payload(gateway: Any, result: dict[str, Any]) -> dict[s
     return _kb_status_payload(gateway, dataset_ids=[dataset_id], document_ids=document_ids)
 
 
-def _assemble_turn_context(service: WorkflowService, payload: dict[str, Any]) -> dict[str, Any]:
-    if not isinstance(payload, dict):
-        raise ApiError("request body must be a JSON object", HTTPStatus.BAD_REQUEST)
-    user_message = _required_str(payload, "user_message")
-    mode = str(payload.get("mode") or "auto").strip().lower() or "auto"
-    if mode not in {"auto", "project", "evidence-only", "memory-only"}:
-        raise ApiError("mode must be auto, project, evidence-only, or memory-only", HTTPStatus.BAD_REQUEST)
-    raw_scope = payload.get("scope") or {}
-    if not isinstance(raw_scope, dict):
-        raise ApiError("scope must be an object", HTTPStatus.BAD_REQUEST)
-    raw_budget = payload.get("budget") or {}
-    if not isinstance(raw_budget, dict):
-        raise ApiError("budget must be an object", HTTPStatus.BAD_REQUEST)
-
-    scope = _turn_context_scope(payload, raw_scope)
-    max_evidence_blocks = _bounded_int(
-        raw_budget.get("max_evidence_blocks"),
-        default=5,
-        minimum=0,
-        maximum=20,
-    )
-    max_memory_notes = _bounded_int(
-        raw_budget.get("max_memory_notes"),
-        default=5,
-        minimum=0,
-        maximum=20,
-    )
-    max_tokens = _bounded_int(raw_budget.get("max_tokens"), default=3000, minimum=500, maximum=12000)
-    requirements = payload.get("requirements") or {}
-    if not isinstance(requirements, dict):
-        raise ApiError("requirements must be an object", HTTPStatus.BAD_REQUEST)
-
-    run = service.start(f"turn-context: {user_message[:160]}", scope)
-    evidence_blocks: list[dict[str, Any]] = []
-    memory_notes: list[dict[str, Any]] = []
-    warnings: list[dict[str, str]] = []
-
-    if mode != "memory-only" and max_evidence_blocks > 0:
-        packets = service.context_retrieve(run.run_id, user_message, max_evidence_blocks)
-        evidence_blocks = [_turn_context_evidence_block(packet, index) for index, packet in enumerate(packets, start=1)]
-
-    if mode != "evidence-only" and max_memory_notes > 0:
-        try:
-            facts = service.memory_search(
-                user_message,
-                scope,
-                max_memory_notes,
-                trace_context={
-                    "caller": str(payload.get("caller") or "turn_context"),
-                    "run_id": run.run_id,
-                    "message_id": str(payload.get("message_id") or ""),
-                    "purpose": "turn_context_memory_notes",
-                    "used_as": "memory_note",
-                    "usage_stage": "turn_context",
-                },
-            )
-            memory_notes = [_turn_context_memory_block(fact, index) for index, fact in enumerate(facts, start=1)]
-        except Exception as exc:  # noqa: BLE001 - turn context should degrade when optional memory search is unavailable.
-            warnings.append({"code": "memory_search_failed", "message": str(exc)})
-
-    blocks = [*evidence_blocks, *memory_notes]
-    return {
-        "schema": "pska.turn_context_response.v1",
-        "run_id": run.run_id,
-        "caller": str(payload.get("caller") or ""),
-        "mode": mode,
-        "scope": scope,
-        "budget": {
-            "max_tokens": max_tokens,
-            "max_evidence_blocks": max_evidence_blocks,
-            "max_memory_notes": max_memory_notes,
-        },
-        "requirements": {
-            "need_citations": bool(requirements.get("need_citations", True)),
-            "allow_memory_write": False,
-        },
-        "turn_context": {
-            "summary": _turn_context_summary(evidence_blocks, memory_notes, warnings),
-            "blocks": blocks,
-            "evidence_blocks": evidence_blocks,
-            "memory_notes": memory_notes,
-            "citations": _turn_context_citations(evidence_blocks, memory_notes),
-            "warnings": warnings,
-        },
-    }
-
-
-def _turn_context_scope(payload: dict[str, Any], raw_scope: dict[str, Any]) -> dict[str, Any]:
-    scope = {
-        "dataset_ids": _turn_context_string_list(raw_scope.get("dataset_ids") or payload.get("dataset_ids")),
-        "document_ids": _turn_context_string_list(raw_scope.get("document_ids") or payload.get("document_ids")),
-    }
-    for key in ("workspace", "project_id", "memory_namespace"):
-        value = str(raw_scope.get(key) or payload.get(key) or "").strip()
-        if value:
-            scope[key] = value
-    if raw_scope.get("use_kg") is not None or payload.get("use_kg") is not None:
-        scope["use_kg"] = bool(raw_scope.get("use_kg") if raw_scope.get("use_kg") is not None else payload.get("use_kg"))
-    retrieval_queries = _turn_context_string_list(raw_scope.get("retrieval_queries") or payload.get("retrieval_queries"))
-    if retrieval_queries:
-        scope["retrieval_queries"] = retrieval_queries[:5]
-    return scope
-
-
-def _turn_context_string_list(value: Any) -> list[str]:
-    if value in (None, ""):
-        return []
-    if isinstance(value, str):
-        raw_items = value.replace("\n", ",").split(",")
-    elif isinstance(value, list):
-        raw_items = value
-    else:
-        raise ApiError("scope values must be lists or comma-separated strings", HTTPStatus.BAD_REQUEST)
-    seen: set[str] = set()
-    result: list[str] = []
-    for raw in raw_items:
-        item = str(raw or "").strip()
-        if not item or item in seen:
-            continue
-        seen.add(item)
-        result.append(item)
-    return result
-
-
 def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int:
     if value in (None, ""):
         return default
@@ -2545,66 +2254,6 @@ def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int
     if parsed > maximum:
         return maximum
     return parsed
-
-
-def _turn_context_evidence_block(packet: ContextPacket, index: int) -> dict[str, Any]:
-    source_ref = packet.source_ref
-    return {
-        "type": "evidence",
-        "index": index,
-        "title": packet.title or source_ref.title or packet.context_id,
-        "text": packet.text,
-        "score": packet.score,
-        "source_ref": to_jsonable(source_ref),
-        "metadata": to_jsonable(packet.metadata),
-    }
-
-
-def _turn_context_memory_block(fact: MemoryFact, index: int) -> dict[str, Any]:
-    return {
-        "type": "memory",
-        "index": index,
-        "fact_id": fact.fact_id,
-        "text": fact.text,
-        "source_refs": to_jsonable(fact.source_refs),
-        "metadata": to_jsonable(fact.metadata),
-    }
-
-
-def _turn_context_citations(evidence_blocks: list[dict[str, Any]], memory_notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    citations: list[dict[str, Any]] = []
-    seen: set[str] = set()
-
-    def add(source_ref: dict[str, Any], *, block_type: str, block_index: int) -> None:
-        key = json.dumps(source_ref, sort_keys=True, ensure_ascii=False)
-        if key in seen:
-            return
-        seen.add(key)
-        citations.append({"block_type": block_type, "block_index": block_index, "source_ref": source_ref})
-
-    for block in evidence_blocks:
-        source_ref = block.get("source_ref")
-        if isinstance(source_ref, dict):
-            add(source_ref, block_type="evidence", block_index=int(block.get("index") or 0))
-    for block in memory_notes:
-        for source_ref in block.get("source_refs") or []:
-            if isinstance(source_ref, dict):
-                add(source_ref, block_type="memory", block_index=int(block.get("index") or 0))
-    return citations
-
-
-def _turn_context_summary(
-    evidence_blocks: list[dict[str, Any]],
-    memory_notes: list[dict[str, Any]],
-    warnings: list[dict[str, str]],
-) -> str:
-    parts = [
-        f"{len(evidence_blocks)} evidence block{'s' if len(evidence_blocks) != 1 else ''}",
-        f"{len(memory_notes)} memory note{'s' if len(memory_notes) != 1 else ''}",
-    ]
-    if warnings:
-        parts.append(f"{len(warnings)} warning{'s' if len(warnings) != 1 else ''}")
-    return "Assembled " + ", ".join(parts) + "."
 
 
 def _compact_response_requested(payload: dict[str, Any]) -> bool:

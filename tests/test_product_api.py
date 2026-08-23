@@ -301,6 +301,7 @@ class ProductApiTests(unittest.TestCase):
         self.assertIn(("POST", "/api/hermes/answer-proofs"), contract_routes)
         self.assertIn(("POST", "/api/agentic/context-brief"), contract_routes)
         self.assertIn(("GET", "/api/agentic/context-briefs"), contract_routes)
+        self.assertIn(("POST", "/api/conversation/context-pack"), contract_routes)
         self.assertIn(("POST", "/api/digest"), contract_routes)
         self.assertIn(("POST", "/api/digest-jobs"), contract_routes)
         self.assertIn(("GET", "/api/digest-jobs"), contract_routes)
@@ -2772,6 +2773,101 @@ class ProductApiTests(unittest.TestCase):
         self.assertGreaterEqual(len(turn_context["citations"]), 2)
         self.assertEqual(turn_context["warnings"], [])
         self.assertEqual(self._get_json("/api/reviews?status=pending")["reviews"], [])
+
+    def test_conversation_context_pack_merges_memory_conversation_and_evidence(self):
+        self.service.memory.facts.append(
+            MemoryFact(
+                fact_id="mem-context-pack",
+                text="PSKA context pack should combine active memory, queried conversations, and RAG evidence.",
+                source_refs=[SourceRef(adapter="conversation", source_id="msg-memory", title="Memory source")],
+                metadata={"confidence": 0.93},
+            )
+        )
+
+        payload = self._post_json(
+            "/api/conversation/context-pack",
+            {
+                "caller": "hermes-webui-extension",
+                "workspace": "daily",
+                "user_message": "How should PSKA context pack combine memory conversation and evidence?",
+                "mode": "project",
+                "scope": {"dataset_ids": ["demo"]},
+                "budget": {
+                    "max_evidence_blocks": 1,
+                    "max_memory_notes": 2,
+                    "max_conversation_blocks": 2,
+                    "max_source_blocks": 0,
+                    "max_tokens": 2500,
+                },
+                "conversation_recall": {
+                    "items": [
+                        {
+                            "session_id": "sess-pska-dogfood",
+                            "message_id": "msg-history-1",
+                            "title": "PSKA dogfooding",
+                            "role": "user",
+                            "match_type": "content",
+                            "match_preview": "Earlier Hermes conversation said PSKA should query history, not dump it.",
+                            "score": 0.84,
+                        }
+                    ]
+                },
+            },
+        )
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["schema"], "pska.conversation_context_pack_response.v1")
+        self.assertTrue(payload["run_id"].startswith("run_"))
+        context_pack = payload["context_pack"]
+        self.assertEqual(context_pack["source_counts"]["memory"], 1)
+        self.assertEqual(context_pack["source_counts"]["conversation"], 1)
+        self.assertEqual(context_pack["source_counts"]["evidence"], 1)
+        block_types = [block["type"] for block in context_pack["blocks"]]
+        self.assertIn("memory", block_types)
+        self.assertIn("conversation", block_types)
+        self.assertIn("evidence", block_types)
+        conversation = [block for block in context_pack["blocks"] if block["type"] == "conversation"][0]
+        self.assertEqual(conversation["source_ref"]["adapter"], "hermes.conversation")
+        self.assertTrue(conversation["metadata"]["query_based_recall"])
+        self.assertNotIn("chatgpt", json.dumps(payload, ensure_ascii=False).lower())
+
+    def test_conversation_context_pack_does_not_use_legacy_hermes_password_fallback_by_default(self):
+        env = {
+            "PSKA_HERMES_WEBUI_BASE_URL": "http://127.0.0.1:9",
+            "PSKA_HERMES_RECALL_TOKEN": "x" * 32,
+            "PSKA_HERMES_WEBUI_PASSWORD": "legacy-password",
+        }
+        with patch.dict(os.environ, env, clear=True), \
+             patch(
+                 "pska_essential.conversation_context_pack._fetch_hermes_provider_conversation_recall",
+                 side_effect=RuntimeError("provider unavailable"),
+             ), \
+             patch(
+                 "pska_essential.conversation_context_pack._json_get",
+                 side_effect=AssertionError("legacy Hermes sessions search must stay opt-in"),
+             ):
+            payload = self._post_json(
+                "/api/conversation/context-pack",
+                {
+                    "caller": "hermes-webui-extension",
+                    "user_message": "Recall PSKA history without legacy password fallback.",
+                    "mode": "memory-only",
+                    "budget": {
+                        "max_memory_notes": 0,
+                        "max_conversation_blocks": 2,
+                        "max_evidence_blocks": 0,
+                        "max_source_blocks": 0,
+                    },
+                },
+            )
+
+        self.assertTrue(payload["ok"])
+        context_pack = payload["context_pack"]
+        self.assertEqual(context_pack["source_counts"]["conversation"], 0)
+        self.assertEqual(
+            [warning["code"] for warning in context_pack["warnings"]],
+            ["conversation_recall_provider_failed"],
+        )
 
     def test_agentic_context_brief_route_composes_recall_memory_trace_without_writes(self):
         self.service.memory.facts.append(
