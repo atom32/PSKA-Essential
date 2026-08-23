@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -280,8 +281,16 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
             raise SystemExit(f"{zip_path} missing delivery files: {', '.join(missing)}")
         readme = archive.read(f"{package_dir_name}/README.zh.md").decode("utf-8")
         delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
+        subtitle_text = archive.read(f"{package_dir_name}/{basename}.zh.srt").decode("utf-8")
         verify_preview_image_bytes(archive.read(f"{package_dir_name}/{basename}_preview_sheet.jpg"))
         integrity_count = verify_delivery_integrity(archive, package_dir_name, delivery_manifest)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            original_video = tmp_dir / f"{basename}.mp4"
+            subtitled_video = tmp_dir / f"{basename}_subtitled.mp4"
+            original_video.write_bytes(archive.read(f"{package_dir_name}/{basename}.mp4"))
+            subtitled_video.write_bytes(archive.read(f"{package_dir_name}/{basename}_subtitled.mp4"))
+            verify_hard_subtitled_video(original_video, subtitled_video, parse_srt(subtitle_text), checks)
     required_readme_terms = [
         "客户演示视频交付包",
         "硬字幕版视频",
@@ -347,6 +356,54 @@ def verify_delivery_integrity(
 def verify_preview_image_bytes(data: bytes) -> None:
     if len(data) < 10_000 or not data.startswith(b"\xff\xd8"):
         raise SystemExit("customer delivery preview sheet does not look like a valid JPEG")
+
+
+def verify_hard_subtitled_video(
+    original_video: Path,
+    subtitled_video: Path,
+    subtitle_blocks: list[tuple[float, float, str]],
+    checks: list[str],
+) -> None:
+    if not subtitle_blocks:
+        raise SystemExit("customer delivery hard-subtitle check needs subtitle timing")
+    original_duration = float((ffprobe(original_video).get("format") or {}).get("duration") or 0)
+    subtitled_duration = float((ffprobe(subtitled_video).get("format") or {}).get("duration") or 0)
+    if abs(original_duration - subtitled_duration) > 1.0:
+        raise SystemExit(
+            f"customer hard-subtitled video duration mismatch: {subtitled_duration:.1f}s vs {original_duration:.1f}s"
+        )
+    start, end, _text = subtitle_blocks[1] if len(subtitle_blocks) > 1 else subtitle_blocks[0]
+    timestamp = start + max(end - start, 0.5) / 2
+    original_band = video_bottom_band_bytes(original_video, timestamp)
+    subtitled_band = video_bottom_band_bytes(subtitled_video, timestamp)
+    if len(original_band) != len(subtitled_band) or not original_band:
+        raise SystemExit("customer hard-subtitle frame extraction failed")
+    mean_abs_diff = sum(abs(a - b) for a, b in zip(original_band, subtitled_band)) / len(original_band)
+    if mean_abs_diff < 2.0:
+        raise SystemExit(f"customer hard-subtitled video does not show visible subtitle overlay: diff={mean_abs_diff:.2f}")
+    checks.append(f"{subtitled_video.name}: hard subtitles visible in bottom-band pixel check")
+
+
+def video_bottom_band_bytes(path: Path, timestamp: float) -> bytes:
+    return subprocess.check_output(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-ss",
+            f"{timestamp:.3f}",
+            "-i",
+            str(path),
+            "-frames:v",
+            "1",
+            "-vf",
+            "crop=1280:200:0:520,format=gray",
+            "-f",
+            "rawvideo",
+            "pipe:1",
+        ]
+    )
 
 
 def verify_zip_checksum_file(zip_path: Path, checksum_path: Path) -> None:
