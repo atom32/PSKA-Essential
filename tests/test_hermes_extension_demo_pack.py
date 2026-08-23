@@ -118,8 +118,11 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         script = CUSTOMER_BUILDER_PATH.read_text(encoding="utf-8")
 
         self.assertIn("write_voiceover", script)
+        self.assertIn("write_voiceover_tts", script)
         self.assertIn("_voiceover.zh.md", script)
+        self.assertIn("_voiceover_tts.zh.txt", script)
         self.assertIn('"voiceover": str(voiceover.relative_to(ROOT))', script)
+        self.assertIn('"voiceover_tts": str(voiceover_tts.relative_to(ROOT))', script)
         self.assertIn("客户版实操演示视频旁白稿", script)
 
     def test_recorder_supports_tail_padding_for_stable_long_capture(self):
@@ -135,8 +138,10 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
         self.assertIn("hermes_pska_customer_walkthrough_demo", script)
         self.assertIn('"voiceover"', script)
+        self.assertIn('"voiceover_tts"', script)
         self.assertIn("客户演示视频交付包", script)
         self.assertIn("硬字幕版视频", script)
+        self.assertIn("纯旁白文本", script)
         self.assertIn("write_subtitled_video", script)
         self.assertIn("write_package_index", script)
         self.assertIn("write_delivery_summary", script)
@@ -241,10 +246,11 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("--require-delivery-pack", script)
         self.assertIn("verify_delivery_pack", script)
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
-        self.assertIn("delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README", script)
+        self.assertIn("delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README", script)
         self.assertIn("_subtitled.mp4", script)
         self.assertIn("index.html", script)
         self.assertIn("DELIVERY_SUMMARY.zh.md", script)
+        self.assertIn("_voiceover_tts.zh.txt", script)
         self.assertIn("客户演示视频交付摘要", script)
         self.assertIn("does not describe the delivery package", script)
         self.assertIn("硬字幕版视频", script)
@@ -261,6 +267,7 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("does not show visible subtitle overlay", script)
         self.assertIn("verify_zip_checksum_file", script)
         self.assertIn("verify_external_handoff_note", script)
+        self.assertIn("verify_customer_voiceover_tts_text", script)
         self.assertIn("customer delivery item checksum mismatch", script)
 
     def test_delivery_integrity_verifies_zip_member_hashes(self):
@@ -439,6 +446,37 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         )
 
         self.verifier.verify_customer_voiceover_script(pathlib.Path("voiceover.zh.md"), text)
+
+    def test_customer_voiceover_tts_text_rejects_headings(self):
+        text = "\n\n".join(
+            [
+                "# 客户版实操演示视频旁白稿",
+                "对话工作台。资料范围。回答前。确认记忆。财报。经营报告草稿。创作画布。续写草稿。同一个工作流。",
+                *["补充段落。" for _ in range(9)],
+            ]
+        )
+
+        with self.assertRaises(SystemExit):
+            self.verifier.verify_customer_voiceover_tts_text(pathlib.Path("voiceover_tts.zh.txt"), text)
+
+    def test_customer_voiceover_tts_text_accepts_plain_narration(self):
+        text = "\n\n".join(
+            [
+                "我们先从用户每天使用的对话工作台开始。",
+                "这个入口会在后台整理资料。",
+                "用户可以选择资料范围。",
+                "开始前可以看到待确认内容。",
+                "回答前会先整理参考材料。",
+                "用户可以确认记忆。",
+                "财报资料会被找回。",
+                "资料可以整理成经营报告草稿。",
+                "创作前可以恢复上下文。",
+                "创作画布会连接想法和续写草稿。",
+                "这套流程保持在同一个工作流里。",
+            ]
+        )
+
+        self.verifier.verify_customer_voiceover_tts_text(pathlib.Path("voiceover_tts.zh.txt"), text)
 
     def test_feature_matrix_covers_all_demo_scenes(self):
         checks = []

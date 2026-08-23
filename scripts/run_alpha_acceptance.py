@@ -789,7 +789,7 @@ def _demo_video_count(checks: list[str]) -> int:
 def _demo_delivery_pack_present(checks: list[str]) -> bool:
     return any(
         line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
-        and "delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README" in line
+        and "delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README" in line
         for line in checks
     )
 

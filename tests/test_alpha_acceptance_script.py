@@ -210,7 +210,7 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertTrue(
             module._demo_delivery_pack_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README",
                 ]
             )
         )
@@ -222,14 +222,14 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertTrue(
             module._demo_delivery_preview_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README",
                 ]
             )
         )
         self.assertFalse(
             module._demo_delivery_preview_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, storyboard, manifests, and README",
                 ]
             )
         )
@@ -248,7 +248,7 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertFalse(
             module._demo_delivery_integrity_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README",
                     "hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256: delivery zip external checksum verified with sha256",
                 ]
             )

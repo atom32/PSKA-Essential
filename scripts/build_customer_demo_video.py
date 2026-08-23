@@ -198,12 +198,14 @@ def main() -> int:
     output_srt = dist_dir / f"{args.output_basename}.zh.srt"
     output_storyboard = dist_dir / f"{args.output_basename}_storyboard.zh.md"
     output_voiceover = dist_dir / f"{args.output_basename}_voiceover.zh.md"
+    output_voiceover_tts = dist_dir / f"{args.output_basename}_voiceover_tts.zh.txt"
     output_manifest = dist_dir / f"{args.output_basename}_manifest.json"
 
     concat_clips(build_dir, output_mp4)
     write_srt(timeline, output_srt)
     write_storyboard(timeline, output_storyboard)
     write_voiceover(timeline, output_voiceover)
+    write_voiceover_tts(timeline, output_voiceover_tts)
     write_manifest(
         args.output_basename,
         timeline,
@@ -211,6 +213,7 @@ def main() -> int:
         output_srt,
         output_storyboard,
         output_voiceover,
+        output_voiceover_tts,
         output_manifest,
     )
 
@@ -221,6 +224,7 @@ def main() -> int:
     print(f"subtitles: {output_srt}")
     print(f"storyboard: {output_storyboard}")
     print(f"voiceover: {output_voiceover}")
+    print(f"voiceover_tts: {output_voiceover_tts}")
     print(f"manifest: {output_manifest}")
     return 0
 
@@ -379,11 +383,21 @@ def write_voiceover(timeline: list[dict[str, Any]], path: Path) -> None:
         [
             "## 收尾",
             "",
-            "这套流程的重点不是多一个页面，而是让对话、资料、记忆、任务和创作保持在同一个工作流里。",
+            customer_voiceover_closing(),
             "",
         ]
     )
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def write_voiceover_tts(timeline: list[dict[str, Any]], path: Path) -> None:
+    paragraphs = [str(scene["narration"]) for scene in timeline]
+    paragraphs.append(customer_voiceover_closing())
+    path.write_text("\n\n".join(paragraphs) + "\n", encoding="utf-8")
+
+
+def customer_voiceover_closing() -> str:
+    return "这套流程的重点不是多一个页面，而是让对话、资料、记忆、任务和创作保持在同一个工作流里。"
 
 
 def write_manifest(
@@ -393,6 +407,7 @@ def write_manifest(
     srt: Path,
     storyboard: Path,
     voiceover: Path,
+    voiceover_tts: Path,
     manifest: Path,
 ) -> None:
     payload = {
@@ -407,6 +422,7 @@ def write_manifest(
         "subtitles": str(srt.relative_to(ROOT)),
         "storyboard": str(storyboard.relative_to(ROOT)),
         "voiceover": str(voiceover.relative_to(ROOT)),
+        "voiceover_tts": str(voiceover_tts.relative_to(ROOT)),
         "timeline": timeline,
         "no_tts": True,
         "entrypoint": "Hermes WebUI extension",

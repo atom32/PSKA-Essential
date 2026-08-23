@@ -77,7 +77,7 @@ def read_manifest(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("demo_case", {}).get("id") != "customer_walkthrough":
         raise SystemExit(f"{path} is not a customer walkthrough manifest")
-    required = ["mp4", "subtitles", "storyboard", "voiceover"]
+    required = ["mp4", "subtitles", "storyboard", "voiceover", "voiceover_tts"]
     missing = [key for key in required if not payload.get(key)]
     if missing:
         raise SystemExit(f"{path} missing keys: {', '.join(missing)}")
@@ -92,6 +92,7 @@ def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, A
         ("subtitled_mp4", "硬字幕版视频"),
         ("subtitles", "字幕文件"),
         ("voiceover", "旁白稿"),
+        ("voiceover_tts", "纯旁白文本"),
         ("storyboard", "分镜说明"),
     ]:
         source = subtitled_video if key == "subtitled_mp4" else ROOT / str(manifest[key])
@@ -367,7 +368,7 @@ def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]
             "",
             "1. 直接播放时，优先使用硬字幕版视频。",
             "2. 需要二次剪辑时，导入视频主片和字幕文件。",
-            "3. 使用旁白稿生成中文配音，语速建议偏慢。",
+            "3. 使用纯旁白文本生成中文配音，语速建议偏慢；旁白稿用于人工讲解。",
             "4. 可先打开关键画面预览图，快速确认画面顺序。",
             "5. 如需调整节奏，只裁短等待画面，不删掉提问到回答的过程。",
             "6. 最后一段创作画布必须保留，它展示想法节点、产物节点和续写草稿。",
@@ -406,6 +407,7 @@ def write_package_index(path: Path, basename: str, copied: list[dict[str, Any]])
     original_video = f"{basename}.mp4"
     subtitles = f"{basename}.zh.srt"
     voiceover = f"{basename}_voiceover.zh.md"
+    voiceover_tts = f"{basename}_voiceover_tts.zh.txt"
     preview = f"{basename}_preview_sheet.jpg"
     file_links = "\n".join(
         f'<li><a href="{html.escape(item["filename"])}">{html.escape(item["label"])}：{html.escape(item["filename"])}</a></li>'
@@ -470,7 +472,7 @@ def write_package_index(path: Path, basename: str, copied: list[dict[str, Any]])
 
     <section class="panel">
       <h2>剪辑使用</h2>
-      <p>导入 <a href="{html.escape(original_video)}">无字幕主视频</a> 和 <a href="{html.escape(subtitles)}">字幕文件</a>；需要中文配音时使用 <a href="{html.escape(voiceover)}">旁白稿</a>。</p>
+      <p>导入 <a href="{html.escape(original_video)}">无字幕主视频</a> 和 <a href="{html.escape(subtitles)}">字幕文件</a>；需要中文配音时优先使用 <a href="{html.escape(voiceover_tts)}">纯旁白文本</a>，人工讲解时使用 <a href="{html.escape(voiceover)}">旁白稿</a>。</p>
       <p>不要删掉资料范围、提问到回答、长期记忆待确认和创作画布画面。</p>
     </section>
 
@@ -510,7 +512,8 @@ def write_delivery_summary(
         f"- 主片时长：`{duration:.1f}` 秒",
         "- 推荐入口：`index.html`",
         f"- 直接预览：`{hard_subtitled}`",
-        f"- 二次剪辑：`{original_video}` + `{basename}.zh.srt` + `{basename}_voiceover.zh.md`",
+        f"- 二次剪辑：`{original_video}` + `{basename}.zh.srt` + `{basename}_voiceover_tts.zh.txt`",
+        f"- 人工讲解：`{basename}_voiceover.zh.md`",
         "- 压缩包外部校验：同名 `.zip.sha256` 文件",
         "",
         "## 交付文件",
@@ -615,7 +618,7 @@ def write_external_handoff_note(dist_dir: Path, basename: str, zip_path: Path, c
         "",
         "1. 导入主视频。",
         "2. 导入同名字幕。",
-        "3. 用旁白稿生成中文配音。",
+        "3. 用纯旁白文本生成中文配音；旁白稿用于人工讲解。",
         "4. 先看关键画面预览图，确认画面顺序。",
         "5. 保留资料范围、提问到回答、长期记忆待确认和创作画布画面。",
         "",

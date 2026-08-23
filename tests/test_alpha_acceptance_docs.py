@@ -42,13 +42,13 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "eidolia_bridge PASS status=ok review=reject",
             "make demo-browser-verify-videos",
             "10 ordered plain Chinese subtitles",
-            "hermes_pska_customer_walkthrough_demo_delivery_pack.zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
+            "hermes_pska_customer_walkthrough_demo_delivery_pack.zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README",
             "product-boundary-contract OK",
             "live-product-boundary-contract OK",
             "alpha-acceptance-webui    OK, 47/47 contract, visual OK, turn bridge OK, recovery_boundary OK",
             "alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes, preview=yes, integrity=yes, handoff=yes",
             "demo-browser-videos       OK, 5/5 videos, delivery pack, preview sheet, sha256 integrity, handoff note, pure Chinese subtitles",
-            "unittest                  585 tests OK",
+            "unittest                  587 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):

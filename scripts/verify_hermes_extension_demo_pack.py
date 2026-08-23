@@ -239,6 +239,7 @@ def verify_customer_packager(path: Path, checks: list[str]) -> None:
         "pska.customer_demo_delivery_pack.v1",
         "hermes_pska_customer_walkthrough_demo",
         '"voiceover"',
+        '"voiceover_tts"',
         "客户演示视频交付包",
         "创作画布必须保留",
         "不要说这是独立前端",
@@ -268,6 +269,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         f"{package_dir_name}/{basename}_subtitled.mp4",
         f"{package_dir_name}/{basename}.zh.srt",
         f"{package_dir_name}/{basename}_voiceover.zh.md",
+        f"{package_dir_name}/{basename}_voiceover_tts.zh.txt",
         f"{package_dir_name}/{basename}_storyboard.zh.md",
         f"{package_dir_name}/{basename}_preview_sheet.jpg",
         f"{package_dir_name}/{basename}_manifest.json",
@@ -286,6 +288,8 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         delivery_summary = archive.read(f"{package_dir_name}/DELIVERY_SUMMARY.zh.md").decode("utf-8")
         delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
         subtitle_text = archive.read(f"{package_dir_name}/{basename}.zh.srt").decode("utf-8")
+        voiceover_tts_text = archive.read(f"{package_dir_name}/{basename}_voiceover_tts.zh.txt").decode("utf-8")
+        verify_customer_voiceover_tts_text(Path(f"{basename}_voiceover_tts.zh.txt"), voiceover_tts_text)
         verify_preview_image_bytes(archive.read(f"{package_dir_name}/{basename}_preview_sheet.jpg"))
         integrity_count = verify_delivery_integrity(archive, package_dir_name, delivery_manifest)
         with tempfile.TemporaryDirectory() as tmp:
@@ -301,6 +305,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         "交付摘要",
         "硬字幕版视频",
         "旁白稿",
+        "纯旁白文本",
         "关键画面预览图",
         "直接播放时，优先使用硬字幕版视频",
         "片子面向客户，不讲内部接口、数据库或模型术语",
@@ -319,6 +324,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         f"{basename}.mp4",
         f"{basename}.zh.srt",
         f"{basename}_voiceover.zh.md",
+        f"{basename}_voiceover_tts.zh.txt",
         f"{basename}_preview_sheet.jpg",
         "先看这个",
         "剪辑使用",
@@ -332,7 +338,8 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         "客户演示视频交付摘要",
         "推荐入口：`index.html`",
         f"直接预览：`{basename}_subtitled.mp4`",
-        f"二次剪辑：`{basename}.mp4` + `{basename}.zh.srt` + `{basename}_voiceover.zh.md`",
+        f"二次剪辑：`{basename}.mp4` + `{basename}.zh.srt` + `{basename}_voiceover_tts.zh.txt`",
+        f"人工讲解：`{basename}_voiceover.zh.md`",
         "SHA256",
         "创作画布镜头必须保留",
     ]
@@ -347,7 +354,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         raise SystemExit(f"{zip_path} delivery manifest missing expected items")
     if package_dir.exists():
         require_files([package_dir / Path(name).name for name in required_names], checks)
-    checks.append(f"{zip_path.name}: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README")
+    checks.append(f"{zip_path.name}: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, 纯旁白文本, preview sheet, storyboard, manifests, and README")
     checks.append(f"{zip_path.name}: delivery zip integrity verified with sha256 for {integrity_count} files")
     checks.append(f"{checksum_path.name}: delivery zip external checksum verified with sha256")
     checks.append(f"{handoff_path.name}: external handoff note covers checksum and editing steps")
@@ -680,6 +687,13 @@ def verify_customer_walkthrough_manifest(path: Path, payload: dict[str, Any]) ->
         raise SystemExit(f"{path} voiceover script does not exist: {voiceover_path}")
     voiceover_text = voiceover_path.read_text(encoding="utf-8")
     verify_customer_voiceover_script(voiceover_path, voiceover_text)
+    voiceover_tts = str(payload.get("voiceover_tts") or "")
+    if not voiceover_tts:
+        raise SystemExit(f"{path} expected customer walkthrough plain voiceover text")
+    voiceover_tts_path = ROOT / voiceover_tts
+    if not voiceover_tts_path.exists():
+        raise SystemExit(f"{path} plain voiceover text does not exist: {voiceover_tts_path}")
+    verify_customer_voiceover_tts_text(voiceover_tts_path, voiceover_tts_path.read_text(encoding="utf-8"))
     durations = {
         str(scene.get("id") or ""): float(scene.get("endsAt") or 0) - float(scene.get("startsAt") or 0)
         for scene in payload.get("timeline") or []
@@ -714,6 +728,31 @@ def verify_customer_voiceover_script(path: Path, text: str) -> None:
     missing = [term for term in required_terms if term not in text]
     if missing:
         raise SystemExit(f"{path} customer voiceover missing required topics: {', '.join(missing)}")
+
+
+def verify_customer_voiceover_tts_text(path: Path, text: str) -> None:
+    verify_no_english_terms(path, text, "plain voiceover text")
+    forbidden = ["#", "第1段", "第2段", "旁白稿", "剪映", "```"]
+    offenders = [term for term in forbidden if term in text]
+    if offenders:
+        raise SystemExit(f"{path} plain voiceover text must not contain headings or editing notes: {', '.join(offenders)}")
+    paragraphs = [paragraph.strip() for paragraph in re.split(r"\n\s*\n", text.strip()) if paragraph.strip()]
+    if len(paragraphs) != 11:
+        raise SystemExit(f"{path} expected 11 narration paragraphs, got {len(paragraphs)}")
+    required_terms = [
+        "对话工作台",
+        "资料范围",
+        "回答前",
+        "确认记忆",
+        "财报",
+        "经营报告草稿",
+        "创作画布",
+        "续写草稿",
+        "同一个工作流",
+    ]
+    missing = [term for term in required_terms if term not in text]
+    if missing:
+        raise SystemExit(f"{path} plain voiceover text missing required topics: {', '.join(missing)}")
 
 
 def verify_business_case_manifest(path: Path, payload: dict[str, Any], expected_case: str) -> None:
