@@ -29,6 +29,7 @@ DEMO_VIDEO_BASENAMES = [
     "hermes_pska_extension_demo_long",
     "hermes_pska_finance_case_demo",
     "hermes_pska_webnovel_case_demo",
+    "hermes_pska_customer_walkthrough_demo",
 ]
 
 

@@ -28,6 +28,7 @@
 
 本机已经有四个通过检查的视频包，都没有音轨，适合导入剪映后配音：
 
+- `dist/hermes_pska_customer_walkthrough_demo.mp4`：客户版合成主片，约五分二十五秒。
 - `dist/hermes_pska_extension_demo_long.mp4`：核心长版，约三分二十一秒。
 - `dist/hermes_pska_finance_case_demo.mp4`：财报调研案例，约两分三秒。
 - `dist/hermes_pska_webnovel_case_demo.mp4`：网文续写和创作画布案例，约两分十四秒。
@@ -89,6 +90,12 @@ node scripts/record_hermes_pska_extension_demo.cjs \
   --wait-for-llm-ms 30000
 ```
 
+把核心、财报和网文三段素材合成客户版主片：
+
+```bash
+python3 scripts/build_customer_demo_video.py
+```
+
 录完后检查全部视频：
 
 ```bash
@@ -105,9 +112,9 @@ python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-vide
 
 推荐使用顺序：
 
-1. 核心长版前两分钟：介绍入口、资料范围、回答前整理和正式回答。
-2. 财报案例四十到七十秒：展示资料分析能产出经营报告。
-3. 网文案例最后一分钟：展示创作画布里的想法、资料和续写草稿。
+1. 直接使用 `hermes_pska_customer_walkthrough_demo.mp4` 作为主片。
+2. 导入 `hermes_pska_customer_walkthrough_demo.zh.srt` 作为字幕和配音文本。
+3. 如果要加长讲解，再补财报案例或网文案例的完整视频。
 
 ## 旁白口径
 
@@ -144,4 +151,3 @@ python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-vide
 - 不要打开底层数据库或底层资料库管理界面。
 - 不要只放架构图。
 - 不要只录命令行。
-

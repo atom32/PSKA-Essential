@@ -66,6 +66,14 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         )
         self.assertEqual(self.verifier.resolve_min_duration(args), 150.0)
 
+    def test_customer_walkthrough_defaults_to_five_minute_floor(self):
+        args = argparse.Namespace(
+            basename="hermes_pska_customer_walkthrough_demo",
+            case="",
+            min_duration=None,
+        )
+        self.assertEqual(self.verifier.resolve_min_duration(args), 300.0)
+
     def test_all_video_packs_cover_expected_assets(self):
         packs = self.verifier.DEMO_VIDEO_PACKS
         self.assertEqual(
@@ -75,6 +83,7 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
                 ("hermes_pska_extension_demo_long", ""),
                 ("hermes_pska_finance_case_demo", "finance_report_research"),
                 ("hermes_pska_webnovel_case_demo", "webnovel_author"),
+                ("hermes_pska_customer_walkthrough_demo", ""),
             ],
         )
 

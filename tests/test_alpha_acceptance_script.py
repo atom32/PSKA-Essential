@@ -160,9 +160,10 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
                     "hermes_pska_extension_demo_long.mp4: duplicate line",
                     "hermes_pska_finance_case_demo.mp4: 123.4s, 1280x720, no audio",
                     "hermes_pska_webnovel_case_demo.mp4: 133.5s, 1280x720, no audio",
+                    "hermes_pska_customer_walkthrough_demo.mp4: 325.4s, 1280x720, no audio",
                 ]
             ),
-            4,
+            5,
         )
 
     def test_demo_video_count_ignores_unknown_media(self):

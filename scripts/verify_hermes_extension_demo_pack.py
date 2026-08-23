@@ -20,6 +20,7 @@ MIN_DURATION_BY_BASENAME = {
     "hermes_pska_extension_demo_long": 180.0,
     "hermes_pska_finance_case_demo": 120.0,
     "hermes_pska_webnovel_case_demo": 120.0,
+    "hermes_pska_customer_walkthrough_demo": 300.0,
 }
 MIN_DURATION_BY_CASE = {
     "finance_report_research": 120.0,
@@ -30,6 +31,7 @@ DEMO_VIDEO_PACKS = [
     {"basename": "hermes_pska_extension_demo_long", "case": ""},
     {"basename": "hermes_pska_finance_case_demo", "case": "finance_report_research"},
     {"basename": "hermes_pska_webnovel_case_demo", "case": "webnovel_author"},
+    {"basename": "hermes_pska_customer_walkthrough_demo", "case": ""},
 ]
 FEATURE_MATRIX_TERMS = [
     "对话工作台入口",
@@ -372,7 +374,44 @@ def verify_manifest(path: Path, checks: list[str], expected_case: str | None = N
         if demo_case.get("id") != expected_case:
             raise SystemExit(f"{path} expected demo_case.id={expected_case!r}, got {demo_case.get('id')!r}")
         verify_business_case_manifest(path, payload, expected_case)
+    if (payload.get("demo_case") or {}).get("id") == "customer_walkthrough":
+        verify_customer_walkthrough_manifest(path, payload)
     checks.append(f"{path.name}: manifest schema, entrypoint, 10 scenes, no TTS")
+
+
+def verify_customer_walkthrough_manifest(path: Path, payload: dict[str, Any]) -> None:
+    expected_scene_ids = [
+        "entry",
+        "connection",
+        "scope",
+        "overview",
+        "pre_answer_context",
+        "chat_memory_tasks",
+        "finance_evidence",
+        "finance_report",
+        "webnovel_answer",
+        "eidolia_canvas",
+    ]
+    scene_ids = [str(scene.get("id") or "") for scene in payload.get("timeline") or []]
+    if scene_ids != expected_scene_ids:
+        raise SystemExit(f"{path} customer walkthrough scenes do not match expected flow: {scene_ids}")
+    composition = payload.get("composition") or {}
+    sources = set(composition.get("source_recordings") or [])
+    expected_sources = {
+        "hermes_pska_extension_demo_long.mp4",
+        "hermes_pska_finance_case_demo.mp4",
+        "hermes_pska_webnovel_case_demo.mp4",
+    }
+    if sources != expected_sources:
+        raise SystemExit(f"{path} expected source recordings {sorted(expected_sources)}, got {sorted(sources)}")
+    durations = {
+        str(scene.get("id") or ""): float(scene.get("endsAt") or 0) - float(scene.get("startsAt") or 0)
+        for scene in payload.get("timeline") or []
+    }
+    if durations.get("eidolia_canvas", 0.0) < 20.0:
+        raise SystemExit(f"{path} customer walkthrough Eidolia scene is too short")
+    if durations.get("finance_report", 0.0) < 45.0:
+        raise SystemExit(f"{path} customer walkthrough finance report scene is too short")
 
 
 def verify_business_case_manifest(path: Path, payload: dict[str, Any], expected_case: str) -> None:
