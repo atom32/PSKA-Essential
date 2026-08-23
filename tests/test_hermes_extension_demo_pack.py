@@ -1,7 +1,11 @@
 import argparse
+import hashlib
 import importlib.util
+import json
 import pathlib
+import tempfile
 import unittest
+import zipfile
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -114,6 +118,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("客户演示视频交付包", script)
         self.assertIn("创作画布必须保留", script)
         self.assertIn("不要说这是独立前端", script)
+        self.assertIn("sha256_file", script)
+        self.assertIn('"bytes": path.stat().st_size', script)
         self.assertIn("zipfile.ZipFile", script)
 
     def test_makefile_has_customer_delivery_pack_target(self):
@@ -133,6 +139,43 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
         self.assertIn("片子面向客户，不讲内部接口、数据库或模型术语", script)
         self.assertIn("创作画布里的想法节点、产物节点和续写草稿", script)
+        self.assertIn("verify_delivery_integrity", script)
+        self.assertIn("customer delivery item checksum mismatch", script)
+
+    def test_delivery_integrity_verifies_zip_member_hashes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = pathlib.Path(tmp) / "pack.zip"
+            data = b"customer demo asset"
+            readme = "# 客户演示视频交付包\n"
+            manifest = {
+                "integrity": {
+                    "algorithm": "sha256",
+                    "readme": {
+                        "filename": "README.zh.md",
+                        "bytes": len(readme.encode("utf-8")),
+                        "sha256": hashlib.sha256(readme.encode("utf-8")).hexdigest(),
+                    },
+                },
+                "items": [
+                    {
+                        "filename": "demo.mp4",
+                        "bytes": len(data),
+                        "sha256": hashlib.sha256(data).hexdigest(),
+                    }
+                ],
+            }
+            with zipfile.ZipFile(zip_path, "w") as archive:
+                archive.writestr("pack/README.zh.md", readme)
+                archive.writestr("pack/demo.mp4", data)
+
+            with zipfile.ZipFile(zip_path) as archive:
+                self.verifier.verify_delivery_integrity(archive, "pack", manifest)
+
+            bad_manifest = json.loads(json.dumps(manifest))
+            bad_manifest["items"][0]["sha256"] = "0" * 64
+            with zipfile.ZipFile(zip_path) as archive:
+                with self.assertRaises(SystemExit):
+                    self.verifier.verify_delivery_integrity(archive, "pack", bad_manifest)
 
     def test_customer_recording_manual_uses_customer_facing_scope(self):
         manual = (

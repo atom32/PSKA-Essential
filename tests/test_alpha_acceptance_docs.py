@@ -45,7 +45,7 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "live-product-boundary-contract OK",
             "alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK",
             "alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes",
-            "unittest                  560 tests OK",
+            "unittest                  561 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):

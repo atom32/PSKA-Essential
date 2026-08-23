@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -240,6 +241,7 @@ def verify_customer_packager(path: Path, checks: list[str]) -> None:
         "客户演示视频交付包",
         "创作画布必须保留",
         "不要说这是独立前端",
+        "sha256_file",
         "zipfile.ZipFile",
     ]
     missing = [needle for needle in required if needle not in text]
@@ -272,6 +274,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
             raise SystemExit(f"{zip_path} missing delivery files: {', '.join(missing)}")
         readme = archive.read(f"{package_dir_name}/README.zh.md").decode("utf-8")
         delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
+        verify_delivery_integrity(archive, package_dir_name, delivery_manifest)
     required_readme_terms = [
         "客户演示视频交付包",
         "旁白稿",
@@ -294,6 +297,37 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     if package_dir.exists():
         require_files([package_dir / Path(name).name for name in required_names], checks)
     checks.append(f"{zip_path.name}: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README")
+
+
+def verify_delivery_integrity(
+    archive: zipfile.ZipFile,
+    package_dir_name: str,
+    delivery_manifest: dict[str, Any],
+) -> None:
+    if (delivery_manifest.get("integrity") or {}).get("algorithm") != "sha256":
+        raise SystemExit("customer delivery manifest must declare sha256 integrity")
+    items = list(delivery_manifest.get("items") or [])
+    readme_item = (delivery_manifest.get("integrity") or {}).get("readme") or {}
+    if readme_item:
+        items.append(readme_item)
+    for item in items:
+        filename = str(item.get("filename") or "")
+        expected_size = item.get("bytes")
+        expected_sha = str(item.get("sha256") or "")
+        if not filename or not isinstance(expected_size, int) or expected_size <= 0:
+            raise SystemExit(f"customer delivery manifest has invalid integrity metadata for {filename or '<missing>'}")
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_sha):
+            raise SystemExit(f"customer delivery manifest has invalid sha256 for {filename}")
+        member_name = f"{package_dir_name}/{filename}"
+        try:
+            data = archive.read(member_name)
+        except KeyError as exc:
+            raise SystemExit(f"customer delivery zip missing manifest item: {member_name}") from exc
+        if len(data) != expected_size:
+            raise SystemExit(f"customer delivery item size mismatch: {filename}")
+        actual_sha = hashlib.sha256(data).hexdigest()
+        if actual_sha != expected_sha:
+            raise SystemExit(f"customer delivery item checksum mismatch: {filename}")
 
 
 def verify_case_fixture(demo_dir: Path, case_id: str, checks: list[str]) -> None:

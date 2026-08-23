@@ -9,6 +9,7 @@ and a short Chinese handoff README.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import zipfile
@@ -69,8 +70,8 @@ def read_manifest(path: Path) -> dict[str, Any]:
     return payload
 
 
-def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, str]]:
-    copied: list[dict[str, str]] = []
+def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, Any]]:
+    copied: list[dict[str, Any]] = []
     for key, label in [
         ("mp4", "视频主片"),
         ("subtitles", "字幕文件"),
@@ -82,17 +83,34 @@ def copy_assets(manifest: dict[str, Any], package_dir: Path) -> list[dict[str, s
             raise SystemExit(f"missing {label}: {source}")
         target = package_dir / source.name
         shutil.copy2(source, target)
-        copied.append({"label": label, "filename": target.name})
+        copied.append(file_item(label, target))
 
     source_manifest = ROOT / str(manifest.get("mp4", "")).replace(".mp4", "_manifest.json")
     if source_manifest.exists():
         target = package_dir / source_manifest.name
         shutil.copy2(source_manifest, target)
-        copied.append({"label": "生成记录", "filename": target.name})
+        copied.append(file_item("生成记录", target))
     return copied
 
 
-def write_package_readme(path: Path, basename: str, copied: list[dict[str, str]]) -> None:
+def file_item(label: str, path: Path) -> dict[str, Any]:
+    return {
+        "label": label,
+        "filename": path.name,
+        "bytes": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]) -> None:
     lines = [
         "# 客户演示视频交付包",
         "",
@@ -147,7 +165,7 @@ def write_package_manifest(
     path: Path,
     basename: str,
     source_manifest: Path,
-    copied: list[dict[str, str]],
+    copied: list[dict[str, Any]],
     readme_path: Path,
 ) -> None:
     payload = {
@@ -156,6 +174,10 @@ def write_package_manifest(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_manifest": str(source_manifest.relative_to(ROOT)),
         "readme": readme_path.name,
+        "integrity": {
+            "algorithm": "sha256",
+            "readme": file_item("交付说明", readme_path),
+        },
         "items": copied,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
