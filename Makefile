@@ -1,8 +1,10 @@
-.PHONY: test list-tools smoke eval workspace-status product-boundary-contract live-product-boundary-contract alpha-acceptance alpha-acceptance-webui alpha-acceptance-demo live-connectivity-check live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual webui-extension-turn-bridge webui-extension-llm-proof demo-browser-verify demo-browser-verify-videos demo-browser-customer-package demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-preflight full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status product-boundary-contract live-product-boundary-contract alpha-acceptance alpha-acceptance-webui alpha-acceptance-demo dogfood-init dogfood-init-dry-run dogfood-init-register live-connectivity-check live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual webui-extension-turn-bridge webui-extension-llm-proof demo-browser-verify demo-browser-verify-videos demo-browser-customer-package demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-preflight full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
 START_WORKSPACE_ARGS ?=
+DOGFOOD_ROOT ?= $(HOME)/PSKA-Dogfood
+PSKA_API_BASE_URL ?= http://127.0.0.1:8765
 ENV_FILE_ARG = $(if $(ENV_FILE),--env-file $(ENV_FILE),)
 
 test:
@@ -37,6 +39,15 @@ alpha-acceptance-webui:
 
 alpha-acceptance-demo:
 	PYTHONPATH=src $(PYTHON) scripts/run_alpha_acceptance.py $(ENV_FILE_ARG) --include-live-product-boundary-contract --include-webui-contract --include-webui-visual --include-webui-turn-bridge --include-recovery-boundary --include-demo-videos --include-eidolia-bridge --timeout $${PSKA_ALPHA_DEMO_TIMEOUT:-240}
+
+dogfood-init:
+	$(PYTHON) scripts/init_dogfood_workspace.py --root "$(DOGFOOD_ROOT)"
+
+dogfood-init-dry-run:
+	$(PYTHON) scripts/init_dogfood_workspace.py --root "$(DOGFOOD_ROOT)" --dry-run
+
+dogfood-init-register:
+	$(PYTHON) scripts/init_dogfood_workspace.py --root "$(DOGFOOD_ROOT)" --register --scan --api-base-url "$(PSKA_API_BASE_URL)"
 
 live-component-check:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.component_check $(ENV_FILE_ARG)

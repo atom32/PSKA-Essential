@@ -495,6 +495,20 @@ PSKA 应该使用：
 /Users/xudawei/PSKA-Dogfood
 ```
 
+可以直接从仓库初始化第一周模板：
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+make dogfood-init
+```
+
+这条命令只创建用户自己的目录和 Markdown 模板，不注册 source root、不扫描文件、
+不创建 Review、不写长期记忆。想先看会创建什么，可以运行：
+
+```bash
+make dogfood-init-dry-run
+```
+
 内部结构：
 
 ```text
@@ -529,6 +543,15 @@ decisions/
 projects/pska/
 creative/
 ```
+
+如果 PSKA Product API 已经在线，可以显式注册并扫描这四个第一周目录：
+
+```bash
+make dogfood-init-register
+```
+
+这条命令只通过 HTTP 调用 PSKA Product API 注册和扫描上述 source roots，不写源文件、不创建
+Review、不写长期记忆。注册后再到 Hermes WebUI 的 PSKA 面板里选择这些 source roots。
 
 ## 8. 哪些内容应该进入长期记忆
 
@@ -566,10 +589,10 @@ creative/
 
 动作：
 
-- 建 `PSKA-Dogfood` 目录。
-- 建 `daily`、`decisions`、`projects/pska`。
+- 运行 `make dogfood-init`，建立 `PSKA-Dogfood` 目录和第一周模板。
 - 写今天的 daily。
 - 写一条 PSKA 项目状态。
+- 如果 PSKA Product API 在线，运行 `make dogfood-init-register`，只注册并扫描第一周小范围。
 - 进入 Hermes WebUI 的 PSKA Memory 页，确认状态区后点 `Mark runtime confirmed`。
 - 查看 Recovery 行，点 `Mark recovery reviewed` 和 `Mark writeback locked`。
 - 在 Hermes WebUI 里选中这个小范围，进入 Memory 页点 `Mark scope selected`。

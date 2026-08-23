@@ -157,8 +157,9 @@ make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
 
 For the full demo-before-showing gate, including the read-only recovery
-boundary proof, four generated browser demo videos, plain Chinese subtitle
-checks, and a live Eidolia-to-PSKA bridge proof, run:
+boundary proof, five generated browser demo videos, the customer walkthrough
+delivery pack, plain Chinese subtitle checks, and a live Eidolia-to-PSKA bridge
+proof, run:
 
 ```bash
 NODE_PATH=/tmp/pska-playwright/node_modules \
@@ -186,6 +187,21 @@ optional graph memory provider. For status without starting services:
 
 ```bash
 make start-workspace START_WORKSPACE_ARGS=--status-only
+```
+
+Initialize the first-user dogfooding workspace:
+
+```bash
+make dogfood-init
+```
+
+This creates `/Users/xudawei/PSKA-Dogfood` with daily, decision, project,
+health, private, reading, creative, and company templates. It does not register
+source roots, scan files, create reviews, or write durable memory. After PSKA
+Product API is online, explicitly register and scan the small first-week scope:
+
+```bash
+make dogfood-init-register
 ```
 
 To run only PSKA's legacy local diagnostic UI directly:

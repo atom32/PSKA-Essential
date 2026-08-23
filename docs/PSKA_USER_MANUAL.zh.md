@@ -83,6 +83,23 @@ cd /Users/xudawei/PSKA-Essential
 进入 PSKA Memory 主页面后，还能看到 alpha readiness、First-run checklist、Recent Answer Proofs
 和 Source Evidence；清单只记录人工试用进度，不会自动扫描文件、创建备份、写源文件或写长期记忆。
 
+如果是第一用户自用，先初始化一个很小的 dogfooding 资料根目录：
+
+```bash
+cd /Users/xudawei/PSKA-Essential
+make dogfood-init
+```
+
+默认只创建 `/Users/xudawei/PSKA-Dogfood` 下的目录和 Markdown 模板。确认 PSKA Product API
+在线后，才显式运行：
+
+```bash
+make dogfood-init-register
+```
+
+这会注册并扫描第一周建议的四个 source roots：`daily/`、`decisions/`、`projects/pska/` 和
+`creative/`。它不写源文件、不创建 Review、不写长期记忆。
+
 ## 3. Hermes WebUI 里的基本操作
 
 `pska-mini` 扩展目前提供：
