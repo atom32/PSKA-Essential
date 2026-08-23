@@ -26,10 +26,19 @@ def load_verifier():
     return module
 
 
+def load_packager():
+    spec = importlib.util.spec_from_file_location("package_customer_demo_assets", CUSTOMER_PACKAGER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 class HermesExtensionDemoPackTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.verifier = load_verifier()
+        cls.packager = load_packager()
 
     def test_core_demo_defaults_to_short_smoke_floor(self):
         args = argparse.Namespace(
@@ -142,6 +151,16 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("客户演示视频外部交付说明", script)
         self.assertIn('"bytes": path.stat().st_size', script)
         self.assertIn("zipfile.ZipFile", script)
+
+    def test_hard_subtitle_wrapping_does_not_silently_drop_text(self):
+        text = "这是一段稍微长一点的客户演示字幕，用来确认硬字幕生成时不会悄悄丢掉后面的文字。"
+        lines = self.packager.split_subtitle_lines(text)
+
+        self.assertGreater(len(lines), 1)
+        self.assertEqual("".join(lines), text)
+
+        with self.assertRaises(SystemExit):
+            self.packager.split_subtitle_lines("这是一段很长的字幕" * 20)
 
     def test_makefile_has_customer_delivery_pack_target(self):
         makefile = (ROOT / "Makefile").read_text(encoding="utf-8")

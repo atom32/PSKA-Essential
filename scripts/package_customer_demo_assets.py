@@ -248,7 +248,9 @@ def split_subtitle_lines(text: str) -> list[str]:
         while cursor < len(line):
             lines.append(line[cursor:cursor + 30])
             cursor += 30
-    return lines[:3]
+    if len(lines) > 5:
+        raise SystemExit("customer subtitle is too long for the hard-subtitled video; shorten this caption first")
+    return lines
 
 
 def subtitle_overlay_filter(subtitles: list[dict[str, Any]]) -> str:
