@@ -79,6 +79,7 @@ Useful overrides:
   EIDOLIA_BASE_URL=http://127.0.0.1:8797
   HERMES_WEBUI_HOST=127.0.0.1
   HERMES_WEBUI_PORT=8787
+  HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT=20
 EOF
 }
 
@@ -293,6 +294,7 @@ required_routes = {
     ("POST", "/api/workflows/{run_id}/memory-review"),
     ("POST", "/api/conversation/context-pack"),
     ("POST", "/api/turn-context"),
+    ("POST", "/api/conversations/chatgpt/import-to-hermes"),
     ("POST", "/api/memory/search"),
     ("POST", "/api/memory/conversation-change"),
 }
@@ -1295,7 +1297,9 @@ hermes_recall_provider_source_ok() {
   grep -q "def pska_recall_token_auth_ok" "${root}/api/auth.py" || return 1
   grep -q "HERMES_WEBUI_PSKA_RECALL_TOKEN" "${root}/api/auth.py" || return 1
   grep -q '"/api/pska/conversations/search"' "${root}/api/routes.py" || return 1
+  grep -q '"/api/pska/conversations/import"' "${root}/api/routes.py" || return 1
   grep -q "def _handle_pska_conversations_search" "${root}/api/routes.py" || return 1
+  grep -q "def _handle_pska_conversations_import" "${root}/api/routes.py" || return 1
 }
 
 warn_if_hermes_recall_provider_missing() {
@@ -1330,7 +1334,7 @@ start_hermes_launchd() {
   local label="${HERMES_WEBUI_LAUNCH_AGENT_LABEL:-com.pska.hermes-webui}"
   local domain="gui/$(id -u)"
   local command_string escaped_command escaped_workdir escaped_log
-  command_string="cd $(printf '%q' "${HERMES_WEBUI_HOME}") && HERMES_HOME=$(printf '%q' "${HERMES_HOME_EFFECTIVE}") HERMES_WEBUI_STATE_DIR=$(printf '%q' "${HERMES_WEBUI_STATE_DIR}") PSKA_API_BASE_URL=$(printf '%q' "${PSKA_API_BASE_URL}") HERMES_WEBUI_PSKA_RECALL_TOKEN=$(printf '%q' "${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}") HERMES_WEBUI_HOST=$(printf '%q' "${HERMES_WEBUI_HOST}") HERMES_WEBUI_PORT=$(printf '%q' "${HERMES_WEBUI_PORT}") HERMES_WEBUI_EXTENSION_DIR=$(printf '%q' "${HERMES_WEBUI_EXTENSION_DIR}") HERMES_WEBUI_EXTENSION_MANIFEST=$(printf '%q' "${HERMES_WEBUI_EXTENSION_MANIFEST}") exec $(printf '%q' "${python_exe}") $(printf '%q' "${HERMES_WEBUI_HOME}/bootstrap.py") --no-browser --foreground --host $(printf '%q' "${HERMES_WEBUI_HOST}") $(printf '%q' "${HERMES_WEBUI_PORT}")"
+  command_string="cd $(printf '%q' "${HERMES_WEBUI_HOME}") && HERMES_HOME=$(printf '%q' "${HERMES_HOME_EFFECTIVE}") HERMES_WEBUI_STATE_DIR=$(printf '%q' "${HERMES_WEBUI_STATE_DIR}") PSKA_API_BASE_URL=$(printf '%q' "${PSKA_API_BASE_URL}") HERMES_WEBUI_PSKA_RECALL_TOKEN=$(printf '%q' "${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}") HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT=$(printf '%q' "${HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT}") HERMES_WEBUI_HOST=$(printf '%q' "${HERMES_WEBUI_HOST}") HERMES_WEBUI_PORT=$(printf '%q' "${HERMES_WEBUI_PORT}") HERMES_WEBUI_EXTENSION_DIR=$(printf '%q' "${HERMES_WEBUI_EXTENSION_DIR}") HERMES_WEBUI_EXTENSION_MANIFEST=$(printf '%q' "${HERMES_WEBUI_EXTENSION_MANIFEST}") exec $(printf '%q' "${python_exe}") $(printf '%q' "${HERMES_WEBUI_HOME}/bootstrap.py") --no-browser --foreground --host $(printf '%q' "${HERMES_WEBUI_HOST}") $(printf '%q' "${HERMES_WEBUI_PORT}")"
   escaped_command="$(printf '%s' "${command_string}" | xml_escape)"
   escaped_workdir="$(printf '%s' "${HERMES_WEBUI_HOME}" | xml_escape)"
   escaped_log="$(printf '%s' "${log_file}" | xml_escape)"
@@ -1376,6 +1380,7 @@ start_hermes_ctl() {
     HERMES_WEBUI_STATE_DIR="${HERMES_WEBUI_STATE_DIR}" \
     PSKA_API_BASE_URL="${PSKA_API_BASE_URL}" \
     HERMES_WEBUI_PSKA_RECALL_TOKEN="${HERMES_WEBUI_PSKA_RECALL_TOKEN:-}" \
+    HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT="${HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT}" \
     HERMES_WEBUI_HOST="${HERMES_WEBUI_HOST}" \
     HERMES_WEBUI_PORT="${HERMES_WEBUI_PORT}" \
     HERMES_WEBUI_EXTENSION_DIR="${HERMES_WEBUI_EXTENSION_DIR}" \
@@ -1397,7 +1402,7 @@ process_env_value() {
 }
 
 hermes_running_environment_matches() {
-  local pid found=0 home_value state_dir_value pska_value recall_token_value extension_dir_value extension_manifest_value
+  local pid found=0 home_value state_dir_value pska_value recall_token_value extension_dir_value extension_manifest_value sidecar_timeout_value
   while IFS= read -r pid; do
     [[ "${pid}" =~ ^[0-9]+$ ]] || continue
     found=1
@@ -1407,6 +1412,7 @@ hermes_running_environment_matches() {
     recall_token_value="$(process_env_value "${pid}" HERMES_WEBUI_PSKA_RECALL_TOKEN || true)"
     extension_dir_value="$(process_env_value "${pid}" HERMES_WEBUI_EXTENSION_DIR || true)"
     extension_manifest_value="$(process_env_value "${pid}" HERMES_WEBUI_EXTENSION_MANIFEST || true)"
+    sidecar_timeout_value="$(process_env_value "${pid}" HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT || true)"
     if [[ -n "${home_value}" && "${home_value}" != "${HERMES_HOME_EFFECTIVE}" ]]; then
       return 1
     fi
@@ -1423,6 +1429,9 @@ hermes_running_environment_matches() {
       return 1
     fi
     if [[ -n "${HERMES_WEBUI_EXTENSION_MANIFEST:-}" && "${extension_manifest_value}" != "${HERMES_WEBUI_EXTENSION_MANIFEST}" ]]; then
+      return 1
+    fi
+    if [[ -n "${HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT:-}" && "${sidecar_timeout_value}" != "${HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT}" ]]; then
       return 1
     fi
   done < <(hermes_port_pids || true)
@@ -1546,6 +1555,7 @@ HERMES_HOME_EFFECTIVE="${HERMES_HOME:-${HOME}/.hermes}"
 HERMES_WEBUI_STATE_DIR="${HERMES_WEBUI_STATE_DIR:-${HERMES_HOME_EFFECTIVE}/webui}"
 HERMES_WEBUI_EXTENSION_DIR="${HERMES_WEBUI_EXTENSION_DIR:-${HERMES_HOME_EFFECTIVE}/webui-local-extensions}"
 HERMES_WEBUI_EXTENSION_MANIFEST="${HERMES_WEBUI_EXTENSION_MANIFEST:-extensions.json}"
+HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT="${HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT:-20}"
 
 _eidolia_host_was_set="${EIDOLIA_HOST+x}"
 _eidolia_port_was_set="${EIDOLIA_PORT+x}"

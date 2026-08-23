@@ -31,6 +31,7 @@ from pska_essential.alpha_readiness import (
 )
 from pska_essential.capabilities import product_capabilities
 from pska_essential.chatgpt_conversations_import import import_chatgpt_conversations
+from pska_essential.chatgpt_conversation_history_import import import_chatgpt_conversations_to_hermes_history
 from pska_essential.chatgpt_memory_import import build_chatgpt_memory_summary_import
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
@@ -163,6 +164,7 @@ PRODUCT_API_REQUIRED_ROUTES: tuple[dict[str, str], ...] = (
     {"method": "POST", "path": "/api/sources/collections"},
     {"method": "POST", "path": "/api/sources/collections/{collection_id}/resolve"},
     {"method": "POST", "path": "/api/sources/chatgpt-conversations/import"},
+    {"method": "POST", "path": "/api/conversations/chatgpt/import-to-hermes"},
     {"method": "POST", "path": "/api/sources/tags/proposals"},
     {"method": "POST", "path": "/api/sources/tags/{proposal_id}/apply"},
     {"method": "POST", "path": "/api/sources/comments/proposals"},
@@ -1327,6 +1329,24 @@ def _handler_class(state: ProductApiState):
                     scan_max_bytes=int(payload.get("scan_max_bytes") or 1_000_000),
                 )
                 self._send_json({"ok": True, "chatgpt_conversations_import": result}, HTTPStatus.CREATED)
+                return
+
+            if method == "POST" and path == "/api/conversations/chatgpt/import-to-hermes":
+                payload = self._read_json()
+                raw_limit = payload.get("conversation_limit", 20)
+                conversation_limit = 20 if raw_limit in (None, "") else int(raw_limit)
+                result = import_chatgpt_conversations_to_hermes_history(
+                    state.service,
+                    export_path=_required_str(payload, "export_path"),
+                    source_label=str(payload.get("source_label") or ""),
+                    conversation_limit=conversation_limit,
+                    hermes_base_url=str(payload.get("hermes_base_url") or ""),
+                    recall_token=str(payload.get("recall_token") or ""),
+                    overwrite=_bool_value(payload.get("overwrite"), False),
+                    read_only=_bool_value(payload.get("read_only"), True),
+                    timeout_seconds=int(payload.get("timeout_seconds") or 30),
+                )
+                self._send_json({"ok": True, "chatgpt_conversation_history_import": result}, HTTPStatus.CREATED)
                 return
 
             if method == "POST" and path == "/api/sources/tags/proposals":

@@ -139,7 +139,7 @@ async function openMenuAndWait(page) {
       const text = document.querySelector("#pskaMiniStatus")?.innerText || "";
       return /API\s+ready/iu.test(text)
         && /KB\s+(\d+\/\d+|ready)/iu.test(text)
-        && /Embedding\s+(local|TEI|external)/iu.test(text)
+        && /Embedding\s+(local|TEI|external|not visible)/iu.test(text)
         && /Alpha\s+(alpha_ready|not visible)/iu.test(text);
     }, undefined, { timeout: 45000 });
   } catch (error) {
@@ -191,7 +191,7 @@ async function runDesktop(context, checks, artifacts) {
     "Desktop menu visible and in viewport",
     menuCheck.visible
       && !Object.values(menuCheck.overflows).some(Boolean)
-      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText)
+      && /Embedding\s+(local|TEI|external|not visible)/iu.test(menuCheck.statusText)
       && /Alpha\s+(alpha_ready|not visible)/iu.test(menuCheck.statusText),
     menuCheck,
   );
@@ -239,7 +239,7 @@ async function runDesktop(context, checks, artifacts) {
       const countMatch = count.match(/(\d+)\s+shown/iu);
       const alphaReadyVisible = /Alpha\s+alpha_ready/iu.test(status) || /readiness\s+alpha_ready/iu.test(firstRunText);
       return /API\s+ready/iu.test(status)
-        && /Embedding\s+(local|TEI|external)/iu.test(status)
+        && /Embedding\s+(local|TEI|external|not visible)/iu.test(status)
         && alphaReadyVisible
         && /First-run checklist/iu.test(firstRunText)
         && /Confirm runtime and providers/iu.test(firstRunText)
@@ -290,7 +290,7 @@ async function runDesktop(context, checks, artifacts) {
     memoryCheck.visible
       && /PSKA Memory/iu.test(memoryCheck.title)
       && /governed memory and review queue/iu.test(memoryCheck.subtitle)
-      && /Embedding\s+(local|TEI|external)/iu.test(memoryCheck.status)
+      && /Embedding\s+(local|TEI|external|not visible)/iu.test(memoryCheck.status)
       && (/Alpha\s+alpha_ready/iu.test(memoryCheck.status) || /readiness\s+alpha_ready/iu.test(memoryCheck.firstRun))
       && /First-run checklist/iu.test(memoryCheck.firstRun)
       && /Confirm runtime and providers/iu.test(memoryCheck.firstRun)
@@ -330,6 +330,7 @@ async function runDesktop(context, checks, artifacts) {
       && visible("#pskaMiniChatgptConversationPath")
       && visible("#pskaMiniChatgptConversationOutput")
       && visible("#pskaMiniChatgptConversationLimit")
+      && visible("#pskaMiniImportChatgptConversationHistory")
       && visible("#pskaMiniImportChatgptConversations");
   }, { timeout: 10000 });
   const chatgptImportUi = await page.evaluate(() => {
@@ -360,6 +361,7 @@ async function runDesktop(context, checks, artifacts) {
       "#pskaMiniChatgptConversationPath",
       "#pskaMiniChatgptConversationOutput",
       "#pskaMiniChatgptConversationLimit",
+      "#pskaMiniImportChatgptConversationHistory",
       "#pskaMiniImportChatgptConversations",
     ];
     const rects = Object.fromEntries(selectors.map((selector) => [selector, rectPayload(selector)]));
@@ -377,6 +379,7 @@ async function runDesktop(context, checks, artifacts) {
       outputPlaceholder: document.querySelector("#pskaMiniChatgptConversationOutput")?.getAttribute("placeholder") || "",
       limitValue: document.querySelector("#pskaMiniChatgptConversationLimit")?.value || "",
       importButton: document.querySelector("#pskaMiniImportChatgptMemory")?.innerText || "",
+      importHistoryButton: document.querySelector("#pskaMiniImportChatgptConversationHistory")?.innerText || "",
       importArchiveButton: document.querySelector("#pskaMiniImportChatgptConversations")?.innerText || "",
       includePrivateVisible: visible("#pskaMiniChatgptIncludePrivate"),
       memoryResultEmpty: (document.querySelector("#pskaMiniChatgptImportResult")?.innerText || "").trim() === "",
@@ -393,6 +396,7 @@ async function runDesktop(context, checks, artifacts) {
       && /archive output folder/iu.test(chatgptImportUi.outputPlaceholder)
       && chatgptImportUi.limitValue === "100"
       && /Import/iu.test(chatgptImportUi.importButton)
+      && /Import to history/iu.test(chatgptImportUi.importHistoryButton)
       && /Import archive/iu.test(chatgptImportUi.importArchiveButton)
       && chatgptImportUi.includePrivateVisible
       && chatgptImportUi.memoryResultEmpty
@@ -851,7 +855,7 @@ async function runMobile(context, checks, artifacts) {
     "Mobile menu visible and in viewport",
     menuCheck.visible
       && !Object.values(menuCheck.overflows).some(Boolean)
-      && /Embedding\s+(local|TEI|external)/iu.test(menuCheck.statusText)
+      && /Embedding\s+(local|TEI|external|not visible)/iu.test(menuCheck.statusText)
       && /Alpha\s+(alpha_ready|not visible)/iu.test(menuCheck.statusText),
     menuCheck,
   );

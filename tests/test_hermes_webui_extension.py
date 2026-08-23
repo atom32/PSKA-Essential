@@ -132,6 +132,8 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn('"/api/memory/chatgpt-summary/import"', script)
         self.assertIn("renderChatgptImportResult", script)
         self.assertIn("pskaMiniChatgptConversationPath", script)
+        self.assertIn("importChatgptConversationHistory", script)
+        self.assertIn('"/api/conversations/chatgpt/import-to-hermes"', script)
         self.assertIn("importChatgptConversationArchive", script)
         self.assertIn('"/api/sources/chatgpt-conversations/import"', script)
         self.assertIn("renderChatgptConversationImportResult", script)
@@ -177,10 +179,12 @@ class HermesWebuiExtensionTests(unittest.TestCase):
             "/api/extensions/pska-mini/sidecar/api/conversation/context-pack",
             "ChatGPT import: memory summary creates governed reviews",
             "ChatGPT import: reject temporary memory reviews",
+            "ChatGPT import: conversation history creates Hermes history",
             "ChatGPT import: conversation archive creates source root",
             "ChatGPT import: conversation archive source search",
             "ChatGPT import: conversation archive leaves memory untouched",
             "/api/extensions/pska-mini/sidecar/api/memory/chatgpt-summary/import",
+            "/api/extensions/pska-mini/sidecar/api/conversations/chatgpt/import-to-hermes",
             "/api/extensions/pska-mini/sidecar/api/sources/chatgpt-conversations/import",
             "/api/extensions/pska-mini/sidecar/api/reviews/batch-decision",
             "writeChatgptConversationFixture",

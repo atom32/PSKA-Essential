@@ -866,6 +866,12 @@ export, write durable memory, or create reviews; stable claims must still be
 promoted later through governed memory review. Re-importing into the same
 archive folder removes only stale PSKA-managed import files with PSKA markers;
 unmarked user files in that folder are left untouched.
+`pska_chatgpt_conversations_import_to_hermes_history` is the partial-history
+bridge for day-to-day dogfooding. It normalizes a bounded slice of a ChatGPT
+conversation export, asks the Hermes WebUI provider to create read-only Hermes
+sessions, and then relies on the ordinary query-based Hermes conversation
+recall path. It does not create a PSKA source root, write durable memory, or add
+a special ChatGPT runtime channel.
 Hermes WebUI `pska-mini` surfaces a Source Evidence workbench on the PSKA
 Memory page: it searches selected source roots through `/api/sources/search`,
 reads full evidence through `/api/sources/read`, and can draft an editable
@@ -1082,6 +1088,7 @@ Implemented Alpha routes:
 - `POST /api/sources/obsidian/moc/proposals`
 - `POST /api/sources/obsidian/moc/{proposal_id}/apply`
 - `POST /api/sources/chatgpt-conversations/import`
+- `POST /api/conversations/chatgpt/import-to-hermes`
 - `POST /api/sources/memory-reviews`
 - `POST /api/sources/memory-candidates/from-audit`
 - `POST /api/sources/read`

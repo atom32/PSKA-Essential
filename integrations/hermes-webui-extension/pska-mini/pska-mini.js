@@ -51,6 +51,7 @@
     memoryDraftSourceRefs: [],
     memoryDraftSourceLabel: "",
     chatgptImportResult: null,
+    chatgptConversationHistoryImportResult: null,
     chatgptConversationImportResult: null,
     reviewStatus: "pending",
     detail: null,
@@ -383,6 +384,7 @@
                 <input id="pskaMiniChatgptConversationOutput" type="text" placeholder="Optional PSKA archive output folder">
                 <div class="pska-mini-memory-create-actions">
                   <label>limit <input id="pskaMiniChatgptConversationLimit" type="number" min="0" max="5000" step="50" value="100"></label>
+                  <button class="pska-mini-page-btn" id="pskaMiniImportChatgptConversationHistory" type="button">Import to history</button>
                   <button class="pska-mini-page-btn" id="pskaMiniImportChatgptConversations" type="button">Import archive</button>
                 </div>
                 <div class="pska-mini-memory-import-result" id="pskaMiniChatgptConversationImportResult"></div>
@@ -436,6 +438,7 @@
     panel.querySelector("#pskaMiniClearMemoryDraftSource").addEventListener("click", clearMemoryDraftSource);
     panel.querySelector("#pskaMiniCreateMemoryReview").addEventListener("click", createMemoryReviewCandidate);
     panel.querySelector("#pskaMiniImportChatgptMemory").addEventListener("click", importChatgptMemorySummary);
+    panel.querySelector("#pskaMiniImportChatgptConversationHistory").addEventListener("click", importChatgptConversationHistory);
     panel.querySelector("#pskaMiniImportChatgptConversations").addEventListener("click", importChatgptConversationArchive);
     renderMemoryPage();
   }
@@ -937,6 +940,49 @@
       memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
       renderMemoryPage();
       toast(`PSKA ChatGPT archive import failed: ${errorText(error)}`, "error");
+    }
+  }
+
+  async function importChatgptConversationHistory() {
+    const pathBox = document.getElementById("pskaMiniChatgptConversationPath");
+    const limitBox = document.getElementById("pskaMiniChatgptConversationLimit");
+    const exportPath = String(pathBox?.value || "").trim();
+    const limit = boundedInt(limitBox?.value, 20, 0, 200);
+    if (!exportPath) {
+      memoryPage = { ...memoryPage, error: "ChatGPT conversation export path is required.", message: "" };
+      renderMemoryPage();
+      return;
+    }
+    memoryPage = { ...memoryPage, loading: true, message: "Importing ChatGPT conversations into Hermes history...", error: "" };
+    renderMemoryPage();
+    try {
+      const data = await pskaMiniFetchJson("/api/conversations/chatgpt/import-to-hermes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          export_path: exportPath,
+          source_label: "ChatGPT imported conversation history",
+          conversation_limit: limit || 20,
+          read_only: true
+        }),
+        timeoutMs: 60000
+      });
+      const result = data.chatgpt_conversation_history_import || null;
+      memoryPage = {
+        ...memoryPage,
+        loading: false,
+        chatgptConversationHistoryImportResult: result,
+        message: result
+          ? `ChatGPT history imported ${result.summary?.imported_conversation_count || 0} conversation(s) into Hermes history.`
+          : "ChatGPT history import completed.",
+        error: ""
+      };
+      await refreshDashboard();
+      toast("PSKA ChatGPT history import completed.", "success");
+    } catch (error) {
+      memoryPage = { ...memoryPage, loading: false, error: errorText(error), message: "" };
+      renderMemoryPage();
+      toast(`PSKA ChatGPT history import failed: ${errorText(error)}`, "error");
     }
   }
 
@@ -1454,25 +1500,44 @@
   function renderChatgptConversationImportResult() {
     const container = document.getElementById("pskaMiniChatgptConversationImportResult");
     if (!container) return;
-    const result = memoryPage.chatgptConversationImportResult;
-    if (!result) {
+    const historyResult = memoryPage.chatgptConversationHistoryImportResult;
+    const archiveResult = memoryPage.chatgptConversationImportResult;
+    if (!historyResult && !archiveResult) {
       container.innerHTML = "";
       return;
     }
-    const summary = result.summary || {};
-    const archive = result.archive || {};
-    const rootId = result.root?.root_id || "";
-    container.innerHTML = `
-      <div class="pska-mini-memory-draft-source">
-        Archive <strong>${escapeHtml(shortId(result.import_id || "", 12) || "done")}</strong> ·
-        conversations ${escapeHtml(String(summary.imported_conversation_count || 0))}/${escapeHtml(String(summary.selected_conversation_count || 0))} ·
-        files ${escapeHtml(String(archive.file_count || 0))} ·
-        root ${escapeHtml(shortId(rootId, 12) || "not scanned")}
-        <br>
-        ${escapeHtml(archive.output_dir || "")}
-        ${archive.report_path ? `<br>Report: ${escapeHtml(archive.report_path)}` : ""}
-      </div>
-    `;
+    const blocks = [];
+    if (historyResult) {
+      const summary = historyResult.summary || {};
+      const target = historyResult.target || {};
+      blocks.push(`
+        <div class="pska-mini-memory-draft-source">
+          History <strong>${escapeHtml(shortId(historyResult.import_id || "", 12) || "done")}</strong> ·
+          conversations ${escapeHtml(String(summary.imported_conversation_count || 0))}/${escapeHtml(String(summary.selected_conversation_count || 0))} ·
+          messages ${escapeHtml(String(summary.message_count || 0))} ·
+          profile ${escapeHtml(target.active_profile || "unknown")}
+          <br>
+          ${escapeHtml(target.endpoint || "")}
+        </div>
+      `);
+    }
+    if (archiveResult) {
+      const summary = archiveResult.summary || {};
+      const archive = archiveResult.archive || {};
+      const rootId = archiveResult.root?.root_id || "";
+      blocks.push(`
+        <div class="pska-mini-memory-draft-source">
+          Archive <strong>${escapeHtml(shortId(archiveResult.import_id || "", 12) || "done")}</strong> ·
+          conversations ${escapeHtml(String(summary.imported_conversation_count || 0))}/${escapeHtml(String(summary.selected_conversation_count || 0))} ·
+          files ${escapeHtml(String(archive.file_count || 0))} ·
+          root ${escapeHtml(shortId(rootId, 12) || "not scanned")}
+          <br>
+          ${escapeHtml(archive.output_dir || "")}
+          ${archive.report_path ? `<br>Report: ${escapeHtml(archive.report_path)}` : ""}
+        </div>
+      `);
+    }
+    container.innerHTML = blocks.join("");
   }
 
   function buildAnswerProofMemoryDraft(proof, trace) {

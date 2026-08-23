@@ -77,6 +77,10 @@ function summarize(json, text) {
     const summary = json.chatgpt_conversations_import.summary || {};
     return `chatgpt_archive_conversations=${summary.imported_conversation_count || 0}`;
   }
+  if (json.chatgpt_conversation_history_import) {
+    const summary = json.chatgpt_conversation_history_import.summary || {};
+    return `chatgpt_history_conversations=${summary.imported_conversation_count || 0}`;
+  }
   if (json.datasets) return `datasets=${json.datasets.length}`;
   if (json.workspace_status) return `workspace_status keys=${Object.keys(json.workspace_status).length}`;
   if (json.alpha_readiness) return `alpha=${json.alpha_readiness.status || "unknown"}`;
@@ -187,6 +191,7 @@ async function main() {
     && jsAsset.text.includes("/api/alpha/first-run-session")
     && jsAsset.text.includes("/api/hermes/answer-proofs")
     && jsAsset.text.includes("/api/memory/chatgpt-summary/import")
+    && jsAsset.text.includes("/api/conversations/chatgpt/import-to-hermes")
     && jsAsset.text.includes("/api/sources/chatgpt-conversations/import")
     && jsAsset.text.includes("/api/jobs/health?include_kb=false")
     && jsAsset.text.includes("/api/wakeup/plan")
@@ -199,6 +204,7 @@ async function main() {
     && jsAsset.text.includes("sourceRecallEvalStatusLabel")
     && jsAsset.text.includes("importChatgptMemorySummary")
     && jsAsset.text.includes("renderChatgptImportResult")
+    && jsAsset.text.includes("importChatgptConversationHistory")
     && jsAsset.text.includes("importChatgptConversationArchive")
     && jsAsset.text.includes("renderChatgptConversationImportResult")
     && jsAsset.text.includes("addSourceRootToScope(rootId)")
@@ -449,6 +455,35 @@ async function main() {
   } else {
     record("ChatGPT import: reject temporary memory reviews", false, { reason: "No review ids returned from import" });
   }
+
+  const historyMarker = `PSKA WebUI ChatGPT history marker ${Date.now()}`;
+  const historyFixture = writeChatgptConversationFixture(historyMarker);
+  await testJson(
+    "ChatGPT import: conversation history creates Hermes history",
+    "/api/extensions/pska-mini/sidecar/api/conversations/chatgpt/import-to-hermes",
+    {
+      method: "POST",
+      body: {
+        export_path: historyFixture.exportPath,
+        source_label: "PSKA WebUI contract ChatGPT conversation history",
+        conversation_limit: 1,
+        read_only: true,
+      },
+    },
+    (json, response) => {
+      const result = json?.chatgpt_conversation_history_import || {};
+      const flow = result.data_flow || {};
+      return response.ok
+        && result.schema === "pska.chatgpt_conversation_history_import.v1"
+        && result.status === "imported"
+        && result.summary?.imported_conversation_count >= 1
+        && flow.writes_hermes_history === true
+        && flow.writes_source_registry === false
+        && flow.writes_memory_directly === false
+        && flow.runtime_special_chatgpt_channel === false
+        && flow.query_based_recall_after_import === true;
+    },
+  );
 
   const archiveMarker = `PSKA WebUI ChatGPT archive marker ${Date.now()}`;
   const archiveFixture = writeChatgptConversationFixture(archiveMarker);

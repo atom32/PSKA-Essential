@@ -22,6 +22,7 @@ from pska_essential.alpha_readiness import (
 )
 from pska_essential.capabilities import product_capabilities
 from pska_essential.chatgpt_conversations_import import import_chatgpt_conversations
+from pska_essential.chatgpt_conversation_history_import import import_chatgpt_conversations_to_hermes_history
 from pska_essential.chatgpt_memory_import import build_chatgpt_memory_summary_import
 from pska_essential.component_check import run_component_check
 from pska_essential.config import build_service_from_env
@@ -389,6 +390,28 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
             conversation_limit=conversation_limit,
             scan=scan,
             scan_max_bytes=scan_max_bytes,
+        )
+
+    def pska_chatgpt_conversations_import_to_hermes_history(
+        export_path: str,
+        source_label: str = "",
+        conversation_limit: int = 20,
+        hermes_base_url: str = "",
+        recall_token: str = "",
+        overwrite: bool = False,
+        read_only: bool = True,
+        timeout_seconds: int = 30,
+    ):
+        return import_chatgpt_conversations_to_hermes_history(
+            service,
+            export_path=export_path,
+            source_label=source_label,
+            conversation_limit=conversation_limit,
+            hermes_base_url=hermes_base_url,
+            recall_token=recall_token,
+            overwrite=overwrite,
+            read_only=read_only,
+            timeout_seconds=timeout_seconds,
         )
 
     def pska_source_tag_propose(
@@ -1546,6 +1569,7 @@ def tool_registry(service=None) -> dict[str, Callable[..., Any]]:
         "pska_source_collection_list": pska_source_collection_list,
         "pska_source_collection_resolve": pska_source_collection_resolve,
         "pska_chatgpt_conversations_import": pska_chatgpt_conversations_import,
+        "pska_chatgpt_conversations_import_to_hermes_history": pska_chatgpt_conversations_import_to_hermes_history,
         "pska_source_tag_propose": pska_source_tag_propose,
         "pska_source_tag_apply": pska_source_tag_apply,
         "pska_source_comment_propose": pska_source_comment_propose,

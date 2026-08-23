@@ -14,7 +14,8 @@ Usage: scripts/install_hermes_recall_provider.sh [options] [HERMES_WEBUI_HOME]
 
 Installs or verifies the PSKA conversation recall provider in a Hermes WebUI
 checkout. The provider exposes POST /api/pska/conversations/search for PSKA
-context-pack history recall.
+context-pack history recall and POST /api/pska/conversations/import for bounded
+history imports.
 
 Options:
   --check       Only verify whether the provider is installed.
@@ -66,9 +67,12 @@ provider_source_ok() {
   grep -q "def pska_recall_token_auth_ok" "${root}/api/auth.py" || return 1
   grep -q "HERMES_WEBUI_PSKA_RECALL_TOKEN" "${root}/api/auth.py" || return 1
   grep -q '"/api/pska/conversations/search"' "${root}/api/routes.py" || return 1
+  grep -q '"/api/pska/conversations/import"' "${root}/api/routes.py" || return 1
   grep -q "def _handle_pska_conversations_search" "${root}/api/routes.py" || return 1
+  grep -q "def _handle_pska_conversations_import" "${root}/api/routes.py" || return 1
   if [[ -f "${root}/tests/test_pska_conversation_recall_provider.py" ]]; then
     grep -q '"messages" not in item' "${root}/tests/test_pska_conversation_recall_provider.py" || return 1
+    grep -q "hermes.pska_conversation_history_import.v1" "${root}/tests/test_pska_conversation_recall_provider.py" || return 1
   fi
 }
 

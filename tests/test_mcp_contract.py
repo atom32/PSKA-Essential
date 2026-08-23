@@ -61,6 +61,7 @@ EXPECTED_TOOLS = {
     "pska_source_collection_list",
     "pska_source_collection_resolve",
     "pska_chatgpt_conversations_import",
+    "pska_chatgpt_conversations_import_to_hermes_history",
     "pska_source_tag_propose",
     "pska_source_tag_apply",
     "pska_source_comment_propose",
@@ -155,6 +156,8 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("pska_source_recall_eval", capabilities["source_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_chatgpt_conversations_import", capabilities["source_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_chatgpt_conversations_import", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
+        self.assertNotIn("pska_chatgpt_conversations_import_to_hermes_history", capabilities["source_layer"]["mcp_tools"]["implemented"])
+        self.assertIn("pska_chatgpt_conversations_import_to_hermes_history", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_trace_coverage", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_observability_metrics", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
         self.assertIn("pska_job_health", capabilities["assistant_layer"]["mcp_tools"]["implemented"])
@@ -533,6 +536,10 @@ class McpContractTests(unittest.TestCase):
         self.assertFalse(policy["pska_chatgpt_conversations_import"]["writes_memory_directly"])
         self.assertFalse(policy["pska_chatgpt_conversations_import"]["creates_review"])
         self.assertFalse(policy["pska_chatgpt_conversations_import"]["embedding_required"])
+        self.assertTrue(policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_hermes_history"])
+        self.assertFalse(policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_source_registry"])
+        self.assertFalse(policy["pska_chatgpt_conversations_import_to_hermes_history"]["writes_memory_directly"])
+        self.assertFalse(policy["pska_chatgpt_conversations_import_to_hermes_history"]["runtime_special_chatgpt_channel"])
         self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["review_required"])
         self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["creates_review"])
         self.assertTrue(policy["pska_chatgpt_memory_summary_import"]["skips_private_by_default"])
@@ -1214,6 +1221,86 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("ChatGPT conversations should become source archive material", search_text)
         self.assertTrue(source["text"])
         self.assertEqual(facts, [])
+
+    def test_chatgpt_conversations_import_to_hermes_history_tool(self):
+        service = build_fake_service()
+        tools = tool_registry(service)
+        export_payload = [
+            {
+                "id": "conv-tool-history",
+                "title": "PSKA Hermes history",
+                "messages": [
+                    {
+                        "id": "msg-tool-user",
+                        "role": "user",
+                        "content": "Import this ChatGPT turn into Hermes history.",
+                    },
+                    {
+                        "id": "msg-tool-assistant",
+                        "role": "assistant",
+                        "content": "Recall it later through PSKA context-pack history search.",
+                    },
+                ],
+            }
+        ]
+        captured = {}
+
+        class _HermesResponse:
+            status = 201
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def read(self):
+                return json.dumps(
+                    {
+                        "ok": True,
+                        "schema": "hermes.pska_conversation_history_import.v1",
+                        "status": "imported",
+                        "summary": {
+                            "received_conversation_count": 1,
+                            "selected_conversation_count": 1,
+                            "imported_conversation_count": 1,
+                            "skipped_conversation_count": 0,
+                            "message_count": 2,
+                        },
+                        "imported": [{"session_id": "pska_cg_history", "message_count": 2}],
+                        "active_profile": "default",
+                        "returns_full_messages": False,
+                    }
+                ).encode("utf-8")
+
+        def fake_urlopen(request, timeout):
+            captured["url"] = request.full_url
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return _HermesResponse()
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "pska_essential.chatgpt_conversation_history_import.urlopen",
+            fake_urlopen,
+        ):
+            export_path = Path(temp_dir) / "conversations.json"
+            export_path.write_text(json.dumps(export_payload), encoding="utf-8")
+
+            result = tools["pska_chatgpt_conversations_import_to_hermes_history"](
+                str(export_path),
+                source_label="ChatGPT MCP history",
+                conversation_limit=20,
+                hermes_base_url="http://127.0.0.1:8787",
+                recall_token="secret-token",
+            )
+
+        self.assertEqual(result["schema"], "pska.chatgpt_conversation_history_import.v1")
+        self.assertTrue(result["data_flow"]["writes_hermes_history"])
+        self.assertFalse(result["data_flow"]["writes_source_registry"])
+        self.assertFalse(result["data_flow"]["writes_memory_directly"])
+        self.assertFalse(result["data_flow"]["runtime_special_chatgpt_channel"])
+        self.assertEqual(captured["url"], "http://127.0.0.1:8787/api/pska/conversations/import")
+        self.assertEqual(captured["payload"]["source"]["kind"], "chatgpt_export")
+        self.assertEqual(captured["payload"]["conversations"][0]["messages"][1]["role"], "assistant")
 
     def test_chatgpt_memory_summary_import_tool_creates_review_candidates(self):
         service = build_fake_service()

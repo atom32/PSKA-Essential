@@ -219,6 +219,24 @@ require embeddings. Re-importing into the same archive folder removes only
 previous PSKA-managed import files with PSKA markers and leaves unmarked user
 files untouched.
 
+ChatGPT partial conversation export import for Hermes history recall:
+
+```bash
+curl -fsS http://127.0.0.1:8765/api/conversations/chatgpt/import-to-hermes \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "export_path": "/path/to/conversations.json-or-split-export-folder",
+    "source_label": "ChatGPT imported conversation history",
+    "conversation_limit": 20,
+    "read_only": true
+  }'
+```
+
+This does not create a PSKA source root or memory. PSKA normalizes the selected
+conversations and asks Hermes WebUI to write read-only history sessions through
+the token provider. Later answers recall those sessions through the normal
+`/api/conversation/context-pack` history path.
+
 Live RAGFlow mode uses the same Product API command after setting providers
 explicitly. The current local dogfood path uses GBrain memory over HTTP MCP:
 

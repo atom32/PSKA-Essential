@@ -1,385 +1,359 @@
 diff --git a/api/auth.py b/api/auth.py
-index 2b429d26..949284c6 100644
+index 949284c6..48e81d3f 100644
 --- a/api/auth.py
 +++ b/api/auth.py
-@@ -105,6 +105,7 @@ _TRUSTED_AUTH_HEADER_ENV = 'HERMES_WEBUI_TRUSTED_AUTH_HEADER'
- _TRUSTED_GROUPS_HEADER_ENV = 'HERMES_WEBUI_TRUSTED_GROUPS_HEADER'
- _TRUSTED_GROUP_PROFILE_MAP_ENV = 'HERMES_WEBUI_GROUP_PROFILE_MAP'
- _TRUSTED_AUTH_LOGOUT_URL_ENV = 'HERMES_WEBUI_TRUSTED_AUTH_LOGOUT_URL'
-+_PSKA_RECALL_TOKEN_ENV = 'HERMES_WEBUI_PSKA_RECALL_TOKEN'
- _TRUSTED_AUTH_WARNINGS_EMITTED: set[str] = set()
- 
- 
-@@ -818,6 +819,27 @@ def get_trusted_auth_logout_url() -> str | None:
-     return value or None
- 
- 
-+def pska_recall_token_auth_ok(handler) -> bool:
-+    token = os.getenv(_PSKA_RECALL_TOKEN_ENV, '').strip()
-+    if len(token) < 16:
-+        return False
-+    try:
-+        from api.routes import _raw_peer_is_trusted_proxy
-+
-+        if not _raw_peer_is_trusted_proxy(handler):
-+            return False
-+    except Exception:
-+        return False
-+    supplied = str(handler.headers.get('X-PSKA-Recall-Token') or '').strip()
-+    if not supplied:
-+        authorization = str(handler.headers.get('Authorization') or '').strip()
-+        if authorization.lower().startswith('bearer '):
-+            supplied = authorization[7:].strip()
-+    if len(supplied) > 4096:
-+        return False
-+    return bool(supplied and hmac.compare_digest(supplied, token))
-+
-+
- def _remember_trusted_auth_session(handler, info: dict | None, cookie_value: str | None = None) -> dict | None:
-     handler._trusted_auth_session_reconciled = info
-     if info and info.get('auth_type') == 'trusted':
-@@ -1064,6 +1086,8 @@ def check_auth(handler, parsed) -> bool:
-         or parsed.path.startswith('/session/static/')
-     ):
-         return True
-+    if parsed.path == '/api/pska/conversations/search' and pska_recall_token_auth_ok(handler):
-+        return True
-     cookie_val = parse_cookie(handler)
-     has_session = bool(cookie_val and verify_session(cookie_val))
-     if parsed.path == '/api/auth/logout':
+@@ -822,0 +823 @@ def pska_recall_token_auth_ok(handler) -> bool:
++    # Shared token provider for PSKA HTTP recall/import endpoints.
+@@ -1089 +1090,2 @@ def check_auth(handler, parsed) -> bool:
+-    if parsed.path == '/api/pska/conversations/search' and pska_recall_token_auth_ok(handler):
++    # PSKA internal HTTP endpoints use HERMES_WEBUI_PSKA_RECALL_TOKEN.
++    if parsed.path in {'/api/pska/conversations/search', '/api/pska/conversations/import'} and pska_recall_token_auth_ok(handler):
 diff --git a/api/routes.py b/api/routes.py
-index 9049fad3..f559f9ca 100644
+index f559f9ca..43cea981 100644
 --- a/api/routes.py
 +++ b/api/routes.py
-@@ -5435,6 +5435,7 @@ def _csrf_exempt_path(path: str) -> bool:
-         "/api/auth/passkey/options",
-         "/api/auth/passkey/login",
-         "/api/csp-report",
-+        "/api/pska/conversations/search",
-     }
- 
- 
-@@ -14007,6 +14008,9 @@ def handle_post(handler, parsed) -> bool:
-             diag.finish()
-         return True
- 
-+    if parsed.path == "/api/pska/conversations/search":
-+        return _handle_pska_conversations_search(handler, body)
+@@ -13,0 +14 @@ import json
++import datetime
+@@ -5438,0 +5440 @@ def _csrf_exempt_path(path: str) -> bool:
++        "/api/pska/conversations/import",
+@@ -5646,0 +5649,8 @@ def _extension_sidecar_proxy_same_origin_opener(allowed_origin: str):
++def _extension_sidecar_proxy_timeout_seconds() -> float:
++    try:
++        value = float(os.getenv("HERMES_WEBUI_EXTENSION_SIDECAR_TIMEOUT", "20"))
++    except (TypeError, ValueError):
++        value = 20.0
++    return min(60.0, max(1.0, value))
 +
-     if parsed.path == "/api/escape/authorize":
-         return _handle_escape_authorize(handler, parsed, body)
- 
-@@ -16937,6 +16941,198 @@ def _handle_sessions_search(handler, parsed):
-     })
- 
- 
-+def _handle_pska_conversations_search(handler, body):
++
+@@ -5696 +5706 @@ def _handle_extension_sidecar_proxy(
+-        with opener.open(request, timeout=10) as response:
++        with opener.open(request, timeout=_extension_sidecar_proxy_timeout_seconds()) as response:
+@@ -14013,0 +14024,3 @@ def handle_post(handler, parsed) -> bool:
++    if parsed.path == "/api/pska/conversations/import":
++        return _handle_pska_conversations_import(handler, body)
++
+@@ -17037,0 +17051,222 @@ def _handle_pska_conversations_search(handler, body):
++# PSKA provider schema pair:
++# - search: hermes.pska_conversation_recall.v1
++# - import: hermes.pska_conversation_history_import.v1
++def _handle_pska_conversations_import(handler, body):
 +    from api.auth import pska_recall_token_auth_ok
 +    from api.profiles import get_active_profile_name
 +
 +    if not pska_recall_token_auth_ok(handler):
-+        return bad(handler, "PSKA conversation recall token required", 401)
++        return bad(handler, "PSKA conversation import token required", 401)
 +    if not isinstance(body, dict):
 +        return bad(handler, "request body must be a JSON object", 400)
-+    query = str(body.get("query") or body.get("user_message") or "").strip()
-+    queries = _pska_recall_queries(body, query)
-+    if not queries:
-+        return bad(handler, "query is required", 400)
-+    top_k = _bounded_request_int(body.get("top_k"), default=5, minimum=1, maximum=20)
-+    depth = _bounded_request_int(body.get("depth"), default=0, minimum=0, maximum=200)
-+    max_chars = _bounded_request_int(body.get("max_chars_per_item"), default=700, minimum=160, maximum=2000)
-+    content_search = bool(body.get("content", True))
++    conversations = body.get("conversations")
++    if not isinstance(conversations, list):
++        return bad(handler, "conversations must be a list", 400)
++    limit = _bounded_request_int(
++        body.get("conversation_limit") or body.get("limit") or len(conversations) or 1,
++        default=min(len(conversations) or 1, 20),
++        minimum=1,
++        maximum=200,
++    )
++    source = body.get("source") if isinstance(body.get("source"), dict) else {}
++    source_kind = _truncate_recall_text(source.get("kind") or body.get("source_kind") or "external_conversation_import", 80)
++    source_label = _truncate_recall_text(source.get("label") or body.get("source_label") or "Imported conversation history", 160)
++    import_id = _truncate_recall_text(source.get("import_id") or body.get("import_id") or "", 96)
++    overwrite = bool(body.get("overwrite", False))
++    read_only = bool(body.get("read_only", True))
 +    active_profile = get_active_profile_name()
-+    all_profiles = bool(body.get("all_profiles")) and not _is_isolated_profile_mode()
-+    sessions = all_sessions()
-+    if not all_profiles:
-+        sessions = [
-+            s for s in sessions
-+            if _profiles_match(s.get("profile"), active_profile)
-+        ]
-+    try:
-+        redact_enabled = bool(load_settings().get("api_redact_enabled", True))
-+    except Exception:
-+        redact_enabled = True
++    imported: list[dict] = []
++    skipped: list[dict] = []
 +
-+    items: list[dict] = []
-+    seen: set[str] = set()
-+    for session_row in sessions:
-+        session_id = str(session_row.get("session_id") or "").strip()
-+        if not session_id:
++    for index, conversation in enumerate(conversations[:limit], start=1):
++        if not isinstance(conversation, dict):
++            skipped.append({"index": index, "reason": "conversation_not_object"})
 +            continue
-+        title = str(session_row.get("title") or "Untitled").strip()
-+        title_query = _first_matching_query(title, queries)
-+        matched_content = False
-+        if content_search:
-+            try:
-+                session = get_session_for_scan(session_id)
-+                if session is not None:
-+                    messages = session.messages[:depth] if depth else session.messages
-+                    for position, message in enumerate(messages, start=1):
-+                        if not isinstance(message, dict):
-+                            continue
-+                        text = _session_search_message_text(message)
-+                        matched_query = _first_matching_query(text, queries)
-+                        if not matched_query:
-+                            continue
-+                        item = _pska_recall_item_from_message(
-+                            session_row,
-+                            message,
-+                            matched_query,
-+                            position=position,
-+                            index=len(items) + 1,
-+                            max_chars=max_chars,
-+                            redact_enabled=redact_enabled,
-+                        )
-+                        key = _pska_recall_item_key(item)
-+                        if key not in seen:
-+                            seen.add(key)
-+                            items.append(item)
-+                            matched_content = True
-+                        break
-+            except Exception:
-+                logger.debug("PSKA conversation recall scan failed for session %s", session_id, exc_info=True)
-+        if not matched_content and title_query:
-+            item = _pska_recall_item_from_title(
-+                session_row,
-+                title_query,
-+                index=len(items) + 1,
-+                max_chars=max_chars,
-+                redact_enabled=redact_enabled,
++        normalized = _pska_import_normalized_conversation(conversation, index=index)
++        if not normalized["messages"]:
++            skipped.append(
++                {
++                    "index": index,
++                    "external_id": normalized["external_id"],
++                    "title": normalized["title"],
++                    "reason": "no_supported_messages",
++                }
 +            )
-+            key = _pska_recall_item_key(item)
-+            if key not in seen:
-+                seen.add(key)
-+                items.append(item)
-+        if len(items) >= top_k:
-+            break
++            continue
++        session_id = _pska_import_session_id(normalized, import_id=import_id)
++        existing = Session.load(session_id)
++        if existing is not None and not overwrite:
++            skipped.append(
++                {
++                    "index": index,
++                    "session_id": session_id,
++                    "external_id": normalized["external_id"],
++                    "title": normalized["title"],
++                    "reason": "duplicate_session",
++                }
++            )
++            continue
++        session = Session(
++            session_id=session_id,
++            title=normalized["title"],
++            workspace=str(get_last_workspace()),
++            model=DEFAULT_MODEL,
++            messages=normalized["messages"],
++            created_at=normalized["created_at"],
++            updated_at=normalized["updated_at"],
++            profile=active_profile,
++            source_tag="pska_chatgpt_import" if source_kind == "chatgpt_export" else "pska_conversation_import",
++            raw_source=source_kind,
++            session_source=f"pska.{source_kind}",
++            source_label=source_label,
++            read_only=read_only,
++            manual_title=True,
++        )
++        with LOCK:
++            SESSIONS[session.session_id] = session
++            SESSIONS.move_to_end(session.session_id)
++            _evict_sessions_over_cap()
++        session.save(touch_updated_at=False)
++        imported.append(
++            {
++                "index": index,
++                "session_id": session.session_id,
++                "external_id": normalized["external_id"],
++                "title": session.title,
++                "message_count": len(session.messages),
++                "created_at": session.created_at,
++                "updated_at": session.updated_at,
++                "read_only": session.read_only,
++                "profile": session.profile,
++            }
++        )
++
++    if imported:
++        _publish_session_list_changed(
++            "pska_conversation_import",
++            profile=active_profile,
++        )
 +
 +    return j(handler, {
 +        "ok": True,
-+        "schema": "hermes.pska_conversation_recall.v1",
-+        "query": query,
-+        "queries": queries,
-+        "items": items[:top_k],
-+        "count": min(len(items), top_k),
-+        "all_profiles": all_profiles,
++        "schema": "hermes.pska_conversation_history_import.v1",
++        "status": "imported" if imported else "empty",
++        "source": {
++            "kind": source_kind,
++            "label": source_label,
++            "import_id": import_id,
++        },
++        "summary": {
++            "received_conversation_count": len(conversations),
++            "selected_conversation_count": min(limit, len(conversations)),
++            "imported_conversation_count": len(imported),
++            "skipped_conversation_count": len(skipped),
++            "message_count": sum(int(item.get("message_count") or 0) for item in imported),
++        },
++        "imported": imported[:50],
++        "imported_truncated": len(imported) > 50,
++        "skipped": skipped[:50],
++        "skipped_truncated": len(skipped) > 50,
 +        "active_profile": active_profile,
 +        "bounded": True,
++        "returns_full_messages": False,
 +    })
 +
 +
-+def _pska_recall_queries(body: dict, query: str) -> list[str]:
-+    raw_queries = body.get("queries")
-+    candidates = [query]
-+    if isinstance(raw_queries, list):
-+        candidates.extend(str(item or "") for item in raw_queries)
-+    result: list[str] = []
-+    for candidate in candidates:
-+        normalized = re.sub(r"\s+", " ", str(candidate or "")).strip()
-+        if len(normalized) < 2 or normalized in result:
++def _pska_import_normalized_conversation(conversation: dict, *, index: int) -> dict:
++    external_id = str(
++        conversation.get("external_id")
++        or conversation.get("conversation_id")
++        or conversation.get("id")
++        or f"conversation-{index}"
++    ).strip()
++    title = _truncate_recall_text(conversation.get("title") or external_id or f"Imported conversation {index}", 120)
++    created_at = _pska_import_timestamp(
++        conversation.get("created_at") or conversation.get("create_time") or conversation.get("created"),
++        fallback=time.time(),
++    )
++    updated_at = _pska_import_timestamp(
++        conversation.get("updated_at") or conversation.get("update_time") or conversation.get("updated"),
++        fallback=created_at,
++    )
++    messages = []
++    for message_index, raw_message in enumerate(conversation.get("messages") or [], start=1):
++        normalized = _pska_import_normalized_message(raw_message, fallback_timestamp=created_at)
++        if not normalized:
 +            continue
-+        result.append(normalized)
-+        if len(result) >= 8:
-+            break
++        normalized.setdefault("id", f"{external_id}:m{message_index}")
++        messages.append(normalized)
++    if messages:
++        updated_at = max(
++            updated_at,
++            max(_pska_import_timestamp(item.get("timestamp"), fallback=updated_at) for item in messages),
++        )
++    return {
++        "external_id": external_id,
++        "title": title,
++        "created_at": created_at,
++        "updated_at": updated_at,
++        "messages": messages,
++    }
++
++
++def _pska_import_normalized_message(message, *, fallback_timestamp: float) -> dict | None:
++    if not isinstance(message, dict):
++        return None
++    role = str(message.get("role") or "unknown").strip().lower()
++    if role not in {"system", "user", "assistant", "tool"}:
++        return None
++    content = _session_search_message_text(message)
++    if not content:
++        content = str(message.get("text") or message.get("snippet") or "").strip()
++    if not content:
++        return None
++    timestamp = _pska_import_timestamp(
++        message.get("timestamp") or message.get("created_at") or message.get("create_time"),
++        fallback=fallback_timestamp,
++    )
++    result = {
++        "role": role,
++        "content": content,
++        "timestamp": timestamp,
++    }
++    message_id = str(message.get("id") or message.get("message_id") or "").strip()
++    if message_id:
++        result["id"] = message_id
 +    return result
 +
 +
-+def _bounded_request_int(value, *, default: int, minimum: int, maximum: int) -> int:
++def _pska_import_timestamp(value, *, fallback: float) -> float:
++    if isinstance(value, (int, float)) and value > 0:
++        return float(value)
++    text = str(value or "").strip()
++    if not text:
++        return float(fallback)
 +    try:
-+        parsed = int(value)
++        parsed = float(text)
++        if parsed > 0:
++            return parsed
 +    except (TypeError, ValueError):
-+        parsed = default
-+    return max(minimum, min(maximum, parsed))
++        pass
++    try:
++        normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
++        parsed_dt = datetime.datetime.fromisoformat(normalized)
++        if parsed_dt.tzinfo is None:
++            parsed_dt = parsed_dt.replace(tzinfo=datetime.timezone.utc)
++        return float(parsed_dt.timestamp())
++    except (TypeError, ValueError):
++        return float(fallback)
 +
 +
-+def _first_matching_query(text, queries: list[str]) -> str:
-+    normalized = str(text or "").lower()
-+    for query in queries:
-+        if query.lower() in normalized:
-+            return query
-+    return ""
-+
-+
-+def _pska_recall_item_from_title(session_row: dict, query: str, *, index: int, max_chars: int, redact_enabled: bool) -> dict:
-+    title = _redact_text(str(session_row.get("title") or "Untitled"), _enabled=redact_enabled)
-+    return {
-+        "source": "hermes.conversation",
-+        "index": index,
-+        "session_id": str(session_row.get("session_id") or ""),
-+        "message_id": "",
-+        "title": title,
-+        "role": "",
-+        "snippet": _truncate_recall_text(title, max_chars),
-+        "match_type": "title",
-+        "matched_query": query,
-+        "created_at": session_row.get("created_at"),
-+        "updated_at": session_row.get("updated_at") or session_row.get("last_message_at"),
-+        "score": 0.62,
-+    }
-+
-+
-+def _pska_recall_item_from_message(
-+    session_row: dict,
-+    message: dict,
-+    query: str,
-+    *,
-+    position: int,
-+    index: int,
-+    max_chars: int,
-+    redact_enabled: bool,
-+) -> dict:
-+    text = _session_search_message_text(message)
-+    preview = _session_search_preview(text, query, max_len=max_chars) or _truncate_recall_text(text, max_chars)
-+    title = _redact_text(str(session_row.get("title") or "Untitled"), _enabled=redact_enabled)
-+    return {
-+        "source": "hermes.conversation",
-+        "index": index,
-+        "session_id": str(session_row.get("session_id") or ""),
-+        "message_id": str(message.get("id") or message.get("message_id") or f"{session_row.get('session_id')}:m{position}"),
-+        "title": title,
-+        "role": str(message.get("role") or ""),
-+        "snippet": _redact_text(preview, _enabled=redact_enabled),
-+        "match_type": "content",
-+        "matched_query": query,
-+        "created_at": message.get("created_at") or message.get("timestamp"),
-+        "updated_at": session_row.get("updated_at") or session_row.get("last_message_at"),
-+        "score": 0.78,
-+    }
-+
-+
-+def _pska_recall_item_key(item: dict) -> str:
-+    return "|".join(
++def _pska_import_session_id(conversation: dict, *, import_id: str) -> str:
++    basis = "|".join(
 +        [
-+            str(item.get("session_id") or ""),
-+            str(item.get("message_id") or ""),
-+            str(item.get("match_type") or ""),
-+            str(item.get("snippet") or "")[:160],
++            "pska-conversation-import",
++            import_id,
++            str(conversation.get("external_id") or ""),
++            str(conversation.get("title") or ""),
 +        ]
 +    )
++    digest = hashlib.sha256(basis.encode("utf-8")).hexdigest()[:20]
++    return f"pska_cg_{digest}"
 +
-+
-+def _truncate_recall_text(value, max_chars: int) -> str:
-+    text = re.sub(r"\s+", " ", str(value or "")).strip()
-+    if len(text) <= max_chars:
-+        return text
-+    return text[: max(0, max_chars - 3)].rstrip() + "..."
-+
-+
- def _handle_list_dir(handler, parsed):
-     qs = parse_qs(parsed.query)
-     sid = qs.get("session_id", [""])[0]
 diff --git a/tests/test_pska_conversation_recall_provider.py b/tests/test_pska_conversation_recall_provider.py
-new file mode 100644
-index 00000000..fb8307d6
---- /dev/null
+index fb8307d6..a93da77b 100644
+--- a/tests/test_pska_conversation_recall_provider.py
 +++ b/tests/test_pska_conversation_recall_provider.py
-@@ -0,0 +1,109 @@
-+from types import SimpleNamespace
+@@ -0,0 +1,2 @@
++from collections import OrderedDict
++from contextlib import nullcontext
+@@ -109,0 +112,94 @@ def test_pska_recall_provider_can_opt_into_all_profiles_when_not_isolated(monkey
 +
 +
-+def _invoke_recall(monkeypatch, body, *, active_profile="default"):
++def test_pska_conversation_import_creates_read_only_history_sessions(monkeypatch):
 +    import api.auth as auth
 +    import api.profiles as profiles
 +    import api.routes as routes
 +
-+    sessions_meta = [
-+        {
-+            "session_id": "default-s",
-+            "title": "PSKA context pack planning",
-+            "profile": "default",
-+            "updated_at": "2026-08-23T08:00:00Z",
-+        },
-+        {
-+            "session_id": "other-s",
-+            "title": "private needle outside active profile",
-+            "profile": "other",
-+            "updated_at": "2026-08-23T09:00:00Z",
-+        },
-+    ]
-+    sessions = {
-+        "default-s": SimpleNamespace(messages=[
-+            {
-+                "id": "m1",
-+                "role": "user",
-+                "content": "PSKA should own data flow while the WebUI extension stays as a control plane.",
-+                "created_at": "2026-08-23T08:01:00Z",
++    saved = {}
++    published = []
++
++    class FakeSession:
++        def __init__(self, **kwargs):
++            self.__dict__.update(kwargs)
++
++        @classmethod
++        def load(cls, sid):
++            return saved.get(sid)
++
++        def save(self, touch_updated_at=True):
++            self.save_touch_updated_at = touch_updated_at
++            saved[self.session_id] = self
++
++        def compact(self):
++            return {
++                "session_id": self.session_id,
++                "title": self.title,
++                "profile": self.profile,
++                "message_count": len(self.messages),
++                "read_only": self.read_only,
++                "source_tag": self.source_tag,
++                "session_source": self.session_source,
++                "source_label": self.source_label,
 +            }
-+        ]),
-+        "other-s": SimpleNamespace(messages=[
-+            {
-+                "id": "m2",
-+                "role": "user",
-+                "content": "needle should not leak into the default profile search result.",
-+                "created_at": "2026-08-23T09:01:00Z",
-+            }
-+        ]),
-+    }
 +
 +    monkeypatch.setattr(auth, "pska_recall_token_auth_ok", lambda _handler: True)
-+    monkeypatch.setattr(profiles, "get_active_profile_name", lambda: active_profile)
-+    monkeypatch.setattr(routes, "all_sessions", lambda: list(sessions_meta))
-+    monkeypatch.setattr(routes, "get_session_for_scan", lambda sid: sessions.get(sid))
-+    monkeypatch.setattr(routes, "_is_isolated_profile_mode", lambda: False)
-+    monkeypatch.setattr(routes, "load_settings", lambda: {"api_redact_enabled": False})
++    monkeypatch.setattr(profiles, "get_active_profile_name", lambda: "default")
++    monkeypatch.setattr(routes, "Session", FakeSession)
++    monkeypatch.setattr(routes, "SESSIONS", OrderedDict())
++    monkeypatch.setattr(routes, "LOCK", nullcontext())
++    monkeypatch.setattr(routes, "_evict_sessions_over_cap", lambda: 0)
++    monkeypatch.setattr(routes, "get_last_workspace", lambda: "/tmp/hermes-workspace")
++    monkeypatch.setattr(routes, "DEFAULT_MODEL", "test-model")
++    monkeypatch.setattr(routes, "_publish_session_list_changed", lambda reason, **kwargs: published.append((reason, kwargs)))
 +    monkeypatch.setattr(routes, "j", lambda _handler, payload, status=200, extra_headers=None: payload)
 +
-+    return routes._handle_pska_conversations_search(SimpleNamespace(headers={}), body)
-+
-+
-+def test_pska_recall_provider_returns_bounded_conversation_snippets(monkeypatch):
-+    import api.routes as routes
-+
-+    payload = _invoke_recall(
-+        monkeypatch,
++    payload = routes._handle_pska_conversations_import(
++        SimpleNamespace(headers={}),
 +        {
-+            "query": "PSKA",
-+            "queries": ["PSKA", "control plane"],
-+            "top_k": 3,
-+            "content": True,
-+            "max_chars_per_item": 240,
++            "source": {
++                "kind": "chatgpt_export",
++                "label": "ChatGPT partial history",
++                "import_id": "cgconv_test",
++            },
++            "conversations": [
++                {
++                    "external_id": "chatgpt-1",
++                    "title": "PSKA history import",
++                    "created_at": "2026-08-20T10:00:00Z",
++                    "updated_at": "2026-08-20T10:02:00Z",
++                    "messages": [
++                        {
++                            "id": "m1",
++                            "role": "user",
++                            "content": "把 ChatGPT 对话导入成普通历史。",
++                            "created_at": "2026-08-20T10:00:00Z",
++                        },
++                        {
++                            "id": "m2",
++                            "role": "assistant",
++                            "content": "之后 PSKA 只做查询式召回。",
++                            "created_at": "2026-08-20T10:02:00Z",
++                        },
++                    ],
++                }
++            ],
 +        },
 +    )
 +
-+    assert routes._csrf_exempt_path("/api/pska/conversations/search") is True
-+    assert payload["schema"] == "hermes.pska_conversation_recall.v1"
-+    assert payload["count"] == 1
-+    item = payload["items"][0]
-+    assert item["source"] == "hermes.conversation"
-+    assert item["session_id"] == "default-s"
-+    assert item["message_id"] == "m1"
-+    assert item["match_type"] == "content"
-+    assert "control plane" in item["snippet"]
++    assert routes._csrf_exempt_path("/api/pska/conversations/import") is True
++    assert payload["schema"] == "hermes.pska_conversation_history_import.v1"
++    assert payload["status"] == "imported"
++    assert payload["summary"]["imported_conversation_count"] == 1
++    assert payload["summary"]["message_count"] == 2
++    assert payload["returns_full_messages"] is False
++    item = payload["imported"][0]
 +    assert "messages" not in item
-+
-+
-+def test_pska_recall_provider_scopes_to_active_profile_by_default(monkeypatch):
-+    payload = _invoke_recall(
-+        monkeypatch,
-+        {
-+            "query": "needle",
-+            "queries": ["needle"],
-+            "top_k": 3,
-+            "content": True,
-+        },
-+    )
-+
-+    assert payload["count"] == 0
-+    assert payload["items"] == []
-+    assert payload["active_profile"] == "default"
-+
-+
-+def test_pska_recall_provider_can_opt_into_all_profiles_when_not_isolated(monkeypatch):
-+    payload = _invoke_recall(
-+        monkeypatch,
-+        {
-+            "query": "needle",
-+            "queries": ["needle"],
-+            "top_k": 3,
-+            "content": True,
-+            "all_profiles": True,
-+        },
-+    )
-+
-+    assert payload["count"] == 1
-+    assert payload["items"][0]["session_id"] == "other-s"
-+    assert payload["all_profiles"] is True
++    imported_session = next(iter(saved.values()))
++    assert imported_session.read_only is True
++    assert imported_session.source_tag == "pska_chatgpt_import"
++    assert imported_session.session_source == "pska.chatgpt_export"
++    assert imported_session.messages[0]["role"] == "user"
++    assert imported_session.messages[0]["content"] == "把 ChatGPT 对话导入成普通历史。"
++    assert imported_session.save_touch_updated_at is False
++    assert published == [("pska_conversation_import", {"profile": "default"})]
