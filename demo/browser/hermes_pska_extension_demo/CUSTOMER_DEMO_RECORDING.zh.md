@@ -92,6 +92,14 @@ HERMES_WEBUI_PASSWORD=011235 make demo-browser-customer-record-package
 make demo-browser-customer-record-package DEMO_RECORD_ARGS="--dry-run"
 ```
 
+如果要在录制前只检查环境，不开始录屏：
+
+```bash
+HERMES_WEBUI_PASSWORD=011235 make demo-browser-customer-record-package DEMO_RECORD_ARGS="--preflight-only"
+```
+
+检查会提前确认 Node、ffmpeg、录制依赖、对话工作台、知识助手服务和创作画布服务是否可用。
+
 下面的三条命令用于单独重录某一段，或者排查某个 case 的问题。
 
 核心长版：

@@ -43,6 +43,12 @@ HERMES_WEBUI_PASSWORD='***' make demo-browser-customer-record-package
 make demo-browser-customer-record-package DEMO_RECORD_ARGS="--dry-run"
 ```
 
+如果要先检查本机环境和三个服务，不开始录屏：
+
+```bash
+HERMES_WEBUI_PASSWORD='***' make demo-browser-customer-record-package DEMO_RECORD_ARGS="--preflight-only"
+```
+
 下面的命令用于单独录制某个片段。
 
 脚本只生成视频和字幕，不生成 TTS 音轨。

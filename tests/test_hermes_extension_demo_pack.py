@@ -164,6 +164,30 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("package_customer_demo_assets.py", result.stdout)
         self.assertIn("verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack", result.stdout)
 
+    def test_customer_demo_recorder_preflight_fails_before_recording_when_services_are_missing(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(CUSTOMER_RECORDER_PATH),
+                "--preflight-only",
+                "--base-url",
+                "http://127.0.0.1:1",
+                "--pska-api-base-url",
+                "http://127.0.0.1:1",
+                "--no-seed-eidolia-data",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("preflight failed", result.stderr)
+        self.assertIn("Hermes WebUI is not reachable", result.stderr)
+        self.assertIn("PSKA API is not reachable", result.stderr)
+        self.assertNotIn("==> 核心长版", result.stdout)
+
     def test_verifier_can_require_customer_delivery_pack(self):
         script = SCRIPT_PATH.read_text(encoding="utf-8")
 
@@ -286,6 +310,8 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("实操讲解顺序", manual)
         self.assertIn("make demo-browser-customer-record-package", manual)
         self.assertIn("DEMO_RECORD_ARGS=\"--dry-run\"", manual)
+        self.assertIn("DEMO_RECORD_ARGS=\"--preflight-only\"", manual)
+        self.assertIn("Node、ffmpeg、录制依赖", manual)
         self.assertIn("按客户实际使用顺序讲", manual)
         self.assertIn("hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256", manual)
         self.assertIn("不要录独立的知识助手页面作为主入口", manual)

@@ -6,10 +6,13 @@ from __future__ import annotations
 import argparse
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,7 +20,10 @@ RECORDER = ROOT / "scripts" / "record_hermes_pska_extension_demo.cjs"
 CUSTOMER_BUILDER = ROOT / "scripts" / "build_customer_demo_video.py"
 CUSTOMER_PACKAGER = ROOT / "scripts" / "package_customer_demo_assets.py"
 CUSTOMER_VERIFIER = ROOT / "scripts" / "verify_hermes_extension_demo_pack.py"
-DEFAULT_PLAYWRIGHT_NODE_PATH = Path("/tmp/pska-playwright-recorder/node_modules")
+DEFAULT_PLAYWRIGHT_NODE_PATHS = [
+    Path("/tmp/pska-playwright-recorder/node_modules"),
+    Path("/tmp/pska-playwright/node_modules"),
+]
 
 
 @dataclass(frozen=True)
@@ -69,6 +75,12 @@ def main() -> int:
             print(f"[dry-run] {step.title}")
             print(format_command(step.command))
         return 0
+    if args.preflight_only:
+        run_preflight(args, env)
+        print("preflight passed")
+        return 0
+    if not args.skip_preflight:
+        run_preflight(args, env)
     for step in steps:
         print(f"\n==> {step.title}")
         subprocess.run(step.command, cwd=ROOT, env=env, check=True)
@@ -85,8 +97,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=os.environ.get("PSKA_PRODUCT_API_BASE_URL", "http://127.0.0.1:8765"),
     )
     parser.add_argument("--eidolia-base-url", default=os.environ.get("EIDOLIA_BASE_URL", "http://127.0.0.1:8797"))
-    parser.add_argument("--playwright-module", default=os.environ.get("PSKA_PLAYWRIGHT_MODULE"))
-    parser.add_argument("--node-path", default=os.environ.get("NODE_PATH") or default_node_path())
+    default_node = os.environ.get("NODE_PATH") or default_node_path()
+    parser.add_argument(
+        "--playwright-module",
+        default=os.environ.get("PSKA_PLAYWRIGHT_MODULE") or default_playwright_module(default_node),
+    )
+    parser.add_argument("--node-path", default=default_node)
     parser.add_argument("--storage-state", default=os.environ.get("HERMES_WEBUI_STORAGE_STATE"))
     parser.add_argument("--password", default=os.environ.get("HERMES_WEBUI_PASSWORD"))
     parser.add_argument("--headed", action="store_true")
@@ -94,12 +110,27 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--keep-raw", action="store_true")
     parser.add_argument("--no-seed-demo-data", action="store_true")
     parser.add_argument("--no-seed-eidolia-data", action="store_true")
+    parser.add_argument("--skip-preflight", action="store_true")
+    parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args(argv)
 
 
 def default_node_path() -> str | None:
-    return str(DEFAULT_PLAYWRIGHT_NODE_PATH) if DEFAULT_PLAYWRIGHT_NODE_PATH.exists() else None
+    for path in DEFAULT_PLAYWRIGHT_NODE_PATHS:
+        if path.exists():
+            return str(path)
+    return None
+
+
+def default_playwright_module(node_path: str | None) -> str:
+    if node_path:
+        root = Path(node_path)
+        if (root / "playwright").exists():
+            return "playwright"
+        if (root / "playwright-core").exists():
+            return "playwright-core"
+    return "playwright"
 
 
 def build_env(args: argparse.Namespace) -> dict[str, str]:
@@ -111,6 +142,66 @@ def build_env(args: argparse.Namespace) -> dict[str, str]:
     if args.storage_state:
         env["HERMES_WEBUI_STORAGE_STATE"] = str(args.storage_state)
     return env
+
+
+def run_preflight(args: argparse.Namespace, env: dict[str, str]) -> None:
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    for script in [RECORDER, CUSTOMER_BUILDER, CUSTOMER_PACKAGER, CUSTOMER_VERIFIER]:
+        if not script.exists():
+            failures.append(f"missing script: {script}")
+
+    if not shutil.which("node"):
+        failures.append("missing Node.js: install node or add it to PATH")
+    if not shutil.which("ffmpeg"):
+        failures.append("missing ffmpeg: install ffmpeg or add it to PATH")
+
+    playwright_module = args.playwright_module or "playwright"
+    node_path = str(args.node_path or "").strip()
+    if node_path and not Path(node_path).exists():
+        warnings.append(f"NODE_PATH does not exist yet: {node_path}")
+    if shutil.which("node") and not can_resolve_node_module(playwright_module, env):
+        failures.append(
+            f"cannot resolve Playwright module '{playwright_module}'; set NODE_PATH or pass --playwright-module"
+        )
+
+    if not args.password and not args.storage_state:
+        warnings.append("no Hermes password or storage state provided; this only works when WebUI auth is disabled")
+
+    check_http(args.base_url.rstrip("/") + "/health", "Hermes WebUI", failures)
+    check_http(args.pska_api_base_url.rstrip("/") + "/api/health", "PSKA API", failures)
+    if not args.no_seed_eidolia_data:
+        check_http(args.eidolia_base_url.rstrip("/") + "/api/agent/health", "Eidolia", failures)
+
+    for warning in warnings:
+        print(f"preflight warning: {warning}", file=sys.stderr)
+    if failures:
+        print("preflight failed:", file=sys.stderr)
+        for failure in failures:
+            print(f"- {failure}", file=sys.stderr)
+        raise SystemExit(2)
+
+
+def can_resolve_node_module(module_name: str, env: dict[str, str]) -> bool:
+    result = subprocess.run(
+        ["node", "-e", "require.resolve(process.argv[1])", module_name],
+        cwd=ROOT,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def check_http(url: str, label: str, failures: list[str]) -> None:
+    try:
+        with urlopen(url, timeout=3) as response:
+            if response.status >= 400:
+                failures.append(f"{label} returned HTTP {response.status}: {url}")
+    except (OSError, URLError) as error:
+        failures.append(f"{label} is not reachable at {url}: {error}")
 
 
 def build_steps(args: argparse.Namespace) -> list[RecordingStep]:
