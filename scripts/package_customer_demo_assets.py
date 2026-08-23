@@ -52,8 +52,10 @@ def main() -> int:
     write_package_readme(readme_path, basename, copied)
     index_path = package_dir / "index.html"
     write_package_index(index_path, basename, copied)
+    summary_path = package_dir / "DELIVERY_SUMMARY.zh.md"
+    write_delivery_summary(summary_path, basename, copied, readme_path, index_path)
     pack_manifest_path = package_dir / "delivery_manifest.json"
-    write_package_manifest(pack_manifest_path, basename, manifest_path, copied, readme_path, index_path)
+    write_package_manifest(pack_manifest_path, basename, manifest_path, copied, readme_path, index_path, summary_path)
 
     zip_path = dist_dir / f"{basename}_delivery_pack.zip"
     write_zip(package_dir, zip_path)
@@ -357,6 +359,7 @@ def write_package_readme(path: Path, basename: str, copied: list[dict[str, Any]]
     for item in copied:
         lines.append(f"- {item['label']}：`{item['filename']}`")
     lines.append("- 入口页面：`index.html`")
+    lines.append("- 交付摘要：`DELIVERY_SUMMARY.zh.md`")
     lines.extend(
         [
             "",
@@ -408,6 +411,7 @@ def write_package_index(path: Path, basename: str, copied: list[dict[str, Any]])
         f'<li><a href="{html.escape(item["filename"])}">{html.escape(item["label"])}：{html.escape(item["filename"])}</a></li>'
         for item in copied
     )
+    file_links += '\n<li><a href="DELIVERY_SUMMARY.zh.md">交付摘要：DELIVERY_SUMMARY.zh.md</a></li>'
     document = f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -488,6 +492,58 @@ def write_package_index(path: Path, basename: str, copied: list[dict[str, Any]])
     path.write_text(document, encoding="utf-8")
 
 
+def write_delivery_summary(
+    path: Path,
+    basename: str,
+    copied: list[dict[str, Any]],
+    readme_path: Path,
+    index_path: Path,
+) -> None:
+    hard_subtitled = f"{basename}_subtitled.mp4"
+    original_video = f"{basename}.mp4"
+    duration = ffprobe_duration(index_path.parent / original_video)
+    summary_items = copied + [file_item("入口页面", index_path), file_item("交付说明", readme_path)]
+    lines = [
+        "# 客户演示视频交付摘要",
+        "",
+        f"- 包名：`{basename}`",
+        f"- 主片时长：`{duration:.1f}` 秒",
+        "- 推荐入口：`index.html`",
+        f"- 直接预览：`{hard_subtitled}`",
+        f"- 二次剪辑：`{original_video}` + `{basename}.zh.srt` + `{basename}_voiceover.zh.md`",
+        "- 压缩包外部校验：同名 `.zip.sha256` 文件",
+        "",
+        "## 交付文件",
+        "",
+        "| 用途 | 文件 | 大小 | SHA256 |",
+        "| --- | --- | ---: | --- |",
+    ]
+    for item in summary_items:
+        lines.append(
+            f"| {item['label']} | `{item['filename']}` | {format_bytes(int(item['bytes']))} | `{item['sha256']}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "## 讲解提醒",
+            "",
+            "- 这条视频从对话工作台进入，不展示独立前端。",
+            "- 重点展示资料范围、回答前整理、待确认记忆、任务跟进和创作画布。",
+            "- 创作画布镜头必须保留，它展示想法节点、产物节点和续写草稿。",
+            "",
+        ]
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def format_bytes(size: int) -> str:
+    if size >= 1024 * 1024:
+        return f"{size / (1024 * 1024):.1f} MB"
+    if size >= 1024:
+        return f"{size / 1024:.1f} KB"
+    return f"{size} B"
+
+
 def write_package_manifest(
     path: Path,
     basename: str,
@@ -495,6 +551,7 @@ def write_package_manifest(
     copied: list[dict[str, Any]],
     readme_path: Path,
     index_path: Path,
+    summary_path: Path,
 ) -> None:
     payload = {
         "schema": PACKAGE_SCHEMA,
@@ -506,7 +563,7 @@ def write_package_manifest(
             "algorithm": "sha256",
             "readme": file_item("交付说明", readme_path),
         },
-        "items": copied + [file_item("入口页面", index_path)],
+        "items": copied + [file_item("入口页面", index_path), file_item("交付摘要", summary_path)],
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -543,6 +600,11 @@ def write_external_handoff_note(dist_dir: Path, basename: str, zip_path: Path, c
         "```",
         "",
         "看到校验通过后，再解压压缩包。",
+        "",
+        "## 快速确认",
+        "",
+        "- 先打开 `DELIVERY_SUMMARY.zh.md`，确认时长、入口、文件清单和校验摘要。",
+        "- 再打开 `index.html`，可以直接预览硬字幕版视频。",
         "",
         "## 直接预览",
         "",

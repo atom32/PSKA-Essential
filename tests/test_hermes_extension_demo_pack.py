@@ -139,7 +139,9 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("硬字幕版视频", script)
         self.assertIn("write_subtitled_video", script)
         self.assertIn("write_package_index", script)
+        self.assertIn("write_delivery_summary", script)
         self.assertIn("入口页面", script)
+        self.assertIn("交付摘要", script)
         self.assertIn("先看这个", script)
         self.assertIn("直接播放时，优先使用硬字幕版视频", script)
         self.assertIn("创作画布必须保留", script)
@@ -239,9 +241,11 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("--require-delivery-pack", script)
         self.assertIn("verify_delivery_pack", script)
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
-        self.assertIn("delivery zip contains index, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README", script)
+        self.assertIn("delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README", script)
         self.assertIn("_subtitled.mp4", script)
         self.assertIn("index.html", script)
+        self.assertIn("DELIVERY_SUMMARY.zh.md", script)
+        self.assertIn("客户演示视频交付摘要", script)
         self.assertIn("does not describe the delivery package", script)
         self.assertIn("硬字幕版视频", script)
         self.assertIn("customer delivery preview sheet does not look like a valid JPEG", script)
@@ -332,6 +336,9 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
                         "```bash",
                         "shasum -a 256 -c pack.zip.sha256",
                         "```",
+                        "## 快速确认",
+                        "DELIVERY_SUMMARY.zh.md",
+                        "index.html",
                         "## 直接预览",
                         "`pack_subtitled.mp4`",
                         "## 剪辑顺序",

@@ -261,6 +261,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     package_dir = dist_dir / package_dir_name
     required_names = [
         f"{package_dir_name}/index.html",
+        f"{package_dir_name}/DELIVERY_SUMMARY.zh.md",
         f"{package_dir_name}/README.zh.md",
         f"{package_dir_name}/delivery_manifest.json",
         f"{package_dir_name}/{basename}.mp4",
@@ -282,6 +283,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
             raise SystemExit(f"{zip_path} missing delivery files: {', '.join(missing)}")
         readme = archive.read(f"{package_dir_name}/README.zh.md").decode("utf-8")
         index_html = archive.read(f"{package_dir_name}/index.html").decode("utf-8")
+        delivery_summary = archive.read(f"{package_dir_name}/DELIVERY_SUMMARY.zh.md").decode("utf-8")
         delivery_manifest = json.loads(archive.read(f"{package_dir_name}/delivery_manifest.json").decode("utf-8"))
         subtitle_text = archive.read(f"{package_dir_name}/{basename}.zh.srt").decode("utf-8")
         verify_preview_image_bytes(archive.read(f"{package_dir_name}/{basename}_preview_sheet.jpg"))
@@ -296,6 +298,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     required_readme_terms = [
         "客户演示视频交付包",
         "入口页面",
+        "交付摘要",
         "硬字幕版视频",
         "旁白稿",
         "关键画面预览图",
@@ -319,11 +322,23 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         f"{basename}_preview_sheet.jpg",
         "先看这个",
         "剪辑使用",
+        "DELIVERY_SUMMARY.zh.md",
         "不要删掉资料范围、提问到回答、长期记忆待确认和创作画布画面",
     ]
     missing_index_terms = [term for term in required_index_terms if term not in index_html]
     if missing_index_terms:
         raise SystemExit(f"{zip_path} index.html does not describe the delivery package")
+    required_summary_terms = [
+        "客户演示视频交付摘要",
+        "推荐入口：`index.html`",
+        f"直接预览：`{basename}_subtitled.mp4`",
+        f"二次剪辑：`{basename}.mp4` + `{basename}.zh.srt` + `{basename}_voiceover.zh.md`",
+        "SHA256",
+        "创作画布镜头必须保留",
+    ]
+    missing_summary_terms = [term for term in required_summary_terms if term not in delivery_summary]
+    if missing_summary_terms:
+        raise SystemExit(f"{zip_path} delivery summary does not describe the delivery package")
     if delivery_manifest.get("schema") != "pska.customer_demo_delivery_pack.v1":
         raise SystemExit(f"{zip_path} has wrong delivery manifest schema")
     item_filenames = {str(item.get("filename") or "") for item in delivery_manifest.get("items") or []}
@@ -332,7 +347,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         raise SystemExit(f"{zip_path} delivery manifest missing expected items")
     if package_dir.exists():
         require_files([package_dir / Path(name).name for name in required_names], checks)
-    checks.append(f"{zip_path.name}: delivery zip contains index, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README")
+    checks.append(f"{zip_path.name}: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README")
     checks.append(f"{zip_path.name}: delivery zip integrity verified with sha256 for {integrity_count} files")
     checks.append(f"{checksum_path.name}: delivery zip external checksum verified with sha256")
     checks.append(f"{handoff_path.name}: external handoff note covers checksum and editing steps")
@@ -449,6 +464,9 @@ def verify_external_handoff_note(handoff_path: Path, zip_path: Path, checksum_pa
         zip_path.name,
         checksum_path.name,
         f"shasum -a 256 -c {checksum_path.name}",
+        "快速确认",
+        "DELIVERY_SUMMARY.zh.md",
+        "index.html",
         "直接预览",
         f"{zip_path.stem.removesuffix('_delivery_pack')}_subtitled.mp4",
         "剪辑顺序",
