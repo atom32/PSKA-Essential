@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -62,6 +63,38 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertIn("run_id: `run-demo`", markdown)
         self.assertIn("dataset_ids: `ready-a`", markdown)
         self.assertIn("summary.json", markdown)
+
+    def test_configures_default_playwright_core_env_from_external_node_path(self):
+        module = _load_script_module()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            node_path = Path(tmp) / "node_modules"
+            (node_path / "playwright-core").mkdir(parents=True)
+            env: dict[str, str] = {}
+
+            module._configure_default_playwright_env(env, candidates=[node_path])
+
+        self.assertEqual(env["NODE_PATH"], str(node_path))
+        self.assertEqual(env["PSKA_PLAYWRIGHT_MODULE"], "playwright-core")
+        self.assertEqual(env["PSKA_PLAYWRIGHT_CHANNEL"], "chrome")
+
+    def test_configure_default_playwright_env_preserves_explicit_module(self):
+        module = _load_script_module()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            node_path = Path(tmp) / "node_modules"
+            (node_path / "playwright-core").mkdir(parents=True)
+            env = {
+                "NODE_PATH": "/custom/node_modules",
+                "PSKA_PLAYWRIGHT_MODULE": "playwright",
+                "PSKA_PLAYWRIGHT_CHANNEL": "msedge",
+            }
+
+            module._configure_default_playwright_env(env, candidates=[node_path])
+
+        self.assertEqual(env["NODE_PATH"], "/custom/node_modules")
+        self.assertEqual(env["PSKA_PLAYWRIGHT_MODULE"], "playwright")
+        self.assertEqual(env["PSKA_PLAYWRIGHT_CHANNEL"], "msedge")
 
     def test_run_json_preserves_structured_payload_from_nonzero_command(self):
         module = _load_script_module()
@@ -156,10 +189,10 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
                 [
                     "hermes_pska_extension_demo.mp4: 88.9s, 1280x720, no audio",
                     "hermes_pska_extension_demo.zh.srt: 10 ordered subtitle blocks",
-                    "hermes_pska_extension_demo_long.mp4: 200.8s, 1280x720, no audio",
+                    "hermes_pska_extension_demo_long.mp4: 188.6s, 1280x720, no audio",
                     "hermes_pska_extension_demo_long.mp4: duplicate line",
-                    "hermes_pska_finance_case_demo.mp4: 123.4s, 1280x720, no audio",
-                    "hermes_pska_webnovel_case_demo.mp4: 133.5s, 1280x720, no audio",
+                    "hermes_pska_finance_case_demo.mp4: 148.2s, 1280x720, no audio",
+                    "hermes_pska_webnovel_case_demo.mp4: 148.9s, 1280x720, no audio",
                     "hermes_pska_customer_walkthrough_demo.mp4: 325.4s, 1280x720, no audio",
                 ]
             ),
@@ -177,7 +210,7 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertTrue(
             module._demo_delivery_pack_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
                 ]
             )
         )
@@ -189,14 +222,14 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertTrue(
             module._demo_delivery_preview_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
                 ]
             )
         )
         self.assertFalse(
             module._demo_delivery_preview_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, storyboard, manifests, and README",
                 ]
             )
         )
@@ -215,7 +248,7 @@ class AlphaAcceptanceScriptTests(unittest.TestCase):
         self.assertFalse(
             module._demo_delivery_integrity_present(
                 [
-                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
+                    "hermes_pska_customer_walkthrough_demo_delivery_pack.zip: delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
                     "hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256: delivery zip external checksum verified with sha256",
                 ]
             )

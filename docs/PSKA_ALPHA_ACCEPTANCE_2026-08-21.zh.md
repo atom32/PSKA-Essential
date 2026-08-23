@@ -90,12 +90,13 @@ Agentic Ask
 命令：
 
 ```bash
-NODE_PATH=/tmp/pska-playwright/node_modules \
-PSKA_PLAYWRIGHT_MODULE=playwright-core \
-PSKA_PLAYWRIGHT_CHANNEL=chrome \
 HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
+
+验收脚本会自动使用 `/tmp/pska-playwright/node_modules` 或
+`/tmp/pska-playwright-recorder/node_modules` 中的 Playwright；只有自定义安装路径时才需要显式设置
+`NODE_PATH`、`PSKA_PLAYWRIGHT_MODULE`、`PSKA_PLAYWRIGHT_CHANNEL`。
 
 该入口会把 `--include-live-product-boundary-contract` 传给验收脚本，因此 WebUI 演示前检查包含真实 Hermes MCP 配置、真实 WebUI extension manifest 和 sidecar consent。对应 artifact 中 `product_boundary_contract.mode = repository_and_live`。
 
@@ -103,7 +104,7 @@ make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 
 ```text
 Status: ok
-webui_extension_contract    PASS passed=46/46
+webui_extension_contract    PASS passed=47/47
 webui_extension_visual      PASS ok=True
 webui_extension_turn_bridge PASS ok=True forced_context_count=1
 ```
@@ -177,9 +178,6 @@ forced_context_count = 1
 命令：
 
 ```bash
-NODE_PATH=/tmp/pska-playwright/node_modules \
-PSKA_PLAYWRIGHT_MODULE=playwright-core \
-PSKA_PLAYWRIGHT_CHANNEL=chrome \
 HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-demo ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
@@ -215,11 +213,11 @@ make demo-browser-verify-videos
 
 ```text
 hermes_pska_extension_demo.mp4       88.9s   1280x720 no audio 10 ordered plain Chinese subtitles
-hermes_pska_extension_demo_long.mp4  200.8s  1280x720 no audio 10 ordered plain Chinese subtitles
-hermes_pska_finance_case_demo.mp4    123.4s  1280x720 no audio 10 ordered plain Chinese subtitles
-hermes_pska_webnovel_case_demo.mp4   133.5s  1280x720 no audio 10 ordered plain Chinese subtitles
+hermes_pska_extension_demo_long.mp4  188.6s  1280x720 no audio 10 ordered plain Chinese subtitles
+hermes_pska_finance_case_demo.mp4    148.2s  1280x720 no audio 10 ordered plain Chinese subtitles
+hermes_pska_webnovel_case_demo.mp4   148.9s  1280x720 no audio 10 ordered plain Chinese subtitles
 hermes_pska_customer_walkthrough_demo.mp4 325.4s 1280x720 no audio 10 ordered plain Chinese subtitles
-hermes_pska_customer_walkthrough_demo_delivery_pack.zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README
+hermes_pska_customer_walkthrough_demo_delivery_pack.zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README
 hermes_pska_customer_walkthrough_demo_delivery_pack.zip integrity verified with sha256 for delivery files
 hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256 verifies the transferred zip itself
 hermes_pska_customer_walkthrough_demo_delivery_handoff.zh.md explains checksum and editing steps
@@ -358,10 +356,10 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 alpha-acceptance          OK
 product-boundary-contract OK
 live-product-boundary-contract OK
-alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK
+alpha-acceptance-webui    OK, 47/47 contract, visual OK, turn bridge OK, recovery_boundary OK
 alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes, preview=yes, integrity=yes, handoff=yes
 demo-browser-videos       OK, 5/5 videos, delivery pack, preview sheet, sha256 integrity, handoff note, pure Chinese subtitles
-unittest                  572 tests OK
+unittest                  585 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。

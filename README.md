@@ -149,12 +149,14 @@ For a WebUI demo preflight that covers the Hermes WebUI extension contract and
 browser-level visual smoke, run:
 
 ```bash
-NODE_PATH=/tmp/pska-playwright/node_modules \
-PSKA_PLAYWRIGHT_MODULE=playwright-core \
-PSKA_PLAYWRIGHT_CHANNEL=chrome \
 HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-webui ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```
+
+The alpha runner automatically uses Playwright from
+`/tmp/pska-playwright/node_modules` or `/tmp/pska-playwright-recorder/node_modules`
+when present. Set `NODE_PATH`, `PSKA_PLAYWRIGHT_MODULE`, and
+`PSKA_PLAYWRIGHT_CHANNEL` only for a custom install.
 
 For the full demo-before-showing gate, including the read-only recovery
 boundary proof, five generated browser demo videos, the customer walkthrough
@@ -162,9 +164,6 @@ delivery pack, plain Chinese subtitle checks, and a live Eidolia-to-PSKA bridge
 proof, run:
 
 ```bash
-NODE_PATH=/tmp/pska-playwright/node_modules \
-PSKA_PLAYWRIGHT_MODULE=playwright-core \
-PSKA_PLAYWRIGHT_CHANNEL=chrome \
 HERMES_WEBUI_PASSWORD=****** \
 make alpha-acceptance-demo ENV_FILE=.env.pska PYTHON=.venv/bin/python
 ```

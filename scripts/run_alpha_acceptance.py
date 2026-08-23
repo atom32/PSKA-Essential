@@ -31,6 +31,10 @@ DEMO_VIDEO_BASENAMES = [
     "hermes_pska_webnovel_case_demo",
     "hermes_pska_customer_walkthrough_demo",
 ]
+DEFAULT_PLAYWRIGHT_NODE_PATHS = [
+    Path("/tmp/pska-playwright-recorder/node_modules"),
+    Path("/tmp/pska-playwright/node_modules"),
+]
 
 
 def main() -> int:
@@ -64,6 +68,7 @@ def main() -> int:
 
     env = os.environ.copy()
     env["PYTHONPATH"] = _pythonpath(env)
+    _configure_default_playwright_env(env)
 
     if args.skip_product_boundary_contract:
         checks.append(
@@ -722,6 +727,33 @@ def _pythonpath(env: dict[str, str]) -> str:
     return src if not current else f"{src}{os.pathsep}{current}"
 
 
+def _configure_default_playwright_env(
+    env: dict[str, str],
+    *,
+    candidates: list[Path] | None = None,
+) -> None:
+    node_path = str(env.get("NODE_PATH") or "").strip()
+    module = str(env.get("PSKA_PLAYWRIGHT_MODULE") or env.get("PLAYWRIGHT_MODULE") or "").strip()
+    candidates = candidates or DEFAULT_PLAYWRIGHT_NODE_PATHS
+
+    if not node_path:
+        for candidate in candidates:
+            if candidate.exists():
+                node_path = str(candidate)
+                env["NODE_PATH"] = node_path
+                break
+
+    if module or not node_path:
+        return
+
+    root = Path(node_path)
+    if (root / "playwright").exists():
+        env["PSKA_PLAYWRIGHT_MODULE"] = "playwright"
+    elif (root / "playwright-core").exists():
+        env["PSKA_PLAYWRIGHT_MODULE"] = "playwright-core"
+        env.setdefault("PSKA_PLAYWRIGHT_CHANNEL", "chrome")
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -757,7 +789,7 @@ def _demo_video_count(checks: list[str]) -> int:
 def _demo_delivery_pack_present(checks: list[str]) -> bool:
     return any(
         line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
-        and "delivery zip contains video, subtitles, voiceover, preview sheet, storyboard, manifests, and README" in line
+        and "delivery zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README" in line
         for line in checks
     )
 

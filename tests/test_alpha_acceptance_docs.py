@@ -20,7 +20,7 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
         required_terms = [
             "alpha_readiness.status = alpha_ready",
             "product_boundary_contract PASS status=ok",
-            "webui_extension_contract    PASS passed=46/46",
+            "webui_extension_contract    PASS passed=47/47",
             "webui_extension_turn_bridge PASS ok=True forced_context_count=1",
             "ChatGPT memory summary import creates governed Review candidates",
             "ChatGPT conversation archive import creates Source Root",
@@ -32,6 +32,7 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "WebUI sidecar consent: pska-mini -> http://127.0.0.1:8765",
             "--include-live-product-boundary-contract",
             "product_boundary_contract.mode = repository_and_live",
+            "验收脚本会自动使用 `/tmp/pska-playwright/node_modules`",
             "--include-recovery-boundary",
             "--include-demo-videos",
             "--include-eidolia-bridge",
@@ -41,12 +42,13 @@ class AlphaAcceptanceDocsTests(unittest.TestCase):
             "eidolia_bridge PASS status=ok review=reject",
             "make demo-browser-verify-videos",
             "10 ordered plain Chinese subtitles",
+            "hermes_pska_customer_walkthrough_demo_delivery_pack.zip contains index, summary, video, hard-subtitled video, subtitles, voiceover, preview sheet, storyboard, manifests, and README",
             "product-boundary-contract OK",
             "live-product-boundary-contract OK",
-            "alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK",
+            "alpha-acceptance-webui    OK, 47/47 contract, visual OK, turn bridge OK, recovery_boundary OK",
             "alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes, preview=yes, integrity=yes, handoff=yes",
             "demo-browser-videos       OK, 5/5 videos, delivery pack, preview sheet, sha256 integrity, handoff note, pure Chinese subtitles",
-            "unittest                  572 tests OK",
+            "unittest                  585 tests OK",
         ]
         for term in required_terms:
             with self.subTest(term=term):
