@@ -1,4 +1,4 @@
-.PHONY: test list-tools smoke eval workspace-status product-boundary-contract live-product-boundary-contract alpha-acceptance alpha-acceptance-webui alpha-acceptance-demo live-connectivity-check live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual webui-extension-turn-bridge webui-extension-llm-proof demo-browser-verify demo-browser-verify-videos demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-preflight full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
+.PHONY: test list-tools smoke eval workspace-status product-boundary-contract live-product-boundary-contract alpha-acceptance alpha-acceptance-webui alpha-acceptance-demo live-connectivity-check live-component-check live-closed-loop live-markitdown-smoke live-docling-smoke live-watchdog-smoke live-fclones-smoke live-czkawka-smoke live-ingest-loop live-ingest-loop-resume webui-extension-contract webui-extension-visual webui-extension-turn-bridge webui-extension-llm-proof demo-browser-verify demo-browser-verify-videos demo-browser-customer-package demo-browser-package serve-api serve-dev start-workspace alpha-compose-up alpha-compose-ps alpha-compose-down full-compose-preflight full-compose-init full-compose-embedding-up full-compose-ragflow-up full-compose-up full-compose-status full-compose-down clean
 
 PYTHON ?= python3
 ENV_FILE ?=
@@ -101,9 +101,14 @@ demo-browser-verify:
 demo-browser-verify-videos:
 	$(PYTHON) scripts/verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack
 
+demo-browser-customer-package:
+	$(PYTHON) scripts/build_customer_demo_video.py
+	$(PYTHON) scripts/package_customer_demo_assets.py
+	$(PYTHON) scripts/verify_hermes_extension_demo_pack.py --all-videos --require-video --require-delivery-pack
+
 demo-browser-package:
 	@echo "Legacy diagnostic-page demo packaging is disabled."
-	@echo "Use node scripts/record_hermes_pska_extension_demo.cjs, python3 scripts/build_customer_demo_video.py, then python3 scripts/package_customer_demo_assets.py."
+	@echo "Use make demo-browser-customer-package for the Hermes WebUI customer walkthrough delivery pack."
 
 serve-api:
 	PYTHONPATH=src $(PYTHON) -m pska_essential.product_api $(ENV_FILE_ARG)

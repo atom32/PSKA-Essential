@@ -114,6 +114,14 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("客户演示视频交付包", script)
         self.assertIn("zipfile.ZipFile", script)
 
+    def test_makefile_has_customer_delivery_pack_target(self):
+        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+        self.assertIn("demo-browser-customer-package", makefile)
+        self.assertIn("scripts/build_customer_demo_video.py", makefile)
+        self.assertIn("scripts/package_customer_demo_assets.py", makefile)
+        self.assertIn("--all-videos --require-video --require-delivery-pack", makefile)
+
     def test_verifier_can_require_customer_delivery_pack(self):
         script = SCRIPT_PATH.read_text(encoding="utf-8")
 

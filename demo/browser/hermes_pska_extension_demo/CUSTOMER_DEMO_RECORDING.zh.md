@@ -91,16 +91,10 @@ node scripts/record_hermes_pska_extension_demo.cjs \
   --wait-for-llm-ms 30000
 ```
 
-把核心、财报和网文三段素材合成客户版主片：
+把核心、财报和网文三段素材合成客户版主片，并生成可交付压缩包：
 
 ```bash
-python3 scripts/build_customer_demo_video.py
-```
-
-生成可交付目录和压缩包：
-
-```bash
-python3 scripts/package_customer_demo_assets.py
+make demo-browser-customer-package
 ```
 
 录完后检查全部视频：

@@ -729,8 +729,7 @@ python3 scripts/verify_hermes_extension_demo_pack.py --all-videos --require-vide
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --basename hermes_pska_extension_demo_long --min-duration 180
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case finance_report_research --basename hermes_pska_finance_case_demo --min-duration 120
 python3 scripts/verify_hermes_extension_demo_pack.py --require-video --case webnovel_author --basename hermes_pska_webnovel_case_demo --min-duration 120
-python3 scripts/build_customer_demo_video.py
-python3 scripts/package_customer_demo_assets.py
+make demo-browser-customer-package
 ```
 
 验证器本身已内置最低时长门槛：核心短版 `30s`，核心长版 `180s`，财报和网文业务 case
