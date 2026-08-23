@@ -72,12 +72,14 @@ def main() -> int:
         )
         payload["registration_plan"] = [item.copy() for item in registration_plan]
         if not args.dry_run:
-            payload["registration"] = register_source_roots(
+            registration = register_source_roots(
                 args.api_base_url,
                 registration_plan,
                 scan=args.scan,
                 timeout=args.timeout,
             )
+            payload["registration"] = registration
+            apply_registration_data_flow(payload, registration, scan_requested=args.scan)
 
     print(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
     if any(item.get("status") == "error" for item in payload.get("registration", [])):
@@ -219,6 +221,20 @@ def register_source_roots(
                 }
             )
     return results
+
+
+def apply_registration_data_flow(
+    payload: dict[str, Any],
+    registration: list[dict[str, Any]],
+    *,
+    scan_requested: bool,
+) -> dict[str, Any]:
+    payload["data_flow"]["writes_source_registry"] = any(item.get("status") == "registered" for item in registration)
+    payload["data_flow"]["scans_source_roots"] = scan_requested and any("scan" in item for item in registration)
+    payload["data_flow"]["writes_source_files"] = False
+    payload["data_flow"]["creates_review"] = False
+    payload["data_flow"]["writes_memory_directly"] = False
+    return payload
 
 
 def _post_json(

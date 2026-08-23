@@ -130,6 +130,22 @@ class DogfoodWorkspaceInitTests(unittest.TestCase):
         self.assertEqual(calls[0]["payload"]["permission_mode"], "sidecar_write")
         self.assertEqual(calls[1]["url"], "http://127.0.0.1:8765/api/sources/roots/root-daily/scan")
 
+    def test_registration_data_flow_reports_registry_and_scan_without_source_or_memory_writes(self):
+        module = _load_script_module()
+
+        payload = module.initialize_workspace(Path("/tmp/PSKA-Dogfood"), date="2026-08-24", dry_run=True)
+        module.apply_registration_data_flow(
+            payload,
+            [{"status": "registered", "scan": {"counts": {"scanned": 1, "indexed": 1}}}],
+            scan_requested=True,
+        )
+
+        self.assertTrue(payload["data_flow"]["writes_source_registry"])
+        self.assertTrue(payload["data_flow"]["scans_source_roots"])
+        self.assertFalse(payload["data_flow"]["writes_source_files"])
+        self.assertFalse(payload["data_flow"]["creates_review"])
+        self.assertFalse(payload["data_flow"]["writes_memory_directly"])
+
 
 if __name__ == "__main__":
     unittest.main()

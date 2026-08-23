@@ -361,7 +361,7 @@ live-product-boundary-contract OK
 alpha-acceptance-webui    OK, 46/46 contract, visual OK, turn bridge OK, recovery_boundary OK
 alpha-acceptance-demo     OK, recovery_boundary OK, demo_video_pack OK, eidolia_bridge OK, 5/5 videos, delivery=yes, preview=yes, integrity=yes, handoff=yes
 demo-browser-videos       OK, 5/5 videos, delivery pack, preview sheet, sha256 integrity, handoff note, pure Chinese subtitles
-unittest                  571 tests OK
+unittest                  572 tests OK
 ```
 
 所有 alpha acceptance 原始 JSON 证据写入 `/tmp/pska-alpha-acceptance-*`，不写入仓库，也不保存密码或 provider token。
