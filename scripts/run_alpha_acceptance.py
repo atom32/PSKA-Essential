@@ -750,11 +750,17 @@ def _demo_delivery_pack_present(checks: list[str]) -> bool:
 
 
 def _demo_delivery_integrity_present(checks: list[str]) -> bool:
-    return any(
+    internal = any(
         line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip:")
         and "delivery zip integrity verified with sha256 for " in line
         for line in checks
     )
+    external = any(
+        line.startswith("hermes_pska_customer_walkthrough_demo_delivery_pack.zip.sha256:")
+        and "delivery zip external checksum verified with sha256" in line
+        for line in checks
+    )
+    return internal and external
 
 
 def _eidolia_step(name: str, ok: bool, message: str) -> dict[str, Any]:

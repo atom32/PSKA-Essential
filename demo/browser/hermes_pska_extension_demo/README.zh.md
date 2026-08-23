@@ -183,7 +183,8 @@ make demo-browser-customer-package
 - 网文 case 的 Eidolia 镜头从 `01:49.072` 到 `02:12.633`，用于展示想法/产物节点和续写草稿。
 - 客户主片的创作画布镜头从 `05:01.610` 到 `05:25.171`，用于展示想法/产物节点和续写草稿。
 - 客户主片同时生成 `hermes_pska_customer_walkthrough_demo_voiceover.zh.md`，用于人工讲解或剪映中文配音。
-- 客户主片可打包为 `hermes_pska_customer_walkthrough_demo_delivery_pack.zip`，用于交付剪辑或讲解同事。
+- 客户主片可打包为 `hermes_pska_customer_walkthrough_demo_delivery_pack.zip`，用于交付剪辑或讲解同事；旁边的
+  `.zip.sha256` 文件用于转交后核对压缩包是否被截断或替换。
 
 ## 边界
 

@@ -119,6 +119,9 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("创作画布必须保留", script)
         self.assertIn("不要说这是独立前端", script)
         self.assertIn("sha256_file", script)
+        self.assertIn("write_zip_checksum", script)
+        self.assertIn('".sha256"', script)
+        self.assertIn("zip_sha256", script)
         self.assertIn('"bytes": path.stat().st_size', script)
         self.assertIn("zipfile.ZipFile", script)
 
@@ -138,9 +141,11 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
         self.assertIn("pska.customer_demo_delivery_pack.v1", script)
         self.assertIn("delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README", script)
         self.assertIn("delivery zip integrity verified with sha256", script)
+        self.assertIn("delivery zip external checksum verified with sha256", script)
         self.assertIn("片子面向客户，不讲内部接口、数据库或模型术语", script)
         self.assertIn("创作画布里的想法节点、产物节点和续写草稿", script)
         self.assertIn("verify_delivery_integrity", script)
+        self.assertIn("verify_zip_checksum_file", script)
         self.assertIn("customer delivery item checksum mismatch", script)
 
     def test_delivery_integrity_verifies_zip_member_hashes(self):
@@ -177,6 +182,22 @@ class HermesExtensionDemoPackTest(unittest.TestCase):
             with zipfile.ZipFile(zip_path) as archive:
                 with self.assertRaises(SystemExit):
                     self.verifier.verify_delivery_integrity(archive, "pack", bad_manifest)
+
+    def test_zip_checksum_file_verifies_transferred_archive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = pathlib.Path(tmp) / "pack.zip"
+            zip_path.write_bytes(b"zip payload")
+            checksum_path = pathlib.Path(tmp) / "pack.zip.sha256"
+            checksum_path.write_text(
+                f"{hashlib.sha256(zip_path.read_bytes()).hexdigest()}  pack.zip\n",
+                encoding="utf-8",
+            )
+
+            self.verifier.verify_zip_checksum_file(zip_path, checksum_path)
+
+            checksum_path.write_text(f"{'0' * 64}  pack.zip\n", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                self.verifier.verify_zip_checksum_file(zip_path, checksum_path)
 
     def test_customer_recording_manual_uses_customer_facing_scope(self):
         manual = (

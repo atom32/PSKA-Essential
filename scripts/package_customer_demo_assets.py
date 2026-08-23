@@ -49,9 +49,11 @@ def main() -> int:
 
     zip_path = dist_dir / f"{basename}_delivery_pack.zip"
     write_zip(package_dir, zip_path)
+    checksum_path = write_zip_checksum(zip_path)
 
     print(f"package_dir: {package_dir}")
     print(f"zip: {zip_path}")
+    print(f"zip_sha256: {checksum_path}")
     print(f"readme: {readme_path}")
     print(f"manifest: {pack_manifest_path}")
     return 0
@@ -188,6 +190,12 @@ def write_zip(package_dir: Path, zip_path: Path) -> None:
         for path in sorted(package_dir.iterdir()):
             if path.is_file():
                 archive.write(path, arcname=f"{package_dir.name}/{path.name}")
+
+
+def write_zip_checksum(zip_path: Path) -> Path:
+    checksum_path = zip_path.with_suffix(zip_path.suffix + ".sha256")
+    checksum_path.write_text(f"{sha256_file(zip_path)}  {zip_path.name}\n", encoding="utf-8")
+    return checksum_path
 
 
 if __name__ == "__main__":

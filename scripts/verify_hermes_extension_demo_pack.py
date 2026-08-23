@@ -255,6 +255,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         raise SystemExit("--require-delivery-pack is only supported for hermes_pska_customer_walkthrough_demo")
     package_dir_name = f"{basename}_delivery_pack"
     zip_path = dist_dir / f"{package_dir_name}.zip"
+    checksum_path = zip_path.with_suffix(zip_path.suffix + ".sha256")
     package_dir = dist_dir / package_dir_name
     required_names = [
         f"{package_dir_name}/README.zh.md",
@@ -267,6 +268,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
     ]
     if not zip_path.exists():
         raise SystemExit(f"missing customer delivery zip: {zip_path}")
+    verify_zip_checksum_file(zip_path, checksum_path)
     with zipfile.ZipFile(zip_path) as archive:
         names = set(archive.namelist())
         missing = [name for name in required_names if name not in names]
@@ -298,6 +300,7 @@ def verify_delivery_pack(dist_dir: Path, basename: str, checks: list[str]) -> No
         require_files([package_dir / Path(name).name for name in required_names], checks)
     checks.append(f"{zip_path.name}: delivery zip contains video, subtitles, voiceover, storyboard, manifests, and README")
     checks.append(f"{zip_path.name}: delivery zip integrity verified with sha256 for {integrity_count} files")
+    checks.append(f"{checksum_path.name}: delivery zip external checksum verified with sha256")
 
 
 def verify_delivery_integrity(
@@ -330,6 +333,23 @@ def verify_delivery_integrity(
         if actual_sha != expected_sha:
             raise SystemExit(f"customer delivery item checksum mismatch: {filename}")
     return len(items)
+
+
+def verify_zip_checksum_file(zip_path: Path, checksum_path: Path) -> None:
+    if not checksum_path.exists():
+        raise SystemExit(f"missing customer delivery zip checksum: {checksum_path}")
+    raw = checksum_path.read_text(encoding="utf-8").strip()
+    parts = raw.split()
+    if len(parts) != 2:
+        raise SystemExit(f"{checksum_path} must contain '<sha256>  <filename>'")
+    expected_sha, filename = parts
+    if filename != zip_path.name:
+        raise SystemExit(f"{checksum_path} references wrong file: {filename}")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_sha):
+        raise SystemExit(f"{checksum_path} contains invalid sha256")
+    actual_sha = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+    if actual_sha != expected_sha:
+        raise SystemExit(f"{checksum_path} checksum mismatch for {zip_path.name}")
 
 
 def verify_case_fixture(demo_dir: Path, case_id: str, checks: list[str]) -> None:
