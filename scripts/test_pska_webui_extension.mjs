@@ -190,6 +190,8 @@ async function main() {
     && jsAsset.text.includes("/api/alpha/readiness")
     && jsAsset.text.includes("/api/alpha/first-run-session")
     && jsAsset.text.includes("/api/hermes/answer-proofs")
+    && jsAsset.text.includes("contextPackFlowLine")
+    && jsAsset.text.includes("History boundary: query recall")
     && jsAsset.text.includes("/api/memory/chatgpt-summary/import")
     && jsAsset.text.includes("/api/conversations/chatgpt/import-to-hermes")
     && jsAsset.text.includes("pskaMiniChatgptConversationHistoryLimit")
@@ -340,7 +342,13 @@ async function main() {
       budget: { max_evidence_blocks: 0, max_memory_notes: 3, max_conversation_blocks: 3, max_source_blocks: 0, max_tokens: 3000 },
       requirements: { need_citations: true },
     },
-  }, (json, response) => response.ok && json?.context_pack);
+  }, (json, response) => response.ok
+    && json?.context_pack
+    && json.context_pack.data_flow?.data_plane === "pska"
+    && json.context_pack.data_flow?.aggregation === "parallel"
+    && json.context_pack.data_flow?.query_based_conversation_recall === true
+    && json.context_pack.data_flow?.whole_recent_history_injected === false
+    && json.context_pack.data_flow?.extension_reads_hermes_database === false);
 
   await testJson("Button: Preview context-pack dataset scoped", "/api/extensions/pska-mini/sidecar/api/conversation/context-pack", {
     method: "POST",
@@ -352,7 +360,13 @@ async function main() {
       budget: { max_evidence_blocks: 3, max_memory_notes: 3, max_conversation_blocks: 3, max_source_blocks: 0, max_tokens: 3000 },
       requirements: { need_citations: true },
     },
-  }, (json, response) => response.ok && json?.context_pack);
+  }, (json, response) => response.ok
+    && json?.context_pack
+    && json.context_pack.data_flow?.data_plane === "pska"
+    && json.context_pack.data_flow?.aggregation === "parallel"
+    && json.context_pack.data_flow?.query_based_conversation_recall === true
+    && json.context_pack.data_flow?.whole_recent_history_injected === false
+    && json.context_pack.data_flow?.extension_reads_hermes_database === false);
 
   await testJson("Button: Jarvis Brief", "/api/extensions/pska-mini/sidecar/api/jarvis/briefing", {
     method: "POST",

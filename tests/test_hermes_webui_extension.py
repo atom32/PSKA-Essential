@@ -53,6 +53,8 @@ class HermesWebuiExtensionTests(unittest.TestCase):
         self.assertIn('"/api/conversation/context-pack"', script)
         self.assertIn("buildComposerContextPack", script)
         self.assertIn("formatContextPackForSkill", script)
+        self.assertIn("contextPackFlowLine", script)
+        self.assertIn("History boundary: query recall", script)
         self.assertIn("PSKA context pack", script)
         self.assertIn("hermesRecallComponent", script)
         self.assertIn("History recall", script)

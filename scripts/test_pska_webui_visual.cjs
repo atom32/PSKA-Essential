@@ -198,6 +198,27 @@ async function runDesktop(context, checks, artifacts) {
   artifacts.desktopMenu = path.join(OUT_DIR, "desktop-menu.png");
   await page.screenshot({ path: artifacts.desktopMenu, fullPage: false });
 
+  await page.click("#pskaMiniPreview");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#pskaMiniPreviewBox")?.innerText || "";
+    return /Flow:\s+data-plane=pska/iu.test(text)
+      && /aggregation=parallel/iu.test(text)
+      && /History boundary:\s+query recall=yes/iu.test(text)
+      && /full recent dump=no/iu.test(text)
+      && /extension DB read=no/iu.test(text);
+  }, { timeout: 30000 });
+  const contextPackPreview = await pageText(page, "#pskaMiniPreviewBox");
+  assertCheck(checks, "Context-pack preview exposes PSKA data-plane boundary", (
+    /Flow:\s+data-plane=pska/iu.test(contextPackPreview)
+      && /control-plane=hermes_webui_extension/iu.test(contextPackPreview)
+      && /aggregation=parallel/iu.test(contextPackPreview)
+      && /History boundary:\s+query recall=yes/iu.test(contextPackPreview)
+      && /full recent dump=no/iu.test(contextPackPreview)
+      && /extension DB read=no/iu.test(contextPackPreview)
+  ), {
+    text: contextPackPreview.slice(0, 900),
+  });
+
   await page.click("#pskaMiniSourceRecall");
   await page.waitForFunction(() => {
     const box = document.querySelector("#pskaMiniPreviewBox");

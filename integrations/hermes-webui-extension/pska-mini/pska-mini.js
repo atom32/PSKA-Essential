@@ -2734,6 +2734,7 @@
     const blocks = Array.isArray(pack.blocks) ? pack.blocks : [];
     const counts = pack.source_counts || {};
     const warnings = Array.isArray(pack.warnings) ? pack.warnings : [];
+    const flow = pack.data_flow || {};
     const lines = [
       "## PSKA Context Pack",
       "",
@@ -2742,6 +2743,8 @@
       "",
       `Summary: ${pack.summary || "No context blocks were returned."}`,
       `Counts: memory=${counts.memory || 0}, conversation=${counts.conversation || 0}, evidence=${counts.evidence || 0}, source=${counts.source || 0}`,
+      contextPackFlowLine(flow),
+      contextPackHistoryLine(flow),
       ""
     ];
     if (warnings.length) {
@@ -2768,6 +2771,20 @@
       );
     });
     return lines.join("\n\n");
+  }
+
+  function contextPackFlowLine(flow) {
+    const dataPlane = String(flow?.data_plane || "pska");
+    const controlPlane = String(flow?.control_plane || "unknown");
+    const aggregation = String(flow?.aggregation || "bounded");
+    return `Flow: data-plane=${dataPlane}; control-plane=${controlPlane}; aggregation=${aggregation}`;
+  }
+
+  function contextPackHistoryLine(flow) {
+    const queryRecall = Boolean(flow?.query_based_conversation_recall);
+    const fullHistory = Boolean(flow?.whole_recent_history_injected);
+    const extensionReadsDb = Boolean(flow?.extension_reads_hermes_database);
+    return `History boundary: query recall=${queryRecall ? "yes" : "unknown"}; full recent dump=${fullHistory ? "yes" : "no"}; extension DB read=${extensionReadsDb ? "yes" : "no"}`;
   }
 
   function contextBlockLabel(type) {
@@ -3031,13 +3048,16 @@
       });
       const context = data.context_pack || {};
       const counts = context.source_counts || {};
+      const flow = context.data_flow || {};
       box.textContent = [
         context.summary || "No summary.",
         `memory: ${counts.memory || 0}`,
         `conversation: ${counts.conversation || 0}`,
         `evidence: ${counts.evidence || 0}`,
         `source: ${counts.source || 0}`,
-        `citations: ${(context.citations || []).length}`
+        `citations: ${(context.citations || []).length}`,
+        contextPackFlowLine(flow),
+        contextPackHistoryLine(flow)
       ].join("\n");
     } catch (error) {
       box.textContent = `PSKA context pack failed: ${errorText(error)}`;
